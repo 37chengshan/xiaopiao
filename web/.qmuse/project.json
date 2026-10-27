@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "packageVersion": 5,
+  "projectKind": "QMUSE_TEMPLATE",
+  "appType": "GENERAL",
+  "templateCommit": "4588afc2bf7d7dd49b1ca6170caa75ab78d52a16",
+  "skillVersions": {
+    "qmuse-cloud": "0.0.5"
+  },
+  "defaultSpaceId": "S441925938414",
+  "targets": {}
+}
