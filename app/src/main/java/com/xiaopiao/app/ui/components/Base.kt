@@ -17,7 +17,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
@@ -25,7 +24,7 @@ import com.xiaopiao.app.ui.theme.XpSpace
 
 /** Shared building blocks. Signatures are a contract: restyle freely, don't rename parameters. */
 
-/** White rounded card with a hairline edge instead of a drop shadow. */
+/** Plain surface container: 14dp radius, hairline edge instead of a drop shadow (shadows are for floating layers). */
 @Composable
 fun XpCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(XpRadius.m)
@@ -40,49 +39,44 @@ fun XpCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() ->
     )
 }
 
-/** Apple-style large page title with an optional small caption above it. */
+/** Serif large title with an optional footnote line under it. Use below a [NavScaffold] bar. */
 @Composable
 fun LargeTitle(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
-    Column(modifier.padding(start = XpSpace.l, end = XpSpace.l, top = XpSpace.m, bottom = XpSpace.xs)) {
+    Column(modifier.fillMaxWidth().padding(start = XpSpace.l, end = XpSpace.l, top = XpSpace.xs, bottom = XpSpace.s)) {
+        Text(title, style = MaterialTheme.typography.headlineLarge, color = XpColors.Ink)
         if (subtitle != null) {
             Text(
                 subtitle,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = XpColors.InkSecondary,
-                modifier = Modifier.padding(bottom = 2.dp),
+                modifier = Modifier.padding(top = 2.dp),
             )
         }
-        Text(title, style = MaterialTheme.typography.headlineLarge, color = XpColors.Ink)
     }
 }
 
-/** Section title row with an optional trailing slot (e.g. a "查看全部" link). */
+/** Footnote-style section label (13sp, ink-2) with an optional trailing slot. */
 @Composable
 fun SectionHeader(text: String, modifier: Modifier = Modifier, trailing: @Composable (() -> Unit)? = null) {
     Row(
-        modifier.fillMaxWidth().padding(start = XpSpace.l, end = XpSpace.l, top = XpSpace.l, bottom = XpSpace.xs),
+        modifier.fillMaxWidth().padding(start = XpSpace.l, end = XpSpace.l, top = XpSpace.xl, bottom = XpSpace.s),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+        Text(text, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
         trailing?.invoke()
     }
 }
 
-/** Small pill label, e.g. "演示数据". */
+/** Quiet capsule label: fill background, secondary ink, 11sp. */
 @Composable
 fun Pill(text: String, modifier: Modifier = Modifier) {
     Box(
         modifier
             .clip(RoundedCornerShape(XpRadius.pill))
-            .background(XpColors.AccentSoft)
+            .background(XpColors.Fill)
             .padding(horizontal = XpSpace.s + 2.dp, vertical = 3.dp),
     ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = XpColors.Accent,
-        )
+        Text(text, style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
     }
 }

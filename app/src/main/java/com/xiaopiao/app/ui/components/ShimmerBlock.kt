@@ -22,16 +22,17 @@ import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 
-/** Loading placeholder with a soft light sweep. Size it with [modifier]. */
+/** Loading placeholder: surface-2 with a soft fill-coloured sweep (static under reduced motion). */
 @Composable
 fun ShimmerBlock(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(XpRadius.s),
 ) {
+    val reduced = rememberReducedMotion()
     val phase = rememberInfiniteTransition(label = "shimmer").animateFloat(
         initialValue = -1f,
         targetValue = 2f,
-        animationSpec = infiniteRepeatable(tween(1300, easing = LinearEasing), RepeatMode.Restart),
+        animationSpec = infiniteRepeatable(tween(1600, easing = LinearEasing), RepeatMode.Restart),
         label = "shimmerPhase",
     )
     Box(
@@ -42,7 +43,7 @@ fun ShimmerBlock(
                     val w = size.width
                     val x = phase.value * w
                     drawRect(XpColors.Shimmer)
-                    drawRect(
+                    if (!reduced) drawRect(
                         Brush.linearGradient(
                             listOf(XpColors.Shimmer, XpColors.ShimmerHighlight, XpColors.Shimmer),
                             start = Offset(x - w * 0.4f, 0f),

@@ -166,3 +166,8 @@ object XpMotion {
     /** Sheets and drawers. */
     fun <T> gentle() = androidx.compose.animation.core.spring<T>(dampingRatio = 0.85f, stiffness = 300f)
 }
+
+/** Easing curves (docs/DESIGN.md §5). Strong ease-out for color/opacity and anything entering. */
+object XpEase {
+    val out = androidx.compose.animation.core.CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
+}

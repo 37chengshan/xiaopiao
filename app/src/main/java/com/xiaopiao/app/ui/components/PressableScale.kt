@@ -12,22 +12,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
 
-/** Springs the element down to [scaleDown] while [interactionSource] is pressed. */
-fun Modifier.pressableScale(interactionSource: MutableInteractionSource, scaleDown: Float = 0.96f): Modifier =
+/** Presses down to [scaleDown] (0.97, critically damped, no bounce) while [interactionSource] is pressed. */
+fun Modifier.pressableScale(interactionSource: MutableInteractionSource, scaleDown: Float = 0.97f): Modifier =
     composed {
         val pressed by interactionSource.collectIsPressedAsState()
         val scale by animateFloatAsState(
             targetValue = if (pressed) scaleDown else 1f,
-            animationSpec = spring(dampingRatio = 0.55f, stiffness = 700f),
+            animationSpec = spring(dampingRatio = 1f, stiffness = 900f),
             label = "pressScale",
         )
         graphicsLayer { scaleX = scale; scaleY = scale }
     }
 
-/** Indication-free click with press-scale spring and a light haptic tick. Use on any tappable surface. */
+/** Indication-free click with a press-scale and a light haptic tick. Use on any tappable surface. */
 fun Modifier.pressableClick(
     enabled: Boolean = true,
-    scaleDown: Float = 0.96f,
+    scaleDown: Float = 0.97f,
     haptic: Boolean = true,
     onClick: () -> Unit,
 ): Modifier = composed {

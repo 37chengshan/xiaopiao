@@ -32,7 +32,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.tween
 import com.xiaopiao.app.ui.theme.XpColors
+import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -88,8 +90,8 @@ fun UndoToastHost(state: UndoToastState, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.l), contentAlignment = Alignment.BottomCenter) {
         AnimatedVisibility(
             visible = data != null,
-            enter = slideInVertically(spring(0.7f, 380f)) { it * 2 } + fadeIn(),
-            exit = slideOutVertically(spring(1f, 500f)) { it * 2 } + fadeOut(),
+            enter = slideInVertically(tween(220, easing = XpEase.out)) { it * 2 } + fadeIn(tween(180, easing = XpEase.out)),
+            exit = slideOutVertically(tween(160, easing = XpEase.out)) { it * 2 } + fadeOut(tween(120)),
         ) {
             last?.let { ToastCapsule(it, onDismiss = state::dismiss) }
         }
@@ -121,15 +123,17 @@ private fun ToastCapsule(data: ToastData, onDismiss: () -> Unit) {
             .padding(start = XpSpace.l + 2.dp, end = XpSpace.m, top = XpSpace.m, bottom = XpSpace.m),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(data.message, style = MaterialTheme.typography.bodyMedium, color = XpColors.Card, modifier = Modifier.padding(end = XpSpace.m))
+        Text(data.message, style = MaterialTheme.typography.bodyMedium, color = XpColors.ToastText, modifier = Modifier.padding(end = XpSpace.m))
         if (data.actionLabel != null) {
             Text(
                 data.actionLabel,
                 style = MaterialTheme.typography.labelLarge,
-                color = XpColors.Accent,
+                color = XpColors.ToastText,
                 modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(XpColors.ToastText.copy(alpha = 0.16f))
                     .pressableClick { data.onAction(); onDismiss() }
-                    .padding(horizontal = XpSpace.s, vertical = XpSpace.xs),
+                    .padding(horizontal = XpSpace.m, vertical = XpSpace.s),
             )
         }
     }

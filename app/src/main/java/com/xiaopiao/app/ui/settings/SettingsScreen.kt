@@ -3,12 +3,13 @@ package com.xiaopiao.app.ui.settings
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,7 +25,11 @@ import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.data.CaptureLogEntry
 import com.xiaopiao.app.importer.ImportSummary
 import com.xiaopiao.app.ui.components.LargeTitle
-import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.components.NavScaffold
+import com.xiaopiao.app.ui.components.rememberNavScroll
+import com.xiaopiao.app.ui.theme.ThemeMode
+import com.xiaopiao.app.ui.theme.ThemePrefs
+import com.xiaopiao.app.ui.today.ReceiptSoundPrefs
 import kotlinx.coroutines.launch
 
 @Composable
@@ -38,6 +43,11 @@ fun SettingsScreen(container: AppContainer) {
     var demoMessage by remember { mutableStateOf<String?>(null) }
     val logFlow = remember(container) { container.captureLog.observeRecent() }
     val log: List<CaptureLogEntry> by logFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+
+    val themePrefs = remember(context) { ThemePrefs(context.applicationContext) }
+    val mode by themePrefs.observeMode().collectAsState(initial = ThemeMode.System)
+    val soundPrefs = remember(context) { ReceiptSoundPrefs(context.applicationContext) }
+    val soundOn by soundPrefs.observeEnabled().collectAsState(initial = true)
 
     // The user comes back from system settings: re-check both permissions.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -55,20 +65,23 @@ fun SettingsScreen(container: AppContainer) {
         }
     }
 
-    Column(Modifier.verticalScroll(rememberScrollState())) {
-        LargeTitle("我的")
-        Column(Modifier.padding(horizontal = XpSpace.l).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(XpSpace.l)) {
-            NotificationAccessCard(
+    val scroll = rememberScrollState()
+    NavScaffold("我的", rememberNavScroll(scroll)) { top ->
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 32.dp)) {
+            LargeTitle("我的")
+            AppearanceSection(mode) { scope.launch { themePrefs.setMode(it) } }
+            ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }
+            CaptureSection(
                 listenerEnabled = listenerOn, postGranted = postGranted,
                 onOpenListenerSettings = { NotificationAccess.openListenerSettings(context) },
                 onRequestPost = { postLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
             )
-            CaptureLogSection(log, onClear = { scope.launch { container.captureLog.clear() } })
-            ImportCard(importing, summary, onPick = {
-                csvLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "application/octet-stream"))
-            })
-            DataCard(
-                demoMessage = demoMessage,
+            DataSection(
+                importing = importing, summary = summary, log = log, demoMessage = demoMessage,
+                onPickCsv = {
+                    csvLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "application/octet-stream"))
+                },
+                onClearLog = { scope.launch { container.captureLog.clear() } },
                 onLoadDemo = {
                     scope.launch {
                         val n = container.loadDemoData()
@@ -83,7 +96,8 @@ fun SettingsScreen(container: AppContainer) {
                     }
                 },
             )
-            PrivacyCard()
+            PrivacySection()
+            AboutSection()
         }
     }
 }
