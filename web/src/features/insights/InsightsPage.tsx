@@ -20,7 +20,7 @@ export function InsightsPage() {
 
   return (
     <>
-      <PageHeader title="洞察" subtitle="AI 只负责总结和模拟，决定权在你" />
+      <PageHeader title="洞察" />
       <Segmented className="mx-4 mb-1" value={tab} onChange={setTab} options={TABS} />
 
       <div className="pb-6">
@@ -40,9 +40,8 @@ export function InsightsPage() {
 
         <Group className="mt-8">
           <Row
-            leading={<IconTile icon={Users} />}
+            leading={<IconTile icon={Users} tone="blue" />}
             title="小圈子"
-            subtitle="和好友一起比周报头衔，只分享头衔，不分享金额"
             trailing={<span className="inline-flex h-6 items-center rounded-full bg-fill px-2.5 text-[11px] font-medium text-ink-2">即将上线</span>}
           />
         </Group>

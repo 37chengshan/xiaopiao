@@ -2,13 +2,14 @@ import { motion, useMotionValue, useTransform } from "framer-motion";
 import { FileUp, NotebookPen, Plus, Trash2 } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { toast } from "sonner";
-import { CATEGORY_ICONS } from "@/components/app/categoryIcons";
+import { CATEGORY_ICONS, CATEGORY_TONES } from "@/components/app/categoryIcons";
 import { Group, IconButton, IconTile, Money, Row, SectionHeader, XButton } from "@/components/app/kit";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/app/States";
 import { cn } from "@/lib/utils";
 import { useLedger } from "@/services/LedgerProvider";
 import { CATEGORIES, type Txn } from "../../domain/types";
+import { startOfDay } from "../../domain/types";
 import { dateKey, hhmm, parseDateKey, relativeDayLabel } from "../../logic/time";
 import { useEntry } from "../entry/EntryProvider";
 
@@ -59,7 +60,7 @@ function TxnRow({ txn, onEdit, onDelete }: { txn: Txn; onEdit: () => void; onDel
       >
         <Row
           className="flex-1"
-          leading={<IconTile icon={CATEGORY_ICONS[txn.category]} />}
+          leading={<IconTile icon={CATEGORY_ICONS[txn.category]} tone={CATEGORY_TONES[txn.category]} />}
           title={txn.merchant}
           subtitle={`${hhmm(txn.occurredAt)} · ${cat.label}${txn.source === "CSV" ? " · 导入" : ""}`}
           trailing={<Money cents={income ? txn.amountCents : -txn.amountCents} sign={income} className={cn(income && "text-positive")} />}
@@ -74,6 +75,33 @@ function TxnRow({ txn, onEdit, onDelete }: { txn: Txn; onEdit: () => void; onDel
           <Trash2 className="size-4" strokeWidth={1.75} />
         </button>
       </motion.div>
+    </div>
+  );
+}
+
+/** Hero: this month's spend as one big number, plus the last 7 days as a quiet bar strip (today in ink). */
+function MonthHero({ txns, now }: { txns: readonly Txn[]; now: number }) {
+  const d = new Date(now);
+  const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  const out = txns.filter((x) => x.direction === "OUT");
+  const month = out.filter((x) => x.occurredAt >= monthStart).reduce((s, x) => s + x.amountCents, 0);
+  const today = startOfDay(now);
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const from = today - (6 - i) * 86400000;
+    return out.filter((x) => x.occurredAt >= from && x.occurredAt < from + 86400000).reduce((s, x) => s + x.amountCents, 0);
+  });
+  const max = Math.max(...days, 1);
+  return (
+    <div className="card-tint mx-4 mb-1 flex items-end justify-between gap-4 rounded-[18px] bg-surface p-4">
+      <div>
+        <p className="text-[13px] text-ink-2">{d.getMonth() + 1} 月支出</p>
+        <Money cents={month} className="mt-0.5 block text-[40px] font-semibold leading-[46px] text-ink" />
+      </div>
+      <div className="flex h-12 items-end gap-[5px]" aria-hidden>
+        {days.map((v, i) => (
+          <span key={i} className={cn("w-[7px] rounded-full", i === 6 ? "bg-ink" : "bg-fill")} style={{ height: `${Math.max(12, (v / max) * 100)}%` }} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -95,7 +123,6 @@ export function LedgerPage() {
     <>
       <PageHeader
         title="账本"
-        subtitle={txns.length ? `共 ${txns.length} 笔 · 左滑删除，点一下编辑` : undefined}
         right={
           <>
             <IconButton icon={FileUp} label="导入账单" onClick={() => entry.open({ tab: "import" })} />
@@ -125,6 +152,7 @@ export function LedgerPage() {
         />
       ) : (
         <div className="pb-6">
+          <MonthHero txns={txns} now={now} />
           {groups.map((g) => (
             <section key={g.key} aria-label={g.key}>
               <SectionHeader

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { DemoPill } from "@/components/app/DemoPill";
 import { Chip, XButton } from "@/components/app/kit";
 import { ErrorState, LoadingState } from "@/components/app/States";
+import { t } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 import { useLedger } from "@/services/LedgerProvider";
 import { templateAssistant } from "../../ai/assistant";
@@ -258,7 +259,7 @@ export function HomeChat() {
           aria-hidden
           className={cn("material edge-fade-bottom absolute inset-x-0 -bottom-3 top-0 transition-opacity duration-200 ease-[var(--ease-out)]", scrolled ? "opacity-100" : "opacity-0")}
         />
-        <h1 className="relative font-serif text-[20px] font-semibold tracking-[-0.01em] text-ink">今日小票</h1>
+        <h1 className="relative text-[22px] font-semibold leading-[28px] tracking-[-0.015em] text-ink">{new Date(now).toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" })}</h1>
         <div className="relative">
           <DemoPill />
         </div>
@@ -309,7 +310,7 @@ export function HomeChat() {
             </div>
           </div>
 
-          <div ref={dockRef} className="absolute inset-x-0 bottom-[var(--tabbar-h)] z-20 bg-gradient-to-t from-bg from-65% to-transparent pb-2 pt-5">
+          <div ref={dockRef} className="absolute inset-x-0 bottom-[var(--tabbar-h)] z-20 bg-gradient-to-t from-bg from-65% to-transparent pb-[18px] pt-5">
             {lastIsAi && lastChips && !thinking && (
               <div className="hide-scrollbar mb-2 flex gap-2 overflow-x-auto px-4">
                 {lastChips.map((c) => (
@@ -332,7 +333,7 @@ export function HomeChat() {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={speech.listening ? "正在听，请说话" : "说点什么，如：午饭 32"}
+                placeholder={speech.listening ? t("chat.listening") : t("chat.placeholder")}
                 aria-label="消息"
                 enterKeyHint="send"
                 className="h-9 min-w-0 flex-1 bg-transparent px-1 text-[16px] text-ink outline-none placeholder:text-ink-3"
