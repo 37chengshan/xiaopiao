@@ -38,6 +38,7 @@ import com.xiaopiao.app.ui.components.XpButtonSize
 import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -73,7 +74,8 @@ fun MerchantRevenueScreen(
         },
     ) { top ->
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl),
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl)
+                .xpRevealLayer(index = 0),
             verticalArrangement = Arrangement.spacedBy(XpSpace.s),
         ) {
             if (currentMonth == null) {
@@ -101,7 +103,7 @@ fun MerchantRevenueScreen(
                             )
                         }
                         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = XpSpace.s)) {
-                            RevenueMoney(currentMonth.totalCents, style = MaterialTheme.typography.headlineLarge)
+                            RevenueMoney(currentMonth.totalCents, style = MaterialTheme.typography.headlineLarge, animateChange = true)
                         }
                         Row(
                             Modifier.fillMaxWidth().padding(top = XpSpace.m),

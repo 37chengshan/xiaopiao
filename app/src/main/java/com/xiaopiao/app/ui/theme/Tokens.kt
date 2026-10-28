@@ -307,6 +307,8 @@ object XpRadius {
     /** Content cards sitting on the page (§3.7): summary, filter blocks. */
     val contentCard = 14.dp
     val xl = 28.dp
+    /** Full-screen sheets (settings sub-pages, pickers): measured from the wallet reference. */
+    val sheet = 32.dp
     val pill = 999.dp
 }
 

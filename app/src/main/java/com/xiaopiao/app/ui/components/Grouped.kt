@@ -110,7 +110,8 @@ fun GroupedDivider(inset: Dp = XpSpace.l) {
 
 /**
  * A grouped-list row: optional [leading] (usually an [IconTile]), title + subtitle, then either a [trailing]
- * slot or a secondary [value] and chevron. Pressed = surface-2 background, instantly (no scale on rows).
+ * slot or a secondary [value] and chevron. Rows are 52dp (76dp with a subtitle), per docs/APP-DESIGN.md §7.5.
+ * Pressed = surface-2 background on the very first frame; rows never scale (Apple rows do not move).
  */
 @Composable
 fun GroupedRow(
@@ -136,7 +137,7 @@ fun GroupedRow(
         modifier.fillMaxWidth()
             .background(if (pressed && onClick != null) XpColors.Surface2 else Color.Transparent)
             .then(clickable)
-            .defaultMinSize(minHeight = if (subtitle != null) 56.dp else 48.dp)
+            .defaultMinSize(minHeight = if (subtitle != null) 76.dp else 52.dp)
             .padding(horizontal = XpSpace.l, vertical = XpSpace.s + 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

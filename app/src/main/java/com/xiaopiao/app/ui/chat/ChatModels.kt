@@ -25,7 +25,8 @@ import kotlin.math.roundToLong
 sealed interface ChatItem {
     val id: Long
 
-    data class Assistant(override val id: Long, val text: String) : ChatItem
+    /** [streaming] drives the blinking cursor while the local template is still writing. */
+    data class Assistant(override val id: Long, val text: String, val streaming: Boolean = false) : ChatItem
     data class User(override val id: Long, val text: String) : ChatItem
     data class Confirm(
         override val id: Long,
