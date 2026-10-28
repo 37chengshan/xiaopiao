@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.ReceiptLong
 import com.xiaopiao.app.ui.today.ReceiptStrip
 import androidx.compose.material.icons.outlined.Settings
@@ -39,6 +40,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.domain.Direction
@@ -56,6 +60,7 @@ import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberUndoToastState
 import com.xiaopiao.app.ui.components.rememberXpHaptics
+import com.xiaopiao.app.ui.wallet.WalletPanel
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -92,6 +97,7 @@ fun LedgerScreen(
     var addOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Txn?>(null) }
     var selection by remember { mutableStateOf<Set<Long>?>(null) }
+    var walletOpen by remember { mutableStateOf(false) }
 
     val toast = rememberUndoToastState()
     val listState = rememberLazyListState()
@@ -170,6 +176,9 @@ fun LedgerScreen(
         scroll = if (searching) NavScrollNone else rememberNavScroll(listState),
         onBack = if (searching) ({ exitSearch() }) else null,
         backLabel = "取消",
+        leading = if (!searching && selection == null) {
+            ({ NavIconButton(Icons.Outlined.CreditCard, "卡包", onClick = { walletOpen = true }) })
+        } else null,
         trailing = {
             when {
                 searching -> NavIconButton(Icons.Outlined.Tune, if (filter.activeCount > 0) "筛选 ${filter.activeCount}" else "筛选", onClick = { filterOpen = true })
@@ -275,6 +284,25 @@ fun LedgerScreen(
             onDismiss = { calendarOpen = false },
         )
     }
+    // 卡包是全屏面板：用 Dialog 铺满整屏（含底部导航），面板自带 FLAG_SECURE 与下滑关闭。
+    if (walletOpen) {
+        Dialog(
+            onDismissRequest = { walletOpen = false },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false,
+                // 卡号与会员码只在这块面板上，窗口级禁截屏（Dialog 有独立 window）。
+                securePolicy = SecureFlagPolicy.SecureOn,
+            ),
+        ) {
+            WalletPanel(
+                container = container,
+                now = System.currentTimeMillis(),
+                onDismiss = { walletOpen = false },
+            )
+        }
+    }
+
     if (addOpen) {
         AddTxnSheet(
             editing = editing,

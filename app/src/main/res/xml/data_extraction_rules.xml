@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 卡包数据永不离开本机（docs/APP-DESIGN.md §5.5）：云备份与换机迁移都排除 wallet/。 -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="wallet/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="wallet/" />
+    </device-transfer>
+</data-extraction-rules>
