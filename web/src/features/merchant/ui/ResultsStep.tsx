@@ -5,6 +5,7 @@ import { Group, IconTile, Row, SectionHeader, XButton } from "@/components/app/k
 import { EmptyState } from "@/components/app/States";
 import { cn } from "@/lib/utils";
 import { STATUS_LABELS, computeResults, type Experiment, type OptionResult } from "../logic/experiment";
+import { copy } from "../copy";
 import { spring } from "../motion";
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -69,11 +70,11 @@ export function ResultsStep({
     return (
       <EmptyState
         icon={FlaskConical}
-        title="还没有结果可看"
-        hint="先在上一步选个模板并发布，顾客玩过之后，结果会出现在这里。"
+        title={copy.results.emptyTitle}
+        hint={copy.results.emptyHint}
         action={
           <XButton variant="secondary" onClick={onBackToLaunch}>
-            去发起实验
+            {copy.results.emptyAction}
           </XButton>
         }
       />
@@ -84,13 +85,12 @@ export function ResultsStep({
   const running = experiment.status === "running";
   return (
     <div className="pb-6">
-      <div className="flex items-center justify-between gap-3 px-4 pt-1">
-        <h2 className="min-w-0 font-serif text-[20px] font-semibold leading-[26px] text-ink">{experiment.question}</h2>
-        <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-fill px-2.5 text-[11px] font-medium tracking-[0.02em] text-ink-2">
+      <div className="px-4 pt-1">
+        <span className="inline-flex h-6 items-center whitespace-nowrap rounded-full bg-fill px-2.5 text-[11px] font-medium tracking-[0.02em] text-ink-2">
           {STATUS_LABELS[experiment.status]}
         </span>
+        <h2 className="mt-1.5 text-[18px] font-semibold leading-[24px] text-ink [overflow-wrap:anywhere]">{experiment.question}</h2>
       </div>
-      <p className="px-4 pt-1 text-[13px] leading-[18px] text-ink-2">{experiment.title}</p>
 
       <div className="pt-4">
         <Group>
@@ -99,7 +99,7 @@ export function ResultsStep({
         </Group>
       </div>
 
-      <SectionHeader>样本与可信度</SectionHeader>
+      <SectionHeader>{copy.results.sample}</SectionHeader>
       <Group>
         <div aria-live="polite">
           <Row
@@ -110,25 +110,24 @@ export function ResultsStep({
           />
         </div>
       </Group>
-      <p className="px-4 pt-2 text-[11px] leading-[16px] text-ink-3">游戏表态不等于真实下单，仅作决策参考。</p>
 
       <div className="space-y-2 px-4 pt-5">
         <XButton variant="primary" className="w-full" onClick={onNext}>
-          看看 3 个下一步选择
+          {copy.results.next}
         </XButton>
         {running ? (
           <>
             <XButton variant="secondary" className="w-full" onClick={() => navigate({ to: "/game" })}>
-              邀请顾客再玩一轮
+              {copy.results.again}
             </XButton>
             <div className="flex justify-center pt-1">
               <XButton variant="plain" size="sm" className="text-ink-2" onClick={onFinish}>
-                结束实验，锁定结果
+                {copy.results.finish}
               </XButton>
             </div>
           </>
         ) : (
-          <p className="pt-1 text-center text-[13px] text-ink-2">实验已结束，不再接收新的游戏表态</p>
+          <p className="pt-1 text-center text-[13px] text-ink-2">{copy.results.ended}</p>
         )}
       </div>
     </div>

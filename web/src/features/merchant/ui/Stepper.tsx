@@ -3,13 +3,14 @@ import { Lock } from "lucide-react";
 import { useId } from "react";
 import { cn } from "@/lib/utils";
 import type { StepIndex } from "../logic/state";
+import { copy } from "../copy";
 import { springSnap } from "../motion";
 
 const STEPS = [
-  { n: "①", label: "洞察" },
-  { n: "②", label: "实验" },
-  { n: "③", label: "结果" },
-  { n: "④", label: "决定" },
+  { n: "①", label: copy.steps.insights },
+  { n: "②", label: copy.steps.launch },
+  { n: "③", label: copy.steps.results },
+  { n: "④", label: copy.steps.decide },
 ] as const;
 
 /**
@@ -27,7 +28,7 @@ export function Stepper({
 }) {
   const id = useId();
   return (
-    <nav aria-label="四步流程" className="sticky top-11 z-10 bg-bg px-4 pb-2 pt-1">
+    <nav aria-label="四步流程" className="sticky top-[calc(48px+env(safe-area-inset-top,0px))] z-10 bg-bg px-4 pb-2 pt-1">
       <ol className="flex rounded-[10px] bg-fill p-[2px]">
         {STEPS.map((s, i) => {
           const active = i === step;

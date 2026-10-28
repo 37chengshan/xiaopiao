@@ -1,15 +1,13 @@
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { PageHeader } from "@/components/app/PageHeader";
-import { XButton } from "@/components/app/kit";
 import type { StepIndex } from "../logic/state";
 import { getInsights, merchantActions, useMerchantState } from "../store";
-import { DataSheet } from "./DataSheet";
 import { DecideStep } from "./DecideStep";
 import { InsightsSkeleton, InsightsStep } from "./InsightsStep";
 import { LaunchStep } from "./LaunchStep";
 import { ResultsStep } from "./ResultsStep";
 import { Stepper } from "./Stepper";
+import { TopBar } from "./TopBar";
 
 export function MerchantPage() {
   const state = useMerchantState();
@@ -33,17 +31,7 @@ export function MerchantPage() {
 
   return (
     <div ref={topRef}>
-      <PageHeader
-        title="楼下的芋泥奶茶铺"
-        subtitle="小店视角"
-        right={
-          <DataSheet>
-            <XButton variant="plain" size="sm">
-              数据怎么来的
-            </XButton>
-          </DataSheet>
-        }
-      />
+      <TopBar />
       <Stepper step={state.step} reachable={reachable} onGo={go} />
 
       <motion.div
