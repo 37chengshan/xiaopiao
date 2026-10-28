@@ -103,7 +103,7 @@ export function ReceiptPaper({
         </div>
         <Rule />
 
-        {doc.zero ? (
+        {!full ? null : doc.zero ? (
           <div className="py-5 text-center" data-row>
             <p className="font-serif text-[22px] font-semibold">今日无消费</p>
             <p className="mt-1 text-[11.5px] text-paper-ink/70">钱包今天睡着了 🌙</p>
@@ -129,7 +129,6 @@ export function ReceiptPaper({
             </div>
           </>
         )}
-
         {full && (
           <>
             <Rule />
@@ -139,12 +138,11 @@ export function ReceiptPaper({
               <span>{doc.stats.weekDay}</span>
             </div>
             <Rule />
-            <p className="px-1 text-center font-serif text-[12.5px] leading-[1.75]" data-row>
-              「{doc.remark}」
-            </p>
           </>
         )}
-        {!full && <Rule />}
+        <p className="px-1 text-center font-serif text-[12.5px] leading-[1.75]" data-row>
+          「{doc.remark}」
+        </p>
 
         <Stamp text={doc.stampText} state={stamp} />
         {full && doc.badgeReason && (

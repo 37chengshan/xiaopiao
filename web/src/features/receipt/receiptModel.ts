@@ -95,8 +95,9 @@ export function buildReceiptDoc(receipt: DailyReceipt, ctx: DocContext): Receipt
   const variant = ctx.variant ?? "full";
   const out = receipt.items.filter((t) => t.direction === "OUT");
   const inc = receipt.items.filter((t) => t.direction === "IN");
-  const all = groupOut(out, variant === "full" ? MAX_LINES : 0);
-  const keep = variant === "full" ? MAX_GROUPS : 5;
+  const brief = variant === "brief";
+  const all = brief ? [] : groupOut(out, MAX_LINES);
+  const keep = MAX_GROUPS;
   const rest = all.slice(keep);
   const groups = rest.length > 1 ? all.slice(0, keep - 1) : all.slice(0, keep);
   const foldedGroups = rest.length > 1 ? all.slice(keep - 1) : [];
@@ -113,14 +114,14 @@ export function buildReceiptDoc(receipt: DailyReceipt, ctx: DocContext): Receipt
     count: receipt.items.length,
     groups,
     folded: foldedGroups.length ? { count: foldedGroups.length, cents: foldedGroups.reduce((s, g) => s + g.subtotalCents, 0) } : null,
-    income: inc.length
+    income: inc.length && !brief
       ? {
           key: "IN",
           emoji: "💰",
           label: "收入",
           subtotalCents: inc.reduce((s, t) => s + t.amountCents, 0),
-          lines: variant === "full" ? inc.slice(0, MAX_LINES).map((t) => ({ merchant: t.merchant, cents: t.amountCents })) : [],
-          hidden: variant === "full" ? Math.max(0, inc.length - MAX_LINES) : 0,
+          lines: inc.slice(0, MAX_LINES).map((t) => ({ merchant: t.merchant, cents: t.amountCents })),
+          hidden: Math.max(0, inc.length - MAX_LINES),
         }
       : null,
     stats: { count: `笔数 ${receipt.items.length}`, delta: deltaLabel(receipt.totalOutCents, ctx.prevTotalCents), weekDay: `本周第 ${week} 天` },
@@ -159,7 +160,7 @@ export function receiptPlainText(doc: ReceiptDoc): string {
   if (doc.variant === "full") L.push(pair("出票", doc.printedAt));
   L.push(rule, center(doc.isToday ? "今日支出" : "当日支出"), center(`¥ ${fmtMoney(doc.totalCents)}`), center(DISCLAIMER), rule);
   if (doc.zero) L.push(center("今日无消费"));
-  else {
+  else if (doc.variant === "full") {
     L.push(pair("分类 / 明细", "金额"));
     for (const g of doc.groups) {
       L.push(pair(`${g.emoji} ${g.label}`, fmtMoney(g.subtotalCents)));
@@ -172,8 +173,8 @@ export function receiptPlainText(doc: ReceiptDoc): string {
       for (const l of doc.income.lines) L.push(pair(`   ${l.merchant}`, `+${fmtMoney(l.cents)}`));
     }
   }
-  if (doc.variant === "full") L.push(rule, `${doc.stats.count}  ${doc.stats.delta}  ${doc.stats.weekDay}`, rule, `「${doc.remark}」`);
-  else L.push(rule);
+  if (doc.variant === "full") L.push(rule, `${doc.stats.count}  ${doc.stats.delta}  ${doc.stats.weekDay}`);
+  L.push(rule, `「${doc.remark}」`);
   L.push(center(`[ ${doc.stampText} ]`), center(STUB));
   if (doc.demo) L.push(center("演示数据"));
   return L.join("\n");
