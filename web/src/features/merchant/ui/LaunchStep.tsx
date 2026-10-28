@@ -6,6 +6,7 @@ import { Group, SectionHeader, XButton } from "@/components/app/kit";
 import { QuestionFace } from "@/features/game/ui/QuestionCard";
 import { cn } from "@/lib/utils";
 import { STATUS_LABELS, TEMPLATES, type Experiment, type ExperimentTemplate } from "../logic/experiment";
+import { copy } from "../copy";
 import { spring, springPop } from "../motion";
 
 function TemplateRow({ t, selected, locked, onSelect }: { t: ExperimentTemplate; selected: boolean; locked: boolean; onSelect: () => void }) {
@@ -17,13 +18,12 @@ function TemplateRow({ t, selected, locked, onSelect }: { t: ExperimentTemplate;
       disabled={locked}
       onClick={onSelect}
       className={cn(
-        "flex min-h-[60px] w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-100 active:bg-surface-2 disabled:cursor-not-allowed",
+        "flex min-h-[52px] w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-100 active:bg-surface-2 disabled:cursor-not-allowed",
         locked && !selected && "opacity-50",
       )}
     >
       <span className="min-w-0 flex-1">
         <span className="block text-[16px] font-medium leading-[22px] text-ink">{t.title}</span>
-        <span className="block text-[13px] leading-[18px] text-ink-2">{t.question}</span>
       </span>
       <span className="grid size-6 shrink-0 place-items-center" aria-hidden>
         <AnimatePresence>
@@ -60,13 +60,13 @@ export function LaunchStep({
     if (!template) return;
     onPublish();
     setLaunching(true);
-    toast("实验上线啦", { description: "顾客玩一轮，结果就会出现在这里" });
+    toast(copy.launch.toast, { description: copy.launch.toastBody });
     window.setTimeout(onLaunched, reduce ? 400 : 900);
   };
 
   return (
     <div className="pb-6">
-      <SectionHeader>选一个想问顾客的问题</SectionHeader>
+      <SectionHeader>{copy.launch.pick}</SectionHeader>
       <Group>
         <div role="radiogroup" aria-label="选择实验模板">
           {TEMPLATES.map((t) => (
@@ -75,7 +75,7 @@ export function LaunchStep({
         </div>
       </Group>
 
-      <SectionHeader>顾客会这样看到</SectionHeader>
+      <SectionHeader action={experiment ? <span className="text-[12px] font-medium text-ink-2">{STATUS_LABELS[experiment.status]}</span> : undefined}>{copy.launch.preview}</SectionHeader>
       <div className="px-4" aria-label="顾客看到的样子">
         <AnimatePresence mode="popLayout" initial={false}>
           {template ? (
@@ -91,33 +91,26 @@ export function LaunchStep({
             </motion.div>
           ) : (
             <motion.div key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid h-[236px] place-items-center rounded-[24px] border border-dashed border-ink-3/50 px-8 text-center text-[13px] text-ink-2">
-              先选一个模板，这里会显示顾客看到的样子
+              {copy.launch.pickFirst}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {experiment && (
-        <p className="px-4 pt-3 text-center text-[13px] text-ink-2">
-          当前状态：<span className="font-medium text-ink">{STATUS_LABELS[experiment.status]}</span>
-          {live ? " · 已发布，模板已锁定" : " · 还没发给顾客"}
-        </p>
-      )}
-
       <div className="px-4 pt-5">
         {live && !launching ? (
           <XButton variant="primary" className="w-full" onClick={onLaunched}>
-            去看结果
+            {copy.launch.seeResults}
           </XButton>
         ) : (
           <XButton variant="clay" className="w-full" disabled={!template} onClick={launching ? undefined : launch}>
             {launching ? (
               <>
                 <AnimatedCheck />
-                已发布
+                {copy.launch.published}
               </>
             ) : (
-              "发布给顾客玩"
+              copy.launch.publish
             )}
           </XButton>
         )}

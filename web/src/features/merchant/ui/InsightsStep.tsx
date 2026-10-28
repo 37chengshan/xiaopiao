@@ -1,20 +1,11 @@
+import { Users } from "lucide-react";
 import { XButton, SectionHeader } from "@/components/app/kit";
+import { EmptyState } from "@/components/app/States";
+import { copy } from "../copy";
 import type { Insights } from "../logic/aggregator";
 import { BarList, pct } from "./Bars";
 import { Heatmap } from "./Heatmap";
-
-function Kpi({ label, value, unit, sub, className }: { label: string; value: string; unit?: string; sub: string; className?: string }) {
-  return (
-    <div className={`px-4 py-4 ${className ?? ""}`}>
-      <p className="text-[13px] leading-[18px] text-ink-2">{label}</p>
-      <p className="num mt-1 text-[32px] font-semibold leading-[38px] tracking-[-0.03em] text-ink">
-        {value}
-        {unit && <span className="ml-0.5 text-[15px] font-normal tracking-normal text-ink-2">{unit}</span>}
-      </p>
-      <p className="mt-0.5 text-[11px] leading-[14px] text-ink-3">{sub}</p>
-    </div>
-  );
-}
+import { Meter, Ring } from "./Visuals";
 
 export function InsightsSkeleton() {
   return (
@@ -34,38 +25,60 @@ export function InsightsSkeleton() {
 }
 
 export function InsightsStep({ insights, onNext }: { insights: Insights; onNext: () => void }) {
+  const t = copy.insights;
+  if (insights.crowdSize === 0) {
+    return <EmptyState icon={Users} title={t.emptyTitle} hint={t.emptyHint} />;
+  }
   const share = insights.drinkBuyers / insights.crowdSize;
   return (
     <div className="pb-6">
-      <p className="px-4 pt-1 text-[13px] leading-[18px] text-ink-2">愿意匿名分享的顾客汇总，帮你先看清楚谁在什么时候来。</p>
-
-      <div className="mx-4 mt-4 grid grid-cols-2 overflow-hidden rounded-[14px] bg-surface">
-        <Kpi label="愿意分享的顾客" value={`${insights.crowdSize}`} unit="人" sub="自愿 · 匿名" className="border-b border-r border-hairline" />
-        <Kpi label="买过饮品" value={`${insights.drinkBuyers}`} unit="人" sub={`占 ${pct(share)}`} className="border-b border-hairline" />
-        <Kpi label="复购率" value={pct(insights.repeatRate)} sub="买过饮品、近期 ≥3 杯" className="border-r border-hairline" />
-        <Kpi label="最热时段" value={insights.peak?.label ?? "—"} sub="饮品购买最集中" />
+      <div className="mx-4 mt-2 overflow-hidden rounded-[18px] bg-gradient-to-b from-surface to-surface-2/60 shadow-[0_1px_0_var(--hairline)_inset,0_8px_24px_-16px_oklch(0_0_0/20%)] ring-1 ring-hairline">
+        <div className="px-5 pb-4 pt-4">
+          <p className="text-[13px] leading-[18px] text-ink-2">{t.crowd}</p>
+          <p className="num mt-0.5 text-[48px] font-semibold leading-[52px] tracking-[-0.035em] text-ink">
+            {insights.crowdSize}
+            <span className="ml-1 text-[17px] font-normal tracking-normal text-ink-2">{t.people}</span>
+          </p>
+          <div className="mt-3">
+            <Meter value={share} label={`${t.drinkBuyers} ${insights.drinkBuyers} ${t.people}，${pct(share)}`} />
+            <p className="num mt-1.5 flex justify-between text-[13px] leading-[18px] text-ink-2">
+              <span>
+                {t.drinkBuyers} {insights.drinkBuyers}
+              </span>
+              <span>{pct(share)}</span>
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 border-t border-hairline">
+          <div className="flex items-center gap-3 border-r border-hairline px-5 py-3.5">
+            <Ring value={insights.repeatRate ?? 0} size={44} label={`${t.repeat} ${pct(insights.repeatRate)}`} />
+            <div className="min-w-0">
+              <p className="num text-[22px] font-semibold leading-[26px] tracking-[-0.02em] text-ink">{pct(insights.repeatRate)}</p>
+              <p className="text-[12px] leading-[16px] text-ink-2">{t.repeat}</p>
+            </div>
+          </div>
+          <div className="min-w-0 px-5 py-3.5">
+            <p className="truncate text-[22px] font-semibold leading-[26px] tracking-[-0.02em] text-ink">{insights.peak?.label ?? "—"}</p>
+            <p className="text-[12px] leading-[16px] text-ink-2">{t.peak}</p>
+          </div>
+        </div>
       </div>
 
-      <SectionHeader>什么时候最忙</SectionHeader>
+      <SectionHeader>{t.busy}</SectionHeader>
       <Heatmap grid={insights.heatmap} k={insights.k} peak={insights.peak} />
 
-      <SectionHeader>价格带 · 饮品客单价</SectionHeader>
-      <BarList cells={insights.priceBands} highlightTop ariaLabel="价格带分布" />
+      <SectionHeader>{t.price}</SectionHeader>
+      <BarList cells={insights.priceBands} highlightTop ariaLabel={t.price} />
 
-      <SectionHeader>小料偏好</SectionHeader>
-      <BarList cells={insights.toppings} ariaLabel="小料偏好" />
+      <SectionHeader>{t.toppings}</SectionHeader>
+      <BarList cells={insights.toppings} ariaLabel={t.toppings} />
 
-      <SectionHeader>顾客还买什么</SectionHeader>
-      <BarList cells={insights.categoryShare.slice(0, 5)} ariaLabel="顾客还买什么" />
-
-      <p className="px-4 pt-3 text-[11px] leading-[16px] text-ink-3">
-        {insights.suppressedCells > 0 ? `已隐藏 ${insights.suppressedCells} 个样本不足的格子 · ` : ""}
-        所有数字均为模拟的演示数据。
-      </p>
+      <SectionHeader>{t.alsoBuy}</SectionHeader>
+      <BarList cells={insights.categoryShare.slice(0, 5)} ariaLabel={t.alsoBuy} />
 
       <div className="px-4 pt-5">
         <XButton variant="primary" className="w-full" onClick={onNext}>
-          下一步：发起一个小实验
+          {t.next}
         </XButton>
       </div>
     </div>

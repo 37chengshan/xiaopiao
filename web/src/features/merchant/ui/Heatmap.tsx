@@ -87,7 +87,7 @@ export function Heatmap({ grid, k, peak }: { grid: HeatCell[][]; k: number; peak
         </span>
         <span className="flex items-center gap-1.5">
           <span className="hatch size-3 rounded-[3px] ring-1 ring-inset ring-hairline" aria-hidden />
-          斜线 = 样本不足 {k} 人，已隐藏
+          斜线 = 不足 {k} 人
         </span>
       </div>
     </div>
