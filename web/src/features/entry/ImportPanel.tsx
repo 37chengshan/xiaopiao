@@ -1,6 +1,7 @@
-import { FileUp } from "lucide-react";
+import { CircleCheck, FileUp } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { Group, Row, XButton } from "@/components/app/kit";
 import { useLedger } from "@/services/LedgerProvider";
 import { type CsvParseResult, decodeBillBytes, parseBillCsv } from "../../logic/csv";
 import { addDays } from "../../logic/time";
@@ -55,57 +56,54 @@ export function ImportPanel({ onDone }: { onDone: () => void }) {
 
   if (summary) {
     return (
-      <div className="px-4 pb-6 pt-5 text-center" role="status">
-        <div className="text-5xl" aria-hidden>
-          📥
-        </div>
-        <h2 className="mt-2 text-xl font-extrabold text-ink">导入完成</h2>
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          {[
-            ["导入", summary.imported, "text-good"],
-            ["重复跳过", summary.duplicates, "text-ink-2"],
-            ["失败/跳过", summary.failed, "text-stamp"],
-          ].map(([label, n, cls]) => (
-            <div key={label as string} className="rounded-2xl bg-card py-3">
-              <div className={`text-2xl font-extrabold ${cls}`}>{n}</div>
-              <div className="text-xs text-ink-2">{label}</div>
-            </div>
-          ))}
-        </div>
-        <button onClick={onDone} className="mt-5 h-12 w-full rounded-2xl bg-coral font-bold text-white">
+      <div className="px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6" role="status">
+        <CircleCheck className="mx-auto size-12 text-positive" strokeWidth={1.25} aria-hidden />
+        <h2 className="mt-3 text-center font-serif text-[22px] font-semibold text-ink">导入完成</h2>
+        <Group className="mx-0 mt-5 bg-surface-2">
+          <Row title="已导入" trailing={<span className="text-positive">{summary.imported}</span>} />
+          <Row title="重复跳过" trailing={<span className="text-ink-2">{summary.duplicates}</span>} />
+          <Row title="失败 / 跳过" trailing={<span className={summary.failed ? "text-negative" : "text-ink-2"}>{summary.failed}</span>} />
+        </Group>
+        <XButton variant="primary" className="mt-5 w-full" onClick={onDone}>
           好的
-        </button>
+        </XButton>
       </div>
     );
   }
 
   return (
-    <div className="px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
-      <p className="text-sm text-ink-2">支持支付宝、微信导出的 CSV 账单（自动识别表头、跳过说明行、去重）。文件只在你的浏览器里解析。</p>
+    <div className="min-h-0 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
+      <p className="text-[13px] leading-[19px] text-ink-2">支持支付宝、微信导出的 CSV 账单：自动识别表头、跳过说明行、去重。文件只在你的浏览器里解析。</p>
       <input ref={inputRef} type="file" accept=".csv,text/csv" hidden onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
-      <button onClick={() => inputRef.current?.click()} className="mt-3 flex h-24 w-full flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-hairline bg-card text-ink-2 transition hover:border-coral">
-        <FileUp className="size-6" aria-hidden />
-        <span className="text-sm font-semibold">选择账单 CSV 文件</span>
-      </button>
       <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="mt-3 flex h-24 w-full flex-col items-center justify-center gap-1.5 rounded-[14px] border border-dashed border-ink-3/50 bg-surface-2 text-ink-2 transition-transform duration-100 ease-[var(--ease-out)] active:scale-[0.99]"
+      >
+        <FileUp className="size-6" strokeWidth={1.5} aria-hidden />
+        <span className="text-[14px] font-medium text-ink">选择账单 CSV 文件</span>
+      </button>
+      <XButton
+        variant="plain"
+        size="sm"
+        className="mx-auto mt-2 flex"
         onClick={() => {
           setParsed({ name: "示例账单.csv", result: parseBillCsv(sampleCsv(now)) });
           setSummary(null);
         }}
-        className="mt-2 w-full text-center text-[13px] font-semibold text-coral"
       >
         没有账单？用示例账单试试
-      </button>
+      </XButton>
 
       {parsed && (
-        <div className="mt-4 rounded-2xl bg-card p-4" role="status">
-          <p className="text-sm font-semibold text-ink">{parsed.name}</p>
+        <div className="mt-3 rounded-[14px] bg-surface-2 p-4" role="status">
+          <p className="text-[15px] font-medium text-ink">{parsed.name}</p>
           {parsed.result.provider ? (
-            <p className="mt-1 text-[13px] text-ink-2">
+            <p className="mt-1 text-[13px] leading-[19px] text-ink-2">
               识别为{parsed.result.provider === "alipay" ? "支付宝" : "微信"}账单：{parsed.result.txns.length} 笔可导入，{parsed.result.failed} 行会被跳过
             </p>
           ) : (
-            <p className="mt-1 text-[13px] text-stamp">{parsed.result.failures[0]}</p>
+            <p className="mt-1 text-[13px] text-negative">{parsed.result.failures[0]}</p>
           )}
           {parsed.result.failures.length > 0 && parsed.result.provider && (
             <ul className="mt-2 space-y-0.5 text-[12px] text-ink-2">
@@ -115,9 +113,9 @@ export function ImportPanel({ onDone }: { onDone: () => void }) {
             </ul>
           )}
           {parsed.result.txns.length > 0 && (
-            <button onClick={commit} disabled={busy} className="mt-3 h-11 w-full rounded-2xl bg-coral font-bold text-white disabled:opacity-50">
+            <XButton variant="primary" className="mt-3 w-full" onClick={commit} disabled={busy}>
               确认导入 {parsed.result.txns.length} 笔
-            </button>
+            </XButton>
           )}
         </div>
       )}
