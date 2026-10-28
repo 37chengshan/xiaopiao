@@ -1,6 +1,5 @@
 package com.xiaopiao.app.ui.today
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -8,6 +7,9 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,7 +29,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -35,6 +36,10 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -71,11 +76,19 @@ fun ReceiptOverlay(
         PrintClock(timeline, instant = phase == PrintPhase.Printed || phase == PrintPhase.Tearing) { session.elapsed.value.toLong() }
     }
     val stamp = remember(session) { StampVisuals({ session.stampScale.value }, { session.stampAlpha.value }, { session.stampRing.value }) }
+    // Long receipts shrink to fit between the slot and the capsule instead of running off screen.
+    val topInset = with(density) { WindowInsets.statusBars.getTop(density).toDp() }
+    val bottomInset = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
+    val fit = ((screenH - topInset - bottomInset - SlotTop - 16.dp - 96.dp).value / (timeline.totalHeightDp + PaperDepth.value)).coerceIn(0.5f, 1f)
     val thresholdPx = with(density) { TearThreshold.toPx() }
     val screenPx = with(density) { screenH.toPx() }
     val latestTear by rememberUpdatedState(onTear)
-    BackHandler(onBack = onClose)
 
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false),
+    ) {
+    (LocalView.current.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
     Box(
         modifier
             .fillMaxSize()
@@ -118,10 +131,10 @@ fun ReceiptOverlay(
         // Paper: starts at the slot's centre line and grows downward.
         Box(
             Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = SlotTop + SlotHeight / 2)
-                .heightIn(max = screenH - 190.dp).clipToBounds()
                 .graphicsLayer {
                     translationY = session.dragY + session.kick.value * density.density
                     rotationZ = session.tilt
+                    scaleX = fit; scaleY = fit
                     alpha = session.paperAlpha * session.present.value
                     transformOrigin = TransformOrigin(0.5f, 0f)
                 }
@@ -139,6 +152,7 @@ fun ReceiptOverlay(
                 .graphicsLayer { alpha = session.present.value; translationY = 16.dp.toPx() * (1f - session.present.value) },
         )
     }
+    }
 }
 
 /** Bottom glass capsule: 正在打印…  跳过  /  向下拖动撕下小票  撕下  ✕. */
@@ -153,7 +167,7 @@ private fun StatusCapsule(
     val shape = RoundedCornerShape(50)
     Row(
         modifier
-            .clip(shape).background(XpColors.Material).border(0.5.dp, XpColors.Hairline, shape)
+            .clip(shape).background(XpColors.Card.copy(alpha = 0.95f)).border(0.5.dp, XpColors.Hairline, shape)
             .heightIn(min = 52.dp).padding(start = XpSpace.l, end = XpSpace.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
