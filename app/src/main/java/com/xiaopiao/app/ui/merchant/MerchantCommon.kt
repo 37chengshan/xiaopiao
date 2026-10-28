@@ -18,9 +18,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -37,7 +35,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.merchant.DEMO_LABEL
@@ -132,23 +129,3 @@ fun SelectableCard(selected: Boolean, onClick: () -> Unit, modifier: Modifier = 
     ) { content() }
 }
 
-@Composable
-fun HintText(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text, modifier = modifier.padding(horizontal = XpSpace.l),
-        style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
-    )
-}
-
-@Composable
-fun Hairline() {
-    Box(Modifier.fillMaxWidth().height(1.dp).background(XpColors.Hairline))
-}
-
-@Composable
-fun KeyValueRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
-        Text(value, style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
-    }
-}
