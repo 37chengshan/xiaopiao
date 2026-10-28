@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { ChevronRight, type LucideIcon } from "lucide-react";
 import * as SwitchPrimitive from "@radix-ui/react-switch";
 import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { SPRING_THUMB } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /**
@@ -220,7 +221,7 @@ export function Segmented<T extends string>({
               <motion.span
                 layoutId={`seg-${id}`}
                 className="absolute inset-0 rounded-[8px] bg-surface dark:bg-surface-2"
-                transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+                transition={SPRING_THUMB}
               />
             )}
             <span className="relative">{o.label}</span>

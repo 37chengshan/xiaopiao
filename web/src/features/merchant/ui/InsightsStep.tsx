@@ -1,4 +1,5 @@
 import { Users } from "lucide-react";
+import { useCountUp } from "@/components/app/CountUp";
 import { XButton, SectionHeader } from "@/components/app/kit";
 import { EmptyState } from "@/components/app/States";
 import { copy } from "../copy";
@@ -26,6 +27,7 @@ export function InsightsSkeleton() {
 
 export function InsightsStep({ insights, onNext }: { insights: Insights; onNext: () => void }) {
   const t = copy.insights;
+  const crowd = useCountUp(insights.crowdSize);
   if (insights.crowdSize === 0) {
     return <EmptyState icon={Users} title={t.emptyTitle} hint={t.emptyHint} />;
   }
@@ -36,7 +38,7 @@ export function InsightsStep({ insights, onNext }: { insights: Insights; onNext:
         <div className="px-5 pb-4 pt-4">
           <p className="text-[13px] leading-[18px] text-ink-2">{t.crowd}</p>
           <p className="num mt-0.5 text-[48px] font-semibold leading-[52px] tracking-[-0.035em] text-ink">
-            {insights.crowdSize}
+            {crowd}
             <span className="ml-1 text-[17px] font-normal tracking-normal text-ink-2">{t.people}</span>
           </p>
           <div className="mt-3">

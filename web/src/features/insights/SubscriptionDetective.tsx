@@ -1,7 +1,7 @@
-import { animate, useReducedMotion } from "framer-motion";
 import { Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CATEGORY_ICONS, CATEGORY_TONES } from "@/components/app/categoryIcons";
+import { useCountUp } from "@/components/app/CountUp";
 import { Footnote, Group, IconTile, Money, Row, SectionHeader, Segmented } from "@/components/app/kit";
 import { EmptyState } from "@/components/app/States";
 import { cn } from "@/lib/utils";
@@ -9,20 +9,6 @@ import { DAY_MS, type Subscription, type Txn, startOfDay, yuan } from "../../dom
 import { categorize } from "../../logic/categorize";
 import { CANCEL_GUIDES, type CancelPlatform, annualCents, cycleLabel, detectSubscriptions } from "../../logic/subscriptions";
 import { dayLabel } from "./util";
-
-function useCountUp(target: number): number {
-  const reduce = useReducedMotion();
-  const [v, setV] = useState(reduce ? target : 0);
-  useEffect(() => {
-    if (reduce) {
-      setV(target);
-      return;
-    }
-    const c = animate(0, target, { duration: 0.6, ease: [0.23, 1, 0.32, 1], onUpdate: (x) => setV(Math.round(x)) });
-    return () => c.stop();
-  }, [target, reduce]);
-  return v;
-}
 
 function countdown(nextChargeAt: number, now: number): string {
   const days = Math.round((startOfDay(nextChargeAt) - startOfDay(now)) / DAY_MS);

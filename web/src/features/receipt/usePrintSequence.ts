@@ -1,5 +1,6 @@
 import { animate, type AnimationPlaybackControls, type MotionValue } from "framer-motion";
 import { useEffect, useReducer, useRef, useState, type RefObject } from "react";
+import { EASE_OUT } from "@/lib/motion";
 import { nextPhase } from "./physics";
 import { dueTicks, planPrint } from "./printTimeline";
 import { measureRows, type StampState } from "./ReceiptPaper";
@@ -11,9 +12,20 @@ const STAMP_DELAY = 180;
 
 /**
  * Drives one print run: the leading edge travels linearly down the paper (`reveal`, px), each row it uncovers
- * ticks, the total ticker starts when the edge passes it, then the stamp lands. `skip` jumps to the finished paper.
+ * ticks, the total ticker starts when the edge passes it, then the stamp lands. `skip` finishes from wherever the
+ * edge currently is (no teleport). `onTick` fires on every gear beat (paper micro-shake).
  */
-export function usePrintSequence({ paperRef, reveal, reduce }: { paperRef: RefObject<HTMLDivElement | null>; reveal: MotionValue<number>; reduce: boolean }) {
+export function usePrintSequence({
+  paperRef,
+  reveal,
+  reduce,
+  onTick,
+}: {
+  paperRef: RefObject<HTMLDivElement | null>;
+  reveal: MotionValue<number>;
+  reduce: boolean;
+  onTick?: () => void;
+}) {
   const [phase, send] = useReducer(nextPhase, "idle");
   const [stamp, setStamp] = useState<StampState>(reduce ? "shown" : "hidden");
   const [tickerRun, setTickerRun] = useState(reduce);
@@ -23,6 +35,8 @@ export function usePrintSequence({ paperRef, reveal, reduce }: { paperRef: RefOb
   const run = useRef<AnimationPlaybackControls | null>(null);
   const timers = useRef<number[]>([]);
   const height = useRef(0);
+  const tickHandler = useRef(onTick);
+  tickHandler.current = onTick;
 
   const clear = () => {
     run.current?.stop();
@@ -56,6 +70,7 @@ export function usePrintSequence({ paperRef, reveal, reduce }: { paperRef: RefOb
             if (n > next) {
               printTick();
               haptic("tick");
+              tickHandler.current?.();
               next = n;
             }
             if (!totalStarted && v >= m.totalBottom) {
@@ -83,12 +98,18 @@ export function usePrintSequence({ paperRef, reveal, reduce }: { paperRef: RefOb
 
   const skip = () => {
     clear();
-    reveal.set(height.current + 80);
     setEdge(false);
-    setInstant(true);
     setTickerRun(true);
     setStamp("shown");
     send("skip");
+    const target = height.current + 80;
+    if (reduce) {
+      setInstant(true);
+      reveal.set(target);
+      return;
+    }
+    // interruptible: the edge carries on from where it is, it does not jump
+    run.current = animate(reveal, target, { duration: 0.18, ease: EASE_OUT });
   };
 
   return { phase, send, stamp, tickerRun, instant, edge, paperH, skip };

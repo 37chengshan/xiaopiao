@@ -1,9 +1,10 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { CalendarClock, Check, ChevronDown, Compass } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Group, IconTile, SectionHeader, XButton } from "@/components/app/kit";
 import { EmptyState } from "@/components/app/States";
+import { DUR, EASE_OUT } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import type { Insights } from "../logic/aggregator";
 import type { Experiment } from "../logic/experiment";
@@ -27,6 +28,7 @@ export function DecideStep({
   onBackToResults: () => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const reduce = useReducedMotion() ?? false;
   if (!experiment || experiment.status === "draft") {
     return (
       <EmptyState
@@ -92,10 +94,10 @@ export function DecideStep({
                 <AnimatePresence initial={false}>
                   {open && (
                     <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={spring}
+                      initial={reduce ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: DUR.row, ease: EASE_OUT }}
                       className="overflow-hidden"
                     >
                       <div className="space-y-1.5 px-4 pb-4 text-[13px] leading-[18px]">

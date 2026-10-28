@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORY_ICONS, CATEGORY_TONES } from "@/components/app/categoryIcons";
 import { Confetti } from "@/components/app/Confetti";
+import { CountUpMoney } from "@/components/app/CountUp";
 import { Group, IconTile, Money, Row, SectionHeader, Segmented } from "@/components/app/kit";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, type Badge, type Txn } from "../../domain/types";
@@ -112,7 +113,7 @@ export function WeeklyAwards({ txns, now }: { txns: readonly Txn[]; now: number 
             ]}
           />
         </div>
-        <Money cents={report.totalCents} className="mt-2 block text-[48px] font-semibold leading-[52px] tracking-[-0.03em] text-ink" />
+        <CountUpMoney cents={report.totalCents} className="mt-2 block text-[48px] font-semibold leading-[52px] tracking-[-0.03em] text-ink" />
         <p className="mt-2 text-[14px] leading-[20px] text-ink-2">
           {report.deltaPct !== null && (
             <>

@@ -78,6 +78,7 @@ export function RegretSimulator({
         <div aria-live="polite">
           <div className="px-8 pt-6">
             <p className="text-[13px] leading-[18px] text-ink-2">{months} 个月能省下</p>
+            {/* slider-driven: follows the thumb 1:1, no count-up (high-frequency input) */}
             <Money cents={result.savedCents} className="mt-1 block text-[48px] font-semibold leading-[52px] tracking-[-0.03em] text-ink" />
           </div>
           {result.equivalents.length > 0 && (
