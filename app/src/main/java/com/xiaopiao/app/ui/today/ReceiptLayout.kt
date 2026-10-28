@@ -3,17 +3,20 @@ package com.xiaopiao.app.ui.today
 import com.xiaopiao.app.domain.Cents
 import com.xiaopiao.app.domain.DailyReceipt
 import com.xiaopiao.app.domain.Direction
+import com.xiaopiao.app.domain.Txn
 import java.util.Calendar
+import kotlin.math.roundToInt
 
-/** Kinds of printable line; each has a fixed paper height so the print timeline stays pure. */
+/** Kinds of printable line; each has a fixed paper height so the print timeline stays pure (docs/DESIGN.md §7). */
 enum class LineKind(val heightDp: Float) {
-    BLANK(18f), TITLE(40f), SUBTITLE(20f), DEMO(20f), DASH(16f), ITEM(28f), MORE(28f),
-    TOTAL(46f), INCOME(24f), COMMENT(22f), BIG(60f), STAMP_SPACE(112f), FOOTER(24f), BARCODE(36f),
+    BLANK(10f), TITLE(48f), SUBTITLE(22f), DEMO(22f), DASH(14f), META(22f), TOTAL(80f), NOTICE(24f),
+    INCOME(22f), HEADER(24f), CATEGORY(26f), ITEM(21f), MORE(22f), STATS(30f), COMMENT(22f), BIG(70f),
+    STAMP_SPACE(100f), FOOTER(28f),
 }
 
 /**
- * One printable row. [left] is the monospace text, [right] the right-aligned amount text,
- * [cents] the raw amount (TOTAL only) and [positive] marks income rows.
+ * One printable row. [left] / [right] are the two ends of the row (a STATS row also carries the
+ * week-day number in [extra]), [cents] the raw amount (TOTAL / ITEM / CATEGORY) and [positive] marks income rows.
  */
 data class ReceiptLine(
     val kind: LineKind,
@@ -24,12 +27,19 @@ data class ReceiptLine(
     val extra: Int = 0,
 )
 
-/** Turns a [DailyReceipt] into fixed-width printable lines (ellipsis, wrapping, collapse). Pure and testable. */
+/** Facts about the moment of printing that are not part of the day itself. */
+data class ReceiptMeta(val printedAtMs: Long = 0L, val previousOutCents: Cents? = null)
+
+/** Turns a [DailyReceipt] into fixed-width printable lines (grouped by category, ellipsis, wrapping). Pure and testable. */
 object ReceiptLayout {
     const val COLS = 30
-    const val COMMENT_COLS = 28
-    const val MAX_ROWS = 8
+    const val COMMENT_COLS = 26
+    /** Item rows shown under their category before "还有 N 笔" kicks in (collapsed = what gets printed on screen). */
+    const val MAX_ROWS = 6
     const val DEFAULT_STAMP = "钱包休眠者"
+    const val TAGLINE = "认真生活，留下凭证。"
+    const val NOTICE_TEXT = "仅作记录 · 非正式票据"
+    const val FOOTER_TEXT = "— 今日小票 · 存根联 —"
     private val WEEKDAYS = arrayOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
 
     /** Terminal-style column width: CJK and emoji take two columns, joiners and variation selectors none. */
@@ -80,62 +90,149 @@ object ReceiptLayout {
         return "$sign¥$whole$frac"
     }
 
+    /** "¥88.00": always two decimals (the big total and subtotal columns). */
+    fun moneyFixed(cents: Cents, sign: String = ""): String {
+        val abs = kotlin.math.abs(cents)
+        val whole = (abs / 100).toString().reversed().chunked(3).joinToString(",").reversed()
+        return "$sign¥$whole.%02d".format(abs % 100)
+    }
+
     fun dayLabel(dayStart: Long): String {
         val c = Calendar.getInstance().apply { timeInMillis = dayStart }
         return "${c.get(Calendar.MONTH) + 1}月${c.get(Calendar.DAY_OF_MONTH)}日 ${WEEKDAYS[c.get(Calendar.DAY_OF_WEEK) - 1]}"
     }
 
+    /** "2026-10-27 周二". */
+    fun isoDay(dayStart: Long): String {
+        val c = Calendar.getInstance().apply { timeInMillis = dayStart }
+        return "%04d-%02d-%02d %s".format(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH), WEEKDAYS[c.get(Calendar.DAY_OF_WEEK) - 1])
+    }
+
+    fun clock(ms: Long): String {
+        if (ms <= 0L) return "--:--"
+        val c = Calendar.getInstance().apply { timeInMillis = ms }
+        return "%02d:%02d".format(c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE))
+    }
+
+    /** 1..7, Monday first ("本周第 3 天"). */
+    fun weekDayNumber(dayStart: Long): Int {
+        val dow = Calendar.getInstance().apply { timeInMillis = dayStart }.get(Calendar.DAY_OF_WEEK)
+        return (dow + 5) % 7 + 1
+    }
+
+    /** "较昨日 −12%"; a dash when there is no sensible baseline. */
+    fun deltaText(todayOut: Cents, previousOut: Cents?, isToday: Boolean): String {
+        val base = if (isToday) "较昨日" else "较前日"
+        if (previousOut == null || previousOut <= 0L) return "$base —"
+        val pct = ((todayOut - previousOut) * 100.0 / previousOut).roundToInt()
+        return when {
+            pct == 0 -> "$base 持平"
+            pct > 0 -> "$base +$pct%"
+            else -> "$base −${-pct}%"
+        }
+    }
+
     fun stampText(receipt: DailyReceipt): String =
         receipt.badge?.title?.takeIf { it.isNotBlank() } ?: DEFAULT_STAMP
 
-    fun build(receipt: DailyReceipt, isToday: Boolean, demo: Boolean, expanded: Boolean = false): List<ReceiptLine> {
+    /**
+     * [expanded] prints every item (the share sheet's 完整); otherwise rows beyond [MAX_ROWS] fold into "还有 N 笔".
+     * [brief] (简版) prints category subtotals only.
+     */
+    fun build(
+        receipt: DailyReceipt,
+        isToday: Boolean,
+        demo: Boolean,
+        expanded: Boolean = false,
+        brief: Boolean = false,
+        meta: ReceiptMeta = ReceiptMeta(),
+    ): List<ReceiptLine> {
         val out = mutableListOf<ReceiptLine>()
+        val spend = receipt.items.filter { it.direction == Direction.OUT }
         out += ReceiptLine(LineKind.BLANK)
         out += ReceiptLine(LineKind.TITLE, if (isToday) "今日小票" else "往日小票")
-        out += ReceiptLine(LineKind.SUBTITLE, dayLabel(receipt.dayStart))
+        out += ReceiptLine(LineKind.SUBTITLE, TAGLINE)
         if (demo) out += ReceiptLine(LineKind.DEMO, "※ 演示数据 ※")
         out += ReceiptLine(LineKind.DASH)
-        out += itemLines(receipt, expanded)
+        out += ReceiptLine(LineKind.META, "日期", isoDay(receipt.dayStart))
+        out += ReceiptLine(LineKind.META, "出票", clock(meta.printedAtMs))
         out += ReceiptLine(LineKind.DASH)
-        out += ReceiptLine(LineKind.TOTAL, "合计", money(receipt.totalOutCents), receipt.totalOutCents)
+        if (spend.isEmpty()) {
+            out += ReceiptLine(LineKind.BIG, "今日无消费")
+        } else {
+            out += ReceiptLine(LineKind.TOTAL, if (isToday) "今日支出" else "当日支出", moneyFixed(receipt.totalOutCents), receipt.totalOutCents)
+        }
+        out += ReceiptLine(LineKind.NOTICE, NOTICE_TEXT)
         val income = receipt.items.filter { it.direction == Direction.IN }.sumOf { it.amountCents }
         if (income > 0) out += ReceiptLine(LineKind.INCOME, "收入", money(income, "+"), income, positive = true)
+        if (receipt.items.isNotEmpty()) {
+            out += ReceiptLine(LineKind.DASH)
+            out += ReceiptLine(LineKind.HEADER, "分类 / 明细", "金额")
+            out += groupLines(receipt.items, expanded, brief)
+            if (!brief) {
+                out += ReceiptLine(LineKind.DASH)
+                out += ReceiptLine(
+                    LineKind.STATS, "笔数 ${receipt.items.size}", deltaText(receipt.totalOutCents, meta.previousOutCents, isToday),
+                    extra = weekDayNumber(receipt.dayStart),
+                )
+            }
+        }
         out += ReceiptLine(LineKind.DASH)
-        wrap(receipt.aiComment, COMMENT_COLS).forEach { out += ReceiptLine(LineKind.COMMENT, it) }
+        val remark = wrap(receipt.aiComment, COMMENT_COLS)
+        remark.forEachIndexed { i, text ->
+            val open = if (i == 0) "「" else ""
+            val close = if (i == remark.lastIndex) "」" else ""
+            out += ReceiptLine(LineKind.COMMENT, "$open$text$close")
+        }
         out += ReceiptLine(LineKind.STAMP_SPACE, stampText(receipt))
-        out += ReceiptLine(LineKind.FOOTER, "*** 谢谢惠顾 · 明天见 ***")
-        out += ReceiptLine(LineKind.BARCODE, extra = (receipt.dayStart / 86_400_000L).toInt())
+        out += ReceiptLine(LineKind.FOOTER, FOOTER_TEXT)
         out += ReceiptLine(LineKind.BLANK)
         return out
     }
 
-    private fun itemLines(receipt: DailyReceipt, expanded: Boolean): List<ReceiptLine> {
-        if (receipt.items.isEmpty()) return listOf(ReceiptLine(LineKind.BIG, "今日无消费 🎉"))
-        val shown = if (expanded || receipt.items.size <= MAX_ROWS) receipt.items else receipt.items.take(MAX_ROWS)
-        val rows = shown.map { t ->
-            val income = t.direction == Direction.IN
-            val right = if (income) money(t.amountCents, "+") else money(t.amountCents)
-            val budget = (COLS - 3 - displayWidth(right) - 1).coerceAtLeast(4)
-            ReceiptLine(LineKind.ITEM, "${t.category.emoji} ${ellipsize(t.merchant.ifBlank { t.category.label }, budget)}", right, t.amountCents, income)
+    /** Category rows with subtotals (biggest first); a one-item category stays a single row unless [expanded]. */
+    private fun groupLines(items: List<Txn>, expanded: Boolean, brief: Boolean): List<ReceiptLine> {
+        val rows = mutableListOf<ReceiptLine>()
+        val groups = items.filter { it.direction == Direction.OUT }.groupBy { it.category }
+            .map { (c, list) -> Triple(c, list.sortedBy { it.occurredAt }, list.sumOf { it.amountCents }) }
+            .sortedByDescending { it.third }
+        var budget = if (expanded) Int.MAX_VALUE else MAX_ROWS
+        var hidden = 0
+        for ((category, list, sum) in groups) {
+            rows += ReceiptLine(LineKind.CATEGORY, "${category.emoji} ${category.label}", moneyFixed(sum), sum)
+            if (brief) continue
+            if (list.size == 1 && !expanded) continue
+            for (t in list) {
+                if (budget > 0) { rows += itemLine(t); budget-- } else hidden++
+            }
         }
-        val hidden = receipt.items.size - shown.size
-        return when {
-            hidden > 0 -> rows + ReceiptLine(LineKind.MORE, "还有 $hidden 笔 ▾", extra = hidden)
-            expanded && receipt.items.size > MAX_ROWS -> rows + ReceiptLine(LineKind.MORE, "收起 ▴", extra = -1)
-            else -> rows
-        }
+        if (!brief) items.filter { it.direction == Direction.IN }.forEach { rows += itemLine(it) }
+        if (hidden > 0) rows += ReceiptLine(LineKind.MORE, "…另有 $hidden 笔明细", extra = hidden)
+        return rows
     }
 
-    /** Plain-text version for the share fallback when bitmap rendering fails. */
+    private fun itemLine(t: Txn): ReceiptLine {
+        val income = t.direction == Direction.IN
+        val right = if (income) money(t.amountCents, "+") else moneyFixed(t.amountCents)
+        val budget = (COLS - 4 - displayWidth(right) - 1).coerceAtLeast(4)
+        return ReceiptLine(LineKind.ITEM, ellipsize(t.merchant.ifBlank { t.category.label }, budget), right, t.amountCents, income)
+    }
+
+    /** Plain-text version for 复制文字 and the share fallback. */
     fun toPlainText(lines: List<ReceiptLine>): String = lines.mapNotNull { l ->
+        fun row(left: String, right: String, indent: String = "") =
+            indent + left + " ".repeat((COLS - displayWidth(indent) - displayWidth(left) - displayWidth(right)).coerceAtLeast(1)) + right
         when (l.kind) {
             LineKind.DASH -> "-".repeat(COLS)
-            LineKind.TITLE, LineKind.SUBTITLE, LineKind.DEMO, LineKind.FOOTER, LineKind.BIG, LineKind.COMMENT -> l.left
-            LineKind.ITEM, LineKind.TOTAL, LineKind.INCOME ->
-                l.left + " ".repeat((COLS - displayWidth(l.left) - displayWidth(l.right)).coerceAtLeast(1)) + l.right
+            LineKind.TITLE, LineKind.SUBTITLE, LineKind.DEMO, LineKind.NOTICE, LineKind.FOOTER, LineKind.COMMENT -> l.left
+            LineKind.BIG -> l.left
+            LineKind.META, LineKind.HEADER, LineKind.INCOME, LineKind.CATEGORY -> row(l.left, l.right)
+            LineKind.ITEM -> row(l.left, l.right, "   ")
+            LineKind.TOTAL -> "${l.left} ${l.right}"
+            LineKind.STATS -> "${l.left}  ${l.right}  本周第 ${l.extra} 天"
             LineKind.STAMP_SPACE -> "[ ${l.left} ]"
             LineKind.MORE -> l.left
-            LineKind.BLANK, LineKind.BARCODE -> null
+            LineKind.BLANK -> null
         }
     }.joinToString("\n")
 

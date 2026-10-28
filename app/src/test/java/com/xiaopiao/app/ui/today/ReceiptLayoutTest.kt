@@ -60,10 +60,10 @@ class ReceiptLayoutTest {
         val r = receipt((1..12).map { txn(it) })
         val collapsed = ReceiptLayout.build(r, true, false)
         assertEquals(ReceiptLayout.MAX_ROWS, collapsed.count { it.kind == LineKind.ITEM })
-        assertEquals(4, collapsed.first { it.kind == LineKind.MORE }.extra)
+        assertEquals(6, collapsed.first { it.kind == LineKind.MORE }.extra)
         val expanded = ReceiptLayout.build(r, true, false, expanded = true)
         assertEquals(12, expanded.count { it.kind == LineKind.ITEM })
-        assertEquals(-1, expanded.first { it.kind == LineKind.MORE }.extra)
+        assertTrue(expanded.none { it.kind == LineKind.MORE })
     }
 
     @Test fun incomeRowsAndDemoLabel() {
@@ -76,7 +76,7 @@ class ReceiptLayoutTest {
 
     @Test fun hugeAmountStaysInColumns() {
         val r = receipt(listOf(txn(1, 99_999_999_999, merchant = "超级超级超级超级长的名字")))
-        val item = ReceiptLayout.build(r, true, false).first { it.kind == LineKind.ITEM }
+        val item = ReceiptLayout.build(r, true, false, expanded = true).first { it.kind == LineKind.ITEM }
         assertTrue(ReceiptLayout.displayWidth(item.left) + ReceiptLayout.displayWidth(item.right) <= ReceiptLayout.COLS)
     }
 
@@ -89,7 +89,7 @@ class ReceiptLayoutTest {
 
     @Test fun plainTextFallbackHasTotal() {
         val text = ReceiptLayout.toPlainText(ReceiptLayout.build(receipt(listOf(txn(1))), true, false))
-        assertTrue(text.contains("合计"))
+        assertTrue(text.contains("今日支出"))
         assertTrue(text.contains("今日小票"))
     }
 }

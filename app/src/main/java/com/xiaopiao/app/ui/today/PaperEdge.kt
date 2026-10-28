@@ -40,7 +40,7 @@ private val Fibres: List<Fibre> = Random(11).let { r ->
 
 /** Paper fill: warm gradient, faint fibre texture, soft shadow under the printer slot and at the side edges. */
 fun DrawScope.drawPaperBackground(density: Float) {
-    drawRect(Brush.verticalGradient(listOf(XpColors.Paper, XpColors.Paper, XpColors.PaperShade.copy(alpha = 0.65f))))
+    drawRect(Brush.verticalGradient(listOf(XpColors.Paper, XpColors.Paper, androidx.compose.ui.graphics.lerp(XpColors.Paper, XpColors.PaperShade, 0.65f))))
     val fibre = XpColors.PaperShade.copy(alpha = 0.55f)
     val stroke = 0.7f * density
     for (f in Fibres) {

@@ -1,12 +1,11 @@
 package com.xiaopiao.app.ui.today
 
-import kotlin.math.ceil
+import kotlin.math.roundToLong
 
-/** When one printed [ReceiptLine] starts, how long it takes, and where it sits on the paper (dp). */
+/** When one printed [ReceiptLine] starts emerging from the slot, how long it takes, and where it sits on the paper (dp). */
 data class PrintStep(
     val index: Int,
     val kind: LineKind,
-    val textLength: Int,
     val startMs: Long,
     val durationMs: Long,
     val topDp: Float,
@@ -17,7 +16,8 @@ data class PrintStep(
 }
 
 /**
- * Pure schedule for the thermal print: each line first feeds out ([FEED_MS]) then its text types in.
+ * Pure schedule for the thermal print. The paper feeds at a constant [SPEED_DP_PER_S] (the one linear motion in
+ * the app); only the total and the stamp area slow the feed so the NumberTicker and the stamp have room.
  * With [reduced] motion every step collapses to t=0 so the receipt appears in its final state.
  */
 class PrintTimeline private constructor(
@@ -32,55 +32,52 @@ class PrintTimeline private constructor(
         var h = 0f
         for (s in steps) {
             if (t < s.startMs) break
-            h = s.topDp + s.heightDp * feedProgress(s, t)
+            h = s.topDp + s.heightDp * progress(s, t)
         }
         return h
     }
 
-    fun feedProgress(s: PrintStep, t: Long): Float {
-        val feed = minOf(FEED_MS, s.durationMs)
-        return if (feed <= 0L) (if (t >= s.startMs) 1f else 0f) else ((t - s.startMs).toFloat() / feed).coerceIn(0f, 1f)
-    }
-
-    fun textProgress(s: PrintStep, t: Long): Float =
+    /** 0..1: how much of [s] has come out of the slot at [t]. */
+    fun progress(s: PrintStep, t: Long): Float =
         if (s.durationMs <= 0L) (if (t >= s.startMs) 1f else 0f) else ((t - s.startMs).toFloat() / s.durationMs).coerceIn(0f, 1f)
 
     /** Index of the step currently printing at [t], or -1 before the first. */
     fun activeIndex(t: Long): Int = steps.indexOfLast { t >= it.startMs }
 
-    companion object {
-        const val FEED_MS = 140L
-        private const val GAP_MS = 45L
-        private const val STAMP_DELAY_MS = 260L
-        private const val SLAM_MS = 900L
-
-        fun typedChars(length: Int, progress: Float): Int =
-            if (progress >= 1f) length else ceil(length * progress).toInt().coerceIn(0, length)
-
-        fun durationFor(line: ReceiptLine): Long = when (line.kind) {
-            LineKind.BLANK -> 100
-            LineKind.TITLE -> 420
-            LineKind.SUBTITLE -> 260
-            LineKind.DEMO -> 220
-            LineKind.DASH -> 120
-            LineKind.ITEM -> 300
-            LineKind.MORE -> 220
-            LineKind.TOTAL -> 1000
-            LineKind.INCOME -> 220
-            LineKind.COMMENT -> (line.left.length * 38L).coerceIn(320L, 1200L)
-            LineKind.BIG -> 600
-            LineKind.STAMP_SPACE -> 260
-            LineKind.FOOTER -> 360
-            LineKind.BARCODE -> 500
+    /** Start times of printing lines, thinned so consecutive entries are at least [minGapMs] apart (haptic + sound beats). */
+    fun tickTimes(minGapMs: Long): List<Long> {
+        val out = mutableListOf<Long>()
+        for (s in steps) {
+            if (!s.ticks) continue
+            if (out.isEmpty() || s.startMs - out.last() >= minGapMs) out += s.startMs
         }
+        return out
+    }
+
+    companion object {
+        const val SPEED_DP_PER_S = 380f
+        private const val STAMP_DELAY_MS = 220L
+        const val SLAM_MS = 700L
+
+        /** Kinds that deliberately feed slower than the standard speed. */
+        private fun minDuration(kind: LineKind): Long = when (kind) {
+            LineKind.TOTAL -> 760
+            LineKind.BIG -> 420
+            LineKind.STATS -> 160
+            LineKind.STAMP_SPACE -> 220
+            else -> 0
+        }
+
+        fun durationFor(line: ReceiptLine): Long =
+            maxOf((line.kind.heightDp / SPEED_DP_PER_S * 1000f).roundToLong(), minDuration(line.kind))
 
         fun build(lines: List<ReceiptLine>, reduced: Boolean = false): PrintTimeline {
             var t = 0L
             var y = 0f
             val steps = lines.mapIndexed { i, line ->
                 val d = if (reduced) 0L else durationFor(line)
-                val s = PrintStep(i, line.kind, line.left.codePointCount(0, line.left.length), t, d, y, line.kind.heightDp)
-                if (!reduced) t += d + if (line.kind == LineKind.DASH) 0L else GAP_MS
+                val s = PrintStep(i, line.kind, t, d, y, line.kind.heightDp)
+                t += d
                 y += line.kind.heightDp
                 s
             }
