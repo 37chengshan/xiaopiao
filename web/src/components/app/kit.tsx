@@ -27,7 +27,7 @@ export function Group({ children, className, inset = "plain" }: { children: Reac
   return (
     <div
       className={cn(
-        "mx-4 overflow-hidden rounded-[14px] bg-surface",
+        "card-tint mx-4 overflow-hidden rounded-[16px] bg-surface",
         "[&>*+*]:relative [&>*+*]:after:pointer-events-none [&>*+*]:after:absolute [&>*+*]:after:right-0 [&>*+*]:after:top-0 [&>*+*]:after:h-px [&>*+*]:after:bg-hairline [&>*+*]:after:content-['']",
         inset === "icon" ? "[&>*+*]:after:left-[58px]" : "[&>*+*]:after:left-4",
         className,
@@ -39,10 +39,20 @@ export function Group({ children, className, inset = "plain" }: { children: Reac
 }
 
 /** Rounded square holding a line icon (or a single emoji on receipts/badges only). */
-export function IconTile({ icon: Icon, tone = "neutral", size = 30 }: { icon: LucideIcon; tone?: "neutral" | "clay"; size?: number }) {
+export type Tone = "neutral" | "clay" | "blue" | "green" | "amber" | "violet";
+export const TONE_CLASS: Record<Tone, string> = {
+  neutral: "bg-fill text-ink",
+  clay: "bg-clay-soft text-clay",
+  blue: "bg-blue-soft text-blue",
+  green: "bg-green-soft text-green",
+  amber: "bg-amber-soft text-amber",
+  violet: "bg-violet-soft text-violet",
+};
+
+export function IconTile({ icon: Icon, tone = "neutral", size = 30 }: { icon: LucideIcon; tone?: Tone; size?: number }) {
   return (
     <span
-      className={cn("grid shrink-0 place-items-center rounded-[8px]", tone === "clay" ? "bg-clay-soft text-clay" : "bg-fill text-ink")}
+      className={cn("grid shrink-0 place-items-center rounded-[9px]", TONE_CLASS[tone])}
       style={{ width: size, height: size }}
       aria-hidden
     >
@@ -104,10 +114,10 @@ export function IconButton({
       aria-label={label}
       {...props}
       className={cn(
-        "relative grid size-8 shrink-0 place-items-center rounded-full transition-transform duration-100 ease-[var(--ease-out)] before:absolute before:-inset-1.5 before:content-[''] active:scale-[0.94]",
-        tone === "fill" && "bg-fill text-ink",
-        tone === "ink" && "bg-ink text-bg",
-        tone === "clay" && "bg-clay text-on-clay",
+        "btn-round relative grid size-8 shrink-0 place-items-center rounded-full before:absolute before:-inset-1.5 before:content-[''] active:scale-[0.94]",
+        tone === "fill" && "bg-surface text-ink",
+        tone === "ink" && "btn-ink bg-ink text-bg",
+        tone === "clay" && "btn-clay bg-clay text-on-clay",
         className,
       )}
     >
@@ -127,8 +137,8 @@ export function Chip({
       type="button"
       {...props}
       className={cn(
-        "inline-flex h-8 shrink-0 items-center rounded-full px-3.5 text-[14px] font-medium transition-[transform,background-color,color] duration-150 ease-[var(--ease-out)] active:scale-[0.97]",
-        selected ? "bg-ink text-bg" : "bg-fill text-ink-2",
+        "inline-flex h-9 shrink-0 items-center rounded-full px-3.5 text-[14px] font-medium transition-[transform,background-color,color] duration-150 ease-[var(--ease-out)] active:scale-[0.97]",
+        selected ? "btn-ink bg-ink text-bg" : "btn-soft bg-surface text-ink-2",
         className,
       )}
     />
@@ -168,11 +178,11 @@ export function XButton({
       type="button"
       {...props}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 font-medium transition-transform duration-100 ease-[var(--ease-out)] active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100",
+        "inline-flex items-center justify-center gap-1.5 font-medium transition-transform duration-100 ease-[var(--ease-out)] active:scale-[0.97] disabled:opacity-40 disabled:shadow-none disabled:active:scale-100",
         size === "lg" ? "h-12 rounded-[12px] px-5 text-[16px]" : "h-9 rounded-[10px] px-3.5 text-[14px]",
-        variant === "primary" && "bg-ink text-bg",
-        variant === "clay" && "bg-clay text-on-clay",
-        variant === "secondary" && "bg-fill text-ink",
+        variant === "primary" && "btn-ink bg-ink text-bg",
+        variant === "clay" && "btn-clay bg-clay text-on-clay",
+        variant === "secondary" && "btn-soft bg-surface text-ink",
         variant === "plain" && "px-1 text-clay",
         className,
       )}

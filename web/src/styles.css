@@ -83,6 +83,14 @@
   --color-paper-ink: var(--paper-ink);
   --color-scrim: var(--scrim);
   --color-material: var(--material);
+  --color-blue: var(--blue);
+  --color-blue-soft: var(--blue-soft);
+  --color-green: var(--green);
+  --color-green-soft: var(--green-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
   --font-serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue",
     "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
@@ -102,7 +110,7 @@
 :root {
   color-scheme: light;
   --radius: 0.875rem;
-  --tabbar-h: calc(52px + env(safe-area-inset-bottom, 0px));
+  --tabbar-h: calc(56px + env(safe-area-inset-bottom, 0px));
 
   --bg: oklch(0.982 0.0055 95);          /* #FAF9F5 */
   --bg-grouped: oklch(0.955 0.009 95);   /* #F3F1EA */
@@ -123,6 +131,16 @@
   --paper-ink: oklch(0.27 0.006 70);     /* #2A2724 */
   --scrim: oklch(0.192 0.002 106 / 32%);
   --material: oklch(0.982 0.0055 95 / 78%);
+
+  /* Round 2 (2026-10-28): semantic soft tints for icon tiles, quiet and low-chroma; clay stays the only accent */
+  --blue-soft: oklch(0.94 0.03 245);  --blue: oklch(0.48 0.1 250);
+  --green-soft: oklch(0.945 0.035 150); --green: oklch(0.45 0.09 150);
+  --amber-soft: oklch(0.95 0.05 85);  --amber: oklch(0.5 0.1 70);
+  --violet-soft: oklch(0.945 0.03 300); --violet: oklch(0.47 0.1 300);
+  --card-hi: oklch(1 0 0);            /* card top highlight */
+  --card-lo: oklch(0.985 0.006 95);   /* card bottom tint */
+  --shadow-soft: 0 1px 2px oklch(0.2 0.01 90 / 6%), 0 6px 16px -8px oklch(0.2 0.01 90 / 14%);
+  --btn-glow: transparent;
 
   /* v1 aliases */
   --canvas: var(--bg);
@@ -187,6 +205,14 @@
   --paper-ink: oklch(0.25 0.006 70);
   --scrim: oklch(0 0 0 / 55%);
   --material: oklch(0.235 0.004 85 / 72%);
+  --blue-soft: oklch(0.3 0.04 250);  --blue: oklch(0.78 0.09 250);
+  --green-soft: oklch(0.29 0.035 150); --green: oklch(0.78 0.09 150);
+  --amber-soft: oklch(0.31 0.04 80);  --amber: oklch(0.82 0.1 85);
+  --violet-soft: oklch(0.3 0.04 300); --violet: oklch(0.78 0.09 300);
+  --card-hi: oklch(0.3 0.006 85);
+  --card-lo: oklch(0.265 0.005 85);
+  --shadow-soft: 0 0 0 0.5px oklch(1 0 0 / 7%);
+  --btn-glow: oklch(1 0 0 / 22%);
   --primary: var(--ink);
   --primary-foreground: var(--bg);
   --destructive-foreground: oklch(1 0 0);
@@ -324,4 +350,83 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Round 2 textured controls: gradient + 1px inner highlight + soft shadow; dark mode uses a glow edge instead of a black shadow */
+.btn-ink,
+.btn-clay,
+.btn-soft,
+.btn-round {
+  position: relative;
+  transition:
+    transform 100ms var(--ease-out),
+    box-shadow 100ms var(--ease-out),
+    filter 100ms var(--ease-out);
+}
+.btn-ink {
+  background-image: linear-gradient(to bottom, color-mix(in oklch, var(--ink) 88%, var(--bg)), var(--ink));
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 22%),
+    0 0 0 1px var(--btn-glow),
+    0 1px 2px oklch(0 0 0 / 22%),
+    0 6px 14px -6px oklch(0 0 0 / 30%);
+}
+.dark .btn-ink {
+  background-image: linear-gradient(to bottom, var(--ink), color-mix(in oklch, var(--ink) 82%, var(--bg)));
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 70%),
+    0 0 0 1px var(--btn-glow),
+    0 0 14px -2px oklch(1 0 0 / 16%);
+}
+.btn-clay {
+  background-image: linear-gradient(to bottom, color-mix(in oklch, var(--clay) 86%, white), var(--clay));
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 28%),
+    0 0 0 1px var(--btn-glow),
+    0 1px 2px oklch(0.4 0.1 36 / 30%),
+    0 6px 14px -6px oklch(0.4 0.1 36 / 40%);
+}
+.dark .btn-clay {
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 35%),
+    0 0 0 1px var(--btn-glow),
+    0 0 16px -2px oklch(0.67 0.13 42 / 35%);
+}
+.btn-soft {
+  background-image: linear-gradient(to bottom, var(--card-hi), var(--card-lo));
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 60%),
+    0 0 0 1px var(--hairline),
+    0 1px 2px oklch(0.2 0.01 90 / 8%);
+}
+.dark .btn-soft {
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 10%),
+    0 0 0 1px oklch(1 0 0 / 12%);
+}
+.btn-round {
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 50%),
+    0 0 0 1px var(--hairline),
+    0 2px 6px -1px oklch(0.2 0.01 90 / 14%);
+}
+.dark .btn-round {
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 12%),
+    0 0 0 1px oklch(1 0 0 / 14%);
+}
+.btn-ink:active,
+.btn-clay:active,
+.btn-soft:active,
+.btn-round:active {
+  box-shadow:
+    inset 0 1px 2px oklch(0 0 0 / 18%),
+    0 0 0 1px var(--btn-glow);
+  filter: brightness(0.96);
+}
+
+/* Card with a faint vertical tint and soft depth (light) / hairline ring (dark) */
+.card-tint {
+  background-image: linear-gradient(to bottom, var(--card-hi), var(--card-lo));
+  box-shadow: var(--shadow-soft);
 }
