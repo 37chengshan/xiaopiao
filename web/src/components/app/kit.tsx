@@ -27,7 +27,7 @@ export function Group({ children, className, inset = "plain" }: { children: Reac
   return (
     <div
       className={cn(
-        "mx-4 overflow-hidden rounded-[14px] bg-surface",
+        "mx-4 overflow-hidden rounded-[18px] bg-surface",
         "[&>*+*]:relative [&>*+*]:after:pointer-events-none [&>*+*]:after:absolute [&>*+*]:after:right-0 [&>*+*]:after:top-0 [&>*+*]:after:h-px [&>*+*]:after:bg-hairline [&>*+*]:after:content-['']",
         inset === "icon" ? "[&>*+*]:after:left-[58px]" : "[&>*+*]:after:left-4",
         className,
@@ -39,10 +39,20 @@ export function Group({ children, className, inset = "plain" }: { children: Reac
 }
 
 /** Rounded square holding a line icon (or a single emoji on receipts/badges only). */
-export function IconTile({ icon: Icon, tone = "neutral", size = 30 }: { icon: LucideIcon; tone?: "neutral" | "clay"; size?: number }) {
+export type Tone = "neutral" | "clay" | "blue" | "green" | "amber" | "violet";
+export const TONE_CLASS: Record<Tone, string> = {
+  neutral: "bg-fill text-ink",
+  clay: "bg-clay-soft text-clay",
+  blue: "bg-blue-soft text-blue",
+  green: "bg-green-soft text-green",
+  amber: "bg-amber-soft text-amber",
+  violet: "bg-violet-soft text-violet",
+};
+
+export function IconTile({ icon: Icon, tone = "neutral", size = 30 }: { icon: LucideIcon; tone?: Tone; size?: number }) {
   return (
     <span
-      className={cn("grid shrink-0 place-items-center rounded-[8px]", tone === "clay" ? "bg-clay-soft text-clay" : "bg-fill text-ink")}
+      className={cn("grid shrink-0 place-items-center rounded-[9px]", TONE_CLASS[tone])}
       style={{ width: size, height: size }}
       aria-hidden
     >
@@ -104,7 +114,7 @@ export function IconButton({
       aria-label={label}
       {...props}
       className={cn(
-        "relative grid size-8 shrink-0 place-items-center rounded-full transition-transform duration-100 ease-[var(--ease-out)] before:absolute before:-inset-1.5 before:content-[''] active:scale-[0.94]",
+        "press relative grid size-8 shrink-0 place-items-center rounded-full before:absolute before:-inset-1.5 before:content-['']",
         tone === "fill" && "bg-fill text-ink",
         tone === "ink" && "bg-ink text-bg",
         tone === "clay" && "bg-clay text-on-clay",
@@ -127,7 +137,7 @@ export function Chip({
       type="button"
       {...props}
       className={cn(
-        "inline-flex h-8 shrink-0 items-center rounded-full px-3.5 text-[14px] font-medium transition-[transform,background-color,color] duration-150 ease-[var(--ease-out)] active:scale-[0.97]",
+        "press inline-flex h-9 shrink-0 items-center rounded-full px-3.5 text-[14px] font-medium",
         selected ? "bg-ink text-bg" : "bg-fill text-ink-2",
         className,
       )}
@@ -154,9 +164,9 @@ export function Footnote({ children, className }: { children: ReactNode; classNa
   return <p className={cn("px-8 pt-2 text-[13px] leading-[18px] text-ink-2", className)}>{children}</p>;
 }
 
-type ButtonVariant = "primary" | "clay" | "secondary" | "plain";
+type ButtonVariant = "primary" | "clay" | "tinted" | "secondary" | "plain";
 
-/** Buttons (§4): primary = ink, clay = the one accent CTA per screen, secondary = fill, plain = text. */
+/** Buttons: primary/clay = the one solid pill per screen, tinted = accent 14% fill, secondary = gray fill, plain = text. */
 export function XButton({
   variant = "secondary",
   size = "lg",
@@ -168,10 +178,11 @@ export function XButton({
       type="button"
       {...props}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 font-medium transition-transform duration-100 ease-[var(--ease-out)] active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100",
-        size === "lg" ? "h-12 rounded-[12px] px-5 text-[16px]" : "h-9 rounded-[10px] px-3.5 text-[14px]",
+        "press inline-flex items-center justify-center gap-1.5 rounded-full font-medium",
+        size === "lg" ? "h-[50px] px-6 text-[16px] font-semibold" : "h-9 px-4 text-[14px]",
         variant === "primary" && "bg-ink text-bg",
         variant === "clay" && "bg-clay text-on-clay",
+        variant === "tinted" && "bg-clay/14 text-clay",
         variant === "secondary" && "bg-fill text-ink",
         variant === "plain" && "px-1 text-clay",
         className,
@@ -208,7 +219,7 @@ export function Segmented<T extends string>({
             {active && (
               <motion.span
                 layoutId={`seg-${id}`}
-                className="absolute inset-0 rounded-[8px] bg-surface shadow-[0_1px_3px_oklch(0_0_0/12%)] dark:bg-surface-2"
+                className="absolute inset-0 rounded-[8px] bg-surface dark:bg-surface-2"
                 transition={{ type: "spring", bounce: 0, duration: 0.3 }}
               />
             )}
@@ -223,12 +234,14 @@ export function Segmented<T extends string>({
 /** Money with a smaller, quieter ¥ (§3). */
 export function Money({ cents, className, sign }: { cents: number; className?: string; sign?: boolean }) {
   const v = Math.abs(cents) / 100;
-  const text = v.toLocaleString("zh-CN", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const full = v.toLocaleString("zh-CN", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const dot = full.indexOf(".");
   return (
     <span className={cn("num", className)}>
       {sign && (cents < 0 ? "−" : "+")}
       <span className="mr-[0.08em] text-[0.6em] text-ink-2">¥</span>
-      {text}
+      {dot < 0 ? full : full.slice(0, dot)}
+      {dot >= 0 && <span className="text-[0.72em]">{full.slice(dot)}</span>}
     </span>
   );
 }

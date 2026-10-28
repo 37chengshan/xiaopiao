@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
-import { ArrowUp, Mic, Plus } from "lucide-react";
+import { ArrowUp, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DemoPill } from "@/components/app/DemoPill";
 import { Chip, XButton } from "@/components/app/kit";
 import { ErrorState, LoadingState } from "@/components/app/States";
+import { t } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 import { useLedger } from "@/services/LedgerProvider";
 import { templateAssistant } from "../../ai/assistant";
@@ -18,7 +19,6 @@ import { RegretSimulator } from "../insights/RegretSimulator";
 import { Receipt } from "../receipt/Receipt";
 import { DraftsCard, SubscriptionSummaryCard, WeeklySummaryCard } from "./cards";
 import { TypedText } from "./TypedText";
-import { useSpeech } from "./useSpeech";
 
 type Card =
   | { kind: "drafts"; drafts: DraftTxn[]; saved: boolean }
@@ -125,7 +125,7 @@ export function HomeChat() {
   const patch = useCallback((id: string, fn: (m: Msg) => Msg) => setMsgs((ms) => ms.map((m) => (m.id === id ? fn(m) : m))), []);
 
   const send = useCallback(
-    (raw: string, voice = false) => {
+    (raw: string) => {
       const text = raw.trim();
       if (!text || thinking) return;
       setInput("");
@@ -140,7 +140,7 @@ export function HomeChat() {
       setMsgs((ms) => [...ms, { id: nid(), role: "user", text }]);
       switch (intent.kind) {
         case "ADD": {
-          const drafts = intent.drafts.map((d) => ({ ...d, source: voice ? ("VOICE" as const) : d.source }));
+          const drafts = intent.drafts.map((d) => ({ ...d, source: d.source }));
           reply({ text: `听到了 ${drafts.length} 笔，对不对呀？确认之后才会真的记下～`, card: { kind: "drafts", drafts, saved: false } });
           break;
         }
@@ -174,19 +174,6 @@ export function HomeChat() {
       }
     },
     [now, thinking, txns],
-  );
-
-  const speech = useSpeech(
-    (t) => setInput(t),
-    (t) => {
-      send(t, true);
-    },
-    (err) => {
-      if (err === "unsupported") {
-        setMsgs((ms) => [...ms, { id: nid(), role: "ai", text: "这个浏览器暂时不支持语音输入，换 Chrome / Safari 试试，或者直接打字告诉我～" }]);
-      } else if (err === "not-allowed" || err === "service-not-allowed") toast.error("没有麦克风权限，可以在浏览器设置里打开");
-      else if (err !== "no-speech" && err !== "aborted") toast.error("语音没听清，再说一次吧");
-    },
   );
 
   const confirmDrafts = async (m: Msg) => {
@@ -258,7 +245,7 @@ export function HomeChat() {
           aria-hidden
           className={cn("material edge-fade-bottom absolute inset-x-0 -bottom-3 top-0 transition-opacity duration-200 ease-[var(--ease-out)]", scrolled ? "opacity-100" : "opacity-0")}
         />
-        <h1 className="relative font-serif text-[20px] font-semibold tracking-[-0.01em] text-ink">今日小票</h1>
+        <h1 className="relative text-[22px] font-semibold leading-[28px] tracking-[-0.015em] text-ink">{new Date(now).toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" })}</h1>
         <div className="relative">
           <DemoPill />
         </div>
@@ -309,7 +296,7 @@ export function HomeChat() {
             </div>
           </div>
 
-          <div ref={dockRef} className="absolute inset-x-0 bottom-[var(--tabbar-h)] z-20 bg-gradient-to-t from-bg from-65% to-transparent pb-2 pt-5">
+          <div ref={dockRef} className="absolute inset-x-0 bottom-[var(--tabbar-h)] z-20 bg-gradient-to-t from-bg from-65% to-transparent pb-[18px] pt-5">
             {lastIsAi && lastChips && !thinking && (
               <div className="hide-scrollbar mb-2 flex gap-2 overflow-x-auto px-4">
                 {lastChips.map((c) => (
@@ -324,7 +311,7 @@ export function HomeChat() {
                 e.preventDefault();
                 send(input);
               }}
-              className="mx-3 flex items-center gap-0.5 rounded-[26px] border border-hairline bg-surface p-1 shadow-[0_1px_2px_oklch(0_0_0/5%)]"
+              className="mx-3 flex items-center gap-0.5 rounded-[26px] bg-fill p-1"
             >
               <button type="button" onClick={() => entry.open()} aria-label="手动记一笔" className="grid size-9 shrink-0 place-items-center rounded-full text-ink-2 transition-transform duration-100 active:scale-[0.94]">
                 <Plus className="size-5" strokeWidth={1.75} />
@@ -332,29 +319,16 @@ export function HomeChat() {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={speech.listening ? "正在听，请说话" : "说点什么，如：午饭 32"}
+                placeholder={t("chat.placeholder")}
                 aria-label="消息"
                 enterKeyHint="send"
                 className="h-9 min-w-0 flex-1 bg-transparent px-1 text-[16px] text-ink outline-none placeholder:text-ink-3"
               />
               <button
-                type="button"
-                onClick={() => (speech.listening ? speech.stop() : speech.start())}
-                aria-label={speech.listening ? "停止语音输入" : "语音输入"}
-                aria-pressed={speech.listening}
-                className={cn(
-                  "relative grid size-9 shrink-0 place-items-center rounded-full transition-[transform,background-color,color] duration-150 active:scale-[0.94]",
-                  speech.listening ? "bg-negative text-on-clay" : "text-ink-2",
-                )}
-              >
-                {speech.listening && <span className="absolute inset-0 animate-ping rounded-full bg-negative/40" aria-hidden />}
-                <Mic className="relative size-5" strokeWidth={1.75} />
-              </button>
-              <button
                 type="submit"
                 disabled={!input.trim()}
                 aria-label="发送"
-                className="grid size-9 shrink-0 place-items-center rounded-full bg-ink text-bg transition-[transform,background-color,color] duration-150 active:scale-[0.94] disabled:bg-fill disabled:text-ink-3 disabled:active:scale-100"
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-ink text-bg transition-[transform,background-color,color] duration-150 active:scale-[0.94] disabled:bg-transparent disabled:text-ink-3 disabled:active:scale-100"
               >
                 <ArrowUp className="size-5" strokeWidth={2.25} />
               </button>

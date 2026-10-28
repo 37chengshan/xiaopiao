@@ -83,6 +83,14 @@
   --color-paper-ink: var(--paper-ink);
   --color-scrim: var(--scrim);
   --color-material: var(--material);
+  --color-blue: var(--blue);
+  --color-blue-soft: var(--blue-soft);
+  --color-green: var(--green);
+  --color-green-soft: var(--green-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
   --font-serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue",
     "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
@@ -102,7 +110,7 @@
 :root {
   color-scheme: light;
   --radius: 0.875rem;
-  --tabbar-h: calc(52px + env(safe-area-inset-bottom, 0px));
+  --tabbar-h: calc(84px + env(safe-area-inset-bottom, 0px));
 
   --bg: oklch(0.982 0.0055 95);          /* #FAF9F5 */
   --bg-grouped: oklch(0.955 0.009 95);   /* #F3F1EA */
@@ -123,6 +131,12 @@
   --paper-ink: oklch(0.27 0.006 70);     /* #2A2724 */
   --scrim: oklch(0.192 0.002 106 / 32%);
   --material: oklch(0.982 0.0055 95 / 78%);
+
+  /* Round 2 (2026-10-28): semantic soft tints for icon tiles, quiet and low-chroma; clay stays the only accent */
+  --blue-soft: oklch(0.94 0.03 245);  --blue: oklch(0.48 0.1 250);
+  --green-soft: oklch(0.945 0.035 150); --green: oklch(0.45 0.09 150);
+  --amber-soft: oklch(0.95 0.05 85);  --amber: oklch(0.5 0.1 70);
+  --violet-soft: oklch(0.945 0.03 300); --violet: oklch(0.47 0.1 300);
 
   /* v1 aliases */
   --canvas: var(--bg);
@@ -187,6 +201,10 @@
   --paper-ink: oklch(0.25 0.006 70);
   --scrim: oklch(0 0 0 / 55%);
   --material: oklch(0.235 0.004 85 / 72%);
+  --blue-soft: oklch(0.3 0.04 250);  --blue: oklch(0.78 0.09 250);
+  --green-soft: oklch(0.29 0.035 150); --green: oklch(0.78 0.09 150);
+  --amber-soft: oklch(0.31 0.04 80);  --amber: oklch(0.82 0.1 85);
+  --violet-soft: oklch(0.3 0.04 300); --violet: oklch(0.78 0.09 300);
   --primary: var(--ink);
   --primary-foreground: var(--bg);
   --destructive-foreground: oklch(1 0 0);
@@ -324,4 +342,30 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Buttons (2026-10-28 rewrite): flat fills, no borders/gradients/inner highlights/shadows. Feel comes from press motion. */
+.press {
+  transition:
+    transform 180ms var(--ease-out),
+    opacity 180ms var(--ease-out);
+}
+.press:active {
+  transform: scale(0.97);
+  opacity: 0.88;
+}
+.press:disabled {
+  transform: none;
+  opacity: 0.4;
+}
+
+/* Glass: only for controls that float over content (tab capsule, return pill). Soft shadow in light, none in dark. */
+.glass-float {
+  background-color: var(--material);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 10%);
+}
+.dark .glass-float {
+  box-shadow: none;
 }

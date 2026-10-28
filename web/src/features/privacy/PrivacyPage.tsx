@@ -1,9 +1,15 @@
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Footnote, Group, Row, SectionHeader, Segmented, Switch, XButton } from "@/components/app/kit";
+import { useNavigate } from "@tanstack/react-router";
+import { Eraser, Info, Palette, PlayCircle, RefreshCw, Shield, Store, Database, PenLine, Vibrate, Volume2 } from "lucide-react";
+import { Group, IconTile, Row, Segmented, Switch, XButton } from "@/components/app/kit";
+import { onboarding } from "@/components/app/onboardingStore";
+import { Sheet } from "@/components/app/Sheet";
+import { t } from "@/lib/strings";
 import { PageHeader } from "@/components/app/PageHeader";
 import { type ThemePref, useTheme } from "@/lib/theme";
 import { useLedger } from "@/services/LedgerProvider";
+import { useReceiptHaptics } from "../receipt/hapticPref";
 import { useReceiptSound } from "../receipt/soundPref";
 
 const THEME_OPTIONS: readonly { value: ThemePref; label: string }[] = [
@@ -31,75 +37,94 @@ export function PrivacyPage() {
   const { mode, txns, reset, forgetMode } = useLedger();
   const { pref, setPref } = useTheme();
   const [soundOn, setSoundOn] = useReceiptSound();
+  const [hapticsOn, setHapticsOn] = useReceiptHaptics();
   const [confirming, setConfirming] = useState(false);
+  const [sheet, setSheet] = useState<"privacy" | null>(null);
+  const navigate = useNavigate();
+  const modeLabel = mode === "demo" ? t("me.mode.demo") : mode === "empty" ? t("me.mode.empty") : t("me.mode.none");
+  const canClear = mode && txns.length > 0;
 
   return (
     <>
-      <PageHeader title="我的" subtitle="你的数据，你说了算" />
+      <PageHeader title={t("me.title")} />
 
-      <SectionHeader>外观</SectionHeader>
-      <Group>
-        <div className="px-4 py-3">
-          <Segmented value={pref} onChange={setPref} options={THEME_OPTIONS} />
-        </div>
-      </Group>
-
-      <SectionHeader>小票</SectionHeader>
-      <Group>
-        <Row title="打印音效" subtitle="出纸的滋滋声和盖章声" trailing={<Switch checked={soundOn} onCheckedChange={setSoundOn} label="打印音效" />} />
-      </Group>
-
-      <SectionHeader>数据</SectionHeader>
-      <Group>
-        <Row title="当前模式" subtitle={`共 ${txns.length} 笔`} trailing={<span className="text-[15px] text-ink-2">{mode === "demo" ? "演示数据（虚构）" : mode === "empty" ? "从零开始" : "未选择"}</span>} />
-        <Row title="重新选择模式" chevron onClick={mode ? forgetMode : undefined} className={mode ? "" : "opacity-40"} />
-        {confirming ? (
-          <div className="px-4 py-3" role="alert">
-            <p className="text-[15px] leading-[22px] text-ink">清空当前的 {txns.length} 笔账目？无法撤销。</p>
-            <div className="mt-3 flex gap-2">
-              <XButton size="sm" className="flex-1" onClick={() => setConfirming(false)}>
-                再想想
-              </XButton>
-              <XButton
-                size="sm"
-                className="flex-1 bg-negative text-on-clay"
-                onClick={() =>
-                  void reset().then(() => {
-                    setConfirming(false);
-                    toast.success("已清空");
-                  })
-                }
-              >
-                清空
-              </XButton>
-            </div>
+      <div className="space-y-3 pb-6">
+        <Group>
+          <Row leading={<IconTile icon={Palette} tone="violet" />} title={t("me.appearance")} />
+          <div className="px-4 pb-3.5">
+            <Segmented value={pref} onChange={setPref} options={THEME_OPTIONS} />
           </div>
-        ) : (
           <Row
-            title={<span className="text-negative">清空所有记录</span>}
-            onClick={mode && txns.length > 0 ? () => setConfirming(true) : undefined}
-            className={mode && txns.length > 0 ? "" : "opacity-40"}
+            leading={<IconTile icon={Volume2} tone="amber" />}
+            title={t("me.sound")}
+            trailing={<Switch checked={soundOn} onCheckedChange={setSoundOn} label={t("me.sound")} />}
           />
-        )}
-      </Group>
-      <Footnote>数据暂存在本页内存中，刷新后会回到初始状态。</Footnote>
+          <Row
+            leading={<IconTile icon={Vibrate} tone="green" />}
+            title={t("me.haptics")}
+            trailing={<Switch checked={hapticsOn} onCheckedChange={setHapticsOn} label={t("me.haptics")} />}
+          />
+        </Group>
 
-      <SectionHeader>隐私说明</SectionHeader>
-      <div className="mx-4 divide-y divide-hairline px-4">
-        {PRIVACY.map((p) => (
-          <section key={p.title} className="py-4 first:pt-1">
-            <h3 className="font-serif text-[18px] font-semibold leading-[26px] tracking-[-0.01em] text-ink">{p.title}</h3>
-            <p className="mt-1 text-[15px] leading-[24px] text-ink-2">{p.body}</p>
-          </section>
-        ))}
+        <Group inset="icon">
+          <Row leading={<IconTile icon={Store} tone="blue" />} title={t("me.merchant")} chevron onClick={() => void navigate({ to: "/merchant" })} />
+          <Row leading={<IconTile icon={PenLine} tone="amber" />} title={t("me.entryDefault")} trailing={<span className="text-[15px] text-ink-3">{t("me.soon")}</span>} />
+          <Row leading={<IconTile icon={PlayCircle} tone="green" />} title={t("me.guide")} chevron onClick={onboarding.replay} />
+        </Group>
+
+        <Group inset="icon">
+          <Row leading={<IconTile icon={Database} tone="neutral" />} title={t("me.mode")} trailing={<span className="text-[15px] text-ink-2">{modeLabel}</span>} />
+          <Row leading={<IconTile icon={RefreshCw} />} title={t("me.switchMode")} chevron onClick={mode ? forgetMode : undefined} className={mode ? "" : "opacity-40"} />
+          {confirming ? (
+            <div className="px-4 py-3" role="alert">
+              <p className="text-[15px] leading-[22px] text-ink">清空当前的 {txns.length} 笔账目？无法撤销。</p>
+              <div className="mt-3 flex gap-2">
+                <XButton size="sm" className="flex-1" onClick={() => setConfirming(false)}>
+                  再想想
+                </XButton>
+                <XButton
+                  size="sm"
+                  className="flex-1 bg-negative text-on-clay"
+                  onClick={() =>
+                    void reset().then(() => {
+                      setConfirming(false);
+                      toast.success("已清空");
+                    })
+                  }
+                >
+                  清空
+                </XButton>
+              </div>
+            </div>
+          ) : (
+            <Row
+              leading={<IconTile icon={Eraser} tone="clay" />}
+              title={<span className="text-negative">{t("me.clear")}</span>}
+              onClick={canClear ? () => setConfirming(true) : undefined}
+              className={canClear ? "" : "opacity-40"}
+            />
+          )}
+        </Group>
+
+        <Group inset="icon">
+          <Row leading={<IconTile icon={Shield} tone="green" />} title={t("me.privacy")} chevron onClick={() => setSheet("privacy")} />
+          <Row leading={<IconTile icon={Info} />} title={t("me.version")} trailing={<span className="text-[15px] text-ink-2">0.1</span>} />
+        </Group>
       </div>
 
-      <SectionHeader>关于</SectionHeader>
-      <Group>
-        <Row title="今日小票" subtitle="不天天记账，只对账" trailing={<span className="text-[15px] text-ink-2">参赛作品</span>} />
-        <Row title="版本" trailing={<span className="text-[15px] text-ink-2">0.1</span>} />
-      </Group>
-      <Footnote className="pb-8">账单 CSV 解析规则参考 deb-sig/double-entry-generator（Apache-2.0）。</Footnote>
+      <Sheet open={sheet === "privacy"} onOpenChange={(o) => !o && setSheet(null)} title={t("me.privacy")} hideTitle={false}>
+        <div className="overflow-y-auto px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          <div className="divide-y divide-hairline">
+            {PRIVACY.map((p) => (
+              <section key={p.title} className="py-4">
+                <h3 className="text-[16px] font-semibold leading-[24px] text-ink">{p.title}</h3>
+                <p className="mt-1 text-[14px] leading-[22px] text-ink-2">{p.body}</p>
+              </section>
+            ))}
+          </div>
+          <p className="pt-2 text-[12px] leading-[18px] text-ink-2">数据暂存在本页内存中，刷新后会回到初始状态。账单 CSV 解析规则参考 deb-sig/double-entry-generator（Apache-2.0）。</p>
+        </div>
+      </Sheet>
     </>
   );
 }
