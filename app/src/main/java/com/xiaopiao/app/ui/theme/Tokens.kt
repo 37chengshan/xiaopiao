@@ -43,11 +43,11 @@ val LightPalette = XpPalette(
     surface2 = Color(0xFFF0EEE6),
     fill = Color(0xFFE9E6DC),
     ink = Color(0xFF141413),
-    ink2 = Color(0xFF6B6A64),
-    ink3 = Color(0xFFA3A199),
+    ink2 = Color(0xFF63625C),
+    ink3 = Color(0xFF8A8880),
     hairline = Color(0x17141413),
-    accent = Color(0xFFC96442),
-    accentSoft = Color(0xFFF5E6DE),
+    accent = Color(0xFFB04A2E),
+    accentSoft = Color(0xFFF7EAE3),
     onAccent = Color(0xFFFFFFFF),
     positive = Color(0xFF3F7D4E),
     negative = Color(0xFFB3412F),
@@ -75,8 +75,8 @@ val DarkPalette = XpPalette(
     ink3 = Color(0xFF7C7A72),
     hairline = Color(0x1AF5F4EE),
     accent = Color(0xFFD97757),
-    accentSoft = Color(0xFF3B2A23),
-    onAccent = Color(0xFFFFFFFF),
+    accentSoft = Color(0xFF33241E),
+    onAccent = Color(0xFF1F1E1C),
     positive = Color(0xFF7DB38A),
     negative = Color(0xFFE0705C),
     warning = Color(0xFFE0A84E),
@@ -113,7 +113,7 @@ object XpColors {
     val InkSecondary get() = p.ink2
     val InkTertiary get() = p.ink3
     val Hairline get() = p.hairline
-    /** Clay. Scarce: primary action, selected tab, stamp, the one highlighted datum. */
+    /** Cinnabar (印泥朱砂, same family as the stamp). Scarce: primary action, selected tab, the one highlighted datum. */
     val Accent get() = p.accent
     val AccentSoft get() = p.accentSoft
     val OnAccent get() = p.onAccent
