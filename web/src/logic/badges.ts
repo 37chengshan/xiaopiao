@@ -89,14 +89,18 @@ export const BADGE_RULES: readonly Rule[] = [
     test: (c, out) => {
       const before = c.all.filter((t) => t.category === "SUBSCRIPTION" && t.direction === "OUT" && t.occurredAt < c.start && t.occurredAt >= c.start - 45 * DAY_MS);
       const during = out.filter((t) => t.category === "SUBSCRIPTION");
-      return before.length > 0 && during.length === 0 && out.length > 0 ? "上个月还在扣的订阅，这周安静了" : null;
+      const complete = startOfDay(c.now) >= c.end - DAY_MS;
+      return complete && before.length > 0 && during.length === 0 && out.length > 0 ? "上个月还在扣的订阅，这周安静了" : null;
     },
   },
   {
     code: "frugal-star", title: "精打细算星", emoji: "⭐", scopes: ["week"],
     test: (c, out) => {
       const total = out.reduce((s, t) => s + t.amountCents, 0);
-      const prev = c.all.filter((t) => t.direction === "OUT" && t.occurredAt >= c.start - 7 * DAY_MS && t.occurredAt < c.start).reduce((s, t) => s + t.amountCents, 0);
+      // for a week still in progress, compare against the same number of elapsed days last week
+      const elapsed = Math.min(7, Math.floor((startOfDay(c.now) - c.start) / DAY_MS) + 1);
+      const prevStart = c.start - 7 * DAY_MS;
+      const prev = c.all.filter((t) => t.direction === "OUT" && t.occurredAt >= prevStart && t.occurredAt < prevStart + elapsed * DAY_MS).reduce((s, t) => s + t.amountCents, 0);
       return prev > 0 && total > 0 && total <= prev * 0.85 ? `比上周少花 ¥${yuan(prev - total)}` : null;
     },
   },

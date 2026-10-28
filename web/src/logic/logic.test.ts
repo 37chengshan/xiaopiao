@@ -202,3 +202,22 @@ describe("RegretSimulator", () => {
     expect(simulateRegret({ txns: [], now: NOW, target: { kind: "category", category: "DRINK" }, reductionPct: 50, windowMonths: 3 }).enoughData).toBe(false);
   });
 });
+
+describe("regret window and partial weeks", () => {
+  it("paces from the last 28 days so old sparse history cannot dilute it", () => {
+    const old = txn({ amountCents: 600, merchant: "iCloud", category: "SUBSCRIPTION", occurredAt: at(addDays(TODAY, -70), 9) });
+    const recent = Array.from({ length: 28 }, (_, i) => txn({ amountCents: 1000, merchant: "喜茶", category: "DRINK", occurredAt: at(addDays(TODAY, -i), 15) }));
+    const r = simulateRegret({ txns: [old, ...recent], now: NOW, target: { kind: "category", category: "DRINK" }, reductionPct: 100, windowMonths: 1 });
+    expect(r.observedDays).toBe(28);
+    expect(r.monthlyCents).toBe(Math.round((28000 / 28) * 30));
+  });
+  it("does not award 订阅清道夫 or 精打细算星 off an unfinished week", () => {
+    const start = weekStartOf(NOW); // Tuesday now => week in progress
+    const prev = Array.from({ length: 7 }, (_, i) => txn({ amountCents: 5000, merchant: "午饭", category: "MEAL", occurredAt: at(addDays(start, -7 + i), 12) }));
+    const sub = txn({ amountCents: 1500, merchant: "网易云音乐", category: "SUBSCRIPTION", occurredAt: at(addDays(start, -20), 9) });
+    const cur = [txn({ amountCents: 5000, merchant: "午饭", category: "MEAL", occurredAt: at(start, 12) }), txn({ amountCents: 5000, merchant: "午饭", category: "MEAL", occurredAt: at(addDays(start, 1), 12) })];
+    const titles = computeBadges({ all: [...prev, sub, ...cur], start, end: addDays(start, 7), now: NOW, scope: "week" }).map((b) => b.title);
+    expect(titles).not.toContain("订阅清道夫");
+    expect(titles).not.toContain("精打细算星");
+  });
+});

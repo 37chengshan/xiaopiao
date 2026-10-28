@@ -88,9 +88,11 @@ export function simulateRegret(input: RegretInput): RegretResult {
   if (outs.length === 0) {
     return { observedDays: 0, observedCents: 0, monthlyCents: 0, projectedCents: 0, savedCents: 0, equivalents: [], enoughData: false };
   }
+  // pace comes from the most recent 28 days (or everything we have, if shorter), so old sparse history can't dilute it
   const first = Math.min(...outs.map((t) => t.occurredAt));
-  const observedDays = Math.max(7, Math.round((startOfDay(now) - startOfDay(first)) / DAY_MS) + 1);
-  const observedCents = outs.filter((t) => matchesTarget(t, target)).reduce((s, t) => s + t.amountCents, 0);
+  const windowStart = Math.max(startOfDay(first), startOfDay(now) - 27 * DAY_MS);
+  const observedDays = Math.max(7, Math.round((startOfDay(now) - windowStart) / DAY_MS) + 1);
+  const observedCents = outs.filter((t) => t.occurredAt >= windowStart && matchesTarget(t, target)).reduce((s, t) => s + t.amountCents, 0);
   const monthlyCents = Math.round((observedCents / observedDays) * 30);
   const projectedCents = monthlyCents * windowMonths;
   const pct = Math.min(100, Math.max(0, reductionPct));

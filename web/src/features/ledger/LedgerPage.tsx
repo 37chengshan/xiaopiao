@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 import { FileUp, Plus, Trash2 } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { toast } from "sonner";
@@ -30,14 +30,17 @@ function groupByDay(txns: readonly Txn[]): DayGroup[] {
 
 function Row({ txn, onEdit, onDelete }: { txn: Txn; onEdit: () => void; onDelete: () => void }) {
   const dragged = useRef(false);
+  const x = useMotionValue(0);
+  const reveal = useTransform(x, [-24, 0], [1, 0]);
   const cat = CATEGORIES[txn.category];
   return (
     <li className="group relative overflow-hidden rounded-2xl">
-      <div className="absolute inset-y-0 right-0 flex w-24 items-center justify-end bg-stamp pr-6 text-white" aria-hidden>
+      <motion.div style={{ opacity: reveal }} className="absolute inset-y-0 right-0 flex w-24 items-center justify-end bg-stamp pr-6 text-white" aria-hidden>
         <Trash2 className="size-5" />
-      </div>
+      </motion.div>
       <motion.div
         drag="x"
+        style={{ x }}
         dragConstraints={{ left: -96, right: 0 }}
         dragElastic={0.1}
         onDragStart={() => (dragged.current = true)}

@@ -148,7 +148,7 @@ export function Receipt({ receipt, playKey = 0 }: { receipt: DailyReceipt; playK
           <p className="mt-3 text-center text-[11px] tracking-widest text-ink-2">THANK YOU · 明天见</p>
 
           {/* stamp */}
-          <div className="pointer-events-none absolute bottom-16 right-3" aria-hidden>
+          <div className="pointer-events-none absolute bottom-7 right-3" aria-hidden>
             <motion.div
               initial={reduce ? false : { scale: 2.6, rotate: -8, opacity: 0 }}
               animate={{ scale: 1, rotate: -8, opacity: 0.92 }}

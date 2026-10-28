@@ -42,7 +42,8 @@ function Medal({ badge, index }: { badge: Badge; index: number }) {
 export function WeeklyAwards({ txns, now }: { txns: readonly Txn[]; now: number }) {
   const reduce = useReducedMotion();
   const thisWeek = weekStartOf(now);
-  const [week, setWeek] = useState(thisWeek);
+  // early in the week there is little to celebrate yet, so open on last week
+  const [week, setWeek] = useState(now - thisWeek < 3 * 86400000 ? addDays(thisWeek, -7) : thisWeek);
   const report = useMemo(() => buildWeeklyReport(txns, week, now), [txns, week, now]);
   const max = Math.max(...report.byDay, 1);
   const todayIdx = week === thisWeek ? Math.floor((now - thisWeek) / 86400000) : -1;

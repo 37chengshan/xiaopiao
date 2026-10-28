@@ -111,7 +111,7 @@ export function parseBillCsv(content: string): CsvParseResult {
     }
     const dir = cells[iDir];
     if (dir !== "支出" && dir !== "收入") {
-      fail(line, `不计收支（${dir || "空"}）`);
+      fail(line, `不是收入或支出，已跳过（${dir || "空"}）`);
       continue;
     }
     const status = iStatus >= 0 ? cells[iStatus] : "";

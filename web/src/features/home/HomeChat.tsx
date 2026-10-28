@@ -85,9 +85,22 @@ export function HomeChat() {
     setMsgs([{ id: nid(), role: "ai", text: o.text, chips: o.chips }]);
   }, [isLoading, isError, msgs.length, mode, txns, now]);
 
+  // keep the newest content in view, including cards that grow after they mount (receipt, typing)
+  const stick = useRef(true);
+  const contentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs.length, thinking]);
+    stick.current = true;
+  }, [msgs.length]);
+  useEffect(() => {
+    const el = contentRef.current;
+    const box = scrollRef.current;
+    if (!el || !box) return;
+    const ro = new ResizeObserver(() => {
+      if (stick.current) box.scrollTo({ top: box.scrollHeight });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isLoading, isError]);
 
   const patch = useCallback((id: string, fn: (m: Msg) => Msg) => setMsgs((ms) => ms.map((m) => (m.id === id ? fn(m) : m))), []);
 
@@ -226,7 +239,16 @@ export function HomeChat() {
         <ErrorState onRetry={refetch} />
       ) : (
         <>
-          <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-3 pt-2" aria-live="polite">
+          <div
+            ref={scrollRef}
+            onScroll={(e) => {
+              const b = e.currentTarget;
+              stick.current = b.scrollHeight - b.scrollTop - b.clientHeight < 80;
+            }}
+            className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-2"
+            aria-live="polite"
+          >
+            <div ref={contentRef} className="space-y-3">
             {msgs.map((m) =>
               m.role === "user" ? (
                 <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
@@ -250,6 +272,7 @@ export function HomeChat() {
                 </div>
               </div>
             )}
+            </div>
           </div>
 
           {lastIsAi && lastChips && !thinking && (
