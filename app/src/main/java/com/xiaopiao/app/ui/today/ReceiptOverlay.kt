@@ -64,6 +64,7 @@ fun ReceiptOverlay(
     timeline: PrintTimeline,
     stampText: String,
     onTear: (velocityPx: Float) -> Unit,
+    onTorn: () -> Unit,
     onSkip: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
@@ -83,6 +84,7 @@ fun ReceiptOverlay(
     val thresholdPx = with(density) { TearThreshold.toPx() }
     val screenPx = with(density) { screenH.toPx() }
     val latestTear by rememberUpdatedState(onTear)
+    val latestTorn by rememberUpdatedState(onTorn)
 
     Dialog(
         onDismissRequest = onClose,
@@ -111,7 +113,7 @@ fun ReceiptOverlay(
                         change.consume()
                     }
                     val v = tracker.calculateVelocity().y
-                    if (finished) session.dragEnd(v, thresholdPx, screenPx) { latestTear(v) }
+                    if (finished) session.dragEnd(v, thresholdPx, screenPx) { latestTorn() }
                     else session.dragEnd(0f, Float.MAX_VALUE, screenPx) {}
                 }
             },

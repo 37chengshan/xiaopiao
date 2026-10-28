@@ -134,17 +134,19 @@ fun TodayScreen(container: AppContainer) {
         pendingPrint = true
     }
 
-    fun tear(velocityPx: Float) {
+    fun openShare() {
         val r = receipt ?: return
         val isToday = selectedDay == today
-        val content = ShareContent(
+        share = ShareContent(
             full = ReceiptLayout.build(r, isToday, demo, expanded = true, meta = meta),
             brief = ReceiptLayout.build(r, isToday, demo, brief = true, meta = meta),
             stampText = ReceiptLayout.stampText(r),
-            fileKey = ReceiptLayout.isoDay(selectedDay),
+            fileKey = ReceiptLayout.isoDay(selectedDay).substringBefore(' '),
         )
-        session.tear(velocityPx, with(density) { 900.dp.toPx() }, { share = content }, reduced)
     }
+
+    fun tearByButton(velocityPx: Float) =
+        session.tear(velocityPx, with(density) { 900.dp.toPx() }, ::openShare, reduced)
 
     Box(Modifier.fillMaxSize()) {
         Column(
@@ -187,13 +189,13 @@ fun TodayScreen(container: AppContainer) {
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter))
         ReceiptOverlay(
             session, lines, timeline, receipt?.let { ReceiptLayout.stampText(it) }.orEmpty(),
-            onTear = ::tear, onSkip = { session.skip(latestTimeline) }, onClose = session::close,
+            onTear = ::tearByButton, onTorn = ::openShare, onSkip = { session.skip(latestTimeline) }, onClose = session::close,
         )
     }
     share?.let { ReceiptShareSheet(it) { share = null } }
 }
 
-/** Quiet entry point on Today: one calm card, one primary action. The print itself happens in [ReceiptOverlay]. */
+/** Quiet entry point on Today: no card, one primary action. The print itself happens in [ReceiptOverlay]. */
 @Composable
 private fun PrintEntry(
     isToday: Boolean,
@@ -203,35 +205,24 @@ private fun PrintEntry(
     onDemo: () -> Unit,
     onExitDemo: () -> Unit,
 ) {
-    XpCard(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m)) {
-        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                Text(if (isToday) "今日小票" else "这天的小票", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                if (demo) Pill("演示数据")
-            }
-            Text("点一下，从屏幕顶部印出来。", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
-            XpButton(if (isToday) "打印今日小票" else "打印这天的小票", onPrint, Modifier.fillMaxWidth(), leading = "🖨️")
-            if (demo) XpButton("退出演示", onExitDemo, Modifier.fillMaxWidth(), style = XpButtonStyle.Plain)
-            else if (canOfferDemo) XpButton("看看示例小票", onDemo, Modifier.fillMaxWidth(), style = XpButtonStyle.Secondary)
-        }
+    Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.m), verticalArrangement = Arrangement.spacedBy(XpSpace.xs)) {
+        XpButton(if (isToday) "打印今日小票" else "打印这天的小票", onPrint, Modifier.fillMaxWidth())
+        if (demo) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            Pill("演示数据")
+            XpButton("退出演示", onExitDemo, style = XpButtonStyle.Plain)
+        } else if (canOfferDemo) XpButton("看看示例小票", onDemo, Modifier.fillMaxWidth(), style = XpButtonStyle.Plain)
     }
 }
 
-/** "AI speaks first": avatar + a chat bubble whose text types in (instantly when motion is reduced). */
+/** "AI speaks first": one quiet line that types in (instantly when motion is reduced). */
 @Composable
 private fun AiBubble(text: String, reduced: Boolean) {
     var shown by remember(text) { mutableIntStateOf(if (reduced) text.length else 0) }
     LaunchedEffect(text) {
         for (i in shown..text.length) { shown = i; delay(26) }
     }
-    Row(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s), verticalAlignment = Alignment.Top) {
-        Box(Modifier.size(36.dp).clip(CircleShape).background(XpColors.AccentSoft), contentAlignment = Alignment.Center) { Text("🧾") }
-        Box(
-            Modifier.padding(start = XpSpace.s).clip(RoundedCornerShape(topStart = 4.dp, topEnd = 18.dp, bottomEnd = 18.dp, bottomStart = 18.dp))
-                .background(XpColors.Card).padding(horizontal = XpSpace.m + 2.dp, vertical = XpSpace.m - 2.dp),
-        ) {
-            Text(text, style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink.copy(alpha = 0f))
-            Text(text.take(shown), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
-        }
+    Box(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s)) {
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink.copy(alpha = 0f))
+        Text(text.take(shown), style = MaterialTheme.typography.bodyLarge, color = XpColors.InkSecondary)
     }
 }
