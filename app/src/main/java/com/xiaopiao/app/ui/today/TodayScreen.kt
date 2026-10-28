@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,7 +25,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -50,7 +53,13 @@ import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.insights.DailyReceiptBuilder
+import androidx.compose.ui.graphics.graphicsLayer
 import com.xiaopiao.app.ui.components.LargeTitle
+import com.xiaopiao.app.ui.components.Pill
+import com.xiaopiao.app.ui.components.XpButton
+import com.xiaopiao.app.ui.components.XpButtonStyle
+import com.xiaopiao.app.ui.components.XpCard
+import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.components.SectionHeader
 import com.xiaopiao.app.ui.components.ShimmerBlock
 import com.xiaopiao.app.ui.components.UndoToastHost
@@ -86,25 +95,34 @@ fun TodayScreen(container: AppContainer) {
     }
     val data = dayData?.takeIf { it.day == selectedDay }
 
+    val printedAt = remember(selectedDay, demo) { System.currentTimeMillis() }
     val receipt = remember(data, all) { data?.let { DailyReceiptBuilder.build(it.day, it.items, all.orEmpty()) } }
-    val lines = remember(receipt, expanded, demo, selectedDay) {
-        receipt?.let { ReceiptLayout.build(it, selectedDay == today, demo, expanded) }.orEmpty()
+    val meta = remember(all, selectedDay, printedAt) {
+        val prev = all.orEmpty().filter { it.direction == Direction.OUT && it.occurredAt in (selectedDay - DAY_MS) until selectedDay }
+        ReceiptMeta(printedAt, if (prev.isEmpty()) null else prev.sumOf { it.amountCents })
+    }
+    val lines = remember(receipt, demo, selectedDay, meta) {
+        receipt?.let { ReceiptLayout.build(it, selectedDay == today, demo, meta = meta) }.orEmpty()
     }
     val reduced = rememberReducedMotion()
     val timeline = remember(lines, reduced) { PrintTimeline.build(lines, reduced) }
 
     val scope = rememberCoroutineScope()
     val haptics = rememberXpHaptics()
-    val session = remember { PrintSession(scope, haptics) }
-    val layer = rememberGraphicsLayer()
-    val toast = rememberUndoToastState()
     val context = LocalContext.current
+    val sound = remember { ReceiptSound(context) }
+    DisposableEffect(sound) { onDispose { sound.release() } }
+    val soundPrefs = remember { ReceiptSoundPrefs(context) }
+    val soundOn by soundPrefs.observeEnabled().collectAsState(initial = true)
+    SideEffect { sound.enabled = soundOn }
+    val session = remember { PrintSession(scope, haptics, sound) }
+    val toast = rememberUndoToastState()
+    var share by remember { mutableStateOf<ShareContent?>(null) }
     val scroll = rememberScrollState()
     val density = LocalDensity.current
 
     val latestTimeline by rememberUpdatedState(timeline)
-    val latestLines by rememberUpdatedState(lines)
-    fun startPrint() = session.start(latestTimeline, reduced)
+    fun startPrint() = session.open(latestTimeline, reduced)
 
     var pendingPrint by remember { mutableStateOf(false) }
     LaunchedEffect(pendingPrint, data) {
@@ -112,26 +130,28 @@ fun TodayScreen(container: AppContainer) {
     }
 
     fun selectDay(day: Long) {
-        expanded = false
         selectedDay = day
         pendingPrint = true
-        scope.launch { scroll.animateScrollTo(0) }
     }
 
-    fun tearAndShare() {
-        val plain = ReceiptLayout.toPlainText(latestLines)
-        session.tear(
-            flyPx = with(density) { 900.dp.toPx() },
-            capture = { layer.toImageBitmap() },
-            onTorn = { bmp ->
-                scope.launch { ReceiptShare.share(context, bmp, plain, "$selectedDay") }
-                toast.show("小票已撕下 ✂️ 记得分享给朋友", "再印一张") { startPrint() }
-            },
+    fun tear(velocityPx: Float) {
+        val r = receipt ?: return
+        val isToday = selectedDay == today
+        val content = ShareContent(
+            full = ReceiptLayout.build(r, isToday, demo, expanded = true, meta = meta),
+            brief = ReceiptLayout.build(r, isToday, demo, brief = true, meta = meta),
+            stampText = ReceiptLayout.stampText(r),
+            fileKey = ReceiptLayout.isoDay(selectedDay),
         )
+        session.tear(velocityPx, with(density) { 900.dp.toPx() }, { share = content }, reduced)
     }
 
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
+        Column(
+            Modifier.fillMaxSize()
+                .graphicsLayer { val k = 1f - 0.03f * session.present.value; scaleX = k; scaleY = k }
+                .verticalScroll(scroll),
+        ) {
             val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
             val todayItems = all.orEmpty().filter { it.occurredAt in today until today + DAY_MS }
             val greeting = TodayGreeting.build(
@@ -142,27 +162,18 @@ fun TodayScreen(container: AppContainer) {
             AiBubble(if (all == null) "我在热机，稍等一下下…" else greeting.line, reduced)
 
             if (all == null || receipt == null) {
-                StageSkeleton()
+                ShimmerBlock(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m).fillMaxWidth().height(132.dp), RoundedCornerShape(XpRadius.m))
             } else {
-                ReceiptStage(
-                    session, lines, timeline, ReceiptLayout.stampText(receipt), layer, expanded,
-                    onToggleMore = { expanded = !expanded },
-                    onPrint = ::startPrint,
-                    onTear = ::tearAndShare,
-                    modifier = Modifier.padding(top = XpSpace.m),
-                )
-                StageControls(
-                    phase = session.phase,
+                PrintEntry(
                     isToday = selectedDay == today,
                     demo = demo,
                     canOfferDemo = realAll.orEmpty().isEmpty(),
                     onPrint = ::startPrint,
-                    onShare = ::tearAndShare,
                     onDemo = {
-                        demo = true; expanded = false; session.reset()
-                        toast.show("已切换到演示数据", "退出") { demo = false; session.reset() }
+                        demo = true
+                        toast.show("已切换到演示数据", "退出") { demo = false }
                     },
-                    onExitDemo = { demo = false; session.reset() },
+                    onExitDemo = { demo = false },
                 )
                 DayBreakdown(
                     if (selectedDay == today) "今日明细" else "${ReceiptLayout.dayLabel(selectedDay).substringBefore(' ')}明细",
@@ -174,6 +185,35 @@ fun TodayScreen(container: AppContainer) {
             Spacer(Modifier.height(XpSpace.xxl))
         }
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter))
+        ReceiptOverlay(
+            session, lines, timeline, receipt?.let { ReceiptLayout.stampText(it) }.orEmpty(),
+            onTear = ::tear, onSkip = { session.skip(latestTimeline) }, onClose = session::close,
+        )
+    }
+    share?.let { ReceiptShareSheet(it) { share = null } }
+}
+
+/** Quiet entry point on Today: one calm card, one primary action. The print itself happens in [ReceiptOverlay]. */
+@Composable
+private fun PrintEntry(
+    isToday: Boolean,
+    demo: Boolean,
+    canOfferDemo: Boolean,
+    onPrint: () -> Unit,
+    onDemo: () -> Unit,
+    onExitDemo: () -> Unit,
+) {
+    XpCard(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m)) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
+                Text(if (isToday) "今日小票" else "这天的小票", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+                if (demo) Pill("演示数据")
+            }
+            Text("点一下，从屏幕顶部印出来。", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
+            XpButton(if (isToday) "打印今日小票" else "打印这天的小票", onPrint, Modifier.fillMaxWidth(), leading = "🖨️")
+            if (demo) XpButton("退出演示", onExitDemo, Modifier.fillMaxWidth(), style = XpButtonStyle.Plain)
+            else if (canOfferDemo) XpButton("看看示例小票", onDemo, Modifier.fillMaxWidth(), style = XpButtonStyle.Secondary)
+        }
     }
 }
 
@@ -193,14 +233,5 @@ private fun AiBubble(text: String, reduced: Boolean) {
             Text(text, style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink.copy(alpha = 0f))
             Text(text.take(shown), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
         }
-    }
-}
-
-/** Loading state for the stage: shimmering printer body and paper. */
-@Composable
-private fun StageSkeleton() {
-    Column(Modifier.fillMaxWidth().padding(top = XpSpace.m), horizontalAlignment = Alignment.CenterHorizontally) {
-        ShimmerBlock(Modifier.width(PaperWidth + 44.dp).height(PrinterHeight), RoundedCornerShape(22.dp))
-        ShimmerBlock(Modifier.width(PaperWidth).height(220.dp).padding(top = 0.dp), RoundedCornerShape(4.dp))
     }
 }
