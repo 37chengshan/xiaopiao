@@ -11,7 +11,7 @@
 - React 19 + Vite + TanStack Router（文件路由，`src/routeTree.gen.ts` 自动生成，冲突时 `npm run check` 重新生成）+ Tailwind v4 + shadcn（`src/components/ui/*` 已全套）+ framer-motion + recharts + cmdk + sonner + vaul + lucide-react。**不新增依赖**；确需新增先写进 commit message 说明理由。
 - 金额一律整数分（`src/domain/types.ts` 的 `Cents`），展示走现有格式化函数；数字 `font-variant-numeric: tabular-nums`。
 - 文案全部走 `src/lib/strings.ts` 的 `t(key)`，zh / en 都写，英文原生写、不机翻。界面不出现「演示 / 示例 / demo」。
-- 数据：当前用 `src/services/` 的内存账本（`createMemoryLedger`）。**不要**用 localStorage 冒充后端（偏好设置除外）。云端（账号、同步、访客账号）是 W4，需 tt 批准，本期不做，入口按钮做成占位（点击弹一个「即将开放」的轻提示，不伪造登录）。
+- 数据：账本走 `useLedger()`（`src/services/LedgerProvider.tsx`），背后是 QMuse 云服务（W4 已接，见 `docs/WEB-DESIGN.md`「W4 实现说明」）；不要直接 import `src/services/appwrite.ts`，只用领域 Service。**不要**用 localStorage 冒充后端（偏好设置除外）。登录走 QMuse 账号，入口按钮仍做成占位（点击弹「即将开放」轻提示，不伪造登录）。全局启动逻辑在 `src/routes/_app.tsx`，不要放进 `main.tsx` / `__root.tsx`。
 - 所有动效只动 `transform` / `opacity` / `filter` / `clip-path`；尊重 `prefers-reduced-motion`（降级规则写在各节）；触屏（`(pointer: coarse)`）关闭鼠标特效。
 - 提交：只 `git add <具体路径>`；不 push、不合并 main。
 
