@@ -75,15 +75,11 @@ fun InsightsPage(
     onBack: () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val scroll = rememberScrollState()
-    NavScaffold(title, rememberNavScroll(scroll), onBack = onBack, backLabel = "洞察", demo = demo) { top ->
-        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl)) {
-            LargeTitle(title, subtitle)
-            Column(
-                Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s),
-                verticalArrangement = Arrangement.spacedBy(XpSpace.m),
-            ) { content() }
-        }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 120.dp)) {
+        Column(
+            Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s),
+            verticalArrangement = Arrangement.spacedBy(XpSpace.m),
+        ) { content() }
     }
 }
 

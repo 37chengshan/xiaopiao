@@ -90,7 +90,7 @@ fun NavScaffold(
         Box(
             Modifier.fillMaxWidth()
                 .drawBehind {
-                    val p = scroll.progress(density)
+                    val p = 1f
                     drawRect(XpColors.Material.copy(alpha = 0.94f * p))
                     drawRect(
                         XpColors.Hairline.copy(alpha = XpColors.Hairline.alpha * p),
@@ -104,7 +104,7 @@ fun NavScaffold(
         ) {
             Text(
                 title, Modifier.align(Alignment.Center).padding(horizontal = 96.dp)
-                    .graphicsLayer { alpha = scroll.progress(density) },
+                    .graphicsLayer { alpha = 1f },
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = XpColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )

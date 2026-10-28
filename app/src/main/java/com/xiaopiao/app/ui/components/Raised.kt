@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.ui.theme.XpColors
@@ -25,16 +26,16 @@ fun Modifier.xpRaised(
     elevation: Dp = 6.dp,
 ): Modifier {
     val dark = XpColors.isDark
-    val top = lerp(base, Color.White, if (dark) 0.10f else 0.14f)
-    val bottom = lerp(base, Color.Black, if (dark) 0.10f else 0.06f)
-    val highlight = Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) 0.28f else 0.45f), Color.Transparent))
+    val top = lerp(base, Color.White, 0.07f)
+    val bottom = lerp(base, Color.Black, 0.07f)
+    val highlight = Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) 0.22f else 0.35f), Color.Transparent))
     val lift = if (pressed) elevation / 4 else elevation
     return this
         .then(
-            if (dark) Modifier.border(BorderStroke(0.5.dp, Color.White.copy(alpha = if (pressed) 0.10f else 0.18f)), shape)
+            if (dark) Modifier.border(BorderStroke(0.5.dp, base.copy(alpha = 0.35f).let { c -> if (base.luminance() < 0.2f) Color.White.copy(alpha = if (pressed) 0.10f else 0.18f) else c }), shape)
             else Modifier.shadow(
                 lift, shape, clip = false,
-                ambientColor = Color(0x33141413), spotColor = Color(0x59141413),
+                ambientColor = base.copy(alpha = 0.28f), spotColor = base.copy(alpha = 0.28f),
             ),
         )
         .background(Brush.verticalGradient(listOf(top, bottom)), shape)

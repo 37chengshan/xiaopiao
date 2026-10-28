@@ -24,7 +24,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.data.CaptureLogEntry
 import com.xiaopiao.app.importer.ImportSummary
-import com.xiaopiao.app.ui.components.LargeTitle
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.theme.ThemeMode
@@ -33,13 +32,14 @@ import com.xiaopiao.app.ui.today.ReceiptSoundPrefs
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(container: AppContainer) {
+fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var listenerOn by remember { mutableStateOf(NotificationAccess.listenerEnabled(context)) }
     var postGranted by remember { mutableStateOf(NotificationAccess.postNotificationsGranted(context)) }
     var importing by remember { mutableStateOf(false) }
     var summary by remember { mutableStateOf<ImportSummary?>(null) }
+    var privacyOpen by remember { mutableStateOf(false) }
     var demoMessage by remember { mutableStateOf<String?>(null) }
     val logFlow = remember(container) { container.captureLog.observeRecent() }
     val log: List<CaptureLogEntry> by logFlow.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -66,9 +66,9 @@ fun SettingsScreen(container: AppContainer) {
     }
 
     val scroll = rememberScrollState()
+    if (privacyOpen) PrivacySheet { privacyOpen = false }
     NavScaffold("我的", rememberNavScroll(scroll)) { top ->
-        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 32.dp)) {
-            LargeTitle("我的")
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             AppearanceSection(mode) { scope.launch { themePrefs.setMode(it) } }
             ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }
             CaptureSection(
@@ -96,8 +96,8 @@ fun SettingsScreen(container: AppContainer) {
                     }
                 },
             )
-            PrivacySection()
-            AboutSection()
+            MerchantSwitchSection(onOpenMerchant)
+            AboutSection { privacyOpen = true }
         }
     }
 }

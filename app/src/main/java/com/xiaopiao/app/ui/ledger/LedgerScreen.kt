@@ -1,5 +1,8 @@
 package com.xiaopiao.app.ui.ledger
 
+import com.xiaopiao.app.ui.components.XpCard
+import com.xiaopiao.app.ui.components.MoneyText
+import com.xiaopiao.app.ui.components.MiniBars
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -41,7 +44,6 @@ import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.yuan
-import com.xiaopiao.app.ui.components.LargeTitle
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.ShimmerBlock
 import com.xiaopiao.app.ui.components.UndoToastHost
@@ -77,13 +79,12 @@ fun LedgerScreen(container: AppContainer) {
             when (state) {
                 0 -> LedgerLoading(top)
                 1 -> Column(Modifier.fillMaxSize().padding(top = top)) {
-                    LargeTitle("账本")
                     LedgerEmptyState(onAdd = { openAdd(null) })
                 }
                 else -> {
                     val groups = remember(txns, now / 60_000) { LedgerGrouping.group(txns.orEmpty(), now) }
-                    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = top, bottom = 104.dp)) {
-                        item(key = "title") { LargeTitle("账本", txns?.let { monthSummary(it, now) }) }
+                    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = top, bottom = 24.dp)) {
+                        item(key = "hero") { LedgerHero(txns.orEmpty(), now) }
                         groups.forEach { group ->
                             item(key = "day-${group.dayStart}") {
                                 DaySection(
@@ -138,16 +139,30 @@ private fun AddFab(modifier: Modifier, onClick: () -> Unit) {
 @Composable
 private fun LedgerLoading(top: androidx.compose.ui.unit.Dp) {
     Column(Modifier.fillMaxSize().padding(top = top)) {
-        LargeTitle("账本")
         Column(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
             repeat(5) { ShimmerBlock(Modifier.fillMaxWidth().height(52.dp), RoundedCornerShape(12.dp)) }
         }
     }
 }
 
-private fun monthSummary(txns: List<Txn>, now: Long): String {
+/** Hero: this month's spend as one big number, with a 14-day mini chart (last bar = today, in clay). */
+@Composable
+private fun LedgerHero(txns: List<Txn>, now: Long) {
     val cal = Calendar.getInstance().apply { timeInMillis = now; set(Calendar.DAY_OF_MONTH, 1) }
     val monthStart = com.xiaopiao.app.domain.startOfDay(cal.timeInMillis)
-    val out = txns.filter { it.direction == Direction.OUT && it.occurredAt >= monthStart }.sumOf { it.amountCents }
-    return "本月支出 ¥${out.yuan()}"
+    val out = txns.filter { it.direction == Direction.OUT }
+    val monthTotal = out.filter { it.occurredAt >= monthStart }.sumOf { it.amountCents }
+    val today = com.xiaopiao.app.domain.startOfDay(now)
+    val day = 24L * 60 * 60 * 1000
+    val bars = (13 downTo 0).map { d ->
+        val from = today - d * day
+        out.filter { it.occurredAt >= from && it.occurredAt < from + day }.sumOf { it.amountCents }.toFloat()
+    }
+    Column(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s)) {
+        XpCard {
+            Text("本月支出", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+            MoneyText(monthTotal, style = MaterialTheme.typography.displayMedium)
+            MiniBars(bars, Modifier.padding(top = XpSpace.m))
+        }
+    }
 }

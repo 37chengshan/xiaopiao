@@ -186,8 +186,10 @@ fun IconTile(
     size: Dp = 30.dp,
     selected: Boolean = false,
     tint: Color = XpColors.Ink,
+    /** Optional semantic soft background (e.g. [XpColors.InfoSoft]); pair with a matching [tint]. */
+    background: Color? = null,
 ) {
-    val bg by animateColorAsState(if (selected) XpColors.AccentSoft else XpColors.Fill, tween(180, easing = XpEase.out), label = "tileBg")
+    val bg by animateColorAsState(background ?: if (selected) XpColors.AccentSoft else XpColors.Fill, tween(180, easing = XpEase.out), label = "tileBg")
     val fg by animateColorAsState(if (selected) XpColors.Accent else tint, tween(180, easing = XpEase.out), label = "tileFg")
     Box(
         modifier.size(size).clip(RoundedCornerShape(size * 0.28f)).background(bg),

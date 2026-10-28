@@ -1,11 +1,18 @@
 package com.xiaopiao.app.ui.settings
 
+import com.xiaopiao.app.ui.theme.XpColors
+import com.xiaopiao.app.ui.components.XpSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.VolumeUp
@@ -39,8 +46,8 @@ fun ReceiptSection(soundOn: Boolean, onSound: (Boolean) -> Unit) {
     GroupedSection(header = "小票", dividerInset = IconInset) {
         item {
             GroupedRow(
-                title = "打印音效", subtitle = "打印和盖章时的小声音，会跟随系统静音",
-                leading = { IconTile(Icons.Outlined.VolumeUp) },
+                title = "打印音效",
+                leading = { IconTile(Icons.Outlined.VolumeUp, tint = XpColors.Info, background = XpColors.InfoSoft) },
                 trailing = { XpSwitch(soundOn, onSound) },
                 onClick = { onSound(!soundOn) },
             )
@@ -55,25 +62,21 @@ fun CaptureSection(
     onOpenListenerSettings: () -> Unit,
     onRequestPost: () -> Unit,
 ) {
-    GroupedSection(
-        header = "自动记账", dividerInset = IconInset,
-        footer = "小票只读取支付宝和微信的支付通知，解析成「金额、商家、时间、分类」后就不再使用原文；原文不会离开手机。",
-    ) {
+    GroupedSection(header = "自动记账", dividerInset = IconInset) {
         item {
             GroupedRow(
                 title = "通知读取",
-                subtitle = if (listenerEnabled) "支付宝 / 微信付款会自动入账" else "开启后，付款会自动入账",
-                value = if (listenerEnabled) "已开启" else "未开启",
-                leading = { IconTile(Icons.Outlined.Notifications) },
+                value = if (listenerEnabled) "已开启" else "去开启",
+                leading = { IconTile(Icons.Outlined.Notifications, tint = XpColors.Positive, background = XpColors.PositiveSoft) },
                 chevron = true,
                 onClick = onOpenListenerSettings,
             )
         }
         item {
             GroupedRow(
-                title = "小票提醒", subtitle = "每晚小票打印好了，轻轻提醒你一下",
-                value = if (postGranted) "已允许" else "未允许",
-                leading = { IconTile(Icons.Outlined.NotificationsActive) },
+                title = "小票提醒",
+                value = if (postGranted) "已允许" else "去允许",
+                leading = { IconTile(Icons.Outlined.NotificationsActive, tint = XpColors.Warning, background = XpColors.WarningSoft) },
                 chevron = !postGranted,
                 onClick = if (postGranted) null else onRequestPost,
             )
@@ -82,34 +85,50 @@ fun CaptureSection(
 }
 
 @Composable
-fun PrivacySection() {
-    GroupedSection(header = "隐私", dividerInset = IconInset) {
-        listOf(
-            "通知原文只在本机解析，不会上传。",
-            "离开手机的只有结构化信息：金额、商家、时间、分类；只有你主动开启「小店」才会汇总匿名数据。",
-            "小票只记录和总结，不会替你做购买决定。",
-            "随时可以在这里清空全部数据，或在系统设置里关闭通知读取。",
-        ).forEachIndexed { i, line ->
-            item(i) {
-                GroupedRow(
-                    title = line, titleMaxLines = 4,
-                    leading = { IconTile(Icons.Outlined.Lock) },
-                )
-            }
+fun MerchantSwitchSection(onOpen: () -> Unit) {
+    GroupedSection(dividerInset = IconInset) {
+        item {
+            GroupedRow(
+                title = "切换到小店版", chevron = true,
+                leading = { IconTile(Icons.Outlined.Storefront, selected = true) },
+                onClick = onOpen,
+            )
         }
     }
 }
 
 @Composable
-fun AboutSection() {
+fun AboutSection(onPrivacy: () -> Unit) {
     val context = LocalContext.current
     val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "—"
     GroupedSection(header = "关于", dividerInset = IconInset) {
         item {
             GroupedRow(
-                title = "今日小票", subtitle = "认真生活，留下凭证。仅作记录，非正式票据。",
-                value = version, leading = { IconTile(Icons.Outlined.Info) },
+                title = "隐私说明", value = "了解更多", chevron = true,
+                leading = { IconTile(Icons.Outlined.Lock) }, onClick = onPrivacy,
             )
+        }
+        item { GroupedRow(title = "版本", value = version, leading = { IconTile(Icons.Outlined.Info) }) }
+    }
+}
+
+/** 了解更多 sheet: the long-form privacy promises that used to sit inline. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PrivacySheet(onDismiss: () -> Unit) {
+    XpSheet(onDismiss, containerColor = XpColors.Canvas) {
+        Column(Modifier.padding(bottom = XpSpace.xl)) {
+            Text("隐私说明", Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s), style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
+            GroupedSection(dividerInset = IconInset) {
+                listOf(
+                    "通知原文只在本机解析，不会上传",
+                    "只留金额、商家、时间、分类",
+                    "只有你主动开启小店版，才会汇总匿名数据",
+                    "随时可清空全部数据",
+                ).forEachIndexed { i, line ->
+                    item(i) { GroupedRow(title = line, titleMaxLines = 3, leading = { IconTile(Icons.Outlined.Lock) }) }
+                }
+            }
         }
     }
 }

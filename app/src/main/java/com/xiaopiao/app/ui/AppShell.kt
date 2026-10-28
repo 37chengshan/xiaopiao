@@ -1,5 +1,24 @@
 package com.xiaopiao.app.ui
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
+import com.xiaopiao.app.ui.components.xpRaised
+import com.xiaopiao.app.ui.components.rememberXpHaptics
+import com.xiaopiao.app.ui.components.pressableScale
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.clickable
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.background
@@ -20,8 +39,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.ReceiptLong
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.ViewList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -46,6 +65,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.OpenRequest
+import com.xiaopiao.app.ui.game.CircleScreen
 import com.xiaopiao.app.ui.insights.InsightsScreen
 import com.xiaopiao.app.ui.ledger.LedgerScreen
 import com.xiaopiao.app.ui.merchant.MerchantScreen
@@ -55,11 +75,11 @@ import com.xiaopiao.app.ui.today.TodayScreen
 import com.xiaopiao.app.work.ReminderIntents
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
-    Today("today", "今日", Icons.Outlined.ReceiptLong),
     Ledger("ledger", "账本", Icons.Outlined.ViewList),
     Insights("insights", "洞察", Icons.Outlined.Insights),
-    Merchant("merchant", "小店", Icons.Outlined.Storefront),
-    Settings("settings", "我的", Icons.Outlined.Settings),
+    Today("today", "今日", Icons.Outlined.ReceiptLong),
+    Circle("circle", "圈子", Icons.Outlined.Groups),
+    Settings("settings", "我的", Icons.Outlined.Person),
 }
 
 @Composable
@@ -67,6 +87,14 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route
+    var merchantMode by rememberSaveable { mutableStateOf(false) }
+    if (merchantMode) {
+        // 小店版: the former B-side tab, entered from 我的 and left through its own back button.
+        Box(Modifier.fillMaxSize().background(XpColors.Canvas).windowInsetsPadding(WindowInsets.navigationBars)) {
+            MerchantScreen(container, onExit = { merchantMode = false })
+        }
+        return
+    }
 
     fun go(tab: Tab) = nav.navigate(tab.route) {
         popUpTo(nav.graph.findStartDestination().id) { saveState = true }
@@ -100,36 +128,70 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 composable(Tab.Today.route) { TodayScreen(container) }
                 composable(Tab.Ledger.route) { LedgerScreen(container) }
                 composable(Tab.Insights.route) { InsightsScreen(container, open, onOpenConsumed) }
-                composable(Tab.Merchant.route) { MerchantScreen(container) }
-                composable(Tab.Settings.route) { SettingsScreen(container) }
+                composable(Tab.Circle.route) { CircleScreen(container) }
+                composable(Tab.Settings.route) { SettingsScreen(container, onOpenMerchant = { merchantMode = true }) }
             }
         }
     }
 }
 
-/** Translucent material bar: hairline on top, clay icon+label when selected, ink-3 otherwise. No indicator pill. */
+/**
+ * Translucent bar with a raised round primary button in the middle (今日 / 记账对话) and the other tabs on
+ * either side. The primary button floats 14dp above the bar; selected tabs turn clay.
+ */
 @Composable
 private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit) {
-    Column(
-        Modifier.fillMaxWidth()
-            .drawBehind {
-                drawRect(XpColors.Material.copy(alpha = 0.94f))
-                drawRect(XpColors.Hairline, Offset.Zero, Size(size.width, 0.5.dp.toPx()))
+    val capsule = RoundedCornerShape(32.dp)
+    val dark = XpColors.isDark
+    Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
+        Box(
+            Modifier.fillMaxWidth().padding(top = 16.dp).height(64.dp)
+                .then(if (dark) Modifier else Modifier.shadow(14.dp, capsule, ambientColor = Color(0x2E141413), spotColor = Color(0x2E141413)))
+                .clip(capsule)
+                .background(XpColors.Card.copy(alpha = 0.96f))
+                .border(0.5.dp, if (dark) Color.White.copy(alpha = 0.12f) else XpColors.Hairline, capsule),
+        )
+        Row(Modifier.fillMaxWidth().padding(top = 16.dp).height(64.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f)) {
+                TabItem(Tab.Ledger, current, Modifier.weight(1f), onSelect)
+                TabItem(Tab.Insights, current, Modifier.weight(1f), onSelect)
             }
-            .windowInsetsPadding(WindowInsets.navigationBars),
-    ) {
-        Row(Modifier.fillMaxWidth().height(52.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            Tab.entries.forEach { tab ->
-                val selected = current?.startsWith(tab.route) == true
-                val color = if (selected) XpColors.Accent else XpColors.InkSecondary
-                Column(
-                    Modifier.weight(1f).fillMaxSize().pressableClick(haptic = false, scaleDown = 0.94f) { onSelect(tab) },
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-                ) {
-                    Icon(tab.icon, contentDescription = tab.label, tint = color, modifier = Modifier.size(24.dp))
-                    Text(tab.label, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium, color = color)
-                }
+            Spacer(Modifier.width(78.dp))
+            Row(Modifier.weight(1f)) {
+                TabItem(Tab.Circle, current, Modifier.weight(1f), onSelect)
+                TabItem(Tab.Settings, current, Modifier.weight(1f), onSelect)
             }
         }
+        PrimaryTab(Tab.Today, current?.startsWith(Tab.Today.route) == true, Modifier.align(Alignment.TopCenter)) { onSelect(Tab.Today) }
+    }
+}
+
+@Composable
+private fun TabItem(tab: Tab, current: String?, modifier: Modifier, onSelect: (Tab) -> Unit) {
+    val selected = current?.startsWith(tab.route) == true
+    val color = if (selected) XpColors.Accent else XpColors.InkSecondary
+    Column(
+        modifier.fillMaxHeight().pressableClick(haptic = false, scaleDown = 0.94f) { onSelect(tab) },
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(tab.icon, contentDescription = tab.label, tint = color, modifier = Modifier.size(24.dp))
+        Text(tab.label, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium, color = color)
+    }
+}
+
+@Composable
+private fun PrimaryTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val haptics = rememberXpHaptics()
+    Box(
+        modifier.size(66.dp).pressableScale(source, 0.92f)
+            .background(XpColors.Canvas, CircleShape).padding(4.dp)
+            .xpRaised(CircleShape, if (selected) XpColors.Accent else XpColors.Ink, pressed, 10.dp)
+            .clip(CircleShape)
+            .clickable(source, null) { haptics.select(); onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(tab.icon, contentDescription = tab.label, tint = if (selected) XpColors.OnAccent else XpColors.Canvas, modifier = Modifier.size(28.dp))
     }
 }

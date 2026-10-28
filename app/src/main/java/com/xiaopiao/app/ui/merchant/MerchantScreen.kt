@@ -52,7 +52,7 @@ enum class MerchantRoute(val order: Int, val title: String) {
 }
 
 @Composable
-fun MerchantScreen(container: AppContainer) {
+fun MerchantScreen(container: AppContainer, onExit: () -> Unit = {}) {
     val store = remember { MerchantStore.get(container.appContext) }
     val state by store.state.collectAsState()
     var route by rememberSaveable { mutableStateOf(MerchantRoute.Landing) }
@@ -70,8 +70,12 @@ fun MerchantScreen(container: AppContainer) {
         route = MerchantRoute.Game
     }
 
-    BackHandler(enabled = route != MerchantRoute.Landing) {
-        route = if (route == MerchantRoute.Game) gameReturn else MerchantRoute.Landing
+    BackHandler {
+        when (route) {
+            MerchantRoute.Landing -> onExit()
+            MerchantRoute.Game -> route = gameReturn
+            else -> route = MerchantRoute.Landing
+        }
     }
 
     Box(Modifier.fillMaxSize().background(XpColors.Canvas)) {
@@ -83,7 +87,7 @@ fun MerchantScreen(container: AppContainer) {
             when (r) {
                 MerchantRoute.Landing -> MerchantLanding(
                     state, result, onOpen = { if (it == MerchantRoute.Game) playGame(MerchantRoute.Landing) else go(it) },
-                    onPrivacy = { showPrivacy = true },
+                    onPrivacy = { showPrivacy = true }, onExit = onExit,
                 )
                 MerchantRoute.Game -> DuelGameScreen(
                     experiment = experiment?.takeIf { it.status == ExperimentStatus.RUNNING },
@@ -164,8 +168,6 @@ private fun FlowFrame(
     ) { top ->
         Column(Modifier.fillMaxSize().padding(top = top)) {
             Column(Modifier.padding(horizontal = XpSpace.l)) {
-                Text("第 ${route.order} 步 / 共 4 步", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
-                Text(route.title, style = MaterialTheme.typography.headlineLarge, color = XpColors.Ink)
                 StepBar(route, hasExperiment, onJump)
             }
             Box(Modifier.weight(1f).padding(top = XpSpace.s)) { content() }

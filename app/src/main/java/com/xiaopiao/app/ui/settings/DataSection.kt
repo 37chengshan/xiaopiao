@@ -59,9 +59,8 @@ fun DataSection(
         item {
             GroupedRow(
                 title = "导入账单",
-                subtitle = "支付宝 / 微信导出的 CSV，补齐开通之前的记录；重复的会自动跳过",
                 value = if (importing) "导入中…" else null,
-                leading = { IconTile(Icons.Outlined.FileUpload) },
+                leading = { IconTile(Icons.Outlined.FileUpload, tint = XpColors.Info, background = XpColors.InfoSoft) },
                 chevron = !importing,
                 onClick = if (importing) null else onPickCsv,
             )
@@ -78,15 +77,15 @@ fun DataSection(
         }
         item {
             GroupedRow(
-                title = "载入演示数据", subtitle = "约 3 周的示例账单，会标着「演示数据」",
-                leading = { IconTile(Icons.Outlined.Science) },
+                title = "载入演示数据",
+                leading = { IconTile(Icons.Outlined.Science, tint = XpColors.Warning, background = XpColors.WarningSoft) },
                 onClick = onLoadDemo,
             )
         }
         item {
             GroupedRow(
-                title = "通知记录", subtitle = "看看小票读到了什么、哪些没认出来（只存在本机）",
-                value = "${log.size} 条", leading = { IconTile(Icons.Outlined.NotificationsNone) },
+                title = "通知记录",
+                value = "${log.size} 条", leading = { IconTile(Icons.Outlined.NotificationsNone, tint = XpColors.Positive, background = XpColors.PositiveSoft) },
                 chevron = true, onClick = { logOpen = !logOpen },
             )
         }
@@ -102,13 +101,13 @@ fun DataSection(
             if (!armed) {
                 GroupedRow(
                     title = "清空我的全部数据", titleColor = XpColors.Negative,
-                    leading = { IconTile(Icons.Outlined.DeleteOutline, tint = XpColors.Negative) },
+                    leading = { IconTile(Icons.Outlined.DeleteOutline, tint = XpColors.Negative, background = XpColors.Fill) },
                     onClick = { armed = true },
                 )
             } else {
                 Column(Modifier.fillMaxWidth().padding(XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.m)) {
                     Text(
-                        "真的要清空吗？所有账单和通知记录都会删除，无法撤销。",
+                        "清空全部账单和记录？无法撤销",
                         style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
