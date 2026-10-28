@@ -334,7 +334,10 @@ private fun GhostPlus(onClick: () -> Unit, onLongPress: () -> Unit) {
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Outlined.Add, contentDescription = "记一笔", tint = XpColors.Ink.copy(alpha = 0.55f), modifier = Modifier.size(24.dp))
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Icon(Icons.Outlined.Add, contentDescription = "记一笔", tint = XpColors.Ink.copy(alpha = 0.55f), modifier = Modifier.size(24.dp))
+            Text("记一笔", fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium, color = XpColors.InkSecondary)
+        }
     }
 }
 
@@ -359,8 +362,9 @@ private fun CenterAction(onClick: () -> Unit, onLongPress: () -> Unit) {
     val scale by androidx.compose.animation.core.animateFloatAsState(
         if (pressed) 0.9f else 1f, androidx.compose.animation.core.spring(0.55f, 400f), label = "actionScale",
     )
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
     Box(
-        Modifier.padding(horizontal = XpSpace.xs).size(46.dp)
+        Modifier.size(46.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(CircleShape).background(XpColors.Primary)
             .pointerInput(Unit) {
@@ -380,6 +384,8 @@ private fun CenterAction(onClick: () -> Unit, onLongPress: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(Icons.Outlined.Add, contentDescription = "记一笔 · 长按说一句", tint = XpColors.OnPrimary, modifier = Modifier.size(24.dp))
+    }
+        Text("记一笔", fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium, color = XpColors.Ink)
     }
 }
 

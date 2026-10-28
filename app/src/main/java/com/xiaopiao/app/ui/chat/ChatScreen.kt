@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.automirrored.outlined.Send
@@ -306,41 +308,60 @@ fun ChatScreen(
             showSuggestions = conversation.none { it is ChatItem.User },
             onSuggestion = { send(it) },
         )
+        // Conversation drawer: slides in from the LEFT edge (tt#29), scrim closes it.
         if (historyOpen) {
-            XpSheet(onDismiss = { historyOpen = false }) {
-                androidx.compose.foundation.layout.Column(Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s)) {
-                    Text("会话", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                    XpButton(
-                        "新对话", {
-                            val firstUser = conversation.firstOrNull { it is ChatItem.User } as? ChatItem.User
-                            if (firstUser != null) {
-                                sessions.add(0, ChatSession(++sessionSeq, firstUser.text.take(18), conversation.toList()))
-                            }
-                            conversation.clear()
-                            turn.period = ChatPeriod.Week
-                            turn.category = null
-                            historyOpen = false
-                        },
-                        Modifier.fillMaxWidth().padding(top = XpSpace.m),
-                    )
-                    sessions.forEach { item ->
-                        GroupedRow(
-                            title = item.title,
-                            subtitle = "${item.items.count { it is ChatItem.User }} 轮",
-                            modifier = Modifier.clickable {
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize().background(XpColors.Scrim).clickable { historyOpen = false })
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = true,
+                    enter = androidx.compose.animation.slideInHorizontally(
+                        androidx.compose.animation.core.spring(0.9f, 320f),
+                    ) { -it } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)),
+                ) {
+                    Column(
+                        Modifier.fillMaxHeight().width(300.dp).background(XpColors.Card)
+                            .statusBarsPadding().padding(XpSpace.l),
+                    ) {
+                        Text("会话", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+                        XpButton(
+                            "新对话", {
+                                val firstUser = conversation.firstOrNull { it is ChatItem.User } as? ChatItem.User
+                                if (firstUser != null) {
+                                    sessions.add(0, ChatSession(++sessionSeq, firstUser.text.take(18), conversation.toList()))
+                                }
                                 conversation.clear()
-                                conversation.addAll(item.items)
+                                turn.period = ChatPeriod.Week
+                                turn.category = null
                                 historyOpen = false
                             },
+                            Modifier.fillMaxWidth().padding(top = XpSpace.m),
                         )
-                    }
-                    if (sessions.isEmpty()) {
-                        Text(
-                            "还没有别的会话。开一个新对话，刚才这段会留在这里。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = XpColors.InkTertiary,
-                            modifier = Modifier.padding(vertical = XpSpace.m),
-                        )
+                        Spacer(Modifier.height(XpSpace.s))
+                        androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f)) {
+                            sessions.forEach { item ->
+                                item(item.id) {
+                                    GroupedRow(
+                                        title = item.title,
+                                        subtitle = "${item.items.count { it is ChatItem.User }} 轮",
+                                        modifier = Modifier.clickable {
+                                            conversation.clear()
+                                            conversation.addAll(item.items)
+                                            historyOpen = false
+                                        },
+                                    )
+                                }
+                            }
+                            if (sessions.isEmpty()) {
+                                item {
+                                    Text(
+                                        "还没有别的会话。开一个新对话，刚才这段会留在这里。",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = XpColors.InkTertiary,
+                                        modifier = Modifier.padding(vertical = XpSpace.m),
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
