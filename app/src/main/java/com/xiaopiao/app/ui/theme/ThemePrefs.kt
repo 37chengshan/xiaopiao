@@ -12,9 +12,10 @@ enum class ThemeMode(val label: String) { System("跟随系统"), Light("浅色"
 
 private val Context.themeStore by preferencesDataStore(name = "theme_prefs")
 
-/** Persists the user's appearance choice (docs/DESIGN.md §6). */
+/** Persists the user's appearance choice (docs/APP-DESIGN.md §1). */
 class ThemePrefs(private val context: Context) {
     private val modeKey = stringPreferencesKey("theme_mode")
+    private val styleKey = stringPreferencesKey("design_style")
 
     fun observeMode(): Flow<ThemeMode> = context.themeStore.data.map { prefs ->
         ThemeMode.entries.firstOrNull { it.name == prefs[modeKey] } ?: ThemeMode.System
@@ -22,5 +23,13 @@ class ThemePrefs(private val context: Context) {
 
     suspend fun setMode(mode: ThemeMode) {
         context.themeStore.edit { it[modeKey] = mode.name }
+    }
+
+    fun observeStyle(): Flow<DesignStyle> = context.themeStore.data.map { prefs ->
+        DesignStyle.entries.firstOrNull { it.name == prefs[styleKey] } ?: DesignStyle.Apple
+    }
+
+    suspend fun setStyle(style: DesignStyle) {
+        context.themeStore.edit { it[styleKey] = style.name }
     }
 }

@@ -25,17 +25,23 @@ import com.xiaopiao.app.ui.components.GroupedSection
 import com.xiaopiao.app.ui.components.IconTile
 import com.xiaopiao.app.ui.components.Segmented
 import com.xiaopiao.app.ui.components.XpSwitch
+import com.xiaopiao.app.ui.theme.DesignStyle
 import com.xiaopiao.app.ui.theme.ThemeMode
 import com.xiaopiao.app.ui.theme.XpSpace
 
 private val IconInset = 58.dp
 
 @Composable
-fun AppearanceSection(mode: ThemeMode, onMode: (ThemeMode) -> Unit) {
+fun AppearanceSection(mode: ThemeMode, style: DesignStyle, onMode: (ThemeMode) -> Unit, onStyle: (DesignStyle) -> Unit) {
     GroupedSection(header = "外观") {
         item {
             Box(Modifier.fillMaxWidth().padding(XpSpace.m)) {
                 Segmented(ThemeMode.entries.map { it.label }, mode.ordinal, { onMode(ThemeMode.entries[it]) })
+            }
+        }
+        item {
+            Box(Modifier.fillMaxWidth().padding(XpSpace.m)) {
+                Segmented(arrayOf("Apple", "Claude").toList(), style.ordinal, { onStyle(DesignStyle.entries[it]) })
             }
         }
     }

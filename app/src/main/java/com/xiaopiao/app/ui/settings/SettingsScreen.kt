@@ -27,6 +27,7 @@ import com.xiaopiao.app.importer.ImportSummary
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.theme.ThemeMode
+import com.xiaopiao.app.ui.theme.DesignStyle
 import com.xiaopiao.app.ui.theme.ThemePrefs
 import com.xiaopiao.app.ui.today.ReceiptSoundPrefs
 import kotlinx.coroutines.launch
@@ -46,6 +47,7 @@ fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}) {
 
     val themePrefs = remember(context) { ThemePrefs(context.applicationContext) }
     val mode by themePrefs.observeMode().collectAsState(initial = ThemeMode.System)
+    val designStyle by themePrefs.observeStyle().collectAsState(initial = DesignStyle.Apple)
     val soundPrefs = remember(context) { ReceiptSoundPrefs(context.applicationContext) }
     val soundOn by soundPrefs.observeEnabled().collectAsState(initial = true)
 
@@ -69,7 +71,7 @@ fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}) {
     if (privacyOpen) PrivacySheet { privacyOpen = false }
     NavScaffold("我的", rememberNavScroll(scroll)) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
-            AppearanceSection(mode) { scope.launch { themePrefs.setMode(it) } }
+            AppearanceSection(mode, designStyle, { scope.launch { themePrefs.setMode(it) } }, { scope.launch { themePrefs.setStyle(it) } })
             ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }
             CaptureSection(
                 listenerEnabled = listenerOn, postGranted = postGranted,

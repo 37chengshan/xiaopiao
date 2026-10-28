@@ -24,7 +24,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xiaopiao.app.ui.components.NumberTicker
-import com.xiaopiao.app.ui.theme.LightPalette
 import com.xiaopiao.app.ui.theme.ReceiptHandwriting
 import com.xiaopiao.app.ui.theme.ReceiptRow
 import com.xiaopiao.app.ui.theme.XpColors
@@ -40,7 +39,7 @@ internal object PaperInk {
     val soft get() = XpColors.PaperInk.copy(alpha = 0.66f)
     val faint get() = XpColors.PaperInk.copy(alpha = 0.40f)
     /** Income green that stays readable on paper in both themes. */
-    val income: Color get() = LightPalette.positive
+    val income: Color get() = XpColors.Positive
 }
 
 /** Renders one receipt line. The paper itself reveals it (clip) as it feeds out, so the content is static. */

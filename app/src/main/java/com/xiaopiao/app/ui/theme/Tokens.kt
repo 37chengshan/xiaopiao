@@ -6,8 +6,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-/** One complete set of colors. See docs/DESIGN.md §2 — names mirror the web tokens. */
+/** The two visual systems we ship (docs/APP-DESIGN.md §1). Switchable in 我的 → 外观. */
+enum class DesignStyle(val label: String) { Apple("Apple"), Claude("Claude") }
+
+/** One complete set of colors. See docs/APP-DESIGN.md §1 — names mirror the web tokens. */
 data class XpPalette(
+    val style: DesignStyle,
     val dark: Boolean,
     val canvas: Color,
     val canvasGrouped: Color,
@@ -21,6 +25,9 @@ data class XpPalette(
     val accent: Color,
     val accentSoft: Color,
     val onAccent: Color,
+    /** Filled button colour. Apple = Action Blue; Claude = warm coral. */
+    val primary: Color,
+    val onPrimary: Color,
     val positive: Color,
     val negative: Color,
     val warning: Color,
@@ -39,24 +46,99 @@ data class XpPalette(
     val warningSoft: Color,
 )
 
-val LightPalette = XpPalette(
+// Apple — values from the Apple DESIGN.md analysis: system grays, one Action Blue, SF-like type.
+val AppleLightPalette = XpPalette(
+    style = DesignStyle.Apple,
+    dark = false,
+    canvas = Color(0xFFFFFFFF),
+    canvasGrouped = Color(0xFFF5F5F7),
+    card = Color(0xFFFFFFFF),
+    surface2 = Color(0xFFFAFAFC),
+    fill = Color(0xFFEDEDF0),
+    ink = Color(0xFF1D1D1F),
+    ink2 = Color(0xFF6E6E73),
+    ink3 = Color(0xFFA1A1A6),
+    hairline = Color(0xFFE0E0E0),
+    accent = Color(0xFF0066CC),
+    accentSoft = Color(0xFFE9F1FB),
+    onAccent = Color(0xFFFFFFFF),
+    primary = Color(0xFF0066CC),
+    onPrimary = Color(0xFFFFFFFF),
+    positive = Color(0xFF248A3D),
+    negative = Color(0xFFD70015),
+    warning = Color(0xFFB25000),
+    stamp = Color(0xFFC8402F),
+    paper = Color(0xFFFFFFFF),
+    paperShade = Color(0xFFF0F0F2),
+    paperInk = Color(0xFF1D1D1F),
+    scrim = Color(0x521D1D1F),
+    material = Color(0xE6FFFFFF),
+    printerBody = Color(0xFF1D1D1F),
+    printerHighlight = Color(0xFF48484A),
+    printerSlit = Color(0xFF000000),
+    info = Color(0xFF0066CC),
+    infoSoft = Color(0xFFE9F1FB),
+    positiveSoft = Color(0xFFE7F6EC),
+    warningSoft = Color(0xFFFFF4E5),
+)
+
+val AppleDarkPalette = XpPalette(
+    style = DesignStyle.Apple,
+    dark = true,
+    canvas = Color(0xFF000000),
+    canvasGrouped = Color(0xFF1C1C1E),
+    card = Color(0xFF1C1C1E),
+    surface2 = Color(0xFF2C2C2E),
+    fill = Color(0xFF3A3A3C),
+    ink = Color(0xFFF5F5F7),
+    ink2 = Color(0xFF98989D),
+    ink3 = Color(0xFF6E6E73),
+    hairline = Color(0xFF38383A),
+    accent = Color(0xFF2997FF),
+    accentSoft = Color(0xFF12263D),
+    onAccent = Color(0xFFFFFFFF),
+    primary = Color(0xFF0A84FF),
+    onPrimary = Color(0xFFFFFFFF),
+    positive = Color(0xFF30D158),
+    negative = Color(0xFFFF453A),
+    warning = Color(0xFFFF9F0A),
+    stamp = Color(0xFFFF6961),
+    paper = Color(0xFFEDEDEF),
+    paperShade = Color(0xFFD8D8DC),
+    paperInk = Color(0xFF1D1D1F),
+    scrim = Color(0x8C000000),
+    material = Color(0xE61C1C1E),
+    printerBody = Color(0xFF0A0A0B),
+    printerHighlight = Color(0xFF2C2C2E),
+    printerSlit = Color(0xFF000000),
+    info = Color(0xFF64D2FF),
+    infoSoft = Color(0xFF0E2A3A),
+    positiveSoft = Color(0xFF0F2A1A),
+    warningSoft = Color(0xFF33260C),
+)
+
+// Claude — the warm-canvas editorial system: cream surfaces, coral CTA, serif display.
+val ClaudeLightPalette = XpPalette(
+    style = DesignStyle.Claude,
     dark = false,
     canvas = Color(0xFFFAF9F5),
-    canvasGrouped = Color(0xFFF3F1EA),
+    canvasGrouped = Color(0xFFF5F0E8),
     card = Color(0xFFFFFFFF),
-    surface2 = Color(0xFFF0EEE6),
-    fill = Color(0xFFE9E6DC),
+    surface2 = Color(0xFFF5F0E8),
+    fill = Color(0xFFE8E0D2),
     ink = Color(0xFF141413),
-    ink2 = Color(0xFF63625C),
-    ink3 = Color(0xFF8A8880),
-    hairline = Color(0x17141413),
-    accent = Color(0xFFB04A2E),
+    ink2 = Color(0xFF6C6A64),
+    ink3 = Color(0xFF8E8B82),
+    hairline = Color(0xFFE6DFD8),
+    accent = Color(0xFFCC785C),
     accentSoft = Color(0xFFF7EAE3),
     onAccent = Color(0xFFFFFFFF),
-    positive = Color(0xFF3F7D4E),
-    negative = Color(0xFFB3412F),
-    warning = Color(0xFFB7791F),
-    stamp = Color(0xFFB8322A),
+    primary = Color(0xFFCC785C),
+    onPrimary = Color(0xFFFFFFFF),
+    positive = Color(0xFF5DB872),
+    negative = Color(0xFFC64545),
+    warning = Color(0xFFD4A017),
+    stamp = Color(0xFFC64545),
     paper = Color(0xFFFBFAF6),
     paperShade = Color(0xFFEFEADF),
     paperInk = Color(0xFF2A2724),
@@ -71,29 +153,32 @@ val LightPalette = XpPalette(
     warningSoft = Color(0xFFF8EEDC),
 )
 
-val DarkPalette = XpPalette(
+val ClaudeDarkPalette = XpPalette(
+    style = DesignStyle.Claude,
     dark = true,
-    canvas = Color(0xFF1F1E1C),
-    canvasGrouped = Color(0xFF1A1918),
-    card = Color(0xFF2A2926),
-    surface2 = Color(0xFF34332F),
-    fill = Color(0xFF3D3C37),
-    ink = Color(0xFFF5F4EE),
-    ink2 = Color(0xFFB4B1A7),
-    ink3 = Color(0xFF7C7A72),
-    hairline = Color(0x1AF5F4EE),
+    canvas = Color(0xFF181715),
+    canvasGrouped = Color(0xFF1F1E1B),
+    card = Color(0xFF252320),
+    surface2 = Color(0xFF2C2A26),
+    fill = Color(0xFF35322D),
+    ink = Color(0xFFFAF9F5),
+    ink2 = Color(0xFFA09D96),
+    ink3 = Color(0xFF6C6A64),
+    hairline = Color(0xFF33302B),
     accent = Color(0xFFD97757),
     accentSoft = Color(0xFF33241E),
-    onAccent = Color(0xFF1F1E1C),
+    onAccent = Color(0xFF181715),
+    primary = Color(0xFFD97757),
+    onPrimary = Color(0xFFFFFFFF),
     positive = Color(0xFF7DB38A),
     negative = Color(0xFFE0705C),
     warning = Color(0xFFE0A84E),
-    stamp = Color(0xFFC8463B),
+    stamp = Color(0xFFD96156),
     paper = Color(0xFFE9E6DD),
     paperShade = Color(0xFFDAD5C8),
     paperInk = Color(0xFF24211E),
     scrim = Color(0x8C000000),
-    material = Color(0xB81F1E1C),
+    material = Color(0xB81F1E1B),
     printerBody = Color(0xFF0E0E0D),
     printerHighlight = Color(0xFF2A2926),
     printerSlit = Color(0xFF000000),
@@ -105,16 +190,23 @@ val DarkPalette = XpPalette(
 
 /** Current palette, swapped by [XiaopiaoTheme]. Snapshot state, so composition and draw scopes that read it update. */
 internal object XpPaletteState {
-    var current by mutableStateOf(LightPalette)
+    var current by mutableStateOf(AppleLightPalette)
+    var style by mutableStateOf(DesignStyle.Apple)
+}
+
+fun paletteFor(style: DesignStyle, dark: Boolean): XpPalette = when (style) {
+    DesignStyle.Apple -> if (dark) AppleDarkPalette else AppleLightPalette
+    DesignStyle.Claude -> if (dark) ClaudeDarkPalette else ClaudeLightPalette
 }
 
 /**
- * Design tokens (docs/DESIGN.md). Screens must use these instead of raw colors.
- * Every value follows the active light/dark palette.
+ * Design tokens (docs/APP-DESIGN.md). Screens must use these instead of raw colors.
+ * Every value follows the active light/dark palette and design style.
  */
 object XpColors {
     private val p get() = XpPaletteState.current
 
+    val style get() = p.style
     val isDark get() = p.dark
     val Canvas get() = p.canvas
     val CanvasGrouped get() = p.canvasGrouped
@@ -125,15 +217,18 @@ object XpColors {
     val InkSecondary get() = p.ink2
     val InkTertiary get() = p.ink3
     val Hairline get() = p.hairline
-    /** Cinnabar (印泥朱砂, same family as the stamp). Scarce: primary action, selected tab, the one highlighted datum. */
+    /** The one interactive colour: Action Blue (Apple) or coral (Claude). */
     val Accent get() = p.accent
     val AccentSoft get() = p.accentSoft
     val OnAccent get() = p.onAccent
+    /** Filled button pair — use these instead of hardcoding ink. */
+    val Primary get() = p.primary
+    val OnPrimary get() = p.onPrimary
     val Positive get() = p.positive
     val Negative get() = p.negative
     val Warning get() = p.warning
     val Stamp get() = p.stamp
-    /** Semantic tints for icon blocks (docs/DESIGN.md §2b): a hue + its soft background. */
+    /** Semantic tints for icon blocks: a hue + its soft background. */
     val Info get() = p.info
     val InfoSoft get() = p.infoSoft
     val PositiveSoft get() = p.positiveSoft
@@ -141,7 +236,7 @@ object XpColors {
     /** Translucent bar background for nav / tab bars. */
     val Material get() = p.material
 
-    /** Receipt paper stays paper-coloured in dark mode, just dimmer. */
+    /** Receipt paper keeps its own surface so the printed object never becomes UI chrome. */
     val Paper get() = p.paper
     val PaperShade get() = p.paperShade
     val PaperInk get() = p.paperInk
@@ -165,16 +260,17 @@ object XpSpace {
     val xxl = 32.dp
 }
 
+/** Corner radii follow the active style: Apple 8/11/18, Claude 10/14/20. */
 object XpRadius {
-    val s = 10.dp
-    /** Grouped list containers. */
-    val m = 14.dp
-    val l = 20.dp
+    private val apple get() = XpColors.style == DesignStyle.Apple
+    val s get() = if (apple) 8.dp else 10.dp
+    val m get() = if (apple) 11.dp else 14.dp
+    val l get() = if (apple) 18.dp else 20.dp
     val xl = 28.dp
     val pill = 999.dp
 }
 
-/** Shared spring recipes (docs/DESIGN.md §5). Default UI motion is critically damped — no bounce. */
+/** Shared spring recipes (docs/APP-DESIGN.md §7). Default UI motion is critically damped — no bounce. */
 object XpMotion {
     /** Default for position/size: damping 1.0, response ≈ 0.35s. */
     fun <T> snappy() = androidx.compose.animation.core.spring<T>(dampingRatio = 1f, stiffness = 400f)
@@ -184,7 +280,18 @@ object XpMotion {
     fun <T> gentle() = androidx.compose.animation.core.spring<T>(dampingRatio = 0.85f, stiffness = 300f)
 }
 
-/** Easing curves (docs/DESIGN.md §5). Strong ease-out for color/opacity and anything entering. */
+/** Easing curves (docs/APP-DESIGN.md §7). Strong ease-out for color/opacity and anything entering. */
 object XpEase {
     val out = androidx.compose.animation.core.CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
+}
+
+/** Inter carries Latin text and every digit; CJK falls through to the system font. */
+object XpFonts {
+    val sans = androidx.compose.ui.text.font.FontFamily(
+        androidx.compose.ui.text.font.Font(com.xiaopiao.app.R.font.inter_regular, androidx.compose.ui.text.font.FontWeight.Normal),
+        androidx.compose.ui.text.font.Font(com.xiaopiao.app.R.font.inter_medium, androidx.compose.ui.text.font.FontWeight.Medium),
+        androidx.compose.ui.text.font.Font(com.xiaopiao.app.R.font.inter_semibold, androidx.compose.ui.text.font.FontWeight.SemiBold),
+    )
+    /** Serif display — Claude style only. */
+    val serif = androidx.compose.ui.text.font.FontFamily.Serif
 }

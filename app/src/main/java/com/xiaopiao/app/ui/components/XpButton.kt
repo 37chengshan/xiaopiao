@@ -52,9 +52,9 @@ fun XpButton(
     val bgTarget: Color
     val fgTarget: Color
     when (style) {
-        XpButtonStyle.Primary -> { bgTarget = XpColors.Ink; fgTarget = XpColors.Canvas }
+        XpButtonStyle.Primary -> { bgTarget = XpColors.Primary; fgTarget = XpColors.OnPrimary }
         XpButtonStyle.Clay -> { bgTarget = XpColors.Accent; fgTarget = XpColors.OnAccent }
-        XpButtonStyle.Secondary -> { bgTarget = XpColors.Ink.copy(alpha = 0.07f); fgTarget = XpColors.Ink }
+        XpButtonStyle.Secondary -> { bgTarget = XpColors.Primary.copy(alpha = 0.14f); fgTarget = XpColors.Primary }
         XpButtonStyle.Destructive -> { bgTarget = XpColors.Negative.copy(alpha = 0.12f); fgTarget = XpColors.Negative }
         XpButtonStyle.Plain -> { bgTarget = Color.Transparent; fgTarget = XpColors.Accent }
     }

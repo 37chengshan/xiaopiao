@@ -21,45 +21,62 @@ import androidx.core.view.WindowCompat
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private fun colorScheme(p: XpPalette) = if (p.dark) {
     darkColorScheme(
-        primary = p.accent, onPrimary = p.onAccent, background = p.canvas, onBackground = p.ink,
+        primary = p.primary, onPrimary = p.onPrimary, background = p.canvas, onBackground = p.ink,
         surface = p.card, onSurface = p.ink, onSurfaceVariant = p.ink2, outline = p.hairline,
         surfaceVariant = p.surface2, error = p.negative,
     )
 } else {
     lightColorScheme(
-        primary = p.accent, onPrimary = p.onAccent, background = p.canvas, onBackground = p.ink,
+        primary = p.primary, onPrimary = p.onPrimary, background = p.canvas, onBackground = p.ink,
         surface = p.card, onSurface = p.ink, onSurfaceVariant = p.ink2, outline = p.hairline,
         surfaceVariant = p.surface2, error = p.negative,
     )
 }
 
-private val Shapes = Shapes(
-    small = RoundedCornerShape(XpRadius.s),
-    medium = RoundedCornerShape(XpRadius.m),
-    large = RoundedCornerShape(XpRadius.l),
-)
+/** Apple: SF-like Inter, tight tracking, no serif. Claude: serif display over a humanist body. */
+private fun typographyFor(style: DesignStyle): Typography = when (style) {
+    DesignStyle.Apple -> Typography(
+        displayLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 48.sp, lineHeight = 52.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.4).sp, fontFeatureSettings = "tnum"),
+        displayMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 40.sp, lineHeight = 46.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.1).sp, fontFeatureSettings = "tnum"),
+        headlineLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.5).sp),
+        headlineMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.4).sp),
+        titleLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.3).sp),
+        titleMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
+        titleSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
+        bodyLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 24.sp, letterSpacing = (-0.2).sp),
+        bodyMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 21.sp, letterSpacing = (-0.1).sp),
+        bodySmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 13.sp, lineHeight = 18.sp),
+        labelLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
+        labelMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
+        labelSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.2.sp),
+    )
+    DesignStyle.Claude -> Typography(
+        displayLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 48.sp, lineHeight = 52.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.4).sp, fontFeatureSettings = "tnum"),
+        displayMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 40.sp, lineHeight = 46.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.1).sp, fontFeatureSettings = "tnum"),
+        headlineLarge = TextStyle(fontFamily = FontFamily.Serif, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Normal, letterSpacing = (-0.5).sp),
+        headlineMedium = TextStyle(fontFamily = FontFamily.Serif, fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Normal, letterSpacing = (-0.3).sp),
+        titleLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 22.sp, lineHeight = 29.sp, fontWeight = FontWeight.Medium),
+        titleMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium),
+        titleSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium),
+        bodyLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 16.sp, lineHeight = 25.sp),
+        bodyMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 23.sp),
+        bodySmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 13.sp, lineHeight = 20.sp),
+        labelLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, fontWeight = FontWeight.Medium),
+        labelMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 13.sp, fontWeight = FontWeight.Medium),
+        labelSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 11.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.3.sp),
+    )
+}
 
-private val Type = Typography(
-    // Big numbers: tabular figures, tight tracking.
-    displayLarge = TextStyle(fontSize = 48.sp, lineHeight = 52.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.4).sp, fontFeatureSettings = "tnum"),
-    displayMedium = TextStyle(fontSize = 40.sp, lineHeight = 46.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.1).sp, fontFeatureSettings = "tnum"),
-    // Large Title: serif, Claude-style.
-    headlineLarge = TextStyle(fontFamily = FontFamily.Serif, fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp),
-    headlineMedium = TextStyle(fontFamily = FontFamily.Serif, fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.3).sp),
-    titleLarge = TextStyle(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
-    titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium),
-    titleSmall = TextStyle(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
-    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 23.sp),
-    bodyMedium = TextStyle(fontSize = 15.sp, lineHeight = 21.sp),
-    bodySmall = TextStyle(fontSize = 13.sp, lineHeight = 18.sp),
-    labelLarge = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
-    labelMedium = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium),
-    labelSmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.2.sp),
-)
+private fun shapesFor(style: DesignStyle) = if (style == DesignStyle.Apple) {
+    Shapes(small = RoundedCornerShape(8.dp), medium = RoundedCornerShape(11.dp), large = RoundedCornerShape(18.dp))
+} else {
+    Shapes(small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(14.dp), large = RoundedCornerShape(20.dp))
+}
 
 /** Monospace style for anything printed on a receipt. */
 val ReceiptText get() = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp, color = XpColors.PaperInk)
@@ -80,18 +97,20 @@ fun XiaopiaoTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val prefs = remember(context) { ThemePrefs(context.applicationContext) }
     val mode by prefs.observeMode().collectAsState(initial = ThemeMode.System)
+    val style by prefs.observeStyle().collectAsState(initial = DesignStyle.Apple)
     val dark = when (mode) {
         ThemeMode.System -> isSystemInDarkTheme()
         ThemeMode.Light -> false
         ThemeMode.Dark -> true
     }
-    val target = if (dark) DarkPalette else LightPalette
+    val target = paletteFor(style, dark)
     // Ease the two backgrounds so a theme switch never flashes (docs/DESIGN.md §6).
     val canvas by animateColorAsState(target.canvas, tween(200), label = "canvas")
     val ink by animateColorAsState(target.ink, tween(200), label = "ink")
     val live = target.copy(canvas = canvas, ink = ink)
     // Written before `content` composes, so every screen reads the new palette in the same pass.
     if (XpPaletteState.current != live) XpPaletteState.current = live
+    if (XpPaletteState.style != style) XpPaletteState.style = style
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -103,5 +122,5 @@ fun XiaopiaoTheme(content: @Composable () -> Unit) {
             }
         }
     }
-    MaterialTheme(colorScheme = colorScheme(target), typography = Type, shapes = Shapes, content = content)
+    MaterialTheme(colorScheme = colorScheme(target), typography = remember(style) { typographyFor(style) }, shapes = remember(style) { shapesFor(style) }, content = content)
 }
