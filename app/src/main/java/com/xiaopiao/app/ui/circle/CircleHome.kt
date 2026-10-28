@@ -120,14 +120,6 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(top = top + XpSpace.xs, bottom = ComposerHeight + XpSpace.l),
             ) {
-                item(key = "circle-header") {
-                    CircleHeader(
-                        members = members,
-                        onMemberClick = { shareSheetFor = it },
-                        onShareClick = { shareSheetFor = CircleDemo.MY_ID },
-                        onGame = { gameSheet = it },
-                    )
-                }
                 if (rows.isEmpty()) {
                     item(key = "circle-empty") {
                         EmptyState(
@@ -155,6 +147,19 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
                                 onMemberClick = { shareSheetFor = it },
                                 onReceiptOpen = { openedPost = it },
                             )
+                        }
+                    }
+                }
+                item(key = "circle-games") {
+                    Column(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m)) {
+                        Text("小游戏 · 娱乐，不构成建议", style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary)
+                        androidx.compose.foundation.layout.Row(
+                            Modifier.padding(top = XpSpace.s),
+                            horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+                        ) {
+                            listOf("钱包人格测试", "消费二选一").forEach { title ->
+                                SelectCapsule(title, selected = false, onClick = { gameSheet = title })
+                            }
                         }
                     }
                 }

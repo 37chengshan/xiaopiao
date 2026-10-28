@@ -251,6 +251,13 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> 
         ) {
             TabItem(Tab.Ledger, current, Modifier.width(64.dp).fillMaxHeight(), onSelect)
             androidx.compose.animation.AnimatedVisibility(
+                visible = circleMode,
+                enter = androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.fadeOut(),
+            ) {
+                GhostPlus(onClick = onRecord, onLongPress = onVoice)
+            }
+            androidx.compose.animation.AnimatedVisibility(
                 visible = !circleMode,
                 enter = androidx.compose.animation.expandHorizontally(androidx.compose.animation.core.spring(0.85f, 320f)) + androidx.compose.animation.fadeIn(),
                 exit = androidx.compose.animation.shrinkHorizontally(androidx.compose.animation.core.spring(0.85f, 320f)) + androidx.compose.animation.fadeOut(),
@@ -262,7 +269,13 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> 
                 }
             }
         }
-        Spacer(Modifier.weight(1f))
+        // In circle mode the right cluster slides toward the middle instead of hugging the edge (tt#33).
+        val spacerWeight by androidx.compose.animation.core.animateFloatAsState(
+            if (circleMode) 1f else 1f,
+            androidx.compose.animation.core.spring(0.9f, 340f),
+            label = "navSpacer",
+        )
+        Spacer(Modifier.weight(spacerWeight))
         // Right side: a single detached circle for 圈子, which expands into AI / 圈子 / 游戏.
         if (!circleMode) {
             Box(
@@ -283,7 +296,45 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> 
                 TabItem(Tab.Circle, current, Modifier.width(64.dp).fillMaxHeight(), onSelect)
                 CircleGameTab(Modifier.width(64.dp).fillMaxHeight()) { onSelect(Tab.Circle) }
             }
+            // Pull the group toward the middle instead of pinning it to the edge (tt#34).
+            val tailWeight by androidx.compose.animation.core.animateFloatAsState(
+                if (circleMode) 0.55f else 0f,
+                androidx.compose.animation.core.spring(0.9f, 340f),
+                label = "navTail",
+            )
+            Spacer(Modifier.weight(tailWeight))
         }
+    }
+}
+
+/** Small, unfilled 「+」 between the capsules in circle mode: it shrinks and loses its fill (tt#33). */
+@Composable
+private fun GhostPlus(onClick: () -> Unit, onLongPress: () -> Unit) {
+    val haptics = rememberXpHaptics()
+    val appear = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        appear.animateTo(1f, androidx.compose.animation.core.spring(0.62f, 320f))
+    }
+    Box(
+        Modifier.width(64.dp).fillMaxHeight()
+            .graphicsLayer { scaleX = 0.6f + 0.4f * appear.value; scaleY = 0.6f + 0.4f * appear.value; alpha = appear.value }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val long = awaitLongPressOrCancellation(down.id)
+                    if (long == null) {
+                        haptics.select()
+                        onClick()
+                    } else {
+                        haptics.thud()
+                        onLongPress()
+                        waitForUpOrCancellation()
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Outlined.Add, contentDescription = "记一笔", tint = XpColors.Ink.copy(alpha = 0.55f), modifier = Modifier.size(24.dp))
     }
 }
 
