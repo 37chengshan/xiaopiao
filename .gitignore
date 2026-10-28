@@ -6,3 +6,6 @@ local.properties
 .DS_Store
 captures/
 .kotlin/
+
+# 参考录屏只留本地（体积大）
+docs/references/**/*.mp4
