@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
-import { CATEGORY_ICONS } from "@/components/app/categoryIcons";
+import { CATEGORY_ICONS, CATEGORY_TONES } from "@/components/app/categoryIcons";
 import { Confetti } from "@/components/app/Confetti";
 import { Group, IconTile, Money, Row, SectionHeader, Segmented } from "@/components/app/kit";
 import { cn } from "@/lib/utils";
@@ -129,7 +129,7 @@ export function WeeklyAwards({ txns, now }: { txns: readonly Txn[]; now: number 
           <SectionHeader>花得最多的</SectionHeader>
           <Group inset="icon">
             {report.topCategories.map((c) => (
-              <Row key={c.category} leading={<IconTile icon={CATEGORY_ICONS[c.category]} />} title={CATEGORIES[c.category].label} trailing={<Money cents={-c.cents} />} />
+              <Row key={c.category} leading={<IconTile icon={CATEGORY_ICONS[c.category]} tone={CATEGORY_TONES[c.category]} />} title={CATEGORIES[c.category].label} trailing={<Money cents={-c.cents} />} />
             ))}
           </Group>
         </>
