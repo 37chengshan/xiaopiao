@@ -108,37 +108,6 @@ fun CircleShareSheet(
     }
 }
 
-/** Placeholder for the two 圈子 mini games; nothing is simulated or scored yet. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CircleGameSheet(title: String, onDismiss: () -> Unit) {
-    XpSheet(onDismiss = onDismiss) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l)) {
-            Text(title, style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
-            Text(
-                "还在路上。这一轮先把「家人小票群聊」做扎实，游戏下一轮再上。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = XpColors.InkSecondary,
-                modifier = Modifier.padding(top = XpSpace.s),
-            )
-            Text(
-                "娱乐，不构成建议。",
-                style = MaterialTheme.typography.labelMedium,
-                color = XpColors.InkTertiary,
-                modifier = Modifier.padding(top = XpSpace.m),
-            )
-            Spacer(Modifier.height(XpSpace.l))
-            XpButton(
-                text = "知道了",
-                onClick = onDismiss,
-                style = XpButtonStyle.Secondary,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(XpSpace.xl))
-        }
-    }
-}
-
 /** Opened by tapping a receipt card: the same masked view, one level larger. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
