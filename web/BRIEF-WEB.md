@@ -1,3 +1,5 @@
+> **2026-10-28 已过时**：Web 改为桌面端独立产品（Landing + 侧边栏功能页 + 账号同步），以 `../docs/WEB-DESIGN.md` 为准；下文「Mobile-first / 不做 landing / 演示模式」等条款作废。
+
 # 今日小票 · Web — Build Brief (read me first)
 
 Read `../docs/BRIEF.md` (product rules + design language — they apply here too) and `../docs/SPEC.md`
