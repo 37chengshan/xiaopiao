@@ -1,8 +1,7 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { LandingPage } from "@/features/landing/LandingPage";
 
-/** `/` lands on 记账, the first slot of the nav (docs/APP-DESIGN.md §3). */
+/** `/` is the landing page (docs/WEB-SPEC.md §L); the app itself lives under `/app`. */
 export const Route = createFileRoute("/")({
-  beforeLoad: () => {
-    throw redirect({ to: "/ledger", replace: true });
-  },
+  component: LandingPage,
 });
