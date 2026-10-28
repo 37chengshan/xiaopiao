@@ -34,7 +34,9 @@ import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.domain.Cents
 import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.ui.components.LargeTitle
+import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.Pill
+import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
@@ -73,14 +75,15 @@ fun InsightsPage(
     onBack: () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = XpSpace.xxl)) {
-        Text(
-            "‹ 洞察", style = MaterialTheme.typography.labelLarge, color = XpColors.Accent,
-            modifier = Modifier.padding(start = XpSpace.l, top = XpSpace.s).bounceClick(onClick = onBack).padding(vertical = XpSpace.s),
-        )
-        LargeTitle(title, subtitle)
-        if (demo) DemoBanner(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.xs))
-        Column(Modifier.padding(horizontal = XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.m)) { content() }
+    val scroll = rememberScrollState()
+    NavScaffold(title, rememberNavScroll(scroll), onBack = onBack, backLabel = "洞察", demo = demo) { top ->
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl)) {
+            LargeTitle(title, subtitle)
+            Column(
+                Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s),
+                verticalArrangement = Arrangement.spacedBy(XpSpace.m),
+            ) { content() }
+        }
     }
 }
 
@@ -115,14 +118,14 @@ fun PrimaryChip(text: String, modifier: Modifier = Modifier, onClick: () -> Unit
     Box(
         modifier.bounceClick(onClick = onClick).clip(RoundedCornerShape(50)).background(XpColors.Accent)
             .padding(horizontal = XpSpace.l, vertical = XpSpace.s),
-    ) { Text(text, style = MaterialTheme.typography.labelLarge, color = XpColors.Card) }
+    ) { Text(text, style = MaterialTheme.typography.labelLarge, color = XpColors.OnAccent) }
 }
 
 /** Selectable chip (filter / segmented option). */
 @Composable
 fun SelectChip(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val bg = if (selected) XpColors.Accent else XpColors.Card
-    val fg = if (selected) XpColors.Card else XpColors.Ink
+    val bg = if (selected) XpColors.AccentSoft else XpColors.Fill
+    val fg = if (selected) XpColors.Accent else XpColors.Ink
     Box(
         modifier.bounceClick(onClick = onClick).clip(RoundedCornerShape(50)).background(bg)
             .padding(horizontal = XpSpace.m, vertical = XpSpace.s),
@@ -134,7 +137,7 @@ fun SelectChip(text: String, selected: Boolean, modifier: Modifier = Modifier, o
 @Composable
 fun <T> Segmented(options: List<Pair<T, String>>, selected: T, modifier: Modifier = Modifier, onSelect: (T) -> Unit) {
     Row(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.s)).background(XpColors.Hairline).padding(2.dp),
+        modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.s)).background(XpColors.Fill).padding(2.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         options.forEach { (value, label) ->

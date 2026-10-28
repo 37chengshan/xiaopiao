@@ -1,5 +1,14 @@
 package com.xiaopiao.app.ui.insights
 
+import com.xiaopiao.app.ui.components.XpButtonSize
+import com.xiaopiao.app.ui.components.XpButtonStyle
+import com.xiaopiao.app.ui.components.XpButton
+import com.xiaopiao.app.ui.components.IconTile
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.material.icons.Icons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -71,7 +80,7 @@ fun SubscriptionPage(input: InsightsInput, onBack: () -> Unit) {
         }
         XpCard {
             Text("这些订阅一年大约要花", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
-            BigMoney(yearly, color = XpColors.Accent)
+            BigMoney(yearly)
             Text("共 ${active.size} 项 · 只做提醒，关不关由你决定", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         }
         if (active.isEmpty()) InsightsEmpty("🎉", "全部标记为已取消", "清爽！下面可以随时撤销标记。")
@@ -98,9 +107,7 @@ private fun SubscriptionCard(insight: SubscriptionInsight, now: Long, cancelled:
     val days = daysBetween(now, sub.nextChargeAt)
     XpCard(Modifier.bounceClick { open = !open }) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.m)) {
-            Box(Modifier.clip(RoundedCornerShape(14.dp)).background(XpColors.AccentSoft).padding(XpSpace.m)) {
-                Text(insight.kind?.emoji ?: "🔁", style = MaterialTheme.typography.titleLarge)
-            }
+            IconTile(Icons.Outlined.Autorenew, size = 40.dp)
             Column(Modifier.weight(1f)) {
                 Text(sub.merchant, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
                 Text(
@@ -108,7 +115,7 @@ private fun SubscriptionCard(insight: SubscriptionInsight, now: Long, cancelled:
                     style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                 )
             }
-            Text(if (open) "︿" else "﹀", color = XpColors.InkTertiary)
+            Icon(if (open) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = XpColors.InkTertiary)
         }
         Row(Modifier.padding(top = XpSpace.s), horizontalArrangement = Arrangement.spacedBy(XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
             if (cancelled) Pill("已标记取消") else CountdownChip(days, insight.lapsed)
@@ -122,16 +129,10 @@ private fun SubscriptionCard(insight: SubscriptionInsight, now: Long, cancelled:
                     Text("· 在${g.channel}扣的话", style = MaterialTheme.typography.labelMedium, color = XpColors.Ink)
                     g.steps.forEachIndexed { i, s -> Text("   ${i + 1}. $s", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary) }
                 }
-                Box(
-                    Modifier.bounceClick(onClick = onToggle).clip(RoundedCornerShape(50))
-                        .background(if (cancelled) XpColors.Hairline else XpColors.Accent)
-                        .padding(horizontal = XpSpace.l, vertical = XpSpace.s),
-                ) {
-                    Text(
-                        if (cancelled) "撤销标记" else "我已取消",
-                        style = MaterialTheme.typography.labelLarge, color = if (cancelled) XpColors.Ink else XpColors.Card,
-                    )
-                }
+                XpButton(
+                    if (cancelled) "撤销标记" else "我已取消", onToggle,
+                    style = if (cancelled) XpButtonStyle.Secondary else XpButtonStyle.Primary, size = XpButtonSize.Small,
+                )
             }
         }
     }

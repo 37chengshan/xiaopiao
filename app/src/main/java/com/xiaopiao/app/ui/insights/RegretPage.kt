@@ -73,7 +73,7 @@ fun RegretPage(input: InsightsInput, onBack: () -> Unit) {
         XpCard {
             Text("近 $window 个月在「${target.label}」上花了 ¥${result.spentCents.yuan()}，共 ${result.txnCount} 笔", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
             Text("如果少花 ${reduction.roundToInt()}%，大约能省下", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.padding(top = XpSpace.s))
-            BigMoney(result.savedCents, color = XpColors.Accent)
+            BigMoney(result.savedCents)
             AnimatedContent(
                 result.equivalents,
                 transitionSpec = {

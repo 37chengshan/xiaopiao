@@ -36,6 +36,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.AppContainer
+import com.xiaopiao.app.ui.components.rememberNavScroll
+import com.xiaopiao.app.ui.components.NavScaffold
+import com.xiaopiao.app.ui.components.XpSwitch
+import com.xiaopiao.app.ui.components.IconTile
+import com.xiaopiao.app.ui.components.GroupedSection
+import com.xiaopiao.app.ui.components.GroupedRow
+import androidx.compose.material.icons.outlined.Science
+import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.Icons
 import com.xiaopiao.app.OpenRequest
 import com.xiaopiao.app.insights.SampleData
 import com.xiaopiao.app.ui.components.LargeTitle
@@ -93,71 +105,47 @@ fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenCon
 
 @Composable
 private fun Hub(input: InsightsInput, onDemo: (Boolean) -> Unit, onOpen: (InsightsRoute) -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = XpSpace.xxl)) {
-        LargeTitle("洞察", "你的钱，悄悄在说什么")
-        if (input.history.isEmpty()) {
-            Column(Modifier.padding(horizontal = XpSpace.l)) {
-                XpCard {
-                    Text("🧾", style = MaterialTheme.typography.displayLarge)
-                    Text("账本还空空的", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                    Text("记几笔后，头衔、订阅和模拟都会在这里长出来。想先看看效果？打开下面的演示数据开关。", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
+    val scroll = rememberScrollState()
+    NavScaffold("洞察", rememberNavScroll(scroll), demo = input.demo) { top ->
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl)) {
+            LargeTitle("洞察", "你的钱，悄悄在说什么")
+            if (input.history.isEmpty()) {
+                Column(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s)) {
+                    XpCard {
+                        Text("账本还空空的", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+                        Text(
+                            "记几笔后，头衔、订阅和模拟都会在这里长出来。想先看看效果？打开下面的演示数据开关。",
+                            style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary,
+                            modifier = Modifier.padding(top = XpSpace.xs),
+                        )
+                    }
                 }
             }
-        }
-        Column(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m), verticalArrangement = Arrangement.spacedBy(XpSpace.m)) {
-            HubCard("🏆", "周报颁奖典礼", "领取本周头衔，看看花钱小报告", XpColors.AccentSoft) { onOpen(InsightsRoute.AWARDS) }
-            HubCard("🕵️", "订阅侦探", "揪出悄悄扣钱的自动续费，教你怎么关", Color3) { onOpen(InsightsRoute.SUBSCRIPTIONS) }
-            HubCard("🔮", "后悔模拟器", "少花一点，能换多少顿火锅？", Color4) { onOpen(InsightsRoute.REGRET) }
-            CircleCard()
-            DemoToggle(input.demo, onDemo)
-        }
-    }
-}
-
-private val Color3 = androidx.compose.ui.graphics.Color(0xFFE6F2FF)
-private val Color4 = androidx.compose.ui.graphics.Color(0xFFEFE8FF)
-
-@Composable
-private fun HubCard(emoji: String, title: String, desc: String, tint: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().bounceClick(onClick = onClick).clip(RoundedCornerShape(24.dp)).background(XpColors.Card).padding(XpSpace.l),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.m),
-    ) {
-        Box(Modifier.clip(RoundedCornerShape(18.dp)).background(tint).padding(XpSpace.m)) {
-            Text(emoji, style = MaterialTheme.typography.headlineLarge)
-        }
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
-            Text(desc, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
-        }
-        Text("›", style = MaterialTheme.typography.titleLarge, color = XpColors.InkTertiary)
-    }
-}
-
-/** Placeholder only: nothing here is wired up yet. */
-@Composable
-private fun CircleCard() {
-    XpCard {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-            Text("👯 小圈子", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-            Pill("即将上线")
-        }
-        Text("和 TA 一起对账、互颁头衔", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary, modifier = Modifier.padding(top = XpSpace.xs))
-    }
-}
-
-@Composable
-private fun DemoToggle(on: Boolean, onChange: (Boolean) -> Unit) {
-    XpCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
-                    Text("用示例数据预览", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                    Pill(SampleData.LABEL)
+            GroupedSection(dividerInset = 62.dp) {
+                item {
+                    GroupedRow("周报颁奖典礼", subtitle = "领取本周头衔，看看花钱小报告", chevron = true,
+                        leading = { IconTile(Icons.Outlined.EmojiEvents, size = 34.dp, selected = true) }) { onOpen(InsightsRoute.AWARDS) }
                 }
-                Text("不会改动你的真实账本", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+                item {
+                    GroupedRow("订阅侦探", subtitle = "揪出悄悄扣钱的自动续费，教你怎么关", chevron = true,
+                        leading = { IconTile(Icons.Outlined.Search, size = 34.dp) }) { onOpen(InsightsRoute.SUBSCRIPTIONS) }
+                }
+                item {
+                    GroupedRow("后悔模拟器", subtitle = "少花一点，能换多少顿火锅？", chevron = true,
+                        leading = { IconTile(Icons.Outlined.AutoAwesome, size = 34.dp) }) { onOpen(InsightsRoute.REGRET) }
+                }
             }
-            Switch(on, onChange, colors = SwitchDefaults.colors(checkedTrackColor = XpColors.Accent))
+            GroupedSection(dividerInset = 62.dp, footer = "不会改动你的真实账本。") {
+                item {
+                    GroupedRow("小圈子", subtitle = "和 TA 一起对账、互颁头衔", value = "即将上线",
+                        leading = { IconTile(Icons.Outlined.Group, size = 34.dp) })
+                }
+                item {
+                    GroupedRow("用示例数据预览", value = null,
+                        leading = { IconTile(Icons.Outlined.Science, size = 34.dp) },
+                        trailing = { XpSwitch(input.demo, onDemo) }, onClick = { onDemo(!input.demo) })
+                }
+            }
         }
     }
 }

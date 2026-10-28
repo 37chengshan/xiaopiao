@@ -1,5 +1,8 @@
 package com.xiaopiao.app.ui.merchant
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -52,7 +55,7 @@ fun InsightsStep(crowd: List<CrowdMember>, onNext: () -> Unit, onPrivacy: () -> 
         Reveal(0) { KpiRow(stats) }
         Reveal(1) { AgeChips(age) { age = it } }
         Reveal(2) { SectionCard("喝什么", "过去 30 天买过这类饮品的人") { KindBars(stats) } }
-        Reveal(3) { SectionCard("什么时候来", "点一格看人数 · 灰色 = $SUPPRESSED_TEXT（少于 $K_ANONYMITY 人）") { HeatSection(stats) } }
+        Reveal(3) { SectionCard("什么时候来", "点一格看人数 · 斜线空格 = $SUPPRESSED_TEXT（少于 $K_ANONYMITY 人）") { HeatSection(stats) } }
         Reveal(4) { SectionCard("愿意花多少", "按每个人的平均客单价分组") { PriceBars(stats) } }
         Reveal(5) { SectionCard("爱加什么料", "每人只算一个最爱") { ToppingDonut(stats) } }
         Reveal(6) {
@@ -102,7 +105,7 @@ private fun Kpi(label: String, value: Float?, unit: String, modifier: Modifier) 
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     if (unit == "元") "%.1f".format(v) else "${v.toInt()}",
-                    style = MaterialTheme.typography.titleLarge, color = XpColors.Accent,
+                    style = MaterialTheme.typography.titleLarge, color = XpColors.Ink,
                 )
                 Text(unit, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.padding(start = 2.dp, bottom = 2.dp))
             }
@@ -123,8 +126,8 @@ private fun AgeChips(selected: AgeBand?, onSelect: (AgeBand?) -> Unit) {
 
 @Composable
 private fun Chip(label: String, on: Boolean, onClick: () -> Unit) {
-    val bg by animateColorAsState(if (on) XpColors.Accent else XpColors.Card, label = "chip")
-    val fg by animateColorAsState(if (on) XpColors.Card else XpColors.Ink, label = "chipfg")
+    val bg by animateColorAsState(if (on) XpColors.AccentSoft else XpColors.Fill, label = "chip")
+    val fg by animateColorAsState(if (on) XpColors.Accent else XpColors.Ink, label = "chipfg")
     val haptic = LocalHapticFeedback.current
     Text(
         label, style = MaterialTheme.typography.labelMedium, color = fg,
@@ -138,7 +141,7 @@ private fun Chip(label: String, on: Boolean, onClick: () -> Unit) {
 private fun KindBars(stats: CohortStats) {
     val max = stats.kindShare.maxOfOrNull { it.share ?: 0f } ?: 0f
     Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-        stats.kindShare.forEachIndexed { i, c -> CellBar(c, max, XpColors.Accent, i) }
+        stats.kindShare.forEachIndexed { i, c -> CellBar(c, max, XpColors.InkSecondary, i) }
     }
 }
 
@@ -160,11 +163,12 @@ private fun HeatSection(stats: CohortStats) {
         Heatmap(stats.heatmap, stats.heatmapMax, sel) {
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); sel = it
         }
+        HeatLegend()
         AnimatedContent(sel, label = "heatdetail") { s ->
             val cell = s?.let { stats.heatmap[it.first][it.second] }
             Text(
                 when {
-                    cell == null -> "👆 点一格看看"
+                    cell == null -> "点一格看看"
                     cell.suppressed -> "${cell.label} · $SUPPRESSED_TEXT，为保护隐私不展示"
                     else -> "${cell.label} · 约 ${cell.people} 人到店"
                 },
@@ -197,5 +201,32 @@ private fun ToppingDonut(stats: CohortStats) {
                 }
             }
         }
+    }
+}
+
+/** Legend: clay ramp (few -> many) and the hatched swatch for suppressed cells. */
+@Composable
+private fun HeatLegend() {
+    val edge = XpColors.InkTertiary.copy(alpha = 0.45f)
+    val clay = XpColors.Accent
+    Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
+        Text("少", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
+        androidx.compose.foundation.layout.Box(
+            Modifier.width(56.dp).height(10.dp).clip(RoundedCornerShape(3.dp))
+                .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(clay.copy(alpha = 0.12f), clay))),
+        )
+        Text("多", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
+        androidx.compose.foundation.layout.Spacer(Modifier.width(XpSpace.s))
+        androidx.compose.foundation.layout.Box(
+            Modifier.width(22.dp).height(10.dp).clip(RoundedCornerShape(3.dp)).drawBehind {
+                drawRoundRect(edge, cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()), style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx()))
+                var d = -size.height
+                while (d < size.width) {
+                    drawLine(edge, androidx.compose.ui.geometry.Offset(d, size.height), androidx.compose.ui.geometry.Offset(d + size.height, 0f), 1.dp.toPx())
+                    d += 5.dp.toPx()
+                }
+            },
+        )
+        Text("$SUPPRESSED_TEXT（<$K_ANONYMITY 人）", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
     }
 }

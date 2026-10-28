@@ -1,60 +1,59 @@
 package com.xiaopiao.app.ui.components
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Receipt
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 
-/** Friendly empty/error placeholder: bobbing emoji, title, body and an optional action button. */
+/** Calm empty/error placeholder: a 48dp line icon, a serif title, one line of body, an optional secondary action. */
 @Composable
 fun EmptyState(
-    emoji: String,
+    icon: ImageVector,
     title: String,
     body: String,
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
-    val bob = rememberInfiniteTransition(label = "bob").animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1400, easing = CubicBezierEasing(0.45f, 0f, 0.55f, 1f)), RepeatMode.Reverse),
-        label = "bobY",
-    )
     Column(
         modifier.fillMaxWidth().padding(horizontal = XpSpace.xl, vertical = XpSpace.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(XpSpace.s),
     ) {
+        Icon(icon, contentDescription = null, tint = XpColors.InkTertiary, modifier = Modifier.size(48.dp))
         Text(
-            emoji,
-            fontSize = 52.sp,
-            modifier = Modifier.graphicsLayer {
-                translationY = -8.dp.toPx() * bob.value
-                rotationZ = (bob.value - 0.5f) * 6f
-            },
+            title, style = MaterialTheme.typography.headlineMedium.copy(fontSize = 20.sp, lineHeight = 26.sp),
+            color = XpColors.Ink, textAlign = TextAlign.Center, modifier = Modifier.padding(top = XpSpace.xs),
         )
-        Text(title, style = MaterialTheme.typography.titleLarge, color = XpColors.Ink, textAlign = TextAlign.Center)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary, textAlign = TextAlign.Center)
         if (actionLabel != null && onAction != null) {
-            XpButton(actionLabel, onAction, style = XpButtonStyle.Secondary, modifier = Modifier.padding(top = XpSpace.s))
+            XpButton(actionLabel, onAction, style = XpButtonStyle.Secondary, size = XpButtonSize.Small, modifier = Modifier.padding(top = XpSpace.s))
         }
     }
 }
+
+/** Source-compatible overload for older call sites: the emoji is ignored in favour of a generic line icon. */
+@Composable
+fun EmptyState(
+    @Suppress("UNUSED_PARAMETER") emoji: String,
+    title: String,
+    body: String,
+    modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+) = EmptyState(Icons.Outlined.Receipt, title, body, modifier, actionLabel, onAction)

@@ -41,6 +41,8 @@ import com.xiaopiao.app.merchant.ExperimentStatus
 import com.xiaopiao.app.merchant.MerchantStore
 import com.xiaopiao.app.merchant.SuggestionGenerator
 import com.xiaopiao.app.ui.game.DuelGameScreen
+import com.xiaopiao.app.ui.components.NavScaffold
+import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 
@@ -154,22 +156,20 @@ private fun FlowFrame(
     onPrivacy: () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
-        ) {
-            Text("‹ 小店", Modifier.clickable(onClick = onBack).padding(vertical = 6.dp), style = MaterialTheme.typography.labelLarge, color = XpColors.Accent)
-            Box(Modifier.weight(1f))
+    NavScaffold(
+        route.title, NavScrollNone, onBack = onBack, backLabel = "小店", demo = true,
+        trailing = {
             Text("数据怎么来的", Modifier.clickable(onClick = onPrivacy), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
-            DemoPill()
+        },
+    ) { top ->
+        Column(Modifier.fillMaxSize().padding(top = top)) {
+            Column(Modifier.padding(horizontal = XpSpace.l)) {
+                Text("第 ${route.order} 步 / 共 4 步", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+                Text(route.title, style = MaterialTheme.typography.headlineLarge, color = XpColors.Ink)
+                StepBar(route, hasExperiment, onJump)
+            }
+            Box(Modifier.weight(1f).padding(top = XpSpace.s)) { content() }
         }
-        Column(Modifier.padding(horizontal = XpSpace.l)) {
-            Text("第 ${route.order} 步 / 共 4 步", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
-            Text(route.title, style = MaterialTheme.typography.headlineLarge, color = XpColors.Ink)
-            StepBar(route, hasExperiment, onJump)
-        }
-        Box(Modifier.weight(1f).padding(top = XpSpace.m)) { content() }
     }
 }
 
@@ -180,12 +180,12 @@ private fun StepBar(current: MerchantRoute, hasExperiment: Boolean, onJump: (Mer
         steps.forEach { s ->
             val reachable = s.order <= 2 || hasExperiment
             val fill by androidx.compose.animation.animateColorAsState(
-                if (s.order <= current.order) XpColors.Accent else XpColors.Hairline, label = "step",
+                if (s.order <= current.order) XpColors.Accent else XpColors.Fill, label = "step",
             )
             Box(
                 Modifier.weight(1f).clickable(enabled = reachable && s != current) { onJump(s) }.padding(vertical = 8.dp),
             ) {
-                Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(fill))
+                Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(fill))
             }
         }
     }

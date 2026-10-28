@@ -1,5 +1,9 @@
 package com.xiaopiao.app.ui.merchant
 
+import com.xiaopiao.app.ui.components.XpButtonStyle
+import com.xiaopiao.app.ui.components.XpButton
+import com.xiaopiao.app.ui.components.IconTile
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -75,7 +79,7 @@ fun Reveal(index: Int, modifier: Modifier = Modifier, content: @Composable () ->
     ) { content() }
 }
 
-/** Filled / tonal button with press-scale spring and a haptic tick. */
+/** Ink primary / fill secondary button (the shared XpButton), full width. */
 @Composable
 fun MerchantButton(
     text: String,
@@ -83,44 +87,25 @@ fun MerchantButton(
     modifier: Modifier = Modifier,
     primary: Boolean = true,
     enabled: Boolean = true,
+    clay: Boolean = false,
 ) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.96f else 1f, SpringSnappy, label = "btn")
-    val haptic = LocalHapticFeedback.current
-    val bg = when {
-        !enabled -> XpColors.Hairline
-        primary -> XpColors.Accent
-        else -> XpColors.AccentSoft
-    }
-    val fg = if (primary && enabled) XpColors.Card else if (enabled) XpColors.Accent else XpColors.InkSecondary
-    Box(
-        modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .clip(RoundedCornerShape(XpRadius.m))
-            .background(bg)
-            .clickable(interaction, indication = null, enabled = enabled) {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onClick()
-            }
-            .padding(vertical = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text, style = MaterialTheme.typography.labelLarge, color = fg, fontWeight = FontWeight.SemiBold)
-    }
+    XpButton(
+        text, onClick, modifier.fillMaxWidth(),
+        style = if (clay) XpButtonStyle.Clay else if (primary) XpButtonStyle.Primary else XpButtonStyle.Secondary,
+        enabled = enabled,
+    )
 }
 
 /** Designed empty state: big emoji, friendly line, optional action. */
 @Composable
-fun EmptyState(emoji: String, title: String, body: String, action: String? = null, onAction: () -> Unit = {}) {
+fun EmptyState(icon: ImageVector, title: String, body: String, action: String? = null, onAction: () -> Unit = {}) {
     val t = rememberEnter()
     Column(
         Modifier.fillMaxWidth().padding(XpSpace.xl).scale(0.9f + 0.1f * t),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(XpSpace.s),
     ) {
-        Text(emoji, style = MaterialTheme.typography.displayLarge)
+        IconTile(icon, size = 56.dp)
         Text(title, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary, textAlign = TextAlign.Center)
         if (action != null) {
@@ -133,15 +118,15 @@ fun EmptyState(emoji: String, title: String, body: String, action: String? = nul
 fun SelectableCard(selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.98f else if (selected) 1.01f else 1f, SpringSnappy, label = "sel")
+    val scale by animateFloatAsState(if (pressed) 0.98f else 1f, SpringSnappy, label = "sel")
     val haptic = LocalHapticFeedback.current
-    val border = if (selected) BorderStroke(2.dp, XpColors.Accent) else BorderStroke(1.dp, XpColors.Hairline)
+    val border = if (selected) BorderStroke(1.5.dp, XpColors.Accent) else BorderStroke(0.5.dp, XpColors.Hairline)
     Box(
         modifier
             .fillMaxWidth()
             .scale(scale)
             .clip(RoundedCornerShape(XpRadius.m))
-            .background(if (selected) XpColors.AccentSoft.copy(alpha = 0.45f) else XpColors.Card)
+            .background(if (selected) XpColors.AccentSoft else XpColors.Card)
             .border(border, RoundedCornerShape(XpRadius.m))
             .clickable(interaction, indication = null) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
