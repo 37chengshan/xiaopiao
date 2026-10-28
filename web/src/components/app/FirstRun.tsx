@@ -26,7 +26,7 @@ function PaperMark() {
 
 function BigIcon({ icon: Icon, tone }: { icon: LucideIcon; tone: Tone }) {
   return (
-    <span className={cn("mx-auto grid size-24 place-items-center rounded-[28px] shadow-[inset_0_1px_0_oklch(1_0_0/40%)]", TONE_CLASS[tone])} aria-hidden>
+    <span className={cn("mx-auto grid size-24 place-items-center rounded-[28px]", TONE_CLASS[tone])} aria-hidden>
       <Icon className="size-11" strokeWidth={1.6} />
     </span>
   );
@@ -111,7 +111,7 @@ export function Onboarding({ onFinish }: { onFinish?: () => void }) {
             {i === 3 && (
               <div className="mx-auto mt-7 w-full max-w-[20rem] space-y-3 text-left">
                 <Segmented value={pref} onChange={setPref} options={THEMES} />
-                <div className="card-tint flex items-center justify-between rounded-[14px] bg-surface px-4 py-3">
+                <div className="flex items-center justify-between rounded-[16px] bg-surface px-4 py-3">
                   <span className="text-[16px] text-ink">{t("me.sound")}</span>
                   <Switch checked={sound} onCheckedChange={setSound} label={t("me.sound")} />
                 </div>

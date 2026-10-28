@@ -311,7 +311,7 @@ export function HomeChat() {
                 e.preventDefault();
                 send(input);
               }}
-              className="mx-3 flex items-center gap-0.5 rounded-[26px] border border-hairline bg-surface p-1 shadow-[0_1px_2px_oklch(0_0_0/5%)]"
+              className="mx-3 flex items-center gap-0.5 rounded-[26px] bg-fill p-1"
             >
               <button type="button" onClick={() => entry.open()} aria-label="手动记一笔" className="grid size-9 shrink-0 place-items-center rounded-full text-ink-2 transition-transform duration-100 active:scale-[0.94]">
                 <Plus className="size-5" strokeWidth={1.75} />
@@ -328,7 +328,7 @@ export function HomeChat() {
                 type="submit"
                 disabled={!input.trim()}
                 aria-label="发送"
-                className="grid size-9 shrink-0 place-items-center rounded-full bg-ink text-bg transition-[transform,background-color,color] duration-150 active:scale-[0.94] disabled:bg-fill disabled:text-ink-3 disabled:active:scale-100"
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-ink text-bg transition-[transform,background-color,color] duration-150 active:scale-[0.94] disabled:bg-transparent disabled:text-ink-3 disabled:active:scale-100"
               >
                 <ArrowUp className="size-5" strokeWidth={2.25} />
               </button>

@@ -92,7 +92,7 @@ function MonthHero({ txns, now }: { txns: readonly Txn[]; now: number }) {
   });
   const max = Math.max(...days, 1);
   return (
-    <div className="card-tint mx-4 mb-1 flex items-end justify-between gap-4 rounded-[18px] bg-surface p-4">
+    <div className="mx-4 mb-1 flex items-end justify-between gap-4 rounded-[20px] bg-surface p-4">
       <div>
         <p className="text-[13px] text-ink-2">{d.getMonth() + 1} 月支出</p>
         <Money cents={month} className="mt-0.5 block text-[40px] font-semibold leading-[46px] text-ink" />

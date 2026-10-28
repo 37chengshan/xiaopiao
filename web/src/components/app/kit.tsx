@@ -27,7 +27,7 @@ export function Group({ children, className, inset = "plain" }: { children: Reac
   return (
     <div
       className={cn(
-        "card-tint mx-4 overflow-hidden rounded-[16px] bg-surface",
+        "mx-4 overflow-hidden rounded-[18px] bg-surface",
         "[&>*+*]:relative [&>*+*]:after:pointer-events-none [&>*+*]:after:absolute [&>*+*]:after:right-0 [&>*+*]:after:top-0 [&>*+*]:after:h-px [&>*+*]:after:bg-hairline [&>*+*]:after:content-['']",
         inset === "icon" ? "[&>*+*]:after:left-[58px]" : "[&>*+*]:after:left-4",
         className,
@@ -114,10 +114,10 @@ export function IconButton({
       aria-label={label}
       {...props}
       className={cn(
-        "btn-round relative grid size-8 shrink-0 place-items-center rounded-full before:absolute before:-inset-1.5 before:content-[''] active:scale-[0.94]",
-        tone === "fill" && "bg-surface text-ink",
-        tone === "ink" && "btn-ink bg-ink text-bg",
-        tone === "clay" && "btn-clay bg-clay text-on-clay",
+        "press relative grid size-8 shrink-0 place-items-center rounded-full before:absolute before:-inset-1.5 before:content-['']",
+        tone === "fill" && "bg-fill text-ink",
+        tone === "ink" && "bg-ink text-bg",
+        tone === "clay" && "bg-clay text-on-clay",
         className,
       )}
     >
@@ -137,8 +137,8 @@ export function Chip({
       type="button"
       {...props}
       className={cn(
-        "inline-flex h-9 shrink-0 items-center rounded-full px-3.5 text-[14px] font-medium transition-[transform,background-color,color] duration-150 ease-[var(--ease-out)] active:scale-[0.97]",
-        selected ? "btn-ink bg-ink text-bg" : "btn-soft bg-surface text-ink-2",
+        "press inline-flex h-9 shrink-0 items-center rounded-full px-3.5 text-[14px] font-medium",
+        selected ? "bg-ink text-bg" : "bg-fill text-ink-2",
         className,
       )}
     />
@@ -164,9 +164,9 @@ export function Footnote({ children, className }: { children: ReactNode; classNa
   return <p className={cn("px-8 pt-2 text-[13px] leading-[18px] text-ink-2", className)}>{children}</p>;
 }
 
-type ButtonVariant = "primary" | "clay" | "secondary" | "plain";
+type ButtonVariant = "primary" | "clay" | "tinted" | "secondary" | "plain";
 
-/** Buttons (§4): primary = ink, clay = the one accent CTA per screen, secondary = fill, plain = text. */
+/** Buttons: primary/clay = the one solid pill per screen, tinted = accent 14% fill, secondary = gray fill, plain = text. */
 export function XButton({
   variant = "secondary",
   size = "lg",
@@ -178,11 +178,12 @@ export function XButton({
       type="button"
       {...props}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 font-medium transition-transform duration-100 ease-[var(--ease-out)] active:scale-[0.97] disabled:opacity-40 disabled:shadow-none disabled:active:scale-100",
-        size === "lg" ? "h-[52px] rounded-[16px] px-6 text-[16px] font-semibold" : "h-9 rounded-[10px] px-3.5 text-[14px]",
-        variant === "primary" && "btn-ink bg-ink text-bg",
-        variant === "clay" && "btn-clay bg-clay text-on-clay",
-        variant === "secondary" && "btn-soft bg-surface text-ink",
+        "press inline-flex items-center justify-center gap-1.5 rounded-full font-medium",
+        size === "lg" ? "h-[50px] px-6 text-[16px] font-semibold" : "h-9 px-4 text-[14px]",
+        variant === "primary" && "bg-ink text-bg",
+        variant === "clay" && "bg-clay text-on-clay",
+        variant === "tinted" && "bg-clay/14 text-clay",
+        variant === "secondary" && "bg-fill text-ink",
         variant === "plain" && "px-1 text-clay",
         className,
       )}
@@ -218,7 +219,7 @@ export function Segmented<T extends string>({
             {active && (
               <motion.span
                 layoutId={`seg-${id}`}
-                className="absolute inset-0 rounded-[8px] bg-surface shadow-[0_1px_3px_oklch(0_0_0/12%)] dark:bg-surface-2"
+                className="absolute inset-0 rounded-[8px] bg-surface dark:bg-surface-2"
                 transition={{ type: "spring", bounce: 0, duration: 0.3 }}
               />
             )}

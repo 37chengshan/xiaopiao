@@ -137,10 +137,6 @@
   --green-soft: oklch(0.945 0.035 150); --green: oklch(0.45 0.09 150);
   --amber-soft: oklch(0.95 0.05 85);  --amber: oklch(0.5 0.1 70);
   --violet-soft: oklch(0.945 0.03 300); --violet: oklch(0.47 0.1 300);
-  --card-hi: oklch(1 0 0);            /* card top highlight */
-  --card-lo: oklch(0.985 0.006 95);   /* card bottom tint */
-  --shadow-soft: 0 1px 2px oklch(0.2 0.01 90 / 6%), 0 6px 16px -8px oklch(0.2 0.01 90 / 14%);
-  --btn-glow: transparent;
 
   /* v1 aliases */
   --canvas: var(--bg);
@@ -209,10 +205,6 @@
   --green-soft: oklch(0.29 0.035 150); --green: oklch(0.78 0.09 150);
   --amber-soft: oklch(0.31 0.04 80);  --amber: oklch(0.82 0.1 85);
   --violet-soft: oklch(0.3 0.04 300); --violet: oklch(0.78 0.09 300);
-  --card-hi: oklch(0.3 0.006 85);
-  --card-lo: oklch(0.265 0.005 85);
-  --shadow-soft: 0 0 0 0.5px oklch(1 0 0 / 7%);
-  --btn-glow: oklch(1 0 0 / 22%);
   --primary: var(--ink);
   --primary-foreground: var(--bg);
   --destructive-foreground: oklch(1 0 0);
@@ -352,94 +344,28 @@
   }
 }
 
-/* Round 2 textured controls: gradient + 1px inner highlight + soft shadow; dark mode uses a glow edge instead of a black shadow */
-.btn-ink,
-.btn-clay,
-.btn-soft,
-.btn-round {
+/* Buttons (2026-10-28 rewrite): flat fills, no borders/gradients/inner highlights/shadows. Feel comes from press motion. */
+.press {
   transition:
-    transform 90ms var(--ease-out),
-    box-shadow 90ms var(--ease-out),
-    filter 90ms var(--ease-out);
+    transform 180ms var(--ease-out),
+    opacity 180ms var(--ease-out);
 }
-.btn-ink {
-  background-image: linear-gradient(to bottom, color-mix(in oklch, var(--ink) 88%, var(--bg)), var(--ink));
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 22%),
-    inset 0 -1px 0 oklch(0 0 0 / 22%),
-    0 0 0 1px var(--btn-glow),
-    0 4px 12px -2px oklch(0 0 0 / 28%);
+.press:active {
+  transform: scale(0.97);
+  opacity: 0.88;
 }
-.dark .btn-ink {
-  background-image: linear-gradient(to bottom, var(--ink), color-mix(in oklch, var(--ink) 82%, var(--bg)));
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 70%),
-    0 0 0 1px var(--btn-glow),
-    0 0 14px -2px oklch(1 0 0 / 16%);
-}
-.btn-clay {
-  background-image: linear-gradient(to bottom, color-mix(in oklch, var(--clay) 86%, white), var(--clay));
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 28%),
-    inset 0 -1px 0 oklch(0 0 0 / 12%),
-    0 0 0 1px var(--btn-glow),
-    0 4px 12px oklch(0.5 0.13 36 / 28%);
-}
-.dark .btn-clay {
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 35%),
-    0 0 0 1px var(--btn-glow),
-    0 0 16px -2px oklch(0.67 0.13 42 / 35%);
-}
-.btn-soft {
-  background-image: linear-gradient(to bottom, var(--card-hi), var(--card-lo));
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 60%),
-    0 0 0 1px var(--hairline),
-    0 1px 2px oklch(0.2 0.01 90 / 8%);
-}
-.dark .btn-soft {
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 10%),
-    0 0 0 1px oklch(1 0 0 / 12%);
-}
-.btn-round {
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 50%),
-    0 0 0 1px var(--hairline),
-    0 2px 6px -1px oklch(0.2 0.01 90 / 14%);
-}
-.dark .btn-round {
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 12%),
-    0 0 0 1px oklch(1 0 0 / 14%);
-}
-.btn-ink:active,
-.btn-clay:active,
-.btn-soft:active,
-.btn-round:active {
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / 20%),
-    0 0 0 1px var(--btn-glow),
-    0 1px 4px oklch(0.4 0.05 36 / 22%);
-  filter: brightness(0.97);
+.press:disabled {
+  transform: none;
+  opacity: 0.4;
 }
 
-/* Card with a faint vertical tint and soft depth (light) / hairline ring (dark) */
-.card-tint {
-  background-image: linear-gradient(to bottom, var(--card-hi), var(--card-lo));
-  box-shadow: var(--shadow-soft);
+/* Glass: only for controls that float over content (tab capsule, return pill). Soft shadow in light, none in dark. */
+.glass-float {
+  background-color: var(--material);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 10%);
 }
-
-/* Floating capsule tab bar: glass + inner hairline + soft drop shadow (dark: glow edge, no black shadow) */
-.tab-capsule {
-  box-shadow:
-    inset 0 0 0 1px var(--hairline),
-    inset 0 1px 0 oklch(1 0 0 / 40%),
-    0 8px 24px -8px oklch(0.2 0.01 90 / 22%);
-}
-.dark .tab-capsule {
-  box-shadow:
-    inset 0 0 0 1px oklch(1 0 0 / 12%),
-    inset 0 1px 0 oklch(1 0 0 / 10%);
+.dark .glass-float {
+  box-shadow: none;
 }

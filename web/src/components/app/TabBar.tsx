@@ -48,7 +48,7 @@ export function TabBar({ hidden = false }: { hidden?: boolean }) {
       style={{ bottom: "calc(10px + env(safe-area-inset-bottom, 0px))" }}
       inert={hidden || undefined}
       className={cn(
-        "material tab-capsule absolute inset-x-4 z-30 h-16 rounded-[32px] transition-[transform,opacity] duration-200 ease-[var(--ease-out)]",
+        "glass-float absolute inset-x-4 z-30 h-16 rounded-[32px] transition-[transform,opacity] duration-200 ease-[var(--ease-out)]",
         hidden && "pointer-events-none translate-y-[120%] opacity-0",
       )}
     >
@@ -62,7 +62,7 @@ export function TabBar({ hidden = false }: { hidden?: boolean }) {
             aria-label={t("nav.chat")}
             aria-current={onHome ? "page" : undefined}
             onClick={() => (onHome ? entry.open() : void navigate({ to: "/home" }))}
-            className="btn-clay absolute -top-[18px] grid size-[58px] place-items-center rounded-full bg-clay text-on-clay ring-4 ring-bg active:scale-[0.95]"
+            className="press absolute -top-[18px] grid size-[58px] place-items-center rounded-full bg-clay text-on-clay ring-4 ring-bg active:!scale-[0.92]"
           >
             <MessageCircleHeart className="size-[28px]" strokeWidth={1.9} aria-hidden />
           </button>
