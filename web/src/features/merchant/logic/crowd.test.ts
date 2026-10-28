@@ -8,7 +8,7 @@ describe("DemoCrowd", () => {
   it("differs across seeds", () => {
     expect(generateDemoCrowd(1, 50)).not.toEqual(generateDemoCrowd(2, 50));
   });
-  it("makes ~300 members with valid fields", () => {
+  it("makes a full demo crowd with valid fields", () => {
     const crowd = generateDemoCrowd();
     expect(crowd).toHaveLength(DEMO_CROWD_SIZE);
     for (const m of crowd) {
@@ -20,6 +20,16 @@ describe("DemoCrowd", () => {
         expect(Number.isInteger(p.amountCents)).toBe(true);
       }
     }
+  });
+  it("has believable drink-buyer share and repeat rate", () => {
+    const crowd = generateDemoCrowd();
+    const counts = crowd.map((m) => m.purchases.filter((p) => p.category === "DRINK").length).filter((n) => n > 0);
+    const share = counts.length / crowd.length;
+    const repeat = counts.filter((n) => n >= 3).length / counts.length;
+    expect(share).toBeGreaterThanOrEqual(0.55);
+    expect(share).toBeLessThanOrEqual(0.75);
+    expect(repeat).toBeGreaterThanOrEqual(0.35);
+    expect(repeat).toBeLessThanOrEqual(0.55);
   });
   it("maps cents to price bands", () => {
     expect(priceBandOf(900)).toBe("lt10");

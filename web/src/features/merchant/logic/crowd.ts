@@ -45,7 +45,7 @@ export interface DemoMember {
 }
 
 export const DEMO_CROWD_SEED = 20261027;
-export const DEMO_CROWD_SIZE = 300;
+export const DEMO_CROWD_SIZE = 480;
 
 const CATEGORY_WEIGHTS: ReadonlyArray<readonly [Category, number]> = [
   ["DRINK", 42],
@@ -56,7 +56,7 @@ const CATEGORY_WEIGHTS: ReadonlyArray<readonly [Category, number]> = [
   ["OTHER", 3],
 ];
 const WEEKDAY_WEIGHTS = [1, 1, 1, 1.1, 1.5, 1.9, 1.6] as const;
-const SLOT_WEIGHTS = [0.12, 0.5, 1.2, 2.1, 1.4, 0.3] as const;
+const SLOT_WEIGHTS = [0.2, 0.7, 1.3, 1.8, 1.4, 0.45] as const;
 const AGE_WEIGHTS: ReadonlyArray<readonly [AgeBand, number]> = [
   ["18–24", 34],
   ["25–34", 40],
@@ -96,21 +96,31 @@ function purchaseAmount(rng: Rng, category: Category, drinkAnchor: number): Cent
   return Math.max(300, Math.round((base * jitter) / 100) * 100);
 }
 
+const NON_DRINK_WEIGHTS = CATEGORY_WEIGHTS.filter(([c]) => c !== "DRINK");
+
+/**
+ * Realistic mix for a neighbourhood tea shop's opt-in crowd: roughly 6 in 10 buy drinks at all,
+ * and about 4 in 10 of those are regulars (3+ drinks in the window).
+ */
+const DRINK_BUYER_RATE = 0.62;
+const REGULAR_RATE = 0.45;
+
 function makeMember(rng: Rng, index: number): DemoMember {
-  const drinkLover = rng() < 0.72;
-  const count = 4 + Math.floor(rng() * 12) + (drinkLover ? 4 : 0);
+  const buysDrinks = rng() < DRINK_BUYER_RATE;
+  const regular = buysDrinks && rng() < REGULAR_RATE;
+  const drinkCount = !buysDrinks ? 0 : regular ? 3 + Math.floor(rng() * 5) : 1 + Math.floor(rng() * 2);
+  const otherCount = 3 + Math.floor(rng() * 7);
   const drinkAnchor = 900 + Math.floor(rng() * 1300);
   const purchases: DemoPurchase[] = [];
-  for (let i = 0; i < count; i++) {
-    const category =
-      drinkLover && rng() < 0.4 ? "DRINK" : pickWeighted(rng, CATEGORY_WEIGHTS);
+  const add = (category: Category) =>
     purchases.push({
       category,
       weekday: pickWeighted(rng, indexed(WEEKDAY_WEIGHTS)),
       slot: pickWeighted(rng, indexed(SLOT_WEIGHTS)),
       amountCents: purchaseAmount(rng, category, drinkAnchor),
     });
-  }
+  for (let i = 0; i < drinkCount; i++) add("DRINK");
+  for (let i = 0; i < otherCount; i++) add(pickWeighted(rng, NON_DRINK_WEIGHTS));
   return {
     id: `m${String(index + 1).padStart(3, "0")}`,
     ageBand: pickWeighted(rng, AGE_WEIGHTS),
