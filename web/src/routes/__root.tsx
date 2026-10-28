@@ -1,7 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Link, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
-import { AppShell } from "@/components/app/AppShell";
-import { LedgerProvider } from "@/services/LedgerProvider";
 
 function NotFoundComponent() {
   return (
@@ -60,11 +58,7 @@ function RootRoute() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <LedgerProvider>
-        <AppShell>
-          <Outlet />
-        </AppShell>
-      </LedgerProvider>
+      <Outlet />
     </QueryClientProvider>
   );
 }

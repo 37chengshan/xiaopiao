@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "jobId": "import_052f940a-f278-427a-bb81-aac6a925a4a4",
+  "status": "FAILED",
+  "stage": "FAILED",
+  "message": "源代码未通过导入校验，请修复后重新导入",
+  "diagnostic": "QMuse migration blocked: Existing TanStack root layout contains unsupported providers or UI: @/services/LedgerProvider:LedgerProvider, @/components/app/AppShell:AppShell.",
+  "failureDiagnostic": {
+    "version": 1,
+    "category": "SOURCE_CODE",
+    "stage": "MIGRATING_SOURCE",
+    "summary": "QMuse migration blocked: Existing TanStack root layout contains unsupported providers or UI: @/services/LedgerProvider:LedgerProvider, @/components/app/AppShell:AppShell.",
+    "fixableByModel": true,
+    "suggestedAction": "FIX_SOURCE_AND_RETRY",
+    "items": [
+      {
+        "message": "QMuse migration blocked: Existing TanStack root layout contains unsupported providers or UI: @/services/LedgerProvider:LedgerProvider, @/components/app/AppShell:AppShell."
+      }
+    ]
+  },
+  "retryCommand": null,
+  "retryAdvice": "当前任务没有可确认的原应用绑定。请先核对任务是否已创建应用，并恢复对应环境的项目绑定；直接重新 import 可能创建新应用。",
+  "environment": "prod",
+  "generatedAt": "2026-10-28T03:26:09.740Z"
+}

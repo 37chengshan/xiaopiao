@@ -9,167 +9,191 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as GameRouteImport } from './routes/game'
-import { Route as InsightsRouteImport } from './routes/insights'
-import { Route as LedgerRouteImport } from './routes/ledger'
-import { Route as MeRouteImport } from './routes/me'
-import { Route as MerchantRouteImport } from './routes/merchant'
-import { Route as TodayRouteImport } from './routes/today'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppGameRouteImport } from './routes/_app/game'
+import { Route as AppInsightsRouteImport } from './routes/_app/insights'
+import { Route as AppLedgerRouteImport } from './routes/_app/ledger'
+import { Route as AppMeRouteImport } from './routes/_app/me'
+import { Route as AppMerchantRouteImport } from './routes/_app/merchant'
+import { Route as AppTodayRouteImport } from './routes/_app/today'
 
-const IndexRoute = IndexRouteImport.update({
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const GameRoute = GameRouteImport.update({
+const AppGameRoute = AppGameRouteImport.update({
   id: '/game',
   path: '/game',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const InsightsRoute = InsightsRouteImport.update({
+const AppInsightsRoute = AppInsightsRouteImport.update({
   id: '/insights',
   path: '/insights',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const LedgerRoute = LedgerRouteImport.update({
+const AppLedgerRoute = AppLedgerRouteImport.update({
   id: '/ledger',
   path: '/ledger',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const MeRoute = MeRouteImport.update({
+const AppMeRoute = AppMeRouteImport.update({
   id: '/me',
   path: '/me',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const MerchantRoute = MerchantRouteImport.update({
+const AppMerchantRoute = AppMerchantRouteImport.update({
   id: '/merchant',
   path: '/merchant',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const TodayRoute = TodayRouteImport.update({
+const AppTodayRoute = AppTodayRouteImport.update({
   id: '/today',
   path: '/today',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/game': typeof GameRoute
-  '/insights': typeof InsightsRoute
-  '/ledger': typeof LedgerRoute
-  '/me': typeof MeRoute
-  '/merchant': typeof MerchantRoute
-  '/today': typeof TodayRoute
+  '/': typeof AppIndexRoute
+  '/game': typeof AppGameRoute
+  '/insights': typeof AppInsightsRoute
+  '/ledger': typeof AppLedgerRoute
+  '/me': typeof AppMeRoute
+  '/merchant': typeof AppMerchantRoute
+  '/today': typeof AppTodayRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/game': typeof GameRoute
-  '/insights': typeof InsightsRoute
-  '/ledger': typeof LedgerRoute
-  '/me': typeof MeRoute
-  '/merchant': typeof MerchantRoute
-  '/today': typeof TodayRoute
+  '/game': typeof AppGameRoute
+  '/insights': typeof AppInsightsRoute
+  '/ledger': typeof AppLedgerRoute
+  '/me': typeof AppMeRoute
+  '/merchant': typeof AppMerchantRoute
+  '/today': typeof AppTodayRoute
+  '/': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/game': typeof GameRoute
-  '/insights': typeof InsightsRoute
-  '/ledger': typeof LedgerRoute
-  '/me': typeof MeRoute
-  '/merchant': typeof MerchantRoute
-  '/today': typeof TodayRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_app/game': typeof AppGameRoute
+  '/_app/insights': typeof AppInsightsRoute
+  '/_app/ledger': typeof AppLedgerRoute
+  '/_app/me': typeof AppMeRoute
+  '/_app/merchant': typeof AppMerchantRoute
+  '/_app/today': typeof AppTodayRoute
+  '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     '/' | '/game' | '/insights' | '/ledger' | '/me' | '/merchant' | '/today'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/game' | '/insights' | '/ledger' | '/me' | '/merchant' | '/today'
+  to: '/game' | '/insights' | '/ledger' | '/me' | '/merchant' | '/today' | '/'
   id:
     | '__root__'
-    | '/'
-    | '/game'
-    | '/insights'
-    | '/ledger'
-    | '/me'
-    | '/merchant'
-    | '/today'
+    | '/_app'
+    | '/_app/game'
+    | '/_app/insights'
+    | '/_app/ledger'
+    | '/_app/me'
+    | '/_app/merchant'
+    | '/_app/today'
+    | '/_app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  GameRoute: typeof GameRoute
-  InsightsRoute: typeof InsightsRoute
-  LedgerRoute: typeof LedgerRoute
-  MeRoute: typeof MeRoute
-  MerchantRoute: typeof MerchantRoute
-  TodayRoute: typeof TodayRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/game': {
-      id: '/game'
+    '/_app/game': {
+      id: '/_app/game'
       path: '/game'
       fullPath: '/game'
-      preLoaderRoute: typeof GameRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppGameRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/insights': {
-      id: '/insights'
+    '/_app/insights': {
+      id: '/_app/insights'
       path: '/insights'
       fullPath: '/insights'
-      preLoaderRoute: typeof InsightsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppInsightsRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/ledger': {
-      id: '/ledger'
+    '/_app/ledger': {
+      id: '/_app/ledger'
       path: '/ledger'
       fullPath: '/ledger'
-      preLoaderRoute: typeof LedgerRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppLedgerRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/me': {
-      id: '/me'
+    '/_app/me': {
+      id: '/_app/me'
       path: '/me'
       fullPath: '/me'
-      preLoaderRoute: typeof MeRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppMeRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/merchant': {
-      id: '/merchant'
+    '/_app/merchant': {
+      id: '/_app/merchant'
       path: '/merchant'
       fullPath: '/merchant'
-      preLoaderRoute: typeof MerchantRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppMerchantRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/today': {
-      id: '/today'
+    '/_app/today': {
+      id: '/_app/today'
       path: '/today'
       fullPath: '/today'
-      preLoaderRoute: typeof TodayRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppTodayRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
+interface AppRouteChildren {
+  AppGameRoute: typeof AppGameRoute
+  AppInsightsRoute: typeof AppInsightsRoute
+  AppLedgerRoute: typeof AppLedgerRoute
+  AppMeRoute: typeof AppMeRoute
+  AppMerchantRoute: typeof AppMerchantRoute
+  AppTodayRoute: typeof AppTodayRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppGameRoute: AppGameRoute,
+  AppInsightsRoute: AppInsightsRoute,
+  AppLedgerRoute: AppLedgerRoute,
+  AppMeRoute: AppMeRoute,
+  AppMerchantRoute: AppMerchantRoute,
+  AppTodayRoute: AppTodayRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  GameRoute: GameRoute,
-  InsightsRoute: InsightsRoute,
-  LedgerRoute: LedgerRoute,
-  MeRoute: MeRoute,
-  MerchantRoute: MerchantRoute,
-  TodayRoute: TodayRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
