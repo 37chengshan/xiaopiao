@@ -10,7 +10,17 @@ data class MerchantState(
     val decisions: List<Decision> = emptyList(),
     val badgeCodes: List<String> = emptyList(),
     val gamesPlayed: Int = 0,
+    /** The shop's own daily revenue book, one row per day. */
+    val revenue: List<RevenueEntry> = emptyList(),
+    /** Non-zero once the demo book has been seeded, so an emptied book is not re-seeded behind the owner's back. */
+    val demoSeededAt: Long = 0L,
 ) {
+    /** Replaces the row for that day (one entry per day). */
+    fun recordRevenue(entry: RevenueEntry): MerchantState = copy(revenue = RevenueBook.upsert(revenue, entry))
+
+    fun importRevenue(entries: List<RevenueEntry>): MerchantState = copy(revenue = RevenueBook.merge(revenue, entries))
+
+    fun removeRevenue(dayStart: Long): MerchantState = copy(revenue = revenue.filterNot { it.dayStart == dayStart })
     fun publish(template: ExperimentTemplate, now: Long): MerchantState = copy(
         experiment = Experiment(
             id = "exp-$now", templateId = template.id, status = ExperimentStatus.RUNNING, createdAt = now,

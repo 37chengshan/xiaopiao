@@ -30,7 +30,7 @@ private val points = listOf(
     Triple(Icons.Outlined.GridOn, "少于 $K_ANONYMITY 人不展示", "任何一格样本不足 $K_ANONYMITY 人就会画成斜线空格，写着「样本不足」，连具体人数也不透露。"),
     Triple(Icons.Outlined.Lock, "通知原文不出手机", "支付通知只在用户手机里解析，上传的只有金额区间、品类、时段等结构化字段。"),
     Triple(Icons.Outlined.SportsEsports, "游戏表态单独存放", "小游戏里的选择是「游戏表态」，和真实消费分开存、分开标注。"),
-    Triple(Icons.Outlined.Science, "现在看到的是演示数据", "这个版本里商家侧的所有数字都是程序生成的演示数据，不是真实用户。"),
+    Triple(Icons.Outlined.Science, "顾客数字是演示数据", "人群洞察和实验里的顾客由程序生成，不是真实用户；你自己记的营收只存在这台手机上。"),
 )
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
