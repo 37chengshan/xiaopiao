@@ -54,7 +54,8 @@ import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.insights.DailyReceiptBuilder
 import androidx.compose.ui.graphics.graphicsLayer
-import com.xiaopiao.app.ui.components.LargeTitle
+import androidx.compose.ui.res.stringResource
+import com.xiaopiao.app.R
 import com.xiaopiao.app.ui.components.Pill
 import com.xiaopiao.app.ui.components.XpButton
 import com.xiaopiao.app.ui.components.XpButtonStyle
@@ -65,6 +66,8 @@ import com.xiaopiao.app.ui.components.ShimmerBlock
 import com.xiaopiao.app.ui.components.UndoToastHost
 import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberUndoToastState
+import com.xiaopiao.app.ui.onboarding.OnboardingPrefs
+import com.xiaopiao.app.ui.onboarding.OnboardingScreen
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.delay
@@ -149,42 +152,41 @@ fun TodayScreen(container: AppContainer) {
         session.tear(velocityPx, with(density) { 900.dp.toPx() }, ::openShare, reduced)
 
     Box(Modifier.fillMaxSize()) {
-        Column(
-            Modifier.fillMaxSize()
-                .graphicsLayer { val k = 1f - 0.03f * session.present.value; scaleX = k; scaleY = k }
-                .verticalScroll(scroll),
-        ) {
-            val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
-            val todayItems = all.orEmpty().filter { it.occurredAt in today until today + DAY_MS }
-            val greeting = TodayGreeting.build(
-                hour, all.orEmpty().isNotEmpty(), todayItems.size,
-                todayItems.filter { it.direction == Direction.OUT }.sumOf { it.amountCents },
-            )
-            LargeTitle(title = greeting.hello, subtitle = ReceiptLayout.dayLabel(today))
-            AiBubble(if (all == null) "我在热机，稍等一下下…" else greeting.line, reduced)
-
-            if (all == null || receipt == null) {
-                ShimmerBlock(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m).fillMaxWidth().height(132.dp), RoundedCornerShape(XpRadius.m))
-            } else {
-                PrintEntry(
-                    isToday = selectedDay == today,
+        Column(Modifier.fillMaxSize().graphicsLayer { val k = 1f - 0.03f * session.present.value; scaleX = k; scaleY = k }) {
+            Column(Modifier.weight(1f).verticalScroll(scroll)) {
+                val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+                val todayItems = all.orEmpty().filter { it.occurredAt in today until today + DAY_MS }
+                val greeting = TodayGreeting.build(
+                    hour, all.orEmpty().isNotEmpty(), todayItems.size,
+                    todayItems.filter { it.direction == Direction.OUT }.sumOf { it.amountCents },
+                )
+                val dayLabel = ReceiptLayout.dayLabel(selectedDay)
+                TodayHeader(
+                    caption = ReceiptLayout.dayLabel(today),
                     demo = demo,
-                    canOfferDemo = realAll.orEmpty().isEmpty(),
+                    spendLabel = if (selectedDay == today) stringResource(R.string.today_spend)
+                    else stringResource(R.string.today_spend_day, dayLabel.substringBefore(' ')),
+                    spendCents = receipt?.totalOutCents ?: 0L,
+                    line = if (all == null) stringResource(R.string.today_warming_up) else greeting.line,
+                    reduced = reduced,
+                )
+                if (all == null || receipt == null) {
+                    ShimmerBlock(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m).fillMaxWidth().height(96.dp), RoundedCornerShape(XpRadius.m))
+                } else {
+                    DayBreakdown(stringResource(R.string.today_breakdown), receipt.items)
+                    SectionHeader(stringResource(R.string.today_recent))
+                    RecentDays(DaySummaries.recent(all.orEmpty(), today), selectedDay, today, ::selectDay)
+                }
+                Spacer(Modifier.height(XpSpace.l))
+            }
+            if (all != null && receipt != null) {
+                PrintDock(
+                    isToday = selectedDay == today, demo = demo, canOfferDemo = realAll.orEmpty().isEmpty(),
                     onPrint = ::startPrint,
-                    onDemo = {
-                        demo = true
-                        toast.show("已切换到演示数据", "退出") { demo = false }
-                    },
+                    onDemo = { demo = true; toast.show("已切换到演示数据", "退出") { demo = false } },
                     onExitDemo = { demo = false },
                 )
-                DayBreakdown(
-                    if (selectedDay == today) "今日明细" else "${ReceiptLayout.dayLabel(selectedDay).substringBefore(' ')}明细",
-                    receipt.items,
-                )
-                SectionHeader("最近几天的小票")
-                RecentDays(DaySummaries.recent(all.orEmpty(), today), selectedDay, today, ::selectDay)
             }
-            Spacer(Modifier.height(XpSpace.xxl))
         }
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter))
         ReceiptOverlay(
@@ -193,36 +195,7 @@ fun TodayScreen(container: AppContainer) {
         )
     }
     share?.let { ReceiptShareSheet(it) { share = null } }
-}
-
-/** Quiet entry point on Today: no card, one primary action. The print itself happens in [ReceiptOverlay]. */
-@Composable
-private fun PrintEntry(
-    isToday: Boolean,
-    demo: Boolean,
-    canOfferDemo: Boolean,
-    onPrint: () -> Unit,
-    onDemo: () -> Unit,
-    onExitDemo: () -> Unit,
-) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.m), verticalArrangement = Arrangement.spacedBy(XpSpace.xs)) {
-        XpButton(if (isToday) "打印今日小票" else "打印这天的小票", onPrint, Modifier.fillMaxWidth())
-        if (demo) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            Pill("演示数据")
-            XpButton("退出演示", onExitDemo, style = XpButtonStyle.Plain)
-        } else if (canOfferDemo) XpButton("看看示例小票", onDemo, Modifier.fillMaxWidth(), style = XpButtonStyle.Plain)
-    }
-}
-
-/** "AI speaks first": one quiet line that types in (instantly when motion is reduced). */
-@Composable
-private fun AiBubble(text: String, reduced: Boolean) {
-    var shown by remember(text) { mutableIntStateOf(if (reduced) text.length else 0) }
-    LaunchedEffect(text) {
-        for (i in shown..text.length) { shown = i; delay(26) }
-    }
-    Box(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s)) {
-        Text(text, style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink.copy(alpha = 0f))
-        Text(text.take(shown), style = MaterialTheme.typography.bodyLarge, color = XpColors.InkSecondary)
-    }
+    val onboarding = remember { OnboardingPrefs(context) }
+    val onboarded by onboarding.observeDone().collectAsState(initial = true)
+    if (!onboarded) OnboardingScreen { scope.launch { onboarding.markDone() } }
 }
