@@ -55,6 +55,7 @@ import com.xiaopiao.app.OpenRequest
 import com.xiaopiao.app.insights.SampleData
 import com.xiaopiao.app.ui.components.Pill
 import com.xiaopiao.app.ui.components.XpCard
+import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 import com.xiaopiao.app.work.ReminderIntents
@@ -64,16 +65,17 @@ private enum class InsightsRoute(val label: String) { AWARDS("周报"), SUBSCRIP
 
 /** 洞察 tab: one compact bar, a segmented switch between 周报 / 订阅 / 后悔 (no hub, no large title). */
 @Composable
-fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenConsumed: () -> Unit = {}) {
+fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenConsumed: () -> Unit = {}, onBack: (() -> Unit)? = null) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { ReminderScheduler.ensureScheduled(context) }
 
     val real by container.ledger.observeAll().collectAsState(emptyList())
-    var demo by rememberSaveable { mutableStateOf(false) }
+    // Demo is a property of the data, not a switch (2026-10-28: tt shut down the 示例小票 toggle).
+    val demo = real.any { it.note == DemoSeed.NOTE }
     var route by rememberSaveable { mutableStateOf(InsightsRoute.AWARDS) }
     val now = remember { System.currentTimeMillis() }
     val sample = remember(now) { SampleData.generate(now) }
-    val input = InsightsInput(if (demo) sample else real, now, demo)
+    val input = InsightsInput(real, now, demo)
 
     LaunchedEffect(open) {
         val target = when (open?.target) {
@@ -86,8 +88,7 @@ fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenCon
     }
 
     NavScaffold(
-        "洞察", NavScrollNone, demo = demo,
-        trailing = { NavIconButton(Icons.Outlined.Science, "示例数据", { demo = !demo }) },
+        "洞察", NavScrollNone, demo = demo, onBack = onBack,
     ) { top ->
         Column(Modifier.fillMaxSize().padding(top = top)) {
             Box(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s)) {

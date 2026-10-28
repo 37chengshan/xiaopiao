@@ -24,6 +24,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,6 +45,7 @@ import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Txn
+import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.ShimmerBlock
@@ -56,7 +59,7 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 
 @Composable
-fun LedgerScreen(container: AppContainer) {
+fun LedgerScreen(container: AppContainer, onOpenInsights: () -> Unit = {}, onPrint: () -> Unit = {}) {
     val ledger = container.ledger
     val flow = remember(container) { ledger.observeAll() }
     val txns: List<Txn>? by flow.collectAsStateWithLifecycle(initialValue = null)
@@ -70,7 +73,15 @@ fun LedgerScreen(container: AppContainer) {
 
     fun openAdd(txn: Txn?) { editing = txn; sheetOpen = true }
 
-    NavScaffold("账本", rememberNavScroll(listState), demo = hasDemo) { top ->
+    NavScaffold(
+        "记账",
+        rememberNavScroll(listState),
+        demo = hasDemo,
+        trailing = {
+            NavIconButton(Icons.Outlined.Insights, "统计", onOpenInsights)
+            NavIconButton(Icons.Outlined.ReceiptLong, "打印今日小票", onPrint)
+        },
+    ) { top ->
         AnimatedContent(
             targetState = when { txns == null -> 0; txns.orEmpty().isEmpty() -> 1; else -> 2 },
             transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
@@ -83,7 +94,7 @@ fun LedgerScreen(container: AppContainer) {
                 }
                 else -> {
                     val groups = remember(txns, now / 60_000) { LedgerGrouping.group(txns.orEmpty(), now) }
-                    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = top, bottom = 24.dp)) {
+                    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = top, bottom = 104.dp)) {
                         item(key = "hero") { LedgerHero(txns.orEmpty(), now) }
                         groups.forEach { group ->
                             item(key = "day-${group.dayStart}") {
@@ -106,7 +117,6 @@ fun LedgerScreen(container: AppContainer) {
         }
 
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp))
-        AddFab(Modifier.align(Alignment.BottomEnd).padding(XpSpace.l)) { openAdd(null) }
     }
 
     if (sheetOpen) {
@@ -126,13 +136,12 @@ fun LedgerScreen(container: AppContainer) {
 private fun AddFab(modifier: Modifier, onClick: () -> Unit) {
     val shape = RoundedCornerShape(50)
     Row(
-        modifier.shadow(8.dp, shape, ambientColor = XpColors.Ink.copy(alpha = 0.2f), spotColor = XpColors.Ink.copy(alpha = 0.2f))
-            .clip(shape).background(XpColors.Accent).pressableClick(onClick = onClick)
+        modifier.clip(shape).background(XpColors.Primary).pressableClick(onClick = onClick)
             .height(48.dp).padding(horizontal = XpSpace.l + 2.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(Icons.Outlined.Add, contentDescription = null, tint = XpColors.OnAccent, modifier = Modifier.size(20.dp))
-        Text("记一笔", style = MaterialTheme.typography.labelLarge, color = XpColors.OnAccent)
+        Icon(Icons.Outlined.Add, contentDescription = null, tint = XpColors.OnPrimary, modifier = Modifier.size(20.dp))
+        Text("记一笔", style = MaterialTheme.typography.labelLarge, color = XpColors.OnPrimary)
     }
 }
 
@@ -162,7 +171,6 @@ private fun LedgerHero(txns: List<Txn>, now: Long) {
         XpCard {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("本月支出", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
-                if (out.any { it.note == DemoSeed.NOTE }) DemoChip()
             }
             MoneyText(monthTotal, style = MaterialTheme.typography.displayMedium)
             MiniBars(bars, Modifier.padding(top = XpSpace.m))

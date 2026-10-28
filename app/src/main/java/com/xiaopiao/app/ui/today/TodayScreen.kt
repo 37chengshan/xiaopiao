@@ -114,7 +114,7 @@ private data class DayData(val day: Long, val items: List<Txn>)
 
 /** "今日" tab: AI-first greeting, the receipt printer, per-category chips and recent-day mini receipts. */
 @Composable
-fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: Int = 0) {
+fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: Int = 0, printOnly: Boolean = false, onDone: (() -> Unit)? = null) {
     val today = remember { startOfDay(System.currentTimeMillis()) }
     var selectedDay by rememberSaveable { mutableLongStateOf(today) }
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -159,8 +159,8 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: 
     fun startPrint() = session.open(latestTimeline, reduced)
 
     // The nav's long-press (1.5s) asks for a print; ignore the initial 0.
-    LaunchedEffect(printSignal) {
-        if (printSignal > 0 && receipt != null) startPrint()
+    LaunchedEffect(printSignal, data) {
+        if (printSignal > 0 && data != null) startPrint()
     }
     var pendingPrint by remember { mutableStateOf(false) }
     LaunchedEffect(pendingPrint, data) {
@@ -227,11 +227,11 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: 
                 Spacer(Modifier.height(XpSpace.xl))
             }
         }
-        RecordFab(record, Modifier.align(Alignment.BottomEnd).padding(end = XpSpace.l, bottom = XpSpace.m))
+        if (!printOnly) RecordFab(record, Modifier.align(Alignment.BottomEnd).padding(end = XpSpace.l, bottom = XpSpace.m))
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter))
         ReceiptOverlay(
             session, lines, timeline, receipt?.let { ReceiptLayout.stampText(it) }.orEmpty(),
-            onTear = ::tearByButton, onTorn = ::openShare, onSkip = { session.skip(latestTimeline) }, onClose = session::close,
+            onTear = ::tearByButton, onTorn = ::openShare, onSkip = { session.skip(latestTimeline) }, onClose = { session.close(); if (printOnly) onDone?.invoke() },
         )
     }
     share?.let { ReceiptShareSheet(it) { share = null } }
@@ -270,10 +270,7 @@ private fun PrintCard(
     XpCard(Modifier.padding(horizontal = XpSpace.l).padding(bottom = XpSpace.m)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("今日小票", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                    if (demo) { Spacer(Modifier.width(XpSpace.s)); DemoChip() }
-                }
+                Text("今日小票", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
                 Spacer(Modifier.height(2.dp))
                 Text(
                     if (count == 0) "今天钱包休息" else "$count 笔 · ¥${totalCents.yuan()}",
@@ -295,7 +292,7 @@ private fun PrintCard(
         }
         Spacer(Modifier.height(XpSpace.m))
         Text(
-            "长按底部的小票键打印",
+            "点右上角的小票图标打印",
             style = MaterialTheme.typography.bodySmall,
             color = XpColors.InkTertiary,
         )

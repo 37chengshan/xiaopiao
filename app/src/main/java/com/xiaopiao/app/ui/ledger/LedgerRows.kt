@@ -81,13 +81,14 @@ private fun DayTotal(group: DayGroup) {
 fun TxnRow(txn: Txn, onClick: () -> Unit) {
     val income = txn.direction == Direction.IN
     val auto = txn.source == Source.NOTIFICATION || txn.source == Source.CSV
+    // The category already shows as its icon, and the day header owns the date: no repeat, no clock.
     GroupedRow(
         title = txn.merchant,
-        subtitle = "${txn.category.label} · ${LedgerGrouping.clock(txn.occurredAt)}" + if (auto) " · ${txn.source.label}" else "",
+        subtitle = txn.note.takeIf { it.isNotBlank() && it != DemoSeed.NOTE }
+            ?: if (auto) txn.source.label else null,
         leading = { IconTile(txn.category.icon()) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                if (txn.note == DemoSeed.NOTE) Pill("演示数据")
                 MoneyText(
                     txn.amountCents, style = MaterialTheme.typography.titleMedium,
                     color = if (income) XpColors.Positive else XpColors.Ink, prefix = if (income) "+" else "",

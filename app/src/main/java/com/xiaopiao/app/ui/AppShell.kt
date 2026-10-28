@@ -77,19 +77,21 @@ import com.xiaopiao.app.work.ReminderIntents
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.outlined.Add
+import androidx.activity.compose.BackHandler
 
 /**
  * Five slots (docs/APP-DESIGN.md §2): 对话 · 账本 · [首页·记账+小票] · 圈子 · 我的.
  * The centre button is the product's core action: it opens the record dock's home and long-press starts voice.
  */
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
-    Chat("chat", "对话", Icons.Outlined.ChatBubbleOutline),
-    Ledger("ledger", "账本", Icons.Outlined.ViewList),
-    Today("today", "今日", Icons.Outlined.ReceiptLong),
+    Ledger("ledger", "记账", Icons.Outlined.ViewList),
+    Chat("chat", "AI", Icons.Outlined.ChatBubbleOutline),
     Circle("circle", "圈子", Icons.Outlined.Groups),
     Settings("settings", "我的", Icons.Outlined.Person),
 }
@@ -125,7 +127,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
 
     LaunchedEffect(open) {
         when (open?.target) {
-            ReminderIntents.OPEN_TODAY -> { go(Tab.Today); onOpenConsumed() }
+            ReminderIntents.OPEN_TODAY -> { go(Tab.Ledger); onOpenConsumed() }
             // Insights consumes the request itself after jumping to the sub-page.
             ReminderIntents.OPEN_WEEKLY, ReminderIntents.OPEN_SUBSCRIPTIONS -> go(Tab.Ledger)
         }
@@ -135,18 +137,18 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         containerColor = XpColors.CanvasGrouped,
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
-            XpTabBar(
+            // The print page owns the screen; no tabs while the paper is coming out.
+            if (current != "print") XpTabBar(
                 current = current,
                 onSelect = { go(it) },
-                onPrint = {
-                    printSignal++
-                },
+                onRecord = { record.openManual() },
+                onVoice = { record.openVoice() },
             )
         },
     ) { padding ->
         // Screens built on NavScaffold draw under the status bar themselves; Today still expects the inset applied here.
         val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val top = if (current == Tab.Today.route || current == null) statusTop else 0.dp
+        val top = if (current == "print" || current == null) statusTop else 0.dp
         Box(
             Modifier.fillMaxSize()
                 .background(XpColors.CanvasGrouped)
@@ -154,15 +156,28 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         ) {
             // Tab switches are instant: it is the most frequent navigation in the app (docs/APP-DESIGN.md §7).
             NavHost(
-                nav, startDestination = Tab.Today.route,
+                nav, startDestination = Tab.Ledger.route,
                 enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
                 popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None },
             ) {
+                composable(Tab.Ledger.route) {
+                    LedgerScreen(
+                        container,
+                        onOpenInsights = { nav.navigate("insights") },
+                        onPrint = { printSignal++; nav.navigate("print") },
+                    )
+                }
+                composable("insights") {
+                    InsightsScreen(container, open, onOpenConsumed, onBack = { nav.popBackStack() })
+                }
+                composable("print") {
+                    // One job: print today's receipt, then leave.
+                    BackHandler { nav.popBackStack() }
+                    TodayScreen(container, record, printSignal, printOnly = true, onDone = { nav.popBackStack() })
+                }
                 composable(Tab.Chat.route) {
                     ChatScreen(container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openManual() })
                 }
-                composable(Tab.Ledger.route) { LedgerScreen(container) }
-                composable(Tab.Today.route) { TodayScreen(container, record, printSignal) }
                 composable(Tab.Circle.route) { CircleHome(container) }
                 composable(Tab.Settings.route) { SettingsScreen(container, onOpenMerchant = { merchantMode = true }) }
             }
@@ -176,7 +191,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
  * the bar; long-press starts voice recording (docs/APP-DESIGN.md §4.2).
  */
 @Composable
-private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onPrint: () -> Unit) {
+private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> Unit, onVoice: () -> Unit) {
     val capsule = RoundedCornerShape(32.dp)
     val dark = XpColors.isDark
     Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
@@ -189,8 +204,8 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onPrint: () -> U
         )
         Row(Modifier.fillMaxWidth().padding(top = 16.dp).height(64.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f)) {
-                TabItem(Tab.Chat, current, Modifier.weight(1f), onSelect)
                 TabItem(Tab.Ledger, current, Modifier.weight(1f), onSelect)
+                TabItem(Tab.Chat, current, Modifier.weight(1f), onSelect)
             }
             Spacer(Modifier.width(78.dp))
             Row(Modifier.weight(1f)) {
@@ -199,11 +214,9 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onPrint: () -> U
             }
         }
         PrimaryTab(
-            Tab.Today,
-            selected = current?.startsWith(Tab.Today.route) == true,
             Modifier.align(Alignment.TopCenter),
-            onClick = { onSelect(Tab.Today) },
-            onLongPrint = onPrint,
+            onClick = onRecord,
+            onLongPress = onVoice,
         )
     }
 }
@@ -221,13 +234,12 @@ private fun TabItem(tab: Tab, current: String?, modifier: Modifier, onSelect: (T
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+/** Centre action: tap = manual form, long-press = voice. Not a destination. */
 @Composable
-private fun PrimaryTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: () -> Unit, onLongPrint: () -> Unit) {
+private fun PrimaryTab(modifier: Modifier, onClick: () -> Unit, onLongPress: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val haptics = rememberXpHaptics()
-    val scope = rememberCoroutineScope()
     Box(
         modifier.size(66.dp).pressableScale(source, 0.92f)
             .graphicsLayer { alpha = if (pressed) 0.85f else 1f }
@@ -236,25 +248,19 @@ private fun PrimaryTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick:
             .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    haptics.tick()
-                    var fired = false
-                    // Hold 1.5s = print (docs/APP-DESIGN.md §3.1). The haptic lands exactly when it fires.
-                    val hold = scope.launch {
-                        kotlinx.coroutines.delay(1500)
-                        fired = true
-                        haptics.confirm()
-                        onLongPrint()
-                    }
-                    val up = waitForUpOrCancellation()
-                    hold.cancel()
-                    if (up != null && !fired) {
+                    val long = awaitLongPressOrCancellation(down.id)
+                    if (long == null) {
                         haptics.select()
                         onClick()
+                    } else {
+                        haptics.thud()
+                        onLongPress()
+                        waitForUpOrCancellation()
                     }
                 }
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(tab.icon, contentDescription = if (selected) "今日 · 长按打印小票" else "今日 · 长按打印小票", tint = XpColors.OnPrimary, modifier = Modifier.size(28.dp))
+        Icon(Icons.Outlined.Add, contentDescription = "记一笔 · 长按说一句", tint = XpColors.OnPrimary, modifier = Modifier.size(28.dp))
     }
 }

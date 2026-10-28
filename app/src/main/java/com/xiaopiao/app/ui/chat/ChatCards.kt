@@ -95,7 +95,7 @@ fun TodayReceiptCard(stats: ChatStats, dayLabel: String) {
         }
         Box(Modifier.fillMaxWidth().padding(top = XpSpace.m).height(0.5.dp).background(XpColors.Hairline))
         Text(
-            "去「今日」可以打印完整小票",
+            "去「记账」右上角的小票图标打印",
             Modifier.padding(top = XpSpace.s),
             style = MaterialTheme.typography.labelSmall,
             color = XpColors.InkTertiary,
