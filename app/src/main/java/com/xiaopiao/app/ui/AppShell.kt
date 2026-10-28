@@ -245,12 +245,27 @@ private fun TabItem(tab: Tab, current: String?, modifier: Modifier, onSelect: (T
         androidx.compose.animation.core.spring(0.5f, 500f),
         label = "tabScale",
     )
-    Column(
+    // Selected tab grows a soft pill behind it; unselected tabs stay flat so there is one focus.
+    val pill by androidx.compose.animation.core.animateFloatAsState(
+        if (selected) 1f else 0f,
+        androidx.compose.animation.core.spring(0.7f, 380f),
+        label = "tabPill",
+    )
+    Box(
         modifier.fillMaxHeight().pressableClick(haptic = false, scaleDown = 0.94f) { onSelect(tab) },
+        contentAlignment = Alignment.Center,
+    ) {
+    androidx.compose.foundation.layout.Column(
+        Modifier.graphicsLayer { alpha = 0.999f }
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(XpColors.Fill.copy(alpha = 0.7f * pill))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
         Icon(tab.icon, contentDescription = tab.label, tint = color, modifier = Modifier.size(24.dp).graphicsLayer { scaleX = iconScale; scaleY = iconScale })
         Text(tab.label, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium, color = color)
+    }
     }
 }
 
