@@ -170,7 +170,6 @@ export function ReceiptPaper({
         <p className="text-center text-[10.5px] tracking-[0.12em] text-paper-ink/70" data-row>
           {STUB}
         </p>
-        {doc.demo && <p className="mt-1 text-center text-[10px] text-paper-ink/70" data-row>演示数据</p>}
       </div>
     </div>
   );

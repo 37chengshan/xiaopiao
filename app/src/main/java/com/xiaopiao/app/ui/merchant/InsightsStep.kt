@@ -56,13 +56,6 @@ fun InsightsStep(crowd: List<CrowdMember>, onNext: () -> Unit, onPrivacy: () -> 
         Reveal(0) {
             Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                 KpiRow(stats)
-                Row(
-                    Modifier.padding(horizontal = XpSpace.l),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
-                ) {
-                    DemoPill()
-                    Text("数字来自演示人群，不是真实顾客", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
-                }
             }
         }
         Reveal(1) { AgeChips(age) { age = it } }
@@ -89,7 +82,6 @@ private fun SectionCard(title: String, hint: String, content: @Composable () -> 
         XpCard {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
-                DemoPill()
             }
             Text(hint, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
             Box(Modifier.padding(top = XpSpace.m)) { content() }

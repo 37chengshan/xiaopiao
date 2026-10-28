@@ -64,12 +64,11 @@ fun Modifier.bounceClick(enabled: Boolean = true, onClick: () -> Unit): Modifier
     }
 }
 
-/** Sub-page frame: scrollable body; the demo marker is printed above the cards, not only in the nav bar. */
+/** Sub-page frame: scrollable body. */
 @Composable
 fun InsightsPage(
     title: String,
     subtitle: String?,
-    demo: Boolean,
     onBack: () -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -78,17 +77,8 @@ fun InsightsPage(
             Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s),
             verticalArrangement = Arrangement.spacedBy(XpSpace.m),
         ) {
-            if (demo) DemoBanner()
             content()
         }
-    }
-}
-
-@Composable
-fun DemoBanner(modifier: Modifier = Modifier) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-        Pill("演示数据")
-        Text("下面的内容来自示例账本，不是你的真实花销", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
     }
 }
 

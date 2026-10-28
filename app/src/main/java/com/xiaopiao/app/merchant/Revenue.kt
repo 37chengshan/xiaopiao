@@ -5,7 +5,7 @@ import java.util.Calendar
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/** Where a day's number came from. Only [SEED] rows are demo data and they are always labelled as such. */
+/** Where a day's number came from. [SEED] rows are mock data: recognisable here in code, not labelled in the UI (tt#54); audit before submission. */
 @Serializable
 enum class RevenueSource(val label: String) {
     SEED("演示"),

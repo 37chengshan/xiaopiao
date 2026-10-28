@@ -103,10 +103,6 @@ export function layout(doc: ReceiptDoc): { ops: Op[]; height: number } {
   }
   ops.push({ k: "center", y: y + 10, text: STUB, size: 10.5, font: MONO, dim: true, spacing: 1.2 });
   y += 16;
-  if (doc.demo) {
-    ops.push({ k: "center", y: y + 10, text: "演示数据", size: 10, font: MONO, dim: true });
-    y += 14;
-  }
   return { ops, height: y + 26 };
 }
 

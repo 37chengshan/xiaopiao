@@ -93,7 +93,7 @@ fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}, onB
                 onLoadDemo = {
                     scope.launch {
                         val n = container.loadDemoData()
-                        demoMessage = if (n > 0) "已载入 $n 笔，去记账页看看吧～" else "示例账本已经在里面了"
+                        demoMessage = if (n > 0) "已载入 $n 笔，去记账页看看吧～" else "测试账本已经在里面了"
                     }
                 },
                 onClearAll = {

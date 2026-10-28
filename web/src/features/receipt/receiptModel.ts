@@ -36,14 +36,12 @@ export interface ReceiptDoc {
   remark: string;
   badgeReason: string | null;
   stampText: string;
-  demo: boolean;
 }
 
 export interface DocContext {
   now: number;
   /** yesterday's spending; null when unknown */
   prevTotalCents: number | null;
-  demo: boolean;
   variant?: Variant;
 }
 
@@ -128,7 +126,6 @@ export function buildReceiptDoc(receipt: DailyReceipt, ctx: DocContext): Receipt
     remark: receipt.aiComment,
     badgeReason: receipt.badge ? `${receipt.badge.emoji} ${receipt.badge.reason}` : null,
     stampText: receipt.badge?.title ?? (zero ? "钱包休眠者" : "今日小票"),
-    demo: ctx.demo,
   };
 }
 
@@ -176,6 +173,5 @@ export function receiptPlainText(doc: ReceiptDoc): string {
   if (doc.variant === "full") L.push(rule, `${doc.stats.count}  ${doc.stats.delta}  ${doc.stats.weekDay}`);
   L.push(rule, `「${doc.remark}」`);
   L.push(center(`[ ${doc.stampText} ]`), center(STUB));
-  if (doc.demo) L.push(center("演示数据"));
   return L.join("\n");
 }

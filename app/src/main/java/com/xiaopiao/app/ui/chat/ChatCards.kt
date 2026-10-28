@@ -27,7 +27,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.insights.CategoryShare
 import com.xiaopiao.app.insights.WeeklyReport
-import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.MiniBars
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.Pill
@@ -42,13 +41,12 @@ import kotlin.math.roundToInt
 
 /** Cards embedded in the chat flow: full-width [XpCard]s, never bubbles. */
 
-/** 今日小票预览 — compact, real ledger data. 演示 chip only when those rows are demo rows. */
+/** 今日小票预览 — compact, real ledger data. */
 @Composable
 fun TodayReceiptCard(stats: ChatStats, dayLabel: String) {
     XpCard(Modifier.padding(horizontal = XpSpace.l)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("今日小票", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-            if (stats.hasDemo) DemoChip(Modifier.padding(start = XpSpace.s))
             Spacer(Modifier.weight(1f))
             Text(dayLabel, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
         }
@@ -111,7 +109,6 @@ fun WeekReportCard(stats: ChatStats) {
     XpCard(Modifier.padding(horizontal = XpSpace.l)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("本周周报", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-            if (stats.hasDemo) DemoChip(Modifier.padding(start = XpSpace.s))
             Spacer(Modifier.weight(1f))
             Pill(if (week.isComplete) "已完成" else "进行中")
         }
@@ -190,7 +187,6 @@ fun ConfirmCard(item: ChatItem.Confirm, onConfirm: () -> Unit, onEdit: () -> Uni
     XpCard(Modifier.padding(horizontal = XpSpace.l)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("我记成", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
-            Pill("演示", Modifier.padding(start = XpSpace.s))
             Spacer(Modifier.weight(1f))
             MoneyText(item.draft.amountCents, style = MaterialTheme.typography.titleLarge)
         }

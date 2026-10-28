@@ -4,29 +4,9 @@ import { toast } from "sonner";
 import { Group, Row, XButton } from "@/components/app/kit";
 import { useLedger } from "@/services/LedgerProvider";
 import { type CsvParseResult, decodeBillBytes, parseBillCsv } from "../../logic/csv";
-import { addDays } from "../../logic/time";
-import { startOfDay } from "../../domain/types";
-
-function sampleCsv(now: number): string {
-  const d = (back: number, hm: string) => {
-    const t = new Date(addDays(startOfDay(now), -back));
-    return `${t.getFullYear()}-${`${t.getMonth() + 1}`.padStart(2, "0")}-${`${t.getDate()}`.padStart(2, "0")} ${hm}`;
-  };
-  return `导出信息：
-示例账单（虚构数据，仅用于体验导入）
-------------------------------------------------------------------------------------
-交易时间,交易分类,交易对方,对方账号,商品说明,收/支,金额,收/付款方式,交易状态,交易订单号,商家订单号,备注,
-${d(1, "12:21:08")},餐饮美食,美团外卖,***,黄焖鸡米饭,支出,28.50,花呗,交易成功,SAMPLE0001,S1,,
-${d(1, "15:40:12")},餐饮美食,喜茶,***,多肉葡萄,支出,19.00,余额,交易成功,SAMPLE0002,S2,,
-${d(2, "08:12:30")},交通出行,上海地铁,***,乘车码,支出,4.00,余额,交易成功,SAMPLE0003,S3,,
-${d(3, "20:01:00")},日用百货,盒马,***,生鲜,支出,67.30,花呗,交易成功,SAMPLE0004,S4,,
-${d(3, "20:30:00")},其他,某某,***,转账,不计收支,10.00,余额,交易成功,SAMPLE0005,S5,,
-${d(4, "09:00:00")},餐饮美食,示例餐厅,***,订单,支出,abc,余额,交易成功,SAMPLE0006,S6,,
-`;
-}
 
 export function ImportPanel({ onDone }: { onDone: () => void }) {
-  const { add, now } = useLedger();
+  const { add } = useLedger();
   const inputRef = useRef<HTMLInputElement>(null);
   const [parsed, setParsed] = useState<{ name: string; result: CsvParseResult } | null>(null);
   const [summary, setSummary] = useState<{ imported: number; duplicates: number; failed: number } | null>(null);
@@ -83,17 +63,6 @@ export function ImportPanel({ onDone }: { onDone: () => void }) {
         <FileUp className="size-6" strokeWidth={1.5} aria-hidden />
         <span className="text-[14px] font-medium text-ink">选择账单 CSV 文件</span>
       </button>
-      <XButton
-        variant="plain"
-        size="sm"
-        className="mx-auto mt-2 flex"
-        onClick={() => {
-          setParsed({ name: "示例账单.csv", result: parseBillCsv(sampleCsv(now)) });
-          setSummary(null);
-        }}
-      >
-        没有账单？用示例账单试试
-      </XButton>
 
       {parsed && (
         <div className="mt-3 rounded-[14px] bg-surface-2 p-4" role="status">

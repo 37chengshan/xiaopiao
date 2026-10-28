@@ -6,9 +6,8 @@ import { Toaster as Sonner } from "sonner";
 import { EntryProvider } from "@/features/entry/EntryProvider";
 import { DUR, EASE_OUT } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import { useLedger } from "@/services/LedgerProvider";
 import { FirstRun, Onboarding } from "./FirstRun";
-import { onboarding, useReplayingOnboarding } from "./onboardingStore";
+import { onboarding, useFirstRun, useReplayingOnboarding } from "./onboardingStore";
 import { t } from "@/lib/strings";
 import { TabBar } from "./TabBar";
 
@@ -49,14 +48,14 @@ function useKeyboard() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { mode } = useLedger();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const reduce = useReducedMotion() ?? false;
   // Crossfade only when the route actually changes; the first paint appears as-is.
   const prevPath = useRef(path);
   const entering = prevPath.current !== path;
   prevPath.current = path;
-  const gated = CONSUMER_PATHS.includes(path) && mode === null;
+  const firstRun = useFirstRun();
+  const gated = CONSUMER_PATHS.includes(path) && firstRun;
   const { typing, vvh } = useKeyboard();
   const replaying = useReplayingOnboarding();
   const shop = SHOP_PATHS.includes(path);

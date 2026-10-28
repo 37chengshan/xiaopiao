@@ -169,7 +169,7 @@ fun MerchantAnalysisScreen(
                         Column(Modifier.weight(1f).padding(start = XpSpace.m)) {
                             Text("顾客人群洞察", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
                             Text(
-                                "看看邻居们喝什么、几点来（演示人群）",
+                                "看看邻居们喝什么、几点来",
                                 style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary,
                             )
                         }

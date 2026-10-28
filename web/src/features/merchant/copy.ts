@@ -7,7 +7,6 @@ export const copy = {
   backToUser: "返回用户版",
   backToUserLabel: "返回用户版，回到我的页面",
   dataInfo: "数据怎么来的",
-  demoChip: "演示数据",
   steps: { insights: "洞察", launch: "实验", results: "结果", decide: "决定" },
   insights: {
     crowd: "愿意分享的顾客",

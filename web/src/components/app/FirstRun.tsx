@@ -5,8 +5,8 @@ import { type ThemePref, useTheme } from "@/lib/theme";
 import { t, type StringKey } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 import { useReceiptSound } from "@/features/receipt/soundPref";
-import { useLedger } from "@/services/LedgerProvider";
 import { Segmented, Switch, XButton, type Tone, TONE_CLASS } from "./kit";
+import { onboarding } from "./onboardingStore";
 
 /** A tiny receipt strip: paper, torn edge, a few faint lines. Calm, no colour. */
 function PaperMark() {
@@ -55,10 +55,9 @@ const TOTAL = 4;
 
 /**
  * Intro tour: value -> auto logging -> data floor -> look and sound. Skippable.
- * First run (`onFinish` omitted) ends with the two mode choices; a replay from 我的 ends with 完成.
+ * Shown once on first run, and again on demand from 设置; both end with 完成.
  */
-export function Onboarding({ onFinish }: { onFinish?: () => void }) {
-  const { chooseMode } = useLedger();
+export function Onboarding({ onFinish }: { onFinish: () => void }) {
   const { pref, setPref } = useTheme();
   const [sound, setSound] = useReceiptSound();
   const [i, setI] = useState(0);
@@ -73,7 +72,7 @@ export function Onboarding({ onFinish }: { onFinish?: () => void }) {
     <div className="flex min-h-full flex-col px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
       <div className="flex h-10 items-center justify-end">
         {!last && (
-          <button type="button" onClick={() => (onFinish ? onFinish() : go(TOTAL - 1))} className="-mr-2 px-2 py-2 text-[15px] text-ink-2 active:opacity-60">
+          <button type="button" onClick={onFinish} className="-mr-2 px-2 py-2 text-[15px] text-ink-2 active:opacity-60">
             {t("ob.skip")}
           </button>
         )}
@@ -131,24 +130,15 @@ export function Onboarding({ onFinish }: { onFinish?: () => void }) {
         <XButton variant="primary" className="w-full" onClick={() => go(i + 1)}>
           {t("ob.next")}
         </XButton>
-      ) : onFinish ? (
+      ) : (
         <XButton variant="primary" className="w-full" onClick={onFinish}>
           {t("ob.done")}
         </XButton>
-      ) : (
-        <div className="space-y-2.5">
-          <XButton variant="primary" className="w-full" onClick={() => chooseMode("demo")}>
-            {t("ob.start.demo")}
-          </XButton>
-          <XButton variant="secondary" className="w-full" onClick={() => chooseMode("empty")}>
-            {t("ob.start.empty")}
-          </XButton>
-        </div>
       )}
     </div>
   );
 }
 
 export function FirstRun() {
-  return <Onboarding />;
+  return <Onboarding onFinish={onboarding.finishFirstRun} />;
 }

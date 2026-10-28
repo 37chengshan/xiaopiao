@@ -96,7 +96,6 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit) {
         var recordDay by remember { mutableStateOf(today) }
         var csvOpen by remember { mutableStateOf(false) }
         var privacyOpen by remember { mutableStateOf(false) }
-        var demoNoteOpen by remember { mutableStateOf(false) }
 
         val experiment = state.experiment
         val result = remember(experiment, store.crowd) { experiment?.let { ExperimentEngine.result(it, store.crowd) } }
@@ -161,7 +160,6 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit) {
                                 result = result,
                                 onOpenSub = ::openSub,
                                 onPrivacy = { privacyOpen = true },
-                                onDemoNote = { demoNoteOpen = true },
                                 onExit = onExit,
                             )
                         }
@@ -220,7 +218,6 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit) {
             )
         }
         if (privacyOpen) PrivacySheet { privacyOpen = false }
-        if (demoNoteOpen) DemoDataSheet { demoNoteOpen = false }
     }
 }
 

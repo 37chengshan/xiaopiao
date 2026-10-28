@@ -73,11 +73,11 @@ fun DateTile(dayStart: Long, modifier: Modifier = Modifier, dimmed: Boolean = fa
     }
 }
 
-/** Small source marker: demo rows are always labelled, imported rows lead back to the file. */
+/** Small source marker: imported rows lead back to the file; seeded rows carry no label (tt#54). */
 @Composable
 fun SourcePill(source: RevenueSource, modifier: Modifier = Modifier) {
     when (source) {
-        RevenueSource.SEED -> Pill("演示", modifier)
+        RevenueSource.SEED -> Unit
         RevenueSource.CSV -> Pill("导入", modifier)
         RevenueSource.MANUAL -> Unit
     }

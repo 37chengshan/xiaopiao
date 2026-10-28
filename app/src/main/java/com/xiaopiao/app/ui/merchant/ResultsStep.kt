@@ -53,7 +53,6 @@ fun ResultsStep(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text(experiment.template.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
                         Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
-                            DemoPill()
                             Pill(experiment.status.label)
                         }
                     }
@@ -71,7 +70,6 @@ fun ResultsStep(
                 XpCard {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("95% 置信区间", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
-                        DemoPill()
                     }
                     Text("须线越短越确定；两条须线重叠，说明两边差距可能只是巧合。", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
                     Column(Modifier.padding(top = XpSpace.m), verticalArrangement = Arrangement.spacedBy(XpSpace.m)) {
@@ -84,7 +82,7 @@ fun ResultsStep(
         Reveal(3) {
             Column(Modifier.padding(horizontal = XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                 Text(
-                    "样本构成：演示人群 ${result.simulatedCount} 人（演示数据）+ 游戏表态 ${result.gameCount} 人。游戏表态是你亲自玩出来的，和真实消费分开统计。",
+                    "样本构成：人群样本 ${result.simulatedCount} 人 + 游戏表态 ${result.gameCount} 人。游戏表态是你亲自玩出来的，和真实消费分开统计。",
                     style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                 )
                 MerchantButton("邀请顾客再玩一轮", onPlay, primary = false)

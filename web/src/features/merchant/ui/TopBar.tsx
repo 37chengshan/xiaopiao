@@ -21,9 +21,6 @@ export function TopBar() {
         {copy.backToUser}
       </Link>
       <p className="relative min-w-0 flex-1 truncate text-center text-[15px] font-semibold text-ink">{copy.shopName}</p>
-      <span className="relative inline-flex h-6 shrink-0 items-center rounded-full bg-fill px-2 text-[11px] font-medium text-ink-2">
-        {copy.demoChip}
-      </span>
       <DataSheet>
         <IconButton icon={Info} label={copy.dataInfo} className="relative mr-1" />
       </DataSheet>

@@ -32,7 +32,6 @@ import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.insights.RegretScenario
 import com.xiaopiao.app.insights.RegretSimulator
 import com.xiaopiao.app.insights.RegretTarget
-import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
@@ -51,7 +50,7 @@ fun RegretPage(input: InsightsInput, onBack: () -> Unit) {
     val target = targets.firstOrNull { it.label == targetKey } ?: targets.firstOrNull()
     val hasData = input.history.any { it.direction == Direction.OUT }
 
-    InsightsPage("后悔模拟器", "如果当初少花一点……", input.demo, onBack) {
+    InsightsPage("后悔模拟器", "如果当初少花一点……", onBack) {
         if (!hasData || target == null) {
             InsightsEmpty("🔮", "还没有可以模拟的账目", "记下一些支出后，这里可以算算「少花一点」能攒下多少。")
             return@InsightsPage
@@ -78,7 +77,6 @@ fun RegretPage(input: InsightsInput, onBack: () -> Unit) {
                     "近 $window 个月在「${target.label}」上花了",
                     Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                 )
-                if (input.demo) DemoChip()
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MoneyText(result.spentCents, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)

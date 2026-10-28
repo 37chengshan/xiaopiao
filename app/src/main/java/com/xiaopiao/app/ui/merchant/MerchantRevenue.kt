@@ -168,7 +168,7 @@ fun MerchantRevenueScreen(
                 }
 
                 Text(
-                    "本机保存 · 不读你的个人账单 · 带「演示」的是示例数据",
+                    "本机保存 · 不读你的个人账单",
                     style = MaterialTheme.typography.labelSmall,
                     color = XpColors.InkSecondary,
                     modifier = Modifier.padding(horizontal = XpSpace.l).padding(top = XpSpace.l),

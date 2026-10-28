@@ -52,7 +52,6 @@ import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NumberTicker
 import com.xiaopiao.app.ui.components.NavScaffold
-import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.ShimmerBlock
 import com.xiaopiao.app.ui.components.UndoToastHost
 import com.xiaopiao.app.ui.components.pressableClick

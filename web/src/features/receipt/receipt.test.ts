@@ -80,7 +80,7 @@ const sample = {
 } as unknown as DailyReceipt;
 
 describe("share variants differ", () => {
-  const ctx = { now: Date.UTC(2026, 9, 27, 13), prevTotalCents: 5000, demo: false };
+  const ctx = { now: Date.UTC(2026, 9, 27, 13), prevTotalCents: 5000 };
   const full = buildReceiptDoc(sample, { ...ctx, variant: "full" });
   const brief = buildReceiptDoc(sample, { ...ctx, variant: "brief" });
   it("brief has no detail rows, full has", () => {

@@ -83,7 +83,6 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.Icon
 import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.domain.yuan
-import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.record.RecordSheetState
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -242,7 +241,6 @@ private fun TodayHeader(dateLabel: String, count: Int, spentCents: Long, hasDemo
     Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l).padding(top = XpSpace.s, bottom = XpSpace.m)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(dateLabel, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
-            if (hasDemo) DemoChip()
         }
         Spacer(Modifier.height(XpSpace.xs))
         Text(

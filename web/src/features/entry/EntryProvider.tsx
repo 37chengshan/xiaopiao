@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { type Txn } from "../../domain/types";
-import { useLedger } from "@/services/LedgerProvider";
 import { EntryDrawer } from "./EntryDrawer";
 
 export interface EntryRequest {
@@ -20,7 +19,6 @@ interface EntryContextValue {
 const EntryContext = createContext<EntryContextValue | null>(null);
 
 export function EntryProvider({ children }: { children: ReactNode }) {
-  const { mode } = useLedger();
   const [req, setReq] = useState<EntryRequest | null>(null);
   const [openState, setOpenState] = useState(false);
   const open = useCallback((r?: EntryRequest) => {
@@ -31,7 +29,7 @@ export function EntryProvider({ children }: { children: ReactNode }) {
   return (
     <EntryContext.Provider value={value}>
       {children}
-      {mode !== null && req && <EntryDrawer key={JSON.stringify(req.initial ?? {}) + (req.tab ?? "")} request={req} open={openState} onOpenChange={setOpenState} />}
+      {req && <EntryDrawer key={JSON.stringify(req.initial ?? {}) + (req.tab ?? "")} request={req} open={openState} onOpenChange={setOpenState} />}
     </EntryContext.Provider>
   );
 }

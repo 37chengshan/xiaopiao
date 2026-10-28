@@ -86,7 +86,6 @@ private fun Picker(suggestions: List<Suggestion>, onAdopt: (Suggestion) -> Unit)
                 "基于这轮结果，有 3 个可以试试的方向。选哪个、要不要选，都由你决定。",
                 Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary,
             )
-            DemoPill()
         }
         suggestions.forEachIndexed { i, s ->
             Reveal(i) {

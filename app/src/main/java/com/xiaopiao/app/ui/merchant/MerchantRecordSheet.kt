@@ -87,7 +87,6 @@ fun RevenueEntrySheet(
                         style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                     )
                 }
-                if (existing?.seeded == true) DemoPill()
             }
 
             Text(

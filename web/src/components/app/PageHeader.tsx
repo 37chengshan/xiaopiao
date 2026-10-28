@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { DemoPill } from "./DemoPill";
 
 /**
  * Compact top bar for tab roots (2026-10-28: no large titles under a bottom nav).
@@ -28,7 +27,6 @@ export function PageHeader({ title, right }: { title: string; subtitle?: string;
       />
       <h1 className="relative min-w-0 truncate text-[22px] font-semibold leading-[28px] tracking-[-0.015em] text-ink">{title}</h1>
       <div className="relative flex shrink-0 items-center gap-2">
-        <DemoPill />
         {right}
       </div>
     </div>

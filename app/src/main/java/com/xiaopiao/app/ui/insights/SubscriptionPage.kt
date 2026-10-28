@@ -45,7 +45,6 @@ import com.xiaopiao.app.insights.SubscriptionInsight
 import com.xiaopiao.app.insights.annualCents
 import com.xiaopiao.app.insights.daysBetween
 import com.xiaopiao.app.insights.normalizeMerchant
-import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.Pill
 import com.xiaopiao.app.ui.components.XpCard
@@ -74,7 +73,7 @@ fun SubscriptionPage(input: InsightsInput, onBack: () -> Unit) {
         } else scope.launch { prefs.setCancelled(merchant, value) }
     }
 
-    InsightsPage("订阅侦探", "揪出悄悄扣钱的自动续费", input.demo, onBack) {
+    InsightsPage("订阅侦探", "揪出悄悄扣钱的自动续费", onBack) {
         if (all.isEmpty()) {
             InsightsEmpty("🕵️", "暂时没抓到自动续费", "账本里还没有规律重复的扣款。多记几个月，侦探会自己出动～")
             return@InsightsPage
@@ -82,7 +81,6 @@ fun SubscriptionPage(input: InsightsInput, onBack: () -> Unit) {
         XpCard {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("这些订阅一年大约要花", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
-                if (input.demo) DemoChip()
             }
             BigMoney(yearly)
             Text("共 ${active.size} 项 · 只做提醒，关不关由你决定", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)

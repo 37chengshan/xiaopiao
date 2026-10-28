@@ -97,7 +97,7 @@ fun SetupStep(current: Experiment?, onPublish: (ExperimentTemplate) -> Unit) {
             }
             Column(Modifier.padding(horizontal = XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                 Text(
-                    "只会推给已授权的邻居，以「游戏表态」收集，和真实消费分开存放。当前为演示数据。",
+                    "只会推给已授权的邻居，以「游戏表态」收集，和真实消费分开存放。",
                     style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                 )
                 MerchantButton("发布实验", { launching = true }, enabled = !launching, clay = true)
