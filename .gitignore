@@ -9,3 +9,6 @@ captures/
 
 # 参考录屏只留本地（体积大）
 docs/references/**/*.mp4
+
+# QA screenshots stay local (qa/chat-v6, ...)
+qa/

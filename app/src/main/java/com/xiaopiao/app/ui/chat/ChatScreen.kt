@@ -1,32 +1,33 @@
 package com.xiaopiao.app.ui.chat
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -34,12 +35,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -58,68 +59,47 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.domain.startOfDay
-import com.xiaopiao.app.ui.components.Pill
-import com.xiaopiao.app.ui.components.SelectCapsule
 import com.xiaopiao.app.ui.components.ShimmerBlock
-import com.xiaopiao.app.ui.components.XpButton
-import com.xiaopiao.app.ui.components.XpButtonSize
-import com.xiaopiao.app.ui.components.XpButtonStyle
-import com.xiaopiao.app.ui.components.pressableScale
+import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.motion.MotionMath
 import com.xiaopiao.app.ui.motion.rememberSkeletonVisible
 import com.xiaopiao.app.ui.theme.XpColors
-import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import com.xiaopiao.app.ui.today.ReceiptLayout
+import com.xiaopiao.app.ui.today.ReceiptStrip
 import com.xiaopiao.app.ui.today.TodayGreeting
+import java.util.Calendar
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.Calendar
-import androidx.compose.material.icons.outlined.Autorenew
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Menu
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.foundation.layout.width
-import com.xiaopiao.app.ui.components.NavIconButton
-import com.xiaopiao.app.ui.components.XpCard
-import com.xiaopiao.app.ui.components.XpSheet
-import com.xiaopiao.app.ui.components.GroupedRow
-import androidx.compose.foundation.clickable
 
 /** Characters per second for the streaming reply; dt-based, so refresh rate cannot change it. */
 private const val StreamCharsPerSecond = 78f
 
+/** Drawer travel applied to the page while the drawer is open (ChatGPT pushes the content a little). */
+private val DrawerPagePush = 24.dp
+
 /**
- * AI 对话 — the left-most tab. Assistant speaks first, cards live in the same flow, and every answer is a
- * local template over [com.xiaopiao.app.domain.LedgerRepository]. No network, no model calls, no advice.
- *
- * The caller owns the tab-bar / navigation insets: this screen only claims the status bar (its compact
- * header) and the keyboard (so the input bar rides above it). If the host already reserves the tab bar as
- * fixed dp, pass that inset down rather than wrapping this screen in another imePadding.
+ * AI page (v6, docs/APP-DESIGN.md §3.4). Top bar: ☰ · segment · receipt strip · new chat. Body: one soft
+ * gradient, no cards until you ask something. Bottom: one white input card that grows when you type.
+ * Everything is local: the same ledger, the same templates, no network.
  */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     container: AppContainer,
@@ -131,7 +111,6 @@ fun ChatScreen(
     val turn = remember { ChatTurn() }
     val history by remember(container) { container.ledger.observeAll() }
         .collectAsStateWithLifecycle(initialValue = null)
-    // One pass over the ledger per emission; null means "still loading".
     val snapshot = remember(history) {
         history?.let {
             val now = System.currentTimeMillis()
@@ -151,83 +130,115 @@ fun ChatScreen(
 
     var input by rememberSaveable { mutableStateOf("") }
     var scrollSignal by remember { mutableIntStateOf(0) }
-    var historyOpen by remember { mutableStateOf(false) }
-    // Past conversations live in memory for this session; archiving keeps their items so switching restores them.
+    var segment by rememberSaveable { mutableStateOf(ChatSegment.Chat) }
+    var drawerOpen by remember { mutableStateOf(false) }
+    var streaming by remember { mutableStateOf(false) }
+    var streamJob by remember { mutableStateOf<Job?>(null) }
+
     val sessions = remember { androidx.compose.runtime.mutableStateListOf<ChatSession>() }
     var sessionSeq by remember { mutableIntStateOf(0) }
+    var activeSession by remember { mutableIntStateOf(++sessionSeq) }
+
     val haptics = rememberXpHaptics()
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val reduced = rememberReducedMotion()
     val focusRequester = remember { FocusRequester() }
 
+    /** Saves the open conversation into the drawer list (no-op for an untouched chat). */
+    fun archiveCurrent() {
+        if (conversation.none { it is ChatItem.User }) return
+        val saved = ChatSession(
+            id = activeSession,
+            title = SessionGroups.titleOf(conversation),
+            items = conversation.toList(),
+            updatedAt = System.currentTimeMillis(),
+        )
+        sessions.removeAll { it.id == activeSession }
+        sessions.add(0, saved)
+    }
+
+    fun stopStreaming() {
+        streamJob?.cancel()
+        streamJob = null
+        streaming = false
+        // Finish whatever was mid-write so the caret never stays blinking.
+        for (i in conversation.indices) {
+            val item = conversation[i]
+            if (item is ChatItem.Assistant && item.streaming) conversation[i] = item.copy(streaming = false)
+        }
+    }
+
     fun send(raw: String) {
         val text = raw.trim()
-        if (text.isEmpty()) return
+        if (text.isEmpty() || streaming) return
         conversation.add(ChatItem.User(newId(), text))
         haptics.select()
         val reply = stats?.let { ChatIntentRouter.route(text, it, turn) }
             ?: ChatReply.Answer("我还没数完今天的账，稍等一秒再说。")
         // Tools first: the user sees what was read before the answer appears (tt#23).
         val tools = ChatTools.plan(text, stats, text.contains("家人") || text.contains("圈子"))
-        scope.launch {
-            tools.forEach { step ->
-                val toolId = newId()
-                conversation.add(ChatItem.Tool(toolId, step.label, running = true))
-                scrollSignal++
-                delay(if (reduced) 0 else 320)
-                val i = conversation.indexOfFirst { it.id == toolId }
-                if (i >= 0) conversation[i] = ChatItem.Tool(toolId, step.label, step.detail, running = false)
-            }
-            when (reply) {
-                is ChatReply.Expense -> {
-                    conversation.add(ChatItem.Confirm(newId(), reply.draft))
+        streaming = true
+        streamJob = scope.launch {
+            try {
+                tools.forEach { step ->
+                    val toolId = newId()
+                    conversation.add(ChatItem.Tool(toolId, step.label, running = true))
+                    scrollSignal++
+                    delay(if (reduced) 0 else 320)
+                    val i = conversation.indexOfFirst { it.id == toolId }
+                    if (i >= 0) conversation[i] = ChatItem.Tool(toolId, step.label, step.detail, running = false)
                 }
-                is ChatReply.Answer -> {
-                    // Stream the answer like a model writing: the reveal advances by real dt, so the
-                    // text finishes in the same wall-clock time on 60/90/120Hz (never by frame count).
-                    val id = newId()
-                    conversation.add(ChatItem.Assistant(id, if (reduced) reply.text else "", streaming = !reduced))
-                    if (!reduced) {
-                        var shown = 0
-                        var carry = 0f
-                        var lastFrame = 0L
-                        while (shown < reply.text.length) {
-                            val now = withFrameNanos { it }
-                            val dt = MotionMath.dtSeconds(lastFrame, now)
-                            lastFrame = now
-                            if (dt <= 0f) continue
-                            carry += dt * StreamCharsPerSecond
-                            val add = carry.toInt()
-                            if (add <= 0) continue
-                            carry -= add
-                            shown = (shown + add).coerceAtMost(reply.text.length)
+                when (reply) {
+                    is ChatReply.Expense -> conversation.add(ChatItem.Confirm(newId(), reply.draft))
+                    is ChatReply.Answer -> {
+                        // Stream the answer like a model writing: the reveal advances by real dt, so the
+                        // text finishes in the same wall-clock time on 60/90/120Hz (never by frame count).
+                        val id = newId()
+                        conversation.add(ChatItem.Assistant(id, if (reduced) reply.text else "", streaming = !reduced))
+                        if (!reduced) {
+                            var shown = 0
+                            var carry = 0f
+                            var lastFrame = 0L
+                            while (shown < reply.text.length) {
+                                val now = withFrameNanos { it }
+                                val dt = MotionMath.dtSeconds(lastFrame, now)
+                                lastFrame = now
+                                if (dt <= 0f) continue
+                                carry += dt * StreamCharsPerSecond
+                                val add = carry.toInt()
+                                if (add <= 0) continue
+                                carry -= add
+                                shown = (shown + add).coerceAtMost(reply.text.length)
+                                val i = conversation.indexOfFirst { it.id == id }
+                                if (i < 0) break
+                                conversation[i] = ChatItem.Assistant(
+                                    id, reply.text.substring(0, shown), streaming = shown < reply.text.length,
+                                )
+                                scrollSignal++
+                            }
                             val i = conversation.indexOfFirst { it.id == id }
-                            if (i < 0) break
-                            conversation[i] = ChatItem.Assistant(
-                                id, reply.text.substring(0, shown), streaming = shown < reply.text.length,
-                            )
-                            scrollSignal++
+                            if (i >= 0) conversation[i] = ChatItem.Assistant(id, reply.text)
                         }
-                        val i = conversation.indexOfFirst { it.id == id }
-                        if (i >= 0) conversation[i] = ChatItem.Assistant(id, reply.text)
                     }
                 }
+                // A chart is information, not decoration: reduced-motion users get it too (just static).
+                if (stats != null && (text.contains("周") || text.contains("哪天")) &&
+                    !text.contains("家人") && !text.contains("圈子") && !text.contains("妈") && !text.contains("爸")
+                ) {
+                    conversation.add(
+                        ChatItem.Chart(
+                            newId(),
+                            "本周每日支出",
+                            stats.week.dayTotals,
+                            "合计 ${yuanText(stats.week.totalOutCents)} · 共 ${stats.week.txnCount} 笔",
+                        ),
+                    )
+                }
+                scrollSignal++
+            } finally {
+                streaming = false
             }
-            // Rich rendering: a week question also gets the chart, not just a sentence.
-            // A chart is information, not decoration: reduced-motion users get it too (just static).
-            if (stats != null && (text.contains("周") || text.contains("哪天")) &&
-                !text.contains("家人") && !text.contains("圈子") && !text.contains("妈") && !text.contains("爸")) {
-                conversation.add(
-                    ChatItem.Chart(
-                        newId(),
-                        "本周每日支出",
-                        stats.week.dayTotals,
-                        "合计 ${yuanText(stats.week.totalOutCents)} · 共 ${stats.week.txnCount} 笔",
-                    ),
-                )
-            }
-            scrollSignal++
         }
     }
 
@@ -276,121 +287,255 @@ fun ChatScreen(
     // Skeletons stay up for at least 200ms, so a cache hit never flashes a placeholder.
     val skeletonVisible = rememberSkeletonVisible(stats == null)
 
-    Column(Modifier.fillMaxSize().background(XpColors.Canvas).imePadding()) {
-        ChatHeader(dayLabel, demo = stats?.hasDemo == true, onOpenSettings = onOpenSettings, onOpenHistory = { historyOpen = true })
-        LazyColumn(
-            Modifier.fillMaxWidth().weight(1f),
-            state = listState,
-            contentPadding = PaddingValues(top = XpSpace.s, bottom = XpSpace.l),
-            verticalArrangement = Arrangement.spacedBy(XpSpace.s),
+    val drawer = remember { Animatable(if (drawerOpen) 1f else 0f) }
+    LaunchedEffect(drawerOpen) {
+        drawer.animateTo(if (drawerOpen) 1f else 0f, spring(dampingRatio = 1f, stiffness = 420f))
+    }
+
+    Box(Modifier.fillMaxSize().background(chatBackdrop())) {
+        Column(
+            Modifier.fillMaxSize().imePadding()
+                .graphicsLayer { translationX = DrawerPagePush.toPx() * drawer.value },
         ) {
-            item(key = "greeting") { AssistantText(ChatCopy.greeting(stats, hello)) }
-            if (stats == null) {
-                if (skeletonVisible) {
-                    item(key = "loading") {
-                        ShimmerBlock(
-                            Modifier.padding(horizontal = XpSpace.l).fillMaxWidth().height(120.dp),
-                            RoundedCornerShape(XpRadius.m),
-                        )
-                    }
+            ChatTopBar(
+                segment = segment,
+                onSegment = { segment = it },
+                onMenu = { drawerOpen = true },
+                onNewChat = {
+                    archiveCurrent()
+                    conversation.clear()
+                    input = ""
+                    activeSession = ++sessionSeq
+                    scrollSignal++
+                },
+            )
+            Box(Modifier.weight(1f)) {
+                when {
+                    segment == ChatSegment.Ledger -> LedgerPanel(
+                        stats = stats,
+                        dayLabel = dayLabel,
+                        skeletonVisible = skeletonVisible,
+                        onAsk = { question -> segment = ChatSegment.Chat; send(question) },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    conversation.isEmpty() -> ChatEmptyState(
+                        hint = emptyHint(stats, hello),
+                        onSuggestion = { question -> send(question) },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    else -> ConversationList(
+                        conversation = conversation,
+                        reminder = reminder,
+                        listState = listState,
+                        reduced = reduced,
+                        onConfirm = ::confirm,
+                        onEdit = ::edit,
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
-            } else {
-                if (reminder != null) item(key = "reminder") { ReminderLine(reminder) }
-                item(key = "receipt") { TodayReceiptCard(stats, dayLabel) }
-                item(key = "week") { WeekReportCard(stats) }
             }
-            itemsIndexed(conversation, key = { _, item -> item.id }) { _, item ->
-                Box(
-                    Modifier.then(
-                        if (reduced) Modifier
-                        else Modifier.animateItem(
-                            fadeInSpec = tween(180, easing = XpEase.out),
-                            placementSpec = tween(180, easing = XpEase.out),
-                            fadeOutSpec = null,
-                        ),
-                    ),
-                ) {
-                    when (item) {
-                        is ChatItem.Assistant -> AssistantText(item.text, streaming = item.streaming)
-                        is ChatItem.User -> UserBubble(item.text)
-                        is ChatItem.Tool -> ToolRow(item)
-                        is ChatItem.Chart -> ChartCard(item)
-                        is ChatItem.Confirm -> ConfirmCard(
-                            item,
-                            onConfirm = { confirm(item) },
-                            onEdit = { edit(item) },
-                        )
+            ChatComposer(
+                value = input,
+                onValueChange = { input = it },
+                onSend = {
+                    if (ChatInput.canSend(input, streaming)) {
+                        send(input)
+                        input = ""
                     }
+                },
+                onVoice = onRecordVoice,
+                onStop = ::stopStreaming,
+                onPlus = onRecordManual,
+                streaming = streaming,
+                focusRequester = focusRequester,
+            )
+        }
+
+        // Edge swipe to open; the drawer itself handles drag-to-close.
+        ChatDrawerEdge(onOpen = { drawerOpen = true }, modifier = Modifier.align(Alignment.CenterStart))
+
+        ChatDrawer(
+            open = drawerOpen,
+            sessions = sessions,
+            now = System.currentTimeMillis(),
+            onClose = { drawerOpen = false },
+            onNewChat = {
+                archiveCurrent()
+                conversation.clear()
+                activeSession = ++sessionSeq
+                drawerOpen = false
+            },
+            onOpenSession = { session ->
+                archiveCurrent()
+                conversation.clear()
+                conversation.addAll(session.items)
+                activeSession = session.id
+                drawerOpen = false
+            },
+            onRename = { session, title ->
+                val index = sessions.indexOfFirst { it.id == session.id }
+                if (index >= 0) sessions[index] = sessions[index].copy(title = title)
+            },
+            onDelete = { session ->
+                sessions.removeAll { it.id == session.id }
+                if (activeSession == session.id) {
+                    conversation.clear()
+                    activeSession = ++sessionSeq
+                }
+            },
+            onOpenSettings = { drawerOpen = false; onOpenSettings() },
+            progress = drawer,
+        )
+    }
+}
+
+/** Near-white page with a single soft vertical falloff; no colour blocks, no card backgrounds. */
+@Composable
+private fun chatBackdrop(): Brush = Brush.verticalGradient(
+    listOf(
+        XpColors.Canvas,
+        XpColors.Canvas,
+        XpColors.CanvasGrouped.copy(alpha = if (XpColors.isDark) 1f else 0.9f),
+    ),
+)
+
+@Composable
+private fun ChatTopBar(
+    segment: ChatSegment,
+    onSegment: (ChatSegment) -> Unit,
+    onMenu: () -> Unit,
+    onNewChat: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().statusBarsPadding().height(60.dp).padding(horizontal = XpSpace.l),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BarCircle(onMenu, Icons.Outlined.Menu, "会话")
+        Spacer(Modifier.width(XpSpace.s))
+        ChatSegmentPill(segment, onSegment, Modifier.weight(1f))
+        Spacer(Modifier.width(XpSpace.s))
+        ReceiptStrip()
+        Spacer(Modifier.width(XpSpace.s))
+        BarCircle(onNewChat, Icons.Outlined.Add, "新对话")
+    }
+}
+
+/** 44dp white circle with a soft shadow: the reference's round buttons, our neutral surface. */
+@Composable
+private fun BarCircle(onClick: () -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector, description: String) {
+    Box(
+        Modifier.size(44.dp)
+            .shadow(6.dp, CircleShape, clip = false, ambientColor = Color(0x0F000000), spotColor = Color(0x14000000))
+            .clip(CircleShape).background(XpColors.Card)
+            .pressableClick(scaleDown = 0.94f, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = description, tint = XpColors.Ink, modifier = Modifier.size(20.dp))
+    }
+}
+
+/** Two-segment pill: selected segment is a white thumb inside the fill track. */
+@Composable
+private fun ChatSegmentPill(segment: ChatSegment, onSelect: (ChatSegment) -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.height(44.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill).padding(3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ChatSegment.entries.forEach { option ->
+            val selected = option == segment
+            val bg by animateColorAsState(if (selected) XpColors.Card else Color.Transparent, tween(160), label = "segmentBg")
+            val fg by animateColorAsState(if (selected) XpColors.Ink else XpColors.InkSecondary, tween(160), label = "segmentFg")
+            Box(
+                Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(XpRadius.pill)).background(bg)
+                    .pressableClick(scaleDown = 0.98f) { if (!selected) onSelect(option) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    option.label,
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
+                    color = fg,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One quiet line for the empty state (docs/APP-DESIGN.md §3.4): what the assistant is and what it can see,
+ * never a paragraph. The rest of the screen stays blank on purpose.
+ */
+private fun emptyHint(stats: ChatStats?, hello: String): String = when {
+    stats == null -> hello
+    stats.hasAnyTxn -> "$hello。今天花了 ${yuanText(stats.todayOutCents)}。"
+    else -> "$hello。账本还是空的，说一句就能记一笔。"
+}
+
+/** Empty state: one quiet line and three grey question chips. No illustration. */
+@Composable
+private fun ChatEmptyState(hint: String, onSuggestion: (String) -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier.padding(horizontal = XpSpace.xl),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            hint,
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+            color = XpColors.InkSecondary,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(XpSpace.xl))
+        Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s), horizontalAlignment = Alignment.CenterHorizontally) {
+            ChatSuggestions.take(3).forEach { text ->
+                Box(
+                    Modifier.height(36.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill)
+                        .pressableClick(scaleDown = 0.97f) { onSuggestion(text) }
+                        .padding(horizontal = XpSpace.l),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp), color = XpColors.Ink, maxLines = 1)
                 }
             }
         }
-        ChatComposer(
-            value = input,
-            onValueChange = { input = it },
-            onSend = {
-                if (input.isNotBlank()) {
-                    send(input)
-                    input = ""
-                }
-            },
-            onVoice = onRecordVoice,
-            focusRequester = focusRequester,
-            showSuggestions = conversation.none { it is ChatItem.User },
-            onSuggestion = { send(it) },
-        )
-        // Conversation drawer: slides in from the LEFT edge (tt#29), scrim closes it.
-        if (historyOpen) {
-            Box(Modifier.fillMaxSize()) {
-                Box(Modifier.fillMaxSize().background(XpColors.Scrim).clickable { historyOpen = false })
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = true,
-                    enter = androidx.compose.animation.slideInHorizontally(
-                        androidx.compose.animation.core.spring(0.9f, 320f),
-                    ) { -it } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)),
-                ) {
-                    Column(
-                        Modifier.fillMaxHeight().width(300.dp).background(XpColors.Card)
-                            .statusBarsPadding().padding(XpSpace.l),
-                    ) {
-                        Text("会话", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                        XpButton(
-                            "新对话", {
-                                val firstUser = conversation.firstOrNull { it is ChatItem.User } as? ChatItem.User
-                                if (firstUser != null) {
-                                    sessions.add(0, ChatSession(++sessionSeq, firstUser.text.take(18), conversation.toList()))
-                                }
-                                conversation.clear()
-                                turn.period = ChatPeriod.Week
-                                turn.category = null
-                                historyOpen = false
-                            },
-                            Modifier.fillMaxWidth().padding(top = XpSpace.m),
-                        )
-                        Spacer(Modifier.height(XpSpace.s))
-                        androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f)) {
-                            sessions.forEach { item ->
-                                item(item.id) {
-                                    GroupedRow(
-                                        title = item.title,
-                                        subtitle = "${item.items.count { it is ChatItem.User }} 轮",
-                                        modifier = Modifier.clickable {
-                                            conversation.clear()
-                                            conversation.addAll(item.items)
-                                            historyOpen = false
-                                        },
-                                    )
-                                }
-                            }
-                            if (sessions.isEmpty()) {
-                                item {
-                                    Text(
-                                        "还没有别的会话。开一个新对话，刚才这段会留在这里。",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = XpColors.InkTertiary,
-                                        modifier = Modifier.padding(vertical = XpSpace.m),
-                                    )
-                                }
-                            }
+    }
+}
+
+/** The 账本 segment: today + this week, plus the questions people actually ask about it. */
+@Composable
+private fun LedgerPanel(
+    stats: ChatStats?,
+    dayLabel: String,
+    skeletonVisible: Boolean,
+    onAsk: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier.verticalScroll(rememberScrollState()).padding(horizontal = XpSpace.l, vertical = XpSpace.s),
+        verticalArrangement = Arrangement.spacedBy(XpSpace.m),
+    ) {
+        when {
+            stats == null -> if (skeletonVisible) {
+                ShimmerBlock(Modifier.fillMaxWidth().height(120.dp), RoundedCornerShape(XpRadius.m))
+                ShimmerBlock(Modifier.fillMaxWidth().height(120.dp), RoundedCornerShape(XpRadius.m))
+            }
+
+            else -> {
+                TodayReceiptCard(stats, dayLabel)
+                WeekReportCard(stats)
+                Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
+                    listOf("这周哪天花得最多", "今天花了几笔", "家里人这周花了多少").forEach { question ->
+                        Box(
+                            Modifier.height(36.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill)
+                                .pressableClick(scaleDown = 0.97f) { onAsk(question) }
+                                .padding(horizontal = XpSpace.l),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(question, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp), color = XpColors.Ink)
                         }
                     }
                 }
@@ -399,29 +544,43 @@ fun ChatScreen(
     }
 }
 
-data class ChatSession(val id: Int, val title: String, val items: List<ChatItem>)
-
-/** Compact tab-root header (no large title): who is speaking + the date; the pill says it all stays local. */
 @Composable
-private fun ChatHeader(dayLabel: String, demo: Boolean, onOpenSettings: () -> Unit, onOpenHistory: () -> Unit) {
-    Column(Modifier.fillMaxWidth().background(XpColors.Canvas)) {
-        Row(
-            Modifier.fillMaxWidth().statusBarsPadding().height(52.dp).padding(horizontal = XpSpace.l),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            NavIconButton(Icons.Outlined.Menu, "会话管理", onOpenHistory)
-            androidx.compose.foundation.layout.Spacer(Modifier.width(XpSpace.s))
-            Column(Modifier.weight(1f)) {
-                Text("小票助手", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                Text(dayLabel, style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
+private fun ConversationList(
+    conversation: List<ChatItem>,
+    reminder: ChatReminder?,
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    reduced: Boolean,
+    onConfirm: (ChatItem.Confirm) -> Unit,
+    onEdit: (ChatItem.Confirm) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(
+        modifier,
+        state = listState,
+        contentPadding = PaddingValues(top = XpSpace.s, bottom = XpSpace.l),
+        verticalArrangement = Arrangement.spacedBy(XpSpace.s),
+    ) {
+        if (reminder != null) item(key = "reminder") { ReminderLine(reminder) }
+        itemsIndexed(conversation, key = { _, item -> item.id }) { _, item ->
+            Box(
+                Modifier.then(
+                    if (reduced) Modifier
+                    else Modifier.animateItem(
+                        fadeInSpec = tween(180),
+                        placementSpec = tween(180),
+                        fadeOutSpec = null,
+                    ),
+                ),
+            ) {
+                when (item) {
+                    is ChatItem.Assistant -> AssistantText(item.text, streaming = item.streaming)
+                    is ChatItem.User -> UserBubble(item.text)
+                    is ChatItem.Tool -> ToolRow(item)
+                    is ChatItem.Chart -> ChartCard(item)
+                    is ChatItem.Confirm -> ConfirmCard(item, onConfirm = { onConfirm(item) }, onEdit = { onEdit(item) })
+                }
             }
-            Pill("本机统计")
-            androidx.compose.foundation.layout.Spacer(Modifier.width(XpSpace.s))
-            com.xiaopiao.app.ui.today.ReceiptStrip()
-            androidx.compose.foundation.layout.Spacer(Modifier.width(XpSpace.s))
-            NavIconButton(Icons.Outlined.Settings, "设置", onOpenSettings)
         }
-        Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpColors.Hairline))
     }
 }
 
@@ -504,124 +663,19 @@ private fun ReminderLine(reminder: ChatReminder) {
     }
 }
 
-/**
- * Input bar pinned above the tab bar: ＋ (manual form), text field, and either 发送 (primary capsule) or the
- * mic, which opens voice on tap and on long press (both paths call the same callback; long press is the
- * documented gesture, tap keeps it reachable for TalkBack).
- */
-@Composable
-private fun ChatComposer(
-    value: String,
-    onValueChange: (String) -> Unit,
-    onSend: () -> Unit,
-    onVoice: () -> Unit,
-    focusRequester: FocusRequester,
-    showSuggestions: Boolean,
-    onSuggestion: (String) -> Unit,
-) {
-    Column(Modifier.fillMaxWidth().background(XpColors.Canvas)) {
-        Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpColors.Hairline))
-        if (showSuggestions) {
-            Row(
-                Modifier.fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(start = XpSpace.l, end = XpSpace.l, top = XpSpace.s),
-                horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
-            ) {
-                ChatSuggestions.forEach { label ->
-                    ChatChip(label) { onSuggestion(label) }
-                }
-            }
-        }
-        // One capsule: field + action live together, so the composer is a single object (tt#29).
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s)
-                .height(48.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill)
-                .padding(start = XpSpace.l, end = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = XpColors.Ink),
-                    singleLine = true,
-                    cursorBrush = SolidColor(XpColors.Primary),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { onSend() }),
-                    decorationBox = { inner ->
-                        Box(contentAlignment = Alignment.CenterStart) {
-                            if (value.isEmpty()) {
-                                Text(
-                                    "说一句「午饭 28」",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = XpColors.InkTertiary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            inner()
-                        }
-                    },
-                )
-            }
-            if (value.isBlank()) {
-                Box(
-                    Modifier.size(36.dp).clip(CircleShape).clickable { onVoice() },
-                    contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Outlined.Mic, contentDescription = "语音", tint = XpColors.InkSecondary, modifier = Modifier.size(20.dp)) }
-            } else {
-                Box(
-                    Modifier.size(36.dp).clip(CircleShape).background(XpColors.Primary).clickable { onSend() },
-                    contentAlignment = Alignment.Center,
-                ) { Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "发送", tint = XpColors.OnPrimary, modifier = Modifier.size(18.dp)) }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun RoundButton(
-    icon: ImageVector,
-    description: String,
-    onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null,
-) {
-    val source = remember { MutableInteractionSource() }
-    val haptics = rememberXpHaptics()
-    Box(
-        Modifier.size(40.dp)
-            .clip(CircleShape)
-            .pressableScale(source, 0.94f)
-            .background(XpColors.Fill)
-            .combinedClickable(
-                interactionSource = source,
-                indication = null,
-                role = Role.Button,
-                onLongClickLabel = if (onLongClick != null) description else null,
-                onLongClick = onLongClick?.let { action -> { haptics.thud(); action() } },
-                onClick = { haptics.select(); onClick() },
-            )
-            .semantics { contentDescription = description },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, contentDescription = null, tint = XpColors.Ink, modifier = Modifier.size(20.dp))
-    }
-}
-
 /** One tool step: a small spinner while it runs, then the one-line result. */
 @Composable
 private fun ToolRow(item: ChatItem.Tool) {
-    val spin = rememberInfiniteTransition(label = "tool")
+    val spin = androidx.compose.animation.core.rememberInfiniteTransition(label = "tool")
     val angle by spin.animateFloat(
         initialValue = 0f, targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing)),
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            tween(900, easing = LinearEasing),
+        ),
         label = "toolSpin",
     )
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp).animateContentSize(tween(160, easing = XpEase.out)),
+        Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = 6.dp).animateContentSize(tween(160)),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
     ) {
@@ -629,8 +683,7 @@ private fun ToolRow(item: ChatItem.Tool) {
         AnimatedContent(
             targetState = item.running,
             transitionSpec = {
-                (fadeIn(tween(140)) + androidx.compose.animation.scaleIn(initialScale = 0.7f) ) togetherWith
-                    fadeOut(tween(80))
+                (fadeIn(tween(140)) + androidx.compose.animation.scaleIn(initialScale = 0.7f)) togetherWith fadeOut(tween(80))
             },
             label = "toolIcon",
         ) { running ->
@@ -652,7 +705,7 @@ private fun ToolRow(item: ChatItem.Tool) {
             label = "toolDetail",
         ) { detail ->
             if (detail == null) Spacer(Modifier.size(0.dp))
-            else Text("· $detail", style = MaterialTheme.typography.bodySmall, color = XpColors.InkTertiary, maxLines = 1)
+            else Text("· $detail", style = MaterialTheme.typography.bodySmall, color = XpColors.InkTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -660,23 +713,14 @@ private fun ToolRow(item: ChatItem.Tool) {
 /** Chart card inside the flow: answers carry a picture when they are about a period. */
 @Composable
 private fun ChartCard(item: ChatItem.Chart) {
-    XpCard(Modifier.padding(top = XpSpace.s)) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.xs)
+            .clip(RoundedCornerShape(XpRadius.m)).background(XpColors.Card).padding(XpSpace.l),
+    ) {
         Text(item.title, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
-        WeekBars(item.days)
+        com.xiaopiao.app.ui.chat.WeekBars(item.days)
         item.caption?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = XpColors.InkTertiary, modifier = Modifier.padding(top = XpSpace.s))
         }
-    }
-}
-
-/** Quick-reply chip: smaller and quieter than a selectable capsule (tt#30). */
-@Composable
-private fun ChatChip(label: String, onClick: () -> Unit) {
-    Box(
-        Modifier.height(30.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill)
-            .clickable { onClick() }.padding(horizontal = XpSpace.m),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = XpColors.Ink, maxLines = 1)
     }
 }
