@@ -1,11 +1,89 @@
 package com.xiaopiao.app.ui.settings
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
+import com.xiaopiao.app.data.CaptureLogEntry
+import com.xiaopiao.app.importer.ImportSummary
 import com.xiaopiao.app.ui.components.LargeTitle
+import com.xiaopiao.app.ui.theme.XpSpace
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(container: AppContainer) {
-    Column { LargeTitle("我的") }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var listenerOn by remember { mutableStateOf(NotificationAccess.listenerEnabled(context)) }
+    var postGranted by remember { mutableStateOf(NotificationAccess.postNotificationsGranted(context)) }
+    var importing by remember { mutableStateOf(false) }
+    var summary by remember { mutableStateOf<ImportSummary?>(null) }
+    var demoMessage by remember { mutableStateOf<String?>(null) }
+    val logFlow = remember(container) { container.captureLog.observeRecent() }
+    val log: List<CaptureLogEntry> by logFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+
+    // The user comes back from system settings: re-check both permissions.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        listenerOn = NotificationAccess.listenerEnabled(context)
+        postGranted = NotificationAccess.postNotificationsGranted(context)
+    }
+    val postLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { postGranted = it }
+    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            importing = true
+            scope.launch {
+                summary = container.csvImporter.import(uri)
+                importing = false
+            }
+        }
+    }
+
+    Column(Modifier.verticalScroll(rememberScrollState())) {
+        LargeTitle("我的")
+        Column(Modifier.padding(horizontal = XpSpace.l).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(XpSpace.l)) {
+            NotificationAccessCard(
+                listenerEnabled = listenerOn, postGranted = postGranted,
+                onOpenListenerSettings = { NotificationAccess.openListenerSettings(context) },
+                onRequestPost = { postLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
+            )
+            CaptureLogSection(log, onClear = { scope.launch { container.captureLog.clear() } })
+            ImportCard(importing, summary, onPick = {
+                csvLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "application/octet-stream"))
+            })
+            DataCard(
+                demoMessage = demoMessage,
+                onLoadDemo = {
+                    scope.launch {
+                        val n = container.loadDemoData()
+                        demoMessage = if (n > 0) "已载入 $n 笔演示数据，去账本看看吧～" else "演示数据已经在账本里啦"
+                    }
+                },
+                onClearAll = {
+                    scope.launch {
+                        container.clearAllData()
+                        summary = null
+                        demoMessage = "已清空，从零开始～"
+                    }
+                },
+            )
+            PrivacyCard()
+        }
+    }
 }
