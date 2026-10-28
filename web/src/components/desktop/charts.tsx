@@ -1,4 +1,3 @@
-import { useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useTheme } from "@/lib/theme";
 import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis, type TooltipProps } from "recharts";
@@ -8,6 +7,8 @@ import { money, moneyShort } from "./format";
 /**
  * One chart style for the whole shell (docs/WEB-SPEC.md §A.2): no vertical grid, horizontal hairline
  * rules only, 11px ink-3 axis labels, accent for the main series, ink-3 at 30% for the compare period.
+ * Series entrance animation is off on purpose: recharts keeps a series clipped to zero width until its
+ * rAF animation runs, so a throttled/occluded window would show empty axes. A painted chart beats a flourish.
  */
 
 /**
@@ -60,7 +61,6 @@ function chartFrame(height: number) {
 }
 
 export function AreaTrend({ points, height = 220, compareName, valueName, interval }: { points: Point[]; height?: number; compareName: string; valueName: string; interval?: number }) {
-  const reduce = useReducedMotion() ?? false;
   const c = useChartColors();
   const axis = { fontSize: 11, fill: c.ink3 };
   const hasCompare = points.some((p) => p.compare !== undefined);
@@ -77,8 +77,8 @@ export function AreaTrend({ points, height = 220, compareName, valueName, interv
           <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={false} interval={interval ?? "preserveStartEnd"} minTickGap={24} dy={4} />
           <YAxis tick={axis} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => moneyShort(v)} />
           <RechartsTooltip content={<TipBox accent={c.accent} />} cursor={{ stroke: c.hairline }} />
-          {hasCompare && <Area type="monotone" dataKey="compare" name={compareName} stroke={c.ink3} strokeOpacity={0.3} strokeWidth={1.25} fill="transparent" strokeDasharray="3 3" dot={false} isAnimationActive={!reduce} />}
-          <Area type="monotone" dataKey="value" name={valueName} stroke={c.accent} strokeWidth={1.75} fill="url(#d-area-fill)" dot={false} activeDot={{ r: 3, strokeWidth: 0 }} isAnimationActive={!reduce} animationDuration={420} />
+          {hasCompare && <Area type="monotone" dataKey="compare" name={compareName} stroke={c.ink3} strokeOpacity={0.3} strokeWidth={1.25} fill="transparent" strokeDasharray="3 3" dot={false} isAnimationActive={false} />}
+          <Area type="monotone" dataKey="value" name={valueName} stroke={c.accent} strokeWidth={1.75} fill="url(#d-area-fill)" dot={false} activeDot={{ r: 3, strokeWidth: 0 }} isAnimationActive={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -86,7 +86,6 @@ export function AreaTrend({ points, height = 220, compareName, valueName, interv
 }
 
 export function BarTrend({ points, height = 220, compareName, valueName }: { points: Point[]; height?: number; compareName: string; valueName: string }) {
-  const reduce = useReducedMotion() ?? false;
   const c = useChartColors();
   const axis = { fontSize: 11, fill: c.ink3 };
   const hasCompare = points.some((p) => p.compare !== undefined);
@@ -97,8 +96,8 @@ export function BarTrend({ points, height = 220, compareName, valueName }: { poi
           <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={false} dy={4} />
           <YAxis tick={axis} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => moneyShort(v)} />
           <RechartsTooltip content={<TipBox accent={c.accent} />} cursor={{ fill: c.fill, fillOpacity: 0.5 }} />
-          {hasCompare && <Bar dataKey="compare" name={compareName} fill={c.ink3} fillOpacity={0.3} radius={[3, 3, 0, 0]} isAnimationActive={!reduce} />}
-          <Bar dataKey="value" name={valueName} fill={c.accent} radius={[3, 3, 0, 0]} isAnimationActive={!reduce} animationDuration={420} />
+          {hasCompare && <Bar dataKey="compare" name={compareName} fill={c.ink3} fillOpacity={0.3} radius={[3, 3, 0, 0]} isAnimationActive={false} />}
+          <Bar dataKey="value" name={valueName} fill={c.accent} radius={[3, 3, 0, 0]} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -116,13 +115,12 @@ export interface Slice {
 const SLICE_OPACITY = [1, 0.82, 0.64, 0.46, 0.3];
 
 export function Donut({ slices, size = 180, centerValue, centerLabel }: { slices: Slice[]; size?: number; centerValue?: string; centerLabel?: string }) {
-  const reduce = useReducedMotion() ?? false;
   const c = useChartColors();
   const total = slices.reduce((s, x) => s + x.value, 0);
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <PieChart width={size} height={size}>
-          <Pie data={slices} dataKey="value" nameKey="label" innerRadius="66%" outerRadius="94%" paddingAngle={1.5} stroke="none" isAnimationActive={!reduce} animationDuration={420}>
+          <Pie data={slices} dataKey="value" nameKey="label" innerRadius="66%" outerRadius="94%" paddingAngle={1.5} stroke="none" isAnimationActive={false}>
             {slices.map((slice, i) => (
               <Cell key={slice.label} fill={slice.color === "muted" ? c.ink3 : c.accent} fillOpacity={slice.color === "muted" ? 1 : (SLICE_OPACITY[i] ?? 0.24)} />
             ))}

@@ -445,7 +445,7 @@ export function AiPage() {
       <Card className="col-span-12 flex h-[340px] min-h-0 flex-col xl:col-span-4 xl:h-auto" padded={false} fill title={s("ai.refs")}>
         <div className="d-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-4">
           {!lastAi?.refs || lastAi.refs.length === 0 ? (
-            <EmptyState icon={Sparkles} title={s("ai.refs")} hint={s("ai.refsEmpty")} className="px-2 py-10" />
+            <EmptyState icon={Sparkles} title={s("ai.refsEmptyTitle")} hint={s("ai.refsEmpty")} className="px-2 py-10" />
           ) : (
             lastAi.refs.map((ref) => (
               <div key={ref.kind}>
