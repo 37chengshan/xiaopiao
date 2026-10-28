@@ -209,7 +209,7 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: 
 
                 if (all == null || receipt == null) {
                     ShimmerBlock(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m).fillMaxWidth().height(132.dp), RoundedCornerShape(XpRadius.m))
-                } else {
+                } else if (!printOnly) {
                     PrintCard(
                         isToday = selectedDay == today,
                         demo = hasDemo,

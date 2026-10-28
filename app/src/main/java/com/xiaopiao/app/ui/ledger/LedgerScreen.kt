@@ -65,6 +65,9 @@ fun LedgerScreen(container: AppContainer, onOpenInsights: () -> Unit = {}, onPri
     val txns: List<Txn>? by flow.collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
     var sheetOpen by remember { mutableStateOf(false) }
+    var filterOpen by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    var filter by remember { mutableStateOf(LedgerFilter()) }
     var editing by remember { mutableStateOf<Txn?>(null) }
     val toast = rememberUndoToastState()
     val listState = rememberLazyListState()
@@ -93,9 +96,18 @@ fun LedgerScreen(container: AppContainer, onOpenInsights: () -> Unit = {}, onPri
                     LedgerEmptyState(onAdd = { openAdd(null) })
                 }
                 else -> {
-                    val groups = remember(txns, now / 60_000) { LedgerGrouping.group(txns.orEmpty(), now) }
-                    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = top, bottom = 104.dp)) {
-                        item(key = "hero") { LedgerHero(txns.orEmpty(), now) }
+                    val visible = filter.apply(txns.orEmpty(), now, query)
+                    val groups = remember(visible, now / 60_000) { LedgerGrouping.group(visible, now) }
+                    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = top, bottom = 120.dp)) {
+                        item(key = "search") {
+                            LedgerSearchBar(
+                                query = query,
+                                onQuery = { query = it },
+                                filterActive = filter.active,
+                                onFilter = { filterOpen = true },
+                            )
+                        }
+                        item(key = "hero") { LedgerHero(visible, now) }
                         groups.forEach { group ->
                             item(key = "day-${group.dayStart}") {
                                 DaySection(
@@ -118,6 +130,8 @@ fun LedgerScreen(container: AppContainer, onOpenInsights: () -> Unit = {}, onPri
 
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp))
     }
+
+    if (filterOpen) LedgerFilterSheet(filter, { filter = it; filterOpen = false }, { filterOpen = false })
 
     if (sheetOpen) {
         AddTxnSheet(
