@@ -1,12 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Check } from "lucide-react";
+import { CalendarClock, Check, Compass } from "lucide-react";
 import { toast } from "sonner";
+import { Group, IconTile, SectionHeader, XButton } from "@/components/app/kit";
+import { EmptyState } from "@/components/app/States";
 import { cn } from "@/lib/utils";
 import type { Insights } from "../logic/aggregator";
 import type { Experiment } from "../logic/experiment";
 import { generateSuggestions } from "../logic/suggestions";
-import { spring } from "../tokens";
-import { Card, EmptyState, GhostButton, PrimaryButton } from "./common";
+import { spring, springPop } from "../motion";
 
 export function DecideStep({
   experiment,
@@ -26,10 +27,14 @@ export function DecideStep({
   if (!experiment || experiment.status === "draft") {
     return (
       <EmptyState
-        emoji="🤔"
+        icon={Compass}
         title="先有结果，再做决定"
-        body="发布并看过实验结果后，这里会给你 3 个可选的下一步，由你来选。"
-        action={<PrimaryButton onClick={onBackToResults}>回到上一步</PrimaryButton>}
+        hint="发布并看过实验结果后，这里会给你 3 个可选的下一步，由你来选。"
+        action={
+          <XButton variant="secondary" onClick={onBackToResults}>
+            回到上一步
+          </XButton>
+        }
       />
     );
   }
@@ -37,93 +42,96 @@ export function DecideStep({
   const chosen = suggestions.find((s) => s.id === chosenId) ?? null;
 
   return (
-    <div className="space-y-3">
-      <Card className="border-transparent bg-(--mb-coral-soft)">
-        <p className="text-[14px] font-bold">你来决定 👆</p>
-        <p className="mt-1 text-[12px] leading-relaxed text-(--mb-ink-soft)">
-          下面 3 个只是备选思路，每个都写了好处和代价。选哪个、做不做，都由你说了算；这里不会承诺任何收入变化。
-        </p>
-      </Card>
+    <div className="pb-6">
+      <p className="px-4 pt-1 text-[13px] leading-[18px] text-ink-2">
+        下面 3 个只是备选思路，每个都写了好处和代价。选哪个、做不做，都由你说了算；这里不会承诺任何收入变化。
+      </p>
 
-      <div role="radiogroup" aria-label="下一步的 3 个选择" className="space-y-2.5">
-        {suggestions.map((s, i) => {
-          const selected = s.id === chosenId;
-          return (
-            <motion.button
-              key={s.id}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => {
-                onChoose(s.id);
-                toast(`已选择：${s.title}`, { description: "两周后复盘一下效果吧" });
-              }}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0, scale: selected ? 1.02 : 1 }}
-              transition={{ ...spring, delay: i * 0.06 }}
-              whileTap={{ scale: 0.98 }}
-              className={cn(
-                "relative w-full rounded-2xl border bg-(--mb-card) p-4 text-left outline-offset-2 focus-visible:outline-2 focus-visible:outline-(--mb-ink)",
-                selected ? "border-(--mb-coral) shadow-[0_0_0_3px_var(--mb-coral-soft)]" : "border-(--mb-line)",
-              )}
-            >
-              <AnimatePresence>
-                {selected ? (
-                  <motion.span
-                    initial={{ scale: 0, rotate: -90 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    exit={{ scale: 0 }}
-                    transition={spring}
-                    className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-(--mb-coral) text-white"
-                  >
-                    <Check className="size-3.5" aria-label="已选择" />
-                  </motion.span>
-                ) : null}
-              </AnimatePresence>
-              <p className="pr-8 text-[15px] font-bold">
-                <span aria-hidden>{s.emoji} </span>
-                {s.title}
-              </p>
-              <p className="mt-1 text-[12px] leading-relaxed text-(--mb-ink-soft)">{s.summary}</p>
-              <dl className="mt-3 space-y-1.5 text-[12px] leading-relaxed">
-                <div className="flex gap-2">
-                  <dt className="shrink-0 font-bold text-(--mb-ink)">好处</dt>
-                  <dd className="text-(--mb-ink-soft)">{s.pros}</dd>
-                </div>
-                <div className="flex gap-2">
-                  <dt className="shrink-0 font-bold text-(--mb-stamp)">代价</dt>
-                  <dd className="text-(--mb-ink-soft)">{s.cons}</dd>
-                </div>
-              </dl>
-            </motion.button>
-          );
-        })}
-      </div>
+      <SectionHeader>下一步的 3 个选择</SectionHeader>
+      <Group>
+        <div role="radiogroup" aria-label="下一步的 3 个选择">
+          {suggestions.map((s) => {
+            const selected = s.id === chosenId;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => {
+                  onChoose(s.id);
+                  toast(`已选择：${s.title}`, { description: "两周后复盘一下效果吧" });
+                }}
+                className={cn("flex w-full items-start gap-3 px-4 py-4 text-left transition-colors duration-100 active:bg-surface-2", selected && "bg-clay-soft/40")}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[16px] font-medium leading-[22px] text-ink">{s.title}</span>
+                  <span className="mt-0.5 block text-[13px] leading-[18px] text-ink-2">{s.summary}</span>
+                  <span className="mt-2.5 block space-y-1 text-[13px] leading-[18px]">
+                    <span className="flex gap-2">
+                      <span className="w-7 shrink-0 font-medium text-positive">好处</span>
+                      <span className="text-ink">{s.pros}</span>
+                    </span>
+                    <span className="flex gap-2">
+                      <span className="w-7 shrink-0 font-medium text-negative">代价</span>
+                      <span className="text-ink">{s.cons}</span>
+                    </span>
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    "mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border transition-colors duration-150",
+                    selected ? "border-clay bg-clay" : "border-ink-3",
+                  )}
+                  aria-hidden
+                >
+                  <AnimatePresence>
+                    {selected && (
+                      <motion.span initial={{ scale: 0.3, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.1 } }} transition={springPop}>
+                        <Check className="size-3.5 text-on-clay" strokeWidth={3} />
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Group>
 
-      <AnimatePresence>
-        {chosen ? (
+      <AnimatePresence initial={false}>
+        {chosen && (
           <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0 }}
+            key={chosen.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={spring}
             aria-live="polite"
           >
-            <Card className="border-(--mb-coral)">
-              <p className="text-[14px] font-bold">好，就这个：{chosen.title}</p>
-              <p className="mt-1.5 text-[12px] leading-relaxed text-(--mb-ink-soft)">
-                <b className="text-(--mb-ink)">第一步：</b>
-                {chosen.firstStep}
-              </p>
-              <p className="mt-1.5 rounded-xl bg-(--mb-canvas) px-3 py-2 text-[12px] leading-relaxed">
-                🗓️ {chosen.reviewNote}
-              </p>
-            </Card>
+            <SectionHeader>你的决定</SectionHeader>
+            <Group>
+              <div className="px-4 py-3.5">
+                <p className="text-[16px] font-medium leading-[22px] text-ink">好，就这个：{chosen.title}</p>
+                <p className="mt-1 text-[13px] leading-[18px] text-ink-2">
+                  <span className="font-medium text-ink">第一步　</span>
+                  {chosen.firstStep}
+                </p>
+              </div>
+              <div className="flex items-start gap-3 px-4 py-3.5">
+                <IconTile icon={CalendarClock} />
+                <p className="min-w-0 flex-1 pt-1 text-[13px] leading-[18px] text-ink-2">{chosen.reviewNote}</p>
+              </div>
+            </Group>
           </motion.div>
-        ) : null}
+        )}
       </AnimatePresence>
 
-      <GhostButton onClick={onRestart}>换个模板，重新来一遍</GhostButton>
+      <div className="flex justify-center px-4 pt-5">
+        <XButton variant="plain" size="sm" className="text-ink-2" onClick={onRestart}>
+          换个模板，重新来一遍
+        </XButton>
+      </div>
     </div>
   );
 }
