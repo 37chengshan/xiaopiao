@@ -117,29 +117,26 @@ private data class DayData(val day: Long, val items: List<Txn>)
 fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: Int = 0) {
     val today = remember { startOfDay(System.currentTimeMillis()) }
     var selectedDay by rememberSaveable { mutableLongStateOf(today) }
-    var demo by rememberSaveable { mutableStateOf(false) }
     var expanded by rememberSaveable { mutableStateOf(false) }
 
     val realAll by remember { container.ledger.observeAll() }.collectAsState(initial = null)
-    val sample = remember(today) { SampleData.build(today) }
-    val all: List<Txn>? = if (demo) sample else realAll
+    val all: List<Txn>? = realAll
 
     var dayData by remember { mutableStateOf<DayData?>(null) }
-    LaunchedEffect(selectedDay, demo) {
-        val flow = if (demo) flowOf(sample.filter { it.occurredAt in selectedDay until selectedDay + DAY_MS }.sortedBy { it.occurredAt })
-        else container.ledger.observeRange(selectedDay, selectedDay + DAY_MS)
-        flow.collect { dayData = DayData(selectedDay, it) }
+    LaunchedEffect(selectedDay) {
+        container.ledger.observeRange(selectedDay, selectedDay + DAY_MS).collect { dayData = DayData(selectedDay, it) }
     }
     val data = dayData?.takeIf { it.day == selectedDay }
 
-    val printedAt = remember(selectedDay, demo) { System.currentTimeMillis() }
+    val printedAt = remember(selectedDay) { System.currentTimeMillis() }
     val receipt = remember(data, all) { data?.let { DailyReceiptBuilder.build(it.day, it.items, all.orEmpty()) } }
     val meta = remember(all, selectedDay, printedAt) {
         val prev = all.orEmpty().filter { it.direction == Direction.OUT && it.occurredAt in (selectedDay - DAY_MS) until selectedDay }
         ReceiptMeta(printedAt, if (prev.isEmpty()) null else prev.sumOf { it.amountCents })
     }
-    val lines = remember(receipt, demo, selectedDay, meta) {
-        receipt?.let { ReceiptLayout.build(it, selectedDay == today, demo, meta = meta) }.orEmpty()
+    val hasDemo = all.orEmpty().any { it.note == DemoSeed.NOTE }
+    val lines = remember(receipt, hasDemo, selectedDay, meta) {
+        receipt?.let { ReceiptLayout.build(it, selectedDay == today, hasDemo, meta = meta) }.orEmpty()
     }
     val reduced = rememberReducedMotion()
     val timeline = remember(lines, reduced) { PrintTimeline.build(lines, reduced) }
@@ -179,8 +176,8 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: 
         val r = receipt ?: return
         val isToday = selectedDay == today
         share = ShareContent(
-            full = ReceiptLayout.build(r, isToday, demo, expanded = true, meta = meta),
-            brief = ReceiptLayout.build(r, isToday, demo, brief = true, meta = meta),
+            full = ReceiptLayout.build(r, isToday, hasDemo, expanded = true, meta = meta),
+            brief = ReceiptLayout.build(r, isToday, hasDemo, brief = true, meta = meta),
             stampText = ReceiptLayout.stampText(r),
             fileKey = ReceiptLayout.isoDay(selectedDay).substringBefore(' '),
         )
@@ -206,26 +203,20 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: 
                     dateLabel = ReceiptLayout.dayLabel(today),
                     count = todayItems.size,
                     spentCents = todayItems.filter { it.direction == Direction.OUT }.sumOf { it.amountCents },
-                    hasDemo = all.orEmpty().any { it.note == DemoSeed.NOTE },
+                    hasDemo = hasDemo,
                     greeting = if (all == null) "我在热机，稍等一下下…" else greeting.line,
                 )
 
                 if (all == null || receipt == null) {
                     ShimmerBlock(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m).fillMaxWidth().height(132.dp), RoundedCornerShape(XpRadius.m))
                 } else {
-                PrintCard(
-                    isToday = selectedDay == today,
-                    demo = demo,
-                    canOfferDemo = realAll.orEmpty().isEmpty(),
-                    count = receipt.items.size,
-                    totalCents = receipt.totalOutCents,
-                    onPrint = ::startPrint,
-                    onDemo = {
-                        demo = true
-                        toast.show("已切换到演示数据", "退出") { demo = false }
-                    },
-                    onExitDemo = { demo = false },
-                )
+                    PrintCard(
+                        isToday = selectedDay == today,
+                        demo = hasDemo,
+                        count = receipt.items.size,
+                        totalCents = receipt.totalOutCents,
+                        onPrint = ::startPrint,
+                    )
                 DayBreakdown(
                     if (selectedDay == today) "今日明细" else "${ReceiptLayout.dayLabel(selectedDay).substringBefore(' ')}明细",
                     receipt.items,
@@ -272,12 +263,9 @@ private fun TodayHeader(dateLabel: String, count: Int, spentCents: Long, hasDemo
 private fun PrintCard(
     isToday: Boolean,
     demo: Boolean,
-    canOfferDemo: Boolean,
     count: Int,
     totalCents: Long,
     onPrint: () -> Unit,
-    onDemo: () -> Unit,
-    onExitDemo: () -> Unit,
 ) {
     XpCard(Modifier.padding(horizontal = XpSpace.l).padding(bottom = XpSpace.m)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -311,17 +299,6 @@ private fun PrintCard(
             style = MaterialTheme.typography.bodySmall,
             color = XpColors.InkTertiary,
         )
-        if (demo) {
-            Spacer(Modifier.height(XpSpace.xs))
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                XpButton("退出演示", onExitDemo, style = XpButtonStyle.Plain)
-            }
-        } else if (canOfferDemo) {
-            Spacer(Modifier.height(XpSpace.xs))
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                XpButton("看看示例小票", onDemo, style = XpButtonStyle.Plain)
-            }
-        }
     }
 }
 
@@ -339,6 +316,10 @@ private fun RecordFab(record: RecordSheetState, modifier: Modifier = Modifier) {
     var denied by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         denied = !granted
+        if (granted) {
+            expanded = true
+            voice.start()
+        }
     }
     val expandFraction by animateFloatAsState(if (expanded) 1f else 0f, tween(220, easing = XpEase.out), label = "fabExpand")
 
@@ -385,7 +366,11 @@ private fun RecordFab(record: RecordSheetState, modifier: Modifier = Modifier) {
                         val long = awaitLongPressOrCancellation(down.id)
                         if (long == null) {
                             haptics.select()
-                            record.openManual()
+                            if (expanded) {
+                                voice.stop()
+                            } else {
+                                record.openManual()
+                            }
                             return@awaitEachGesture
                         }
                         haptics.thud()

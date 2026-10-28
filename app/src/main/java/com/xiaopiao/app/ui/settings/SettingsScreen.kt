@@ -99,6 +99,7 @@ fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}) {
                 },
             )
             MerchantSwitchSection(onOpenMerchant)
+            ReplayOnboardingSection { scope.launch { com.xiaopiao.app.ui.onboarding.OnboardingPrefs(context.applicationContext).reset() } }
             AboutSection { privacyOpen = true }
         }
     }

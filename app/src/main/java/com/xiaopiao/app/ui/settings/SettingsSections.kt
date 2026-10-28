@@ -25,6 +25,7 @@ import com.xiaopiao.app.ui.components.GroupedSection
 import com.xiaopiao.app.ui.components.IconTile
 import com.xiaopiao.app.ui.components.Segmented
 import com.xiaopiao.app.ui.components.XpSwitch
+import androidx.compose.material.icons.outlined.Lightbulb
 import com.xiaopiao.app.ui.theme.DesignStyle
 import com.xiaopiao.app.ui.theme.ThemeMode
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -135,6 +136,19 @@ fun PrivacySheet(onDismiss: () -> Unit) {
                     item(i) { GroupedRow(title = line, titleMaxLines = 3, leading = { IconTile(Icons.Outlined.Lock) }) }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ReplayOnboardingSection(onReplay: () -> Unit) {
+    GroupedSection(header = "引导") {
+        item {
+            GroupedRow(
+                title = "重看引导",
+                leading = { IconTile(Icons.Outlined.Lightbulb, tint = XpColors.Warning, background = XpColors.WarningSoft) },
+                onClick = onReplay,
+            )
         }
     }
 }

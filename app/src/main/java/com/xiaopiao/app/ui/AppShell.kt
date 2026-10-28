@@ -36,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -101,6 +102,14 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     var merchantMode by rememberSaveable { mutableStateOf(false) }
     val record = rememberRecordSheetState()
     var printSignal by remember { mutableIntStateOf(0) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val onboarding = remember { com.xiaopiao.app.ui.onboarding.OnboardingPrefs(context.applicationContext) }
+    val onboarded by onboarding.observeDone().collectAsState(initial = null)
+    val shellScope = rememberCoroutineScope()
+    if (onboarded == false) {
+        com.xiaopiao.app.ui.onboarding.OnboardingHost { shellScope.launch { onboarding.setDone() } }
+        return
+    }
 
     if (merchantMode) {
         // 小店版 is a whole-product mode (palette, nav, landing), not a page (docs/APP-DESIGN.md §6).
