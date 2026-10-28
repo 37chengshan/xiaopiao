@@ -102,7 +102,7 @@ private fun Kpi(label: String, value: Float?, unit: String, modifier: Modifier) 
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     if (unit == "元") "%.1f".format(v) else "${v.toInt()}",
-                    style = MaterialTheme.typography.titleLarge, color = XpColors.Accent,
+                    style = MaterialTheme.typography.titleLarge, color = XpColors.Ink,
                 )
                 Text(unit, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.padding(start = 2.dp, bottom = 2.dp))
             }
@@ -123,8 +123,8 @@ private fun AgeChips(selected: AgeBand?, onSelect: (AgeBand?) -> Unit) {
 
 @Composable
 private fun Chip(label: String, on: Boolean, onClick: () -> Unit) {
-    val bg by animateColorAsState(if (on) XpColors.Accent else XpColors.Card, label = "chip")
-    val fg by animateColorAsState(if (on) XpColors.Card else XpColors.Ink, label = "chipfg")
+    val bg by animateColorAsState(if (on) XpColors.AccentSoft else XpColors.Fill, label = "chip")
+    val fg by animateColorAsState(if (on) XpColors.Accent else XpColors.Ink, label = "chipfg")
     val haptic = LocalHapticFeedback.current
     Text(
         label, style = MaterialTheme.typography.labelMedium, color = fg,
@@ -138,7 +138,7 @@ private fun Chip(label: String, on: Boolean, onClick: () -> Unit) {
 private fun KindBars(stats: CohortStats) {
     val max = stats.kindShare.maxOfOrNull { it.share ?: 0f } ?: 0f
     Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-        stats.kindShare.forEachIndexed { i, c -> CellBar(c, max, XpColors.Accent, i) }
+        stats.kindShare.forEachIndexed { i, c -> CellBar(c, max, XpColors.InkSecondary, i) }
     }
 }
 
