@@ -98,7 +98,7 @@ export function ReceiptPaper({
 
         <div className="py-1 text-center" data-row data-total>
           <p className="text-[11.5px] tracking-[0.3em] text-paper-ink/70">{doc.isToday ? "今日支出" : "当日支出"}</p>
-          <NumberTicker cents={doc.totalCents} run={tickerRun} instant={instant} className="block text-[44px] font-semibold tracking-[-0.03em]" />
+          <NumberTicker cents={doc.totalCents} run={tickerRun} instant={instant} className="text-[44px] font-semibold tracking-[-0.03em]" />
           <p className="text-[10.5px] tracking-[0.06em] text-paper-ink/70">{DISCLAIMER}</p>
         </div>
         <Rule />

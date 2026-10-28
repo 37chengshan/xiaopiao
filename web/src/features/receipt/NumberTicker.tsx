@@ -5,7 +5,7 @@ const LINE = 1.12; // em; every digit cell is one line tall
 
 function Digit({ digit, rolled, delay, instant }: { digit: number; rolled: boolean; delay: number; instant: boolean }) {
   return (
-    <span className="relative inline-block overflow-hidden align-baseline" style={{ height: `${LINE}em`, lineHeight: `${LINE}em` }} aria-hidden>
+    <span className="relative block overflow-hidden" style={{ height: `${LINE}em`, lineHeight: `${LINE}em` }} aria-hidden>
       <span
         className="block"
         style={{
@@ -38,7 +38,7 @@ export function NumberTicker({ cents, run, instant, className }: { cents: number
 
   const chars = [...text];
   return (
-    <span className={className} role="img" aria-label={`合计 ${text} 元`}>
+    <span className={`${className ?? ""} flex items-baseline justify-center`} role="img" aria-label={`合计 ${text} 元`}>
       <span className="mr-[0.1em] text-[0.55em] text-paper-ink/70" aria-hidden>
         ¥
       </span>
@@ -46,7 +46,7 @@ export function NumberTicker({ cents, run, instant, className }: { cents: number
         /\d/.test(ch) ? (
           <Digit key={i} digit={Number(ch)} rolled={rolled} delay={(chars.length - 1 - i) * 45} instant={instant} />
         ) : (
-          <span key={i} aria-hidden className="inline-block" style={{ lineHeight: `${LINE}em` }}>
+          <span key={i} aria-hidden style={{ lineHeight: `${LINE}em` }}>
             {ch}
           </span>
         ),

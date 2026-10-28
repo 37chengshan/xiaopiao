@@ -26,7 +26,7 @@ export function Receipt({ receipt, playKey = 0 }: { receipt: DailyReceipt; playK
 
   return (
     <div ref={anchor} className="px-4 pb-8 pt-2">
-      <div className="mx-auto w-fit [filter:drop-shadow(0_6px_14px_rgb(0_0_0/0.12))]">
+      <div className={`mx-auto w-fit [filter:drop-shadow(0_6px_14px_rgb(0_0_0/0.12))] transition-opacity duration-150 ${column ? "opacity-0" : ""}`}>
         <ReceiptPaper doc={doc} stamp="shown" tickerRun instant />
       </div>
       <XButton variant="clay" className="mx-auto mt-6 flex w-full max-w-[304px]" onClick={start}>
