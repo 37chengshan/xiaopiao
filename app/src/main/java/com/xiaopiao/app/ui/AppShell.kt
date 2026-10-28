@@ -115,7 +115,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     }
 
     Scaffold(
-        containerColor = if (current == Tab.Today.route || current == null) XpColors.Canvas else XpColors.CanvasGrouped,
+        containerColor = XpColors.CanvasGrouped,
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
             XpTabBar(
@@ -130,7 +130,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         val top = if (current == Tab.Today.route || current == null) statusTop else 0.dp
         Box(
             Modifier.fillMaxSize()
-                .background(if (current == Tab.Today.route || current == null) XpColors.Canvas else XpColors.CanvasGrouped)
+                .background(XpColors.CanvasGrouped)
                 .padding(top = top, bottom = padding.calculateBottomPadding()),
         ) {
             // Tab switches are instant: it is the most frequent navigation in the app (docs/APP-DESIGN.md §7).

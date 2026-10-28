@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import com.xiaopiao.app.ui.components.LargeTitle
 import com.xiaopiao.app.ui.components.Pill
 import com.xiaopiao.app.ui.components.XpButton
+import com.xiaopiao.app.ui.components.XpButtonSize
 import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpRadius
@@ -84,6 +85,23 @@ import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.record.RecordSheetState
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.pointerInput
+import com.xiaopiao.app.ui.record.rememberVoiceController
 
 private data class DayData(val day: Long, val items: List<Txn>)
 
@@ -278,40 +296,129 @@ private fun PrintCard(
     }
 }
 
-/** Always-on record dock above the tab bar: tap = manual form, long-press = voice. */
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * Always-on record dock above the tab bar (docs/APP-DESIGN.md §4.2):
+ * tap = manual form, long-press = the dock **expands in place** into voice input.
+ */
 @Composable
 private fun RecordDock(record: RecordSheetState) {
     val haptics = rememberXpHaptics()
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = XpSpace.l).padding(bottom = XpSpace.s, top = XpSpace.xs),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
-    ) {
-        val source = remember { MutableInteractionSource() }
-        Row(
-            Modifier.weight(1f).height(48.dp)
-                .clip(RoundedCornerShape(XpRadius.pill))
-                .background(XpColors.Fill)
-                .combinedClickable(
-                    interactionSource = source,
-                    indication = null,
-                    onClick = { haptics.select(); record.openManual() },
-                    onLongClick = { haptics.thud(); record.openVoice() },
-                )
-                .padding(horizontal = XpSpace.l),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Outlined.Mic, contentDescription = "长按说一句", tint = XpColors.InkSecondary, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(XpSpace.s))
-            Text("记一笔 · 长按说一句", style = MaterialTheme.typography.bodyLarge, color = XpColors.InkSecondary, maxLines = 1)
+    val voice = rememberVoiceController()
+    val context = LocalContext.current
+    var expanded by remember { mutableStateOf(false) }
+    var denied by remember { mutableStateOf(false) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) { denied = false } else denied = true
+    }
+
+    LaunchedEffect(voice.transcript) {
+        voice.consume()?.let { text ->
+            expanded = false
+            record.openText(text)
         }
-        Box(
-            Modifier.size(48.dp).clip(CircleShape).background(XpColors.Primary)
-                .pressableClick { haptics.select(); record.openManual() },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Outlined.Add, contentDescription = "手动记一笔", tint = XpColors.OnPrimary, modifier = Modifier.size(24.dp))
+    }
+    LaunchedEffect(expanded) {
+        // Auto-close the panel a moment after the recogniser gives up.
+        if (expanded && !voice.listening && voice.error != null) {
+            kotlinx.coroutines.delay(1800)
+            expanded = false
+            voice.cancel()
+        }
+    }
+
+    Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l).padding(bottom = XpSpace.s, top = XpSpace.xs)) {
+        AnimatedVisibility(visible = expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            Column(
+                Modifier.fillMaxWidth().padding(bottom = XpSpace.s)
+                    .clip(RoundedCornerShape(XpRadius.l))
+                    .background(XpColors.Card)
+                    .padding(XpSpace.l),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.m)) {
+                    VoiceWave(active = voice.listening || voice.partial.isNotEmpty())
+                    Text(
+                        voice.error ?: voice.partial.ifBlank { if (voice.listening) "我在听…" else "松手结束" },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (voice.error != null) XpColors.Negative else XpColors.Ink,
+                        maxLines = 2,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(Modifier.fillMaxWidth().padding(top = XpSpace.s), horizontalArrangement = Arrangement.End) {
+                    XpButton("取消", { voice.cancel(); expanded = false }, style = XpButtonStyle.Plain, size = XpButtonSize.Small)
+                }
+            }
+        }
+        if (denied) {
+            Text(
+                "没有麦克风权限，长按不会开始录音",
+                style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary,
+                modifier = Modifier.padding(bottom = XpSpace.xs),
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
+            Row(
+                Modifier.weight(1f).height(48.dp)
+                    .clip(RoundedCornerShape(XpRadius.pill))
+                    .background(XpColors.Fill)
+                    .pointerInput(record, expanded) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val long = awaitLongPressOrCancellation(down.id)
+                            if (long == null) {
+                                haptics.select()
+                                record.openManual()
+                            } else {
+                                haptics.thud()
+                                if (voice.hasPermission) {
+                                    expanded = true
+                                    voice.start()
+                                } else {
+                                    permission.launch(android.Manifest.permission.RECORD_AUDIO)
+                                }
+                                waitForUpOrCancellation()
+                                if (expanded) voice.stop()
+                            }
+                        }
+                    }
+                    .padding(horizontal = XpSpace.l),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Mic, contentDescription = "长按说一句", tint = XpColors.InkSecondary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(XpSpace.s))
+                Text("记一笔 · 长按说一句", style = MaterialTheme.typography.bodyLarge, color = XpColors.InkSecondary, maxLines = 1)
+            }
+            Box(
+                Modifier.size(48.dp).clip(CircleShape).background(XpColors.Primary)
+                    .pressableClick { haptics.select(); record.openManual() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Outlined.Add, contentDescription = "手动记一笔", tint = XpColors.OnPrimary, modifier = Modifier.size(24.dp))
+            }
+        }
+    }
+}
+
+/** Five bars breathing while the phone listens; a quiet static line otherwise. */
+@Composable
+private fun VoiceWave(active: Boolean) {
+    val transition = rememberInfiniteTransition(label = "wave")
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        repeat(5) { i ->
+            val phase by transition.animateFloat(
+                initialValue = 0.35f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 520 + i * 90, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "bar$i",
+            )
+            Box(
+                Modifier.width(3.dp).height((if (active) 22.dp * phase else 8.dp))
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(if (active) XpColors.Primary else XpColors.InkTertiary),
+            )
         }
     }
 }
