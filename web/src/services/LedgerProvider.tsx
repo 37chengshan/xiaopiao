@@ -2,6 +2,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { type Txn } from "../domain/types";
 import { type AddResult, type LedgerService } from "./LedgerService";
+import { hasQmuseLoginHint } from "./appwrite";
+import { createCloudLedger } from "./cloudLedger";
 import { createMemoryLedger } from "./demoLedger";
 
 interface LedgerContextValue {
@@ -23,8 +25,10 @@ const LedgerContext = createContext<LedgerContextValue | null>(null);
 
 export function LedgerProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
-  // In-memory mock ledger (seeded) until QMuse 云服务 backs LedgerService.
-  const [service] = useState<LedgerService>(() => createMemoryLedger("demo"));
+  // QMuse 云服务 ledger; anonymous visitors also see the in-memory starter ledger (it never leaves the browser).
+  const [service] = useState<LedgerService>(() =>
+    createCloudLedger(hasQmuseLoginHint() ? null : createMemoryLedger("demo")),
+  );
 
   const query = useQuery({
     queryKey: ["txns"],

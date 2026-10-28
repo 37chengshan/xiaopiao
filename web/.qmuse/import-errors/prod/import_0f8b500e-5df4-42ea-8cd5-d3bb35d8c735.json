@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "jobId": "import_0f8b500e-5df4-42ea-8cd5-d3bb35d8c735",
+  "status": "FAILED",
+  "stage": "FAILED",
+  "message": "源代码未通过导入校验，请修复后重新导入",
+  "diagnostic": "QMuse migration blocked: Source entry initializer cannot be preserved safely; move it into application code before retrying: initTheme(); Source entry initializer cannot be preserved safely; move it into application code before retrying: syncReceiptPrefsFromCloud()",
+  "failureDiagnostic": {
+    "version": 1,
+    "category": "SOURCE_CODE",
+    "stage": "MIGRATING_SOURCE",
+    "summary": "QMuse migration blocked: Source entry initializer cannot be preserved safely; move it into application code before retrying: initTheme(); Source entry initializer cannot be preserved safely; move it into application code before retrying: syncReceiptPrefsFromCloud()",
+    "fixableByModel": true,
+    "suggestedAction": "FIX_SOURCE_AND_RETRY",
+    "items": [
+      {
+        "message": "QMuse migration blocked: Source entry initializer cannot be preserved safely; move it into application code before retrying: initTheme(); Source entry initializer cannot be preserved safely; move it into application code before retrying: syncReceiptPrefsFromCloud()"
+      }
+    ]
+  },
+  "retryCommand": "qmuse import . --env prod",
+  "retryAdvice": "在当前项目目录修复源码后执行，将更新已绑定的应用。",
+  "environment": "prod",
+  "generatedAt": "2026-10-28T15:13:27.131Z"
+}
