@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -102,6 +103,12 @@ import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.input.pointer.pointerInput
 import com.xiaopiao.app.ui.record.rememberVoiceController
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.core.animateFloatAsState
+import com.xiaopiao.app.ui.theme.XpEase
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.material.icons.outlined.Print
 
 private data class DayData(val day: Long, val items: List<Txn>)
 
@@ -281,7 +288,7 @@ private fun PrintCard(
             if (demo) DemoChip()
         }
         Spacer(Modifier.height(XpSpace.m))
-        XpButton(if (isToday) "打印今日小票" else "打印这天的小票", onPrint, Modifier.fillMaxWidth())
+        PrintButton(label = if (isToday) "打印今日小票" else "打印这天的小票", subtitle = if (count == 0) "今天钱包休息" else "$count 笔 · ¥${totalCents.yuan()}", onClick = onPrint)
         if (demo) {
             Spacer(Modifier.height(XpSpace.xs))
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -356,9 +363,9 @@ private fun RecordDock(record: RecordSheetState) {
                 modifier = Modifier.padding(bottom = XpSpace.xs),
             )
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Row(
-                Modifier.weight(1f).height(48.dp)
+                Modifier.fillMaxWidth().height(48.dp)
                     .clip(RoundedCornerShape(XpRadius.pill))
                     .background(XpColors.Fill)
                     .pointerInput(record, expanded) {
@@ -384,17 +391,33 @@ private fun RecordDock(record: RecordSheetState) {
                     .padding(horizontal = XpSpace.l),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Outlined.Mic, contentDescription = "长按说一句", tint = XpColors.InkSecondary, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(XpSpace.s))
-                Text("记一笔 · 长按说一句", style = MaterialTheme.typography.bodyLarge, color = XpColors.InkSecondary, maxLines = 1)
+                Text("记一笔", style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink, maxLines = 1, modifier = Modifier.weight(1f))
+                Icon(Icons.Outlined.Mic, contentDescription = "长按说一句", tint = XpColors.InkTertiary, modifier = Modifier.size(20.dp))
             }
-            Box(
-                Modifier.size(48.dp).clip(CircleShape).background(XpColors.Primary)
-                    .pressableClick { haptics.select(); record.openManual() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Outlined.Add, contentDescription = "手动记一笔", tint = XpColors.OnPrimary, modifier = Modifier.size(24.dp))
-            }
+        }
+    }
+}
+
+/**
+ * The printer itself (拟物): a stub of paper with a torn edge coming out of a dark machine bar.
+ * The dark bar is the tap target — the object carries the action, not a text link.
+ */
+@Composable
+private fun PrintButton(label: String, subtitle: String, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val haptics = rememberXpHaptics()
+    val scale by animateFloatAsState(if (pressed) 0.985f else 1f, tween(120, easing = XpEase.out), label = "printPress")
+    Box(
+        Modifier.fillMaxWidth().height(56.dp).graphicsLayer { scaleX = scale; scaleY = scale }
+            .clip(RoundedCornerShape(XpRadius.l))
+            .background(XpColors.PrinterBody)
+            .clickable(source, null) { haptics.confirm(); onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
+            Icon(Icons.Outlined.Print, contentDescription = null, tint = XpColors.OnPrimary, modifier = Modifier.size(20.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, color = XpColors.OnPrimary)
         }
     }
 }
@@ -415,7 +438,7 @@ private fun VoiceWave(active: Boolean) {
                 label = "bar$i",
             )
             Box(
-                Modifier.width(3.dp).height((if (active) 22.dp * phase else 8.dp))
+                Modifier.width(3.dp).height(if (active) 22.dp * phase else 8.dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(if (active) XpColors.Primary else XpColors.InkTertiary),
             )
