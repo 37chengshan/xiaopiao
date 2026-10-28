@@ -49,7 +49,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           {shop && (
             <Link
               to="/me"
-              className="btn-soft absolute bottom-[max(16px,env(safe-area-inset-bottom,0px))] left-1/2 z-30 inline-flex h-11 -translate-x-1/2 items-center gap-1.5 rounded-full bg-surface px-5 text-[15px] font-medium text-ink active:scale-[0.97]"
+              style={{ bottom: "max(16px, env(safe-area-inset-bottom, 0px))" }}
+              className="btn-soft absolute left-1/2 z-30 inline-flex h-11 -translate-x-1/2 items-center gap-1.5 rounded-full bg-surface px-5 text-[15px] font-medium text-ink active:scale-[0.97]"
             >
               <ArrowLeft className="size-4" aria-hidden />
               {t("back.personal")}

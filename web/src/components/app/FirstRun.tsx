@@ -11,13 +11,15 @@ import { Segmented, Switch, XButton, type Tone, TONE_CLASS } from "./kit";
 /** A tiny receipt strip: paper, torn edge, a few faint lines. Calm, no colour. */
 function PaperMark() {
   return (
-    <div className="zigzag-bottom mx-auto w-20 bg-paper px-3.5 pb-5 pt-5 shadow-[0_8px_22px_-8px_oklch(0_0_0/30%)]" aria-hidden>
+    <div className="mx-auto w-20 drop-shadow-[0_6px_10px_oklch(0_0_0/18%)]" aria-hidden>
+    <div className="zigzag-bottom bg-paper px-3.5 pb-5 pt-5 ring-1 ring-hairline">
       <div className="mx-auto h-[4px] w-8 rounded-full bg-paper-ink/35" />
       <div className="mt-3.5 space-y-2">
         <div className="h-[3px] rounded-full bg-paper-ink/15" />
         <div className="h-[3px] w-4/5 rounded-full bg-paper-ink/15" />
         <div className="h-[3px] w-3/5 rounded-full bg-paper-ink/15" />
       </div>
+    </div>
     </div>
   );
 }

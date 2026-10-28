@@ -57,11 +57,11 @@ export function TabBar() {
             aria-label={t("nav.chat")}
             aria-current={onHome ? "page" : undefined}
             onClick={() => (onHome ? entry.open() : void navigate({ to: "/home" }))}
-            className="btn-clay absolute -top-[18px] grid size-[62px] place-items-center rounded-full bg-clay text-on-clay ring-[5px] ring-bg active:scale-[0.95]"
+            className="btn-clay absolute -top-[26px] grid size-[60px] place-items-center rounded-full bg-clay text-on-clay ring-[5px] ring-bg active:scale-[0.95]"
           >
             <MessageCircleHeart className="size-[28px]" strokeWidth={1.9} aria-hidden />
           </button>
-          <span className={cn("absolute bottom-[5px] text-[10px] font-medium tracking-[0.02em]", onHome ? "text-ink" : "text-ink-3")}>{t("nav.chat")}</span>
+          <span className={cn("absolute bottom-[4px] text-[10px] font-medium tracking-[0.02em]", onHome ? "text-ink" : "text-ink-3")}>{t("nav.chat")}</span>
         </li>
         {RIGHT.map((x) => (
           <Tab key={x.to} {...x} path={path} />
