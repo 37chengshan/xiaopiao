@@ -31,11 +31,12 @@ export function delta(cur: Cents, prev: Cents | null): Delta {
 }
 
 const MONTH_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEKDAY_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** "10月18日 周日" / "Oct 18, Sun" — date labels follow the UI language, whatever the stored data language. */
 export function dayLabel(ts: number): string {
   const d = new Date(ts);
-  return getLocale() === "en" ? `${MONTH_EN[d.getMonth()]} ${d.getDate()}, ${weekdayLabel(ts).replace("周", "")}` : `${d.getMonth() + 1}月${d.getDate()}日 ${weekdayLabel(ts)}`;
+  return getLocale() === "en" ? `${MONTH_EN[d.getMonth()]} ${d.getDate()}, ${WEEKDAY_EN[d.getDay()]}` : `${d.getMonth() + 1}月${d.getDate()}日 ${weekdayLabel(ts)}`;
 }
 
 /** Today / yesterday / the day before, then a full date. */
