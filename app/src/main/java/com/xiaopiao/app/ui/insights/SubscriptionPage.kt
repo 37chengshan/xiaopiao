@@ -37,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.insights.CancelGuides
 import com.xiaopiao.app.insights.InsightsPrefs
 import com.xiaopiao.app.insights.SubscriptionDetector
@@ -46,6 +45,8 @@ import com.xiaopiao.app.insights.SubscriptionInsight
 import com.xiaopiao.app.insights.annualCents
 import com.xiaopiao.app.insights.daysBetween
 import com.xiaopiao.app.insights.normalizeMerchant
+import com.xiaopiao.app.ui.components.DemoChip
+import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.Pill
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
@@ -79,7 +80,10 @@ fun SubscriptionPage(input: InsightsInput, onBack: () -> Unit) {
             return@InsightsPage
         }
         XpCard {
-            Text("这些订阅一年大约要花", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("这些订阅一年大约要花", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
+                if (input.demo) DemoChip()
+            }
             BigMoney(yearly)
             Text("共 ${active.size} 项 · 只做提醒，关不关由你决定", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         }
@@ -110,10 +114,14 @@ private fun SubscriptionCard(insight: SubscriptionInsight, now: Long, cancelled:
             IconTile(Icons.Outlined.Autorenew, size = 40.dp)
             Column(Modifier.weight(1f)) {
                 Text(sub.merchant, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                Text(
-                    "${cycleLabel(sub.cycleDays)} ¥${sub.amountCents.yuan()} · 一年约 ¥${sub.annualCents().yuan()}",
-                    style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val meta = MaterialTheme.typography.labelMedium
+                    val metaColor = XpColors.InkSecondary
+                    Text("${cycleLabel(sub.cycleDays)} ", style = meta, color = metaColor)
+                    MoneyText(sub.amountCents, style = meta, color = metaColor)
+                    Text(" · 一年约 ", style = meta, color = metaColor)
+                    MoneyText(sub.annualCents(), style = meta, color = metaColor)
+                }
             }
             Icon(if (open) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = XpColors.InkTertiary)
         }

@@ -1,8 +1,6 @@
 package com.xiaopiao.app.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +22,7 @@ import com.xiaopiao.app.ui.theme.XpSpace
 
 /** Shared building blocks. Signatures are a contract: restyle freely, don't rename parameters. */
 
-/** Plain surface container: 14dp radius, hairline edge instead of a drop shadow (shadows are for floating layers). */
+/** Plain surface container: [XpRadius.m] corners, [XpColors.Card] fill, no edge or shadow (separation comes from background). */
 @Composable
 fun XpCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(XpRadius.m)

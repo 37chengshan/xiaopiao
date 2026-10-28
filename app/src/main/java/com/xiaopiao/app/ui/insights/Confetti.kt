@@ -24,8 +24,7 @@ private class Particle(
 )
 
 private val CONFETTI_COLORS = listOf(
-    XpColors.Accent, XpColors.Warning, XpColors.Positive, XpColors.Stamp,
-    Color(0xFF5AC8FA), Color(0xFFAF52DE), Color(0xFFFFD60A),
+    XpColors.Accent, XpColors.Warning, XpColors.Positive, XpColors.Stamp, XpColors.Info, XpColors.Negative,
 )
 
 /**

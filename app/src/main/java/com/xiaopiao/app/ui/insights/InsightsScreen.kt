@@ -40,7 +40,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.AppContainer
-import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.XpSwitch
 import com.xiaopiao.app.ui.components.IconTile
@@ -54,7 +53,6 @@ import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.Icons
 import com.xiaopiao.app.OpenRequest
 import com.xiaopiao.app.insights.SampleData
-import com.xiaopiao.app.ui.components.LargeTitle
 import com.xiaopiao.app.ui.components.Pill
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
