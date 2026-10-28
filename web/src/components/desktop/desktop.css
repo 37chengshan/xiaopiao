@@ -1,0 +1,69 @@
+/*
+ * Desktop shell extras (docs/WEB-SPEC.md §A). Only what Tailwind cannot express:
+ * the print sheet rules and quieter scrollbars. Everything else uses the `d-*` tokens.
+ */
+
+/* The print sheet exists in the DOM only while the print dialog is open. */
+.d-print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* Only the receipt sheet reaches paper: no toolbar, no dialogs, no toasts. */
+  body > *:not(#d-print-root) {
+    display: none !important;
+  }
+
+  #d-print-root {
+    display: block !important;
+    width: max-content;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Thermal paper is flat: drop gradients, fibre noise and shadows, print on white. */
+  #d-print-root [aria-hidden="true"] {
+    display: none !important;
+  }
+  #d-print-root .bg-paper {
+    background-color: #fff !important;
+  }
+  #d-print-root * {
+    box-shadow: none !important;
+    background-image: none !important;
+  }
+}
+
+/* Desktop panes scroll with a hairline thumb instead of the browser default. */
+.d-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--d-hairline) transparent;
+}
+.d-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.d-scroll::-webkit-scrollbar-thumb {
+  background: var(--d-hairline);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+.d-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Drop target highlight while a bill file is dragged over a page. */
+.d-drop {
+  outline: 2px dashed var(--d-accent);
+  outline-offset: -10px;
+}
