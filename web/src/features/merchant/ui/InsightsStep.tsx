@@ -21,9 +21,7 @@ function Heatmap({ grid, k }: { grid: HeatCell[][]; k: number }) {
   return (
     <div role="table" aria-label="饮品购买时段热力图" className="text-[10px]">
       <div role="row" className="grid grid-cols-[2rem_repeat(6,1fr)] gap-1 pb-1 text-center text-(--mb-ink-soft)">
-        <span role="columnheader" className="sr-only">
-          星期
-        </span>
+        <span role="columnheader" aria-label="星期" />
         {SLOT_LABELS.map((s) => (
           <span key={s} role="columnheader">
             {s}
