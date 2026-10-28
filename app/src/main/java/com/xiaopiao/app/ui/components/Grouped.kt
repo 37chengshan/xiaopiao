@@ -126,6 +126,7 @@ fun GroupedRow(
     chevron: Boolean = false,
     titleColor: Color = XpColors.Ink,
     titleMaxLines: Int = 1,
+    subtitleMaxLines: Int = 2,
     onClick: (() -> Unit)? = null,
 ) {
     val source = remember { MutableInteractionSource() }
@@ -154,7 +155,7 @@ fun GroupedRow(
             if (subtitle != null) {
                 Text(
                     subtitle, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    maxLines = subtitleMaxLines, overflow = TextOverflow.Ellipsis,
                 )
             }
         }

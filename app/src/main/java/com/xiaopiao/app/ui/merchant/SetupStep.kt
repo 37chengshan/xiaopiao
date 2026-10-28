@@ -1,5 +1,9 @@
 package com.xiaopiao.app.ui.merchant
 
+import com.xiaopiao.app.ui.components.IconTile
+import androidx.compose.material.icons.outlined.RocketLaunch
+import androidx.compose.material.icons.outlined.CompareArrows
+import androidx.compose.material.icons.Icons
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -77,7 +81,7 @@ fun SetupStep(current: Experiment?, onPublish: (ExperimentTemplate) -> Unit) {
                     Reveal(i) {
                         SelectableCard(selected == t, { selected = t }) {
                             Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.m), verticalAlignment = Alignment.CenterVertically) {
-                                Text(t.a.emoji + t.b.emoji, style = MaterialTheme.typography.titleLarge)
+                                IconTile(Icons.Outlined.CompareArrows, size = 36.dp, selected = selected == t)
                                 Column(Modifier.weight(1f)) {
                                     Text(t.title, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
                                     Text(t.question.removePrefix("二选一："), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
@@ -96,7 +100,7 @@ fun SetupStep(current: Experiment?, onPublish: (ExperimentTemplate) -> Unit) {
                     "只会推给已授权的邻居，以「游戏表态」收集，和真实消费分开存放。当前为演示数据。",
                     style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                 )
-                MerchantButton("🚀 发布实验", { launching = true }, enabled = !launching)
+                MerchantButton("发布实验", { launching = true }, enabled = !launching, clay = true)
             }
         }
         if (launching) LaunchOverlay(selected)
@@ -155,13 +159,11 @@ private fun LaunchOverlay(t: ExperimentTemplate) {
             }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-            Text(
-                "🚀",
-                Modifier.offset { IntOffset(0, (-lift.value * 220.dp.toPx()).roundToInt()) }
+            IconTile(
+                Icons.Outlined.RocketLaunch, size = 72.dp, selected = true, modifier = Modifier.offset { IntOffset(0, (-lift.value * 220.dp.toPx()).roundToInt()) }
                     .alpha(1f - lift.value * 0.85f)
                     .graphicsLayer { rotationZ = lift.value * 8f }
                     .scale(0.9f + 0.4f * pop.value),
-                style = MaterialTheme.typography.displayLarge,
             )
             Text("实验已发布！", Modifier.scale(pop.value), style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
             Text("「${t.title}」正在送往邻居的手机", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)

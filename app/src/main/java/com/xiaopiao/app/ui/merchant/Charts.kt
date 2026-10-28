@@ -1,5 +1,8 @@
 package com.xiaopiao.app.ui.merchant
 
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -39,7 +42,7 @@ import com.xiaopiao.app.ui.theme.XpSpace
 
 const val SUPPRESSED_TEXT = "样本不足"
 
-/** 7 × 6 weekday/day-part heatmap. Suppressed (k < 20) cells are drawn grey and say 样本不足 when tapped. */
+/** 7 × 6 weekday/day-part heatmap. Suppressed (k < 20) cells are hatched empty cells and say 样本不足 when tapped. */
 @Composable
 fun Heatmap(
     heat: List<List<Cell>>,
@@ -67,6 +70,7 @@ fun Heatmap(
                     }
                 }
             }
+            val hatchEdge = XpColors.InkTertiary.copy(alpha = 0.45f)
             Canvas(
                 Modifier.weight(1f).height(ROW_H * 7 + GAP * 6)
                     .pointerInput(heat) {
@@ -87,13 +91,29 @@ fun Heatmap(
                         val local = (t * 1.6f - (r + c) / 14f).coerceIn(0f, 1f)
                         val x = c * (cw + gap)
                         val y = r * (rh + gap)
-                        val color = if (cell.suppressed) XpColors.InkTertiary.copy(alpha = 0.28f)
-                        else XpColors.Accent.copy(alpha = (0.12f + 0.88f * cell.people!! / max.coerceAtLeast(1)) * local)
                         val inset = (1f - local) * cw / 2
-                        drawRoundRect(
-                            color, Offset(x + inset, y + inset * rh / cw),
-                            Size(cw - inset * 2, rh - inset * 2 * rh / cw), CornerRadius(6.dp.toPx()),
-                        )
+                        val tl = Offset(x + inset, y + inset * rh / cw)
+                        val sz = Size(cw - inset * 2, rh - inset * 2 * rh / cw)
+                        val corner = CornerRadius(6.dp.toPx())
+                        if (cell.suppressed) {
+                            // Hatched empty cell: hairline outline + diagonal strokes, never a grey block.
+                            drawRoundRect(hatchEdge, tl, sz, corner, style = Stroke(1.dp.toPx()))
+                            clipPath(Path().apply { addRoundRect(RoundRect(tl.x, tl.y, tl.x + sz.width, tl.y + sz.height, corner)) }) {
+                                var d = -sz.height
+                                while (d < sz.width) {
+                                    drawLine(
+                                        hatchEdge, Offset(tl.x + d, tl.y + sz.height), Offset(tl.x + d + sz.height, tl.y),
+                                        strokeWidth = 1.dp.toPx(),
+                                    )
+                                    d += 6.dp.toPx()
+                                }
+                            }
+                        } else {
+                            drawRoundRect(
+                                XpColors.Accent.copy(alpha = (0.12f + 0.88f * cell.people!! / max.coerceAtLeast(1)) * local),
+                                tl, sz, corner,
+                            )
+                        }
                         if (selected == r to c) {
                             drawRoundRect(
                                 XpColors.Ink, Offset(x, y), Size(cw, rh), CornerRadius(6.dp.toPx()),

@@ -188,7 +188,7 @@ private fun CategoriesCard(r: WeeklyReport) {
                     Text("¥${c.cents.yuan()}", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
                 }
                 Box(Modifier.fillMaxWidth().padding(top = XpSpace.xs).height(8.dp).clip(RoundedCornerShape(4.dp)).background(XpColors.Hairline)) {
-                    Box(Modifier.fillMaxWidth(frac.coerceIn(0.02f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(XpColors.Accent))
+                    Box(Modifier.fillMaxWidth(frac.coerceIn(0.02f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(XpColors.InkSecondary))
                 }
             }
         }

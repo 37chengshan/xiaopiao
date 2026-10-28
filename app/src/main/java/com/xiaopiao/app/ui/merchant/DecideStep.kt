@@ -1,5 +1,9 @@
 package com.xiaopiao.app.ui.merchant
 
+import com.xiaopiao.app.ui.components.IconTile
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.Icons
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -54,7 +58,7 @@ fun DecideStep(
     onSetup: () -> Unit,
 ) {
     if (experiment == null) {
-        EmptyState("🤔", "先做个实验再决定", "有了实验结果，这里会给你 3 个可以试试的选择。", "去发起实验", onSetup)
+        EmptyState(Icons.Outlined.Lightbulb, "先做个实验再决定", "有了实验结果，这里会给你 3 个可以试试的选择。", "去发起实验", onSetup)
         return
     }
     AnimatedContent(
@@ -83,7 +87,7 @@ private fun Picker(suggestions: List<Suggestion>, onAdopt: (Suggestion) -> Unit)
                 SelectableCard(pickedId == s.id, { pickedId = s.id }) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                            Text(s.emoji, style = MaterialTheme.typography.titleLarge)
+                            IconTile(Icons.Outlined.Lightbulb, size = 28.dp, selected = pickedId == s.id)
                             Text("可以试试…", style = MaterialTheme.typography.labelMedium, color = XpColors.Accent)
                         }
                         Text(s.headline, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
@@ -100,7 +104,7 @@ private fun Picker(suggestions: List<Suggestion>, onAdopt: (Suggestion) -> Unit)
             picked != null,
             enter = fadeIn() + slideInVertically(spring(0.7f, Spring.StiffnessMediumLow)) { it },
         ) {
-            MerchantButton("就选这个 · 记下来", { picked?.let(onAdopt) }, Modifier.padding(top = XpSpace.s))
+            MerchantButton("就选这个 · 记下来", { picked?.let(onAdopt) }, Modifier.padding(top = XpSpace.s), clay = true)
         }
         if (picked == null) {
             Text("点一张卡片选中它。想再等等也可以，什么都不选。", style = MaterialTheme.typography.labelMedium, color = XpColors.InkTertiary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
@@ -118,7 +122,7 @@ private fun Confirmed(d: Decision, onNewExperiment: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(XpSpace.m),
     ) {
-        Text("✅", Modifier.scale(pop.value).padding(top = XpSpace.l), style = MaterialTheme.typography.displayLarge)
+        IconTile(Icons.Outlined.Check, Modifier.scale(pop.value).padding(top = XpSpace.l), size = 64.dp, selected = true)
         Text("你做了决定", style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
         XpCard {
             Text("你选了", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
@@ -126,7 +130,7 @@ private fun Confirmed(d: Decision, onNewExperiment: () -> Unit) {
             Text("记录于 ${fmt.format(Date(d.chosenAt))}", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         }
         XpCard {
-            Text("⏰ 两周后复盘 · ${fmt.format(Date(d.reviewAt))}", style = MaterialTheme.typography.titleMedium, color = XpColors.Accent)
+            Text("两周后复盘 · ${fmt.format(Date(d.reviewAt))}", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
             Text(d.reviewNote, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
             Text("只保存在这台手机上，不会上传。", Modifier.padding(top = 4.dp), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         }

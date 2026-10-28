@@ -1,5 +1,7 @@
 package com.xiaopiao.app.ui.merchant
 
+import androidx.compose.material.icons.outlined.Science
+import androidx.compose.material.icons.Icons
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -36,7 +38,7 @@ fun ResultsStep(
     onSetup: () -> Unit,
 ) {
     if (experiment == null || result == null) {
-        EmptyState("🧪", "还没有实验", "先发起一个二选一小实验，邻居玩过之后这里就会出现结果。", "去发起实验", onSetup)
+        EmptyState(Icons.Outlined.Science, "还没有实验", "先发起一个二选一小实验，邻居玩过之后这里就会出现结果。", "去发起实验", onSetup)
         return
     }
     val a = result.stats[0]
@@ -79,7 +81,7 @@ fun ResultsStep(
                     "样本构成：演示人群 ${result.simulatedCount} 人（演示数据）+ 游戏表态 ${result.gameCount} 人。游戏表态是你亲自玩出来的，和真实消费分开统计。",
                     style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                 )
-                MerchantButton("🎮 邀请顾客再玩一轮", onPlay, primary = false)
+                MerchantButton("邀请顾客再玩一轮", onPlay, primary = false)
                 MerchantButton("下一步：看看三个可选动作", onNext)
             }
         }
