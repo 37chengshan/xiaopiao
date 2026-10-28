@@ -95,7 +95,6 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
     Ledger("ledger", "记账", Icons.Outlined.ViewList),
     Chat("chat", "AI", Icons.Outlined.ChatBubbleOutline),
     Circle("circle", "圈子", Icons.Outlined.Groups),
-    Settings("settings", "我的", Icons.Outlined.Person),
 }
 
 @Composable
@@ -142,7 +141,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
             // The print page owns the screen; no tabs while the paper is coming out.
-            if (current != "print") XpTabBar(
+            if (current != "print" && current != "settings") XpTabBar(
                 current = current,
                 onSelect = { go(it) },
                 onRecord = { record.openManual() },
@@ -171,13 +170,17 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 composable(Tab.Ledger.route) {
                     LedgerScreen(
                         container,
-                        onOpenInsights = { nav.navigate("insights") },
                         onPrint = { printSignal++; nav.navigate("print") },
                         onVoiceStart = { voiceHost.request() },
+                        onOpenSettings = { nav.navigate("settings") },
                     )
                 }
-                composable("insights") {
-                    InsightsScreen(container, open, onOpenConsumed, onBack = { nav.popBackStack() })
+                composable("settings") {
+                    SettingsScreen(
+                        container,
+                        onOpenMerchant = { merchantMode = true },
+                        onBack = { nav.popBackStack() },
+                    )
                 }
                 composable("print") {
                     // One job: print today's receipt, then leave.
@@ -187,8 +190,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 composable(Tab.Chat.route) {
                     ChatScreen(container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openManual() })
                 }
-                composable(Tab.Circle.route) { CircleHome(container) }
-                composable(Tab.Settings.route) { SettingsScreen(container, onOpenMerchant = { merchantMode = true }) }
+                composable(Tab.Circle.route) { CircleHome(container, onOpenSettings = { nav.navigate("settings") }) }
+
             }
         }
     }
@@ -224,8 +227,9 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> 
             }
             Spacer(Modifier.width(78.dp))
             Row(Modifier.weight(1f)) {
+                // Mirror the left pair so the two visible tabs sit symmetrically around the centre key.
+                Spacer(Modifier.weight(1f))
                 TabItem(Tab.Circle, current, Modifier.weight(1f), onSelect)
-                TabItem(Tab.Settings, current, Modifier.weight(1f), onSelect)
             }
         }
         PrimaryTab(

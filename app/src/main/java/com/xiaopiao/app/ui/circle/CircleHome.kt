@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material3.Icon
@@ -45,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.ui.components.EmptyState
+import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.components.SelectCapsule
@@ -63,7 +65,7 @@ private val ComposerHeight = 64.dp
  */
 @Suppress("UNUSED_PARAMETER")
 @Composable
-fun CircleHome(container: AppContainer) {
+fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
     val now = remember { System.currentTimeMillis() }
     var members by remember { mutableStateOf(CircleDemo.members()) }
     var posts by remember { mutableStateOf(CircleDemo.feed(now)) }
@@ -105,7 +107,12 @@ fun CircleHome(container: AppContainer) {
         if (sendTick > 0 && rows.isNotEmpty()) listState.animateScrollToItem(rows.size)
     }
 
-    NavScaffold(title = CircleDemo.CIRCLE_NAME, scroll = NavScrollNone, demo = true) { top ->
+    NavScaffold(
+        title = CircleDemo.CIRCLE_NAME,
+        scroll = NavScrollNone,
+        demo = true,
+        trailing = { NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onOpenSettings) },
+    ) { top ->
         Box(Modifier.fillMaxSize()) {
             LazyColumn(
                 state = listState,

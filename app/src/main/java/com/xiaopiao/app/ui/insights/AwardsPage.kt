@@ -184,9 +184,18 @@ private fun WeekStatsCard(r: WeeklyReport, demo: Boolean) {
 private fun CategoriesCard(r: WeeklyReport) {
     if (r.topCategories.isEmpty()) return
     XpCard {
-        Text("花得最多的", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("花得最多的", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
+            DemoChip()
+        }
+        val topTotal = r.topCategories.sumOf { it.cents }.coerceAtLeast(1L)
         r.topCategories.forEachIndexed { i, c ->
-            val frac by animateFloatAsState(c.share, tween(800, delayMillis = 150 * i), label = "share")
+            // Share of the listed categories, animated with a spring so it grows instead of jumping.
+            val frac by animateFloatAsState(
+                (c.cents.toFloat() / topTotal).coerceIn(0.03f, 1f),
+                androidx.compose.animation.core.spring(0.85f, 420f),
+                label = "share",
+            )
             Column(Modifier.padding(top = XpSpace.m)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("${c.category.emoji} ${c.category.label}", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)

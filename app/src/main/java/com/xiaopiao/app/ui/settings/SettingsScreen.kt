@@ -33,7 +33,7 @@ import com.xiaopiao.app.ui.today.ReceiptSoundPrefs
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}) {
+fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}, onBack: (() -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var listenerOn by remember { mutableStateOf(NotificationAccess.listenerEnabled(context)) }
@@ -69,7 +69,7 @@ fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}) {
 
     val scroll = rememberScrollState()
     if (privacyOpen) PrivacySheet { privacyOpen = false }
-    NavScaffold("我的", rememberNavScroll(scroll)) { top ->
+    NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             AppearanceSection(mode, designStyle, { scope.launch { themePrefs.setMode(it) } }, { scope.launch { themePrefs.setStyle(it) } })
             ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }

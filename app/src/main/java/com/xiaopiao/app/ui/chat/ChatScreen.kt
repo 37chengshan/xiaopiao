@@ -94,6 +94,7 @@ fun ChatScreen(
     container: AppContainer,
     onRecordVoice: () -> Unit = {},
     onRecordManual: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     val history by remember(container) { container.ledger.observeAll() }
         .collectAsStateWithLifecycle(initialValue = null)

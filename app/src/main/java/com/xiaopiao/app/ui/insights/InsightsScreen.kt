@@ -65,7 +65,7 @@ private enum class InsightsRoute(val label: String) { AWARDS("周报"), SUBSCRIP
 
 /** 洞察 tab: one compact bar, a segmented switch between 周报 / 订阅 / 后悔 (no hub, no large title). */
 @Composable
-fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenConsumed: () -> Unit = {}, onBack: (() -> Unit)? = null) {
+fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenConsumed: () -> Unit = {}, onBack: (() -> Unit)? = null, embedded: Boolean = false) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { ReminderScheduler.ensureScheduled(context) }
 
@@ -87,9 +87,7 @@ fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenCon
         onOpenConsumed()
     }
 
-    NavScaffold(
-        "洞察", NavScrollNone, demo = demo, onBack = onBack,
-    ) { top ->
+    val body: @Composable (androidx.compose.ui.unit.Dp) -> Unit = { top ->
         Column(Modifier.fillMaxSize().padding(top = top)) {
             Box(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s)) {
                 Segmented(InsightsRoute.entries.map { it.label }, route.ordinal, { route = InsightsRoute.entries[it] })
@@ -100,12 +98,17 @@ fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenCon
                 label = "insightsRoute", modifier = Modifier.weight(1f),
             ) { r ->
                 val noop = {}
-                when (r) {
-                    InsightsRoute.AWARDS -> AwardsPage(input, noop)
-                    InsightsRoute.SUBSCRIPTIONS -> SubscriptionPage(input, noop)
-                    InsightsRoute.REGRET -> RegretPage(input, noop)
+                // Keep the page viewport clear of the floating tab bar, otherwise charts and the
+                // last row are cut off by the capsule.
+                Box(Modifier.padding(bottom = 88.dp)) {
+                    when (r) {
+                        InsightsRoute.AWARDS -> AwardsPage(input, noop)
+                        InsightsRoute.SUBSCRIPTIONS -> SubscriptionPage(input, noop)
+                        InsightsRoute.REGRET -> RegretPage(input, noop)
+                    }
                 }
             }
         }
     }
+    if (embedded) body(0.dp) else NavScaffold("统计", NavScrollNone, demo = demo, onBack = onBack) { top -> body(top) }
 }
