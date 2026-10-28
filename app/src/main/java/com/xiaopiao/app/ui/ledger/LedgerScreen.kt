@@ -97,15 +97,12 @@ fun LedgerScreen(container: AppContainer, onPrint: () -> Unit = {}, onVoiceStart
         },
     ) { top ->
         AnimatedContent(
-            targetState = when { txns == null -> 0; txns.orEmpty().isEmpty() -> 1; else -> 2 },
+            targetState = when { txns == null -> 0; else -> 2 },
             transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
             label = "ledgerState",
         ) { state ->
             when (state) {
                 0 -> LedgerLoading(top)
-                1 -> Column(Modifier.fillMaxSize().padding(top = top)) {
-                    LedgerEmptyState(onAdd = { openAdd(null) })
-                }
                 else -> {
                     var tab by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
                     Column(Modifier.fillMaxSize().padding(top = top)) {
@@ -150,6 +147,11 @@ fun LedgerScreen(container: AppContainer, onPrint: () -> Unit = {}, onVoiceStart
                                     )
                                 }
                                 item(key = "hero") { LedgerHero(visible, now) }
+                                if (visible.isEmpty()) {
+                                    item(key = "empty") {
+                                        LedgerEmptyState(onAdd = { openAdd(null) })
+                                    }
+                                }
                                 groups.forEach { group ->
                                     item(key = "day-${group.dayStart}") {
                                         DaySection(
@@ -173,11 +175,6 @@ fun LedgerScreen(container: AppContainer, onPrint: () -> Unit = {}, onVoiceStart
         }
 
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp))
-        com.xiaopiao.app.ui.components.RecordBall(
-            onManual = { openAdd(null) },
-            onVoice = onVoiceStart,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = XpSpace.l, bottom = 84.dp),
-        )
     }
 
     if (filterOpen) LedgerFilterSheet(filter, { filter = it; filterOpen = false }, { filterOpen = false })

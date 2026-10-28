@@ -43,10 +43,11 @@ fun CirclePostRow(
     onToggleReaction: (postId: String, emoji: String) -> Unit,
     onMemberClick: (memberId: String) -> Unit,
     modifier: Modifier = Modifier,
+    onReceiptOpen: (ReceiptPost) -> Unit = {},
 ) {
     when (post) {
         is ReceiptPost -> if (author != null) {
-            ReceiptMessage(post, author, now, mineReactions, onToggleReaction, onMemberClick, modifier)
+            ReceiptMessage(post, author, now, mineReactions, onToggleReaction, onMemberClick, modifier) { onReceiptOpen(post) }
         }
         is TextPost -> if (author != null) {
             TextMessage(post, author, onMemberClick, modifier)
@@ -65,22 +66,27 @@ private fun ReceiptMessage(
     onToggleReaction: (String, String) -> Unit,
     onMemberClick: (String) -> Unit,
     modifier: Modifier,
+    onReceiptOpen: () -> Unit = {},
 ) {
     val view = remember(post, author.shares) { post.viewFor(author.shares) }
+    val mine = author.isMe
     Row(
         modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.xs),
+        horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Top,
     ) {
-        CircleAvatar(author, size = 30.dp, onClick = { onMemberClick(author.id) })
-        Spacer(Modifier.width(XpSpace.s))
-        Column(Modifier.weight(1f)) {
+        if (!mine) {
+            CircleAvatar(author, size = 30.dp, onClick = { onMemberClick(author.id) })
+            Spacer(Modifier.width(XpSpace.s))
+        }
+        Column(if (mine) Modifier.widthIn(max = 300.dp) else Modifier.weight(1f)) {
             Text(
                 "${author.name} · ${timeLabel(post.at)}",
                 style = MaterialTheme.typography.labelSmall,
                 color = XpColors.InkTertiary,
                 modifier = Modifier.padding(start = XpSpace.xs, bottom = XpSpace.xs),
             )
-            TornReceiptCard {
+            TornReceiptCard(onClick = onReceiptOpen) {
                 Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
                         Text(

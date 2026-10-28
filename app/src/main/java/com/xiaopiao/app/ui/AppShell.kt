@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -29,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.ViewList
@@ -93,6 +95,7 @@ import com.xiaopiao.app.ui.theme.XpEase
  */
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
     Ledger("ledger", "记账", Icons.Outlined.ViewList),
+    Insights("insights", "统计", Icons.Outlined.Insights),
     Chat("chat", "AI", Icons.Outlined.ChatBubbleOutline),
     Circle("circle", "圈子", Icons.Outlined.Groups),
 }
@@ -171,7 +174,14 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                     LedgerScreen(
                         container,
                         onPrint = { printSignal++; nav.navigate("print") },
-                        onVoiceStart = { voiceHost.request() },
+                        onOpenSettings = { nav.navigate("settings") },
+                    )
+                }
+                composable(Tab.Insights.route) {
+                    InsightsScreen(
+                        container,
+                        open,
+                        onOpenConsumed,
                         onOpenSettings = { nav.navigate("settings") },
                     )
                 }
@@ -223,7 +233,7 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> 
         Row(Modifier.fillMaxWidth().padding(top = 16.dp).height(64.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f)) {
                 TabItem(Tab.Ledger, current, Modifier.weight(1f), onSelect)
-                Spacer(Modifier.weight(1f))
+                TabItem(Tab.Insights, current, Modifier.weight(1f), onSelect)
             }
             Spacer(Modifier.width(78.dp))
             Row(Modifier.weight(1f)) {
@@ -234,6 +244,7 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> 
         }
         PrimaryTab(
             Modifier.align(Alignment.TopCenter),
+            compact = current?.let { it == Tab.Chat.route || it == Tab.Circle.route } == true,
             onClick = onRecord,
             onLongPress = onVoice,
         )
@@ -275,7 +286,12 @@ private fun TabItem(tab: Tab, current: String?, modifier: Modifier, onSelect: (T
 
 /** Centre action: tap = manual form, long-press = voice. Not a destination. */
 @Composable
-private fun PrimaryTab(modifier: Modifier, onClick: () -> Unit, onLongPress: () -> Unit) {
+private fun PrimaryTab(modifier: Modifier, compact: Boolean, onClick: () -> Unit, onLongPress: () -> Unit) {
+    // tt#27: on AI / 圈子 the centre key shrinks into an ordinary nav item instead of staying raised.
+    val targetSize = if (compact) 44.dp else 66.dp
+    val targetLift = if (compact) 26.dp else 0.dp
+    val keySize by androidx.compose.animation.core.animateDpAsState(targetSize, androidx.compose.animation.core.spring(0.85f, 360f), label = "keySize")
+    val lift by androidx.compose.animation.core.animateDpAsState(targetLift, androidx.compose.animation.core.spring(0.85f, 360f), label = "keyLift")
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val haptics = rememberXpHaptics()
@@ -292,7 +308,7 @@ private fun PrimaryTab(modifier: Modifier, onClick: () -> Unit, onLongPress: () 
         label = "halo",
     )
     Box(
-        modifier.size(66.dp).pressableScale(source, 0.92f)
+        modifier.size(keySize).offset(y = lift).pressableScale(source, 0.92f)
             .graphicsLayer { alpha = if (pressed) 0.9f else 1f; scaleX = holdScale; scaleY = holdScale }
             .drawBehind {
                 if (halo > 0f) {
@@ -323,6 +339,6 @@ private fun PrimaryTab(modifier: Modifier, onClick: () -> Unit, onLongPress: () 
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Outlined.Add, contentDescription = "记一笔 · 长按说一句", tint = XpColors.OnPrimary, modifier = Modifier.size(28.dp))
+        Icon(Icons.Outlined.Add, contentDescription = "记一笔 · 长按说一句", tint = XpColors.OnPrimary, modifier = Modifier.size(if (compact) 22.dp else 28.dp))
     }
 }

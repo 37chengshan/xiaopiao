@@ -1,4 +1,5 @@
 package com.xiaopiao.app.ui.circle
+import com.xiaopiao.app.ui.components.MoneyText
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -134,6 +135,55 @@ fun CircleGameSheet(title: String, onDismiss: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(XpSpace.xl))
+        }
+    }
+}
+
+/** Opened by tapping a receipt card: the same masked view, one level larger. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CircleReceiptSheet(post: ReceiptPost, author: CircleMember?, now: Long, onDismiss: () -> Unit) {
+    XpSheet(onDismiss = onDismiss) {
+        androidx.compose.foundation.layout.Column(Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s)) {
+            Text(
+                "${author?.name ?: "家人"} · ${dayLabel(post.dayStart, now)}的小票",
+                style = MaterialTheme.typography.titleMedium,
+                color = XpColors.Ink,
+            )
+            val view = post.viewFor(author?.shares ?: emptyMap())
+            if (view.totalCents == null) {
+                Text(
+                    "TA 没开金额共享，这里只有一句话：这天发过一张小票。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = XpColors.InkSecondary,
+                    modifier = Modifier.padding(top = XpSpace.m),
+                )
+            } else {
+                MoneyText(
+                    view.totalCents,
+                    style = MaterialTheme.typography.displayMedium,
+                    modifier = Modifier.padding(top = XpSpace.m),
+                )
+                view.slices?.forEach { slice ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = XpSpace.s),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text("${slice.category.emoji} ${slice.category.label}", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
+                        Text("${slice.percent}%", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
+                    }
+                }
+                view.full?.let { full ->
+                    Text("明细", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.padding(top = XpSpace.m))
+                    full.forEach { item ->
+                        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(item.merchant, style = MaterialTheme.typography.bodySmall, color = XpColors.Ink)
+                            MoneyText(item.cents, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+                        }
+                    }
+                }
+            }
+            androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = XpSpace.l))
         }
     }
 }

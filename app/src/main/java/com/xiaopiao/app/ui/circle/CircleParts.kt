@@ -1,6 +1,7 @@
 package com.xiaopiao.app.ui.circle
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -78,9 +79,9 @@ fun CircleAvatar(
  * when the card and the page share a colour (Apple dark). Sits on [XpColors.Card]; content is clipped.
  */
 @Composable
-fun TornReceiptCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun TornReceiptCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier.fillMaxWidth()
+        modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .drawWithContent {
                 val path = tornCardPath(
                     width = size.width,

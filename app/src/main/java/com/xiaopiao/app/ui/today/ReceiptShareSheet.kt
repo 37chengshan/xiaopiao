@@ -147,7 +147,6 @@ private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: Car
                 Modifier.padding(top = 14.dp).clip(RoundedCornerShape(XpRadius.pill))
                     .background(ink.copy(alpha = 0.18f)).padding(horizontal = XpSpace.m, vertical = 4.dp),
             ) {
-                Text("演示数据 · 非真实账单", style = MaterialTheme.typography.labelMedium, color = ink)
             }
         }
         Spacer(Modifier.height(18.dp))

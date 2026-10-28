@@ -227,11 +227,6 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: 
                 Spacer(Modifier.height(XpSpace.xl))
             }
         }
-        if (!printOnly) com.xiaopiao.app.ui.components.RecordBall(
-            onManual = { record.openManual() },
-            onVoice = onVoiceStart,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = XpSpace.l, bottom = XpSpace.m),
-        )
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter))
         ReceiptOverlay(
             session, lines, timeline, receipt?.let { ReceiptLayout.stampText(it) }.orEmpty(),

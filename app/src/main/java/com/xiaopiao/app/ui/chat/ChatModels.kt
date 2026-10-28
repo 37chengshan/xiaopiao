@@ -397,7 +397,6 @@ object ChatFamily {
             append(body)
             append("。")
             if (hidden > 0) append(" 有 $hidden 位没开金额共享，我不替 TA 猜。")
-            append(" 这些都是演示数据。")
         }
     }
 }
@@ -406,22 +405,23 @@ object ChatFamily {
 object ChatTools {
     data class Step(val label: String, val detail: String)
 
+    /** Maps a question to the tool calls the engine will run (docs/AGENT.md §3–4). */
     fun plan(text: String, stats: ChatStats?, family: Boolean): List<Step> {
         if (stats == null) return listOf(Step("读取账本", "账本还在加载"))
         return when {
             family -> listOf(
-                Step("读取圈子共享", "3 位家人，按各自授权脱敏"),
-                Step("汇总本周小票", "只统计已共享的金额"),
+                Step(com.xiaopiao.app.domain.ai.Tools.readCircle.label, "3 位家人，按各自授权脱敏"),
+                Step(com.xiaopiao.app.domain.ai.Tools.summarizePeriod.label + "家庭小票", "只统计已共享的金额"),
             )
             text.contains("花") || text.contains("多少") || text.contains("支出") -> listOf(
-                Step("读取账本", "本机 ${stats.week.txnCount} 笔记录"),
-                Step("汇总本周", "合计 ${yuanText(stats.week.totalOutCents)}"),
+                Step(com.xiaopiao.app.domain.ai.Tools.queryTransactions.label, "本机 ${stats.week.txnCount} 笔记录"),
+                Step(com.xiaopiao.app.domain.ai.Tools.summarizePeriod.label + "本周", "合计 ${yuanText(stats.week.totalOutCents)}"),
             )
             text.contains("最大") || text.contains("最多") -> listOf(
-                Step("读取账本", "扫描本周全部记录"),
-                Step("找出最大一笔", "按金额排序"),
+                Step(com.xiaopiao.app.domain.ai.Tools.queryTransactions.label, "扫描本周全部记录"),
+                Step(com.xiaopiao.app.domain.ai.Tools.findPeak.label, "按金额排序"),
             )
-            else -> listOf(Step("读取账本", "本机记录"))
+            else -> listOf(Step(com.xiaopiao.app.domain.ai.Tools.queryTransactions.label, "本机记录"))
         }
     }
 }

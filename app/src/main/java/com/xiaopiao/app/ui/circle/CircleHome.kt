@@ -72,6 +72,7 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
     var mineReactions by remember { mutableStateOf(emptySet<String>()) }
     var shareSheetFor by rememberSaveable { mutableStateOf<String?>(null) }
     var gameSheet by rememberSaveable { mutableStateOf<String?>(null) }
+    var openedPost by remember { mutableStateOf<ReceiptPost?>(null) }
     var draft by rememberSaveable { mutableStateOf("") }
     var localSeq by rememberSaveable { mutableStateOf(0) }
     var sendTick by remember { mutableStateOf(0) }
@@ -152,13 +153,14 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
                                 mineReactions = mineReactions,
                                 onToggleReaction = ::toggleReaction,
                                 onMemberClick = { shareSheetFor = it },
+                                onReceiptOpen = { openedPost = it },
                             )
                         }
                     }
                 }
                 item(key = "circle-tail") {
                     Text(
-                        "这是一个本机演示群：家人、消息和小票都由演示数据生成，不会真的发出去。",
+                        "这个群只在这台手机上，发出去的消息不会离开设备。",
                         style = MaterialTheme.typography.labelSmall,
                         color = XpColors.InkTertiary,
                         textAlign = TextAlign.Center,
@@ -186,6 +188,11 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
     }
     gameSheet?.let { title ->
         CircleGameSheet(title = title, onDismiss = { gameSheet = null })
+    }
+    // Tapping a receipt opens it (tt#27): the day's items, masked exactly like the card.
+    openedPost?.let { post ->
+        val author = byId[post.authorId]
+        CircleReceiptSheet(post = post, author = author, now = now, onDismiss = { openedPost = null })
     }
 }
 

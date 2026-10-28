@@ -77,7 +77,7 @@ fun DataSection(
         }
         item {
             GroupedRow(
-                title = "载入演示数据",
+                title = "载入示例账本",
                 leading = { IconTile(Icons.Outlined.Science, tint = XpColors.Warning, background = XpColors.WarningSoft) },
                 onClick = onLoadDemo,
             )

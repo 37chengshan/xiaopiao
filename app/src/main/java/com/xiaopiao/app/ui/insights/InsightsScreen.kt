@@ -1,6 +1,7 @@
 package com.xiaopiao.app.ui.insights
 
 import com.xiaopiao.app.ui.components.Segmented
+import androidx.compose.material.icons.outlined.Settings
 import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScrollNone
 import androidx.compose.animation.core.tween
@@ -65,7 +66,7 @@ private enum class InsightsRoute(val label: String) { AWARDS("周报"), SUBSCRIP
 
 /** 洞察 tab: one compact bar, a segmented switch between 周报 / 订阅 / 后悔 (no hub, no large title). */
 @Composable
-fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenConsumed: () -> Unit = {}, onBack: (() -> Unit)? = null, embedded: Boolean = false) {
+fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenConsumed: () -> Unit = {}, onBack: (() -> Unit)? = null, embedded: Boolean = false, onOpenSettings: () -> Unit = {}) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { ReminderScheduler.ensureScheduled(context) }
 
@@ -110,5 +111,11 @@ fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenCon
             }
         }
     }
-    if (embedded) body(0.dp) else NavScaffold("统计", NavScrollNone, demo = demo, onBack = onBack) { top -> body(top) }
+    if (embedded) body(0.dp) else NavScaffold(
+        "统计",
+        NavScrollNone,
+        demo = false,
+        onBack = onBack,
+        trailing = { NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onOpenSettings) },
+    ) { top -> body(top) }
 }

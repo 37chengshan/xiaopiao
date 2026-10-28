@@ -152,7 +152,6 @@ object ReceiptLayout {
         out += ReceiptLine(LineKind.BLANK)
         out += ReceiptLine(LineKind.TITLE, if (isToday) "今日小票" else "往日小票")
         out += ReceiptLine(LineKind.SUBTITLE, TAGLINE)
-        if (demo) out += ReceiptLine(LineKind.DEMO, "※ 演示数据 ※")
         out += ReceiptLine(LineKind.DASH)
         out += ReceiptLine(LineKind.META, "日期", isoDay(receipt.dayStart))
         out += ReceiptLine(LineKind.META, "出票", clock(meta.printedAtMs))

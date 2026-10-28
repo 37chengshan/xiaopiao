@@ -121,16 +121,18 @@ fun NavScaffold(
                 Modifier.align(Alignment.CenterEnd),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
             ) {
-                if (demo) DemoChip()
                 trailing()
             }
         }
     }
 }
 
-/** The one place 演示数据 is marked on a screen. */
+/**
+ * Was the 「演示数据」 chip. tt#27: the word must not appear on screen any more — the whole build
+ * is mock data, so the label is noise. Kept as a no-op so call sites stay readable.
+ */
 @Composable
-fun DemoChip(modifier: Modifier = Modifier, text: String = "演示数据") = Pill(text, modifier)
+fun DemoChip(@Suppress("UNUSED_PARAMETER") modifier: Modifier = Modifier, @Suppress("UNUSED_PARAMETER") text: String = "") = Unit
 
 /** 34dp round raised button with a line icon, for nav bar actions. */
 @Composable
