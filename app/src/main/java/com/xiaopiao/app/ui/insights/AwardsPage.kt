@@ -33,13 +33,15 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.domain.Badge
-import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.insights.WeeklyReport
 import com.xiaopiao.app.insights.WeeklyReportBuilder
 import com.xiaopiao.app.insights.addDays
 import com.xiaopiao.app.insights.startOfWeek
+import com.xiaopiao.app.ui.components.DemoChip
+import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.SectionHeader
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
@@ -80,7 +82,7 @@ fun AwardsPage(input: InsightsInput, onBack: () -> Unit) {
                     XpCard { Text("这周没有特别的头衔，平平稳稳也是一种本事 🌿", color = XpColors.InkSecondary) }
                 }
                 CommentCard(report.comment)
-                WeekStatsCard(report)
+                WeekStatsCard(report, input.demo)
                 CategoriesCard(report)
                 FactsCard(report)
             }
@@ -141,9 +143,12 @@ private fun CommentCard(comment: String) {
 }
 
 @Composable
-private fun WeekStatsCard(r: WeeklyReport) {
+private fun WeekStatsCard(r: WeeklyReport, demo: Boolean) {
     XpCard {
-        Text("本周花了", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("本周花了", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
+            if (demo) DemoChip()
+        }
         BigMoney(r.totalOutCents)
         r.vsPrevPercent?.let { p ->
             val txt = when {
@@ -185,7 +190,7 @@ private fun CategoriesCard(r: WeeklyReport) {
             Column(Modifier.padding(top = XpSpace.m)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("${c.category.emoji} ${c.category.label}", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
-                    Text("¥${c.cents.yuan()}", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
+                    MoneyText(c.cents, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
                 }
                 Box(Modifier.fillMaxWidth().padding(top = XpSpace.xs).height(8.dp).clip(RoundedCornerShape(4.dp)).background(XpColors.Hairline)) {
                     Box(Modifier.fillMaxWidth(frac.coerceIn(0.02f, 1f)).height(8.dp).clip(RoundedCornerShape(4.dp)).background(XpColors.InkSecondary))
@@ -200,7 +205,20 @@ private fun FactsCard(r: WeeklyReport) {
     XpCard {
         Text("小数据", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         Fact("🧾", "共 ${r.txnCount} 笔记录")
-        r.biggest?.let { Fact("💥", "最大一笔 ¥${it.amountCents.yuan()} · ${it.merchant}") }
+        r.biggest?.let { b ->
+            Row(
+                Modifier.padding(top = XpSpace.s), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+            ) {
+                Text("💥")
+                Text("最大一笔", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
+                MoneyText(b.amountCents, style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
+                Text(
+                    "· ${b.merchant}", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         Fact("🔥", "连续记账最长 ${r.longestRecordStreak} 天")
         Fact("😴", "${r.zeroSpendDays} 天钱包在休眠")
     }

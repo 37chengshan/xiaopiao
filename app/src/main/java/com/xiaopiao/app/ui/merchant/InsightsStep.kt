@@ -38,6 +38,7 @@ import com.xiaopiao.app.merchant.Aggregator
 import com.xiaopiao.app.merchant.CohortStats
 import com.xiaopiao.app.merchant.CrowdMember
 import com.xiaopiao.app.merchant.K_ANONYMITY
+import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -52,7 +53,18 @@ fun InsightsStep(crowd: List<CrowdMember>, onNext: () -> Unit, onPrivacy: () -> 
         Modifier.verticalScroll(rememberScrollState()).padding(bottom = XpSpace.xl),
         verticalArrangement = Arrangement.spacedBy(XpSpace.m),
     ) {
-        Reveal(0) { KpiRow(stats) }
+        Reveal(0) {
+            Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
+                KpiRow(stats)
+                Row(
+                    Modifier.padding(horizontal = XpSpace.l),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+                ) {
+                    DemoPill()
+                    Text("数字来自演示人群，不是真实顾客", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
+                }
+            }
+        }
         Reveal(1) { AgeChips(age) { age = it } }
         Reveal(2) { SectionCard("喝什么", "过去 30 天买过这类饮品的人") { KindBars(stats) } }
         Reveal(3) { SectionCard("什么时候来", "点一格看人数 · 斜线空格 = $SUPPRESSED_TEXT（少于 $K_ANONYMITY 人）") { HeatSection(stats) } }
@@ -75,7 +87,10 @@ fun InsightsStep(crowd: List<CrowdMember>, onNext: () -> Unit, onPrivacy: () -> 
 private fun SectionCard(title: String, hint: String, content: @Composable () -> Unit) {
     Column(Modifier.padding(horizontal = XpSpace.l)) {
         XpCard {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
+                DemoPill()
+            }
             Text(hint, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
             Box(Modifier.padding(top = XpSpace.m)) { content() }
         }
@@ -151,7 +166,10 @@ private fun PriceBars(stats: CohortStats) {
     Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
         stats.priceBands.forEachIndexed { i, c -> CellBar(c, max, XpColors.Warning, i) }
         val avg = stats.avgPriceCents
-        if (avg != null) Text("平均每杯约 ¥${avg.yuan()}", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+        if (avg != null) Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("平均每杯约 ", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+            MoneyText(avg, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+        }
     }
 }
 

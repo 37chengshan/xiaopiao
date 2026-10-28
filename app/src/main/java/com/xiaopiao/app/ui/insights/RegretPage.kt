@@ -26,12 +26,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.xiaopiao.app.domain.Direction
-import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.insights.RegretScenario
 import com.xiaopiao.app.insights.RegretSimulator
 import com.xiaopiao.app.insights.RegretTarget
+import com.xiaopiao.app.ui.components.DemoChip
+import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -71,7 +73,19 @@ fun RegretPage(input: InsightsInput, onBack: () -> Unit) {
         }
         val result = RegretSimulator.simulate(input.history, RegretScenario(target, reduction.roundToInt(), window), input.now)
         XpCard {
-            Text("近 $window 个月在「${target.label}」上花了 ¥${result.spentCents.yuan()}，共 ${result.txnCount} 笔", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Text(
+                    "近 $window 个月在「${target.label}」上花了",
+                    Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
+                )
+                if (input.demo) DemoChip()
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                MoneyText(result.spentCents, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+                Text(
+                    "，共 ${result.txnCount} 笔", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
+                )
+            }
             Text("如果少花 ${reduction.roundToInt()}%，大约能省下", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.padding(top = XpSpace.s))
             BigMoney(result.savedCents)
             AnimatedContent(

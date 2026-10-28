@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Source
 import com.xiaopiao.app.domain.Txn
@@ -39,6 +40,7 @@ import com.xiaopiao.app.ui.components.GroupedSection
 import com.xiaopiao.app.ui.components.IconTile
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.EmptyState
+import com.xiaopiao.app.ui.components.Pill
 import com.xiaopiao.app.ui.components.icon
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.XpColors
@@ -84,10 +86,13 @@ fun TxnRow(txn: Txn, onClick: () -> Unit) {
         subtitle = "${txn.category.label} · ${LedgerGrouping.clock(txn.occurredAt)}" + if (auto) " · ${txn.source.label}" else "",
         leading = { IconTile(txn.category.icon()) },
         trailing = {
-            MoneyText(
-                txn.amountCents, style = MaterialTheme.typography.titleMedium,
-                color = if (income) XpColors.Positive else XpColors.Ink, prefix = if (income) "+" else "",
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
+                if (txn.note == DemoSeed.NOTE) Pill("演示数据")
+                MoneyText(
+                    txn.amountCents, style = MaterialTheme.typography.titleMedium,
+                    color = if (income) XpColors.Positive else XpColors.Ink, prefix = if (income) "+" else "",
+                )
+            }
         },
         modifier = Modifier.background(XpColors.Card),
         onClick = onClick,

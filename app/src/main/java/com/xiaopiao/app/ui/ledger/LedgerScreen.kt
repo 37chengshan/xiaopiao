@@ -43,8 +43,8 @@ import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Txn
-import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.ui.components.NavScaffold
+import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.ShimmerBlock
 import com.xiaopiao.app.ui.components.UndoToastHost
 import com.xiaopiao.app.ui.components.pressableClick
@@ -160,7 +160,10 @@ private fun LedgerHero(txns: List<Txn>, now: Long) {
     }
     Column(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s)) {
         XpCard {
-            Text("本月支出", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("本月支出", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
+                if (out.any { it.note == DemoSeed.NOTE }) DemoChip()
+            }
             MoneyText(monthTotal, style = MaterialTheme.typography.displayMedium)
             MiniBars(bars, Modifier.padding(top = XpSpace.m))
         }

@@ -33,10 +33,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.domain.Cents
 import com.xiaopiao.app.domain.yuan
-import com.xiaopiao.app.ui.components.LargeTitle
-import com.xiaopiao.app.ui.components.NavScaffold
+import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.Pill
-import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
@@ -66,7 +64,7 @@ fun Modifier.bounceClick(enabled: Boolean = true, onClick: () -> Unit): Modifier
     }
 }
 
-/** Sub-page frame: back chip, large title, scrollable body. */
+/** Sub-page frame: scrollable body; the demo marker is printed above the cards, not only in the nav bar. */
 @Composable
 fun InsightsPage(
     title: String,
@@ -79,7 +77,10 @@ fun InsightsPage(
         Column(
             Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s),
             verticalArrangement = Arrangement.spacedBy(XpSpace.m),
-        ) { content() }
+        ) {
+            if (demo) DemoBanner()
+            content()
+        }
     }
 }
 
@@ -159,5 +160,5 @@ fun animatedCents(target: Cents): Cents {
 
 @Composable
 fun BigMoney(cents: Cents, modifier: Modifier = Modifier, color: androidx.compose.ui.graphics.Color = XpColors.Ink) {
-    Text("¥${animatedCents(cents).yuan()}", modifier, style = MaterialTheme.typography.displayLarge, color = color)
+    MoneyText(animatedCents(cents).yuan(), modifier, style = MaterialTheme.typography.displayLarge, color = color)
 }

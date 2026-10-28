@@ -57,7 +57,14 @@ import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.launch
 
 /** The two versions of the printed card, both pre-built by the caller (the same receipt, more or fewer rows). */
-class ShareContent(val full: List<ReceiptLine>, val brief: List<ReceiptLine>, val stampText: String, val fileKey: String)
+class ShareContent(
+    val full: List<ReceiptLine>,
+    val brief: List<ReceiptLine>,
+    val stampText: String,
+    val fileKey: String,
+    /** True when the receipt was printed from the demo ledger; the exported image then carries a 演示数据 watermark. */
+    val demo: Boolean = full.any { it.kind == LineKind.DEMO },
+)
 
 /** "分享小票" sheet: the receipt on a pick-your-own gradient card, 完整/简版, 分享 / 保存图片 / 复制文字. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,7 +102,7 @@ fun ReceiptShareSheet(content: ShareContent, onDismiss: () -> Unit) {
                 Modifier.weight(1f, fill = false).fillMaxWidth().padding(vertical = XpSpace.s)
                     .clip(RoundedCornerShape(XpRadius.m)).verticalScroll(rememberScrollState()),
             ) {
-                ShareCard(lines, content.stampText, GradientPresets.byIndex(gradient), Modifier.drawWithContent {
+                ShareCard(lines, content.stampText, GradientPresets.byIndex(gradient), content.demo, Modifier.drawWithContent {
                     layer.record { this@drawWithContent.drawContent() }
                     drawLayer(layer)
                 })
@@ -124,7 +131,7 @@ private fun Modifier.defaultMin() = this.then(Modifier.height(48.dp))
 
 /** The exported image: the paper floating on the chosen gradient with a small signature. Captured as-is by the sheet. */
 @Composable
-private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: CardGradient, modifier: Modifier = Modifier) {
+private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: CardGradient, demo: Boolean, modifier: Modifier = Modifier) {
     val timeline = remember(lines) { PrintTimeline.build(lines, reduced = true) }
     val clock = remember(timeline) { PrintClock(timeline, instant = true) { 0L } }
     val stamp = remember { StampVisuals({ 1f }, { 1f }, { 0f }) }
@@ -135,6 +142,14 @@ private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: Car
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         ReceiptPaper(lines, clock, stampText, stamp, tornTop = true)
+        if (demo) {
+            Box(
+                Modifier.padding(top = 14.dp).clip(RoundedCornerShape(XpRadius.pill))
+                    .background(ink.copy(alpha = 0.18f)).padding(horizontal = XpSpace.m, vertical = 4.dp),
+            ) {
+                Text("演示数据 · 非真实账单", style = MaterialTheme.typography.labelMedium, color = ink)
+            }
+        }
         Spacer(Modifier.height(18.dp))
         Text("今日小票 · 每天印一张", style = MaterialTheme.typography.labelMedium, color = ink, textAlign = TextAlign.Center)
     }

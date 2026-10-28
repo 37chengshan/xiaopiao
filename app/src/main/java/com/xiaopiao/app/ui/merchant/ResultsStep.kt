@@ -52,7 +52,10 @@ fun ResultsStep(
                 XpCard {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text(experiment.template.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                        Pill(experiment.status.label)
+                        Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
+                            DemoPill()
+                            Pill(experiment.status.label)
+                        }
                     }
                     Row(Modifier.fillMaxWidth().padding(top = XpSpace.m), horizontalArrangement = Arrangement.SpaceBetween) {
                         OptionLabel(a.option.emoji, a.option.title, a.share, XpColors.Accent)
@@ -66,7 +69,10 @@ fun ResultsStep(
         Reveal(2) {
             Column(Modifier.padding(horizontal = XpSpace.l)) {
                 XpCard {
-                    Text("95% 置信区间", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("95% 置信区间", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
+                        DemoPill()
+                    }
                     Text("须线越短越确定；两条须线重叠，说明两边差距可能只是巧合。", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
                     Column(Modifier.padding(top = XpSpace.m), verticalArrangement = Arrangement.spacedBy(XpSpace.m)) {
                         CiWhisker(a, XpColors.Accent)

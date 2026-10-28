@@ -81,7 +81,13 @@ private fun Picker(suggestions: List<Suggestion>, onAdopt: (Suggestion) -> Unit)
         Modifier.verticalScroll(rememberScrollState()).padding(horizontal = XpSpace.l).padding(bottom = XpSpace.xl),
         verticalArrangement = Arrangement.spacedBy(XpSpace.s),
     ) {
-        Text("基于这轮结果，有 3 个可以试试的方向。选哪个、要不要选，都由你决定。", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
+            Text(
+                "基于这轮结果，有 3 个可以试试的方向。选哪个、要不要选，都由你决定。",
+                Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary,
+            )
+            DemoPill()
+        }
         suggestions.forEachIndexed { i, s ->
             Reveal(i) {
                 SelectableCard(pickedId == s.id, { pickedId = s.id }) {
