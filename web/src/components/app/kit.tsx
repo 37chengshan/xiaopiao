@@ -179,7 +179,7 @@ export function XButton({
       {...props}
       className={cn(
         "inline-flex items-center justify-center gap-1.5 font-medium transition-transform duration-100 ease-[var(--ease-out)] active:scale-[0.97] disabled:opacity-40 disabled:shadow-none disabled:active:scale-100",
-        size === "lg" ? "h-12 rounded-[12px] px-5 text-[16px]" : "h-9 rounded-[10px] px-3.5 text-[14px]",
+        size === "lg" ? "h-[52px] rounded-[16px] px-6 text-[16px] font-semibold" : "h-9 rounded-[10px] px-3.5 text-[14px]",
         variant === "primary" && "btn-ink bg-ink text-bg",
         variant === "clay" && "btn-clay bg-clay text-on-clay",
         variant === "secondary" && "btn-soft bg-surface text-ink",
@@ -233,12 +233,14 @@ export function Segmented<T extends string>({
 /** Money with a smaller, quieter ¥ (§3). */
 export function Money({ cents, className, sign }: { cents: number; className?: string; sign?: boolean }) {
   const v = Math.abs(cents) / 100;
-  const text = v.toLocaleString("zh-CN", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const full = v.toLocaleString("zh-CN", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  const dot = full.indexOf(".");
   return (
     <span className={cn("num", className)}>
       {sign && (cents < 0 ? "−" : "+")}
       <span className="mr-[0.08em] text-[0.6em] text-ink-2">¥</span>
-      {text}
+      {dot < 0 ? full : full.slice(0, dot)}
+      {dot >= 0 && <span className="text-[0.72em]">{full.slice(dot)}</span>}
     </span>
   );
 }

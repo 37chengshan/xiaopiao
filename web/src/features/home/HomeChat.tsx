@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowUp, Mic, Plus } from "lucide-react";
+import { ArrowUp, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DemoPill } from "@/components/app/DemoPill";
@@ -19,7 +19,6 @@ import { RegretSimulator } from "../insights/RegretSimulator";
 import { Receipt } from "../receipt/Receipt";
 import { DraftsCard, SubscriptionSummaryCard, WeeklySummaryCard } from "./cards";
 import { TypedText } from "./TypedText";
-import { useSpeech } from "./useSpeech";
 
 type Card =
   | { kind: "drafts"; drafts: DraftTxn[]; saved: boolean }
@@ -126,7 +125,7 @@ export function HomeChat() {
   const patch = useCallback((id: string, fn: (m: Msg) => Msg) => setMsgs((ms) => ms.map((m) => (m.id === id ? fn(m) : m))), []);
 
   const send = useCallback(
-    (raw: string, voice = false) => {
+    (raw: string) => {
       const text = raw.trim();
       if (!text || thinking) return;
       setInput("");
@@ -141,7 +140,7 @@ export function HomeChat() {
       setMsgs((ms) => [...ms, { id: nid(), role: "user", text }]);
       switch (intent.kind) {
         case "ADD": {
-          const drafts = intent.drafts.map((d) => ({ ...d, source: voice ? ("VOICE" as const) : d.source }));
+          const drafts = intent.drafts.map((d) => ({ ...d, source: d.source }));
           reply({ text: `听到了 ${drafts.length} 笔，对不对呀？确认之后才会真的记下～`, card: { kind: "drafts", drafts, saved: false } });
           break;
         }
@@ -175,19 +174,6 @@ export function HomeChat() {
       }
     },
     [now, thinking, txns],
-  );
-
-  const speech = useSpeech(
-    (t) => setInput(t),
-    (t) => {
-      send(t, true);
-    },
-    (err) => {
-      if (err === "unsupported") {
-        setMsgs((ms) => [...ms, { id: nid(), role: "ai", text: "这个浏览器暂时不支持语音输入，换 Chrome / Safari 试试，或者直接打字告诉我～" }]);
-      } else if (err === "not-allowed" || err === "service-not-allowed") toast.error("没有麦克风权限，可以在浏览器设置里打开");
-      else if (err !== "no-speech" && err !== "aborted") toast.error("语音没听清，再说一次吧");
-    },
   );
 
   const confirmDrafts = async (m: Msg) => {
@@ -333,24 +319,11 @@ export function HomeChat() {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={speech.listening ? t("chat.listening") : t("chat.placeholder")}
+                placeholder={t("chat.placeholder")}
                 aria-label="消息"
                 enterKeyHint="send"
                 className="h-9 min-w-0 flex-1 bg-transparent px-1 text-[16px] text-ink outline-none placeholder:text-ink-3"
               />
-              <button
-                type="button"
-                onClick={() => (speech.listening ? speech.stop() : speech.start())}
-                aria-label={speech.listening ? "停止语音输入" : "语音输入"}
-                aria-pressed={speech.listening}
-                className={cn(
-                  "relative grid size-9 shrink-0 place-items-center rounded-full transition-[transform,background-color,color] duration-150 active:scale-[0.94]",
-                  speech.listening ? "bg-negative text-on-clay" : "text-ink-2",
-                )}
-              >
-                {speech.listening && <span className="absolute inset-0 animate-ping rounded-full bg-negative/40" aria-hidden />}
-                <Mic className="relative size-5" strokeWidth={1.75} />
-              </button>
               <button
                 type="submit"
                 disabled={!input.trim()}

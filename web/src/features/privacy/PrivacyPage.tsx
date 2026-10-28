@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
-import { Eraser, Info, Palette, PlayCircle, RefreshCw, Shield, Store, Database, Volume2 } from "lucide-react";
+import { Eraser, Info, Palette, PlayCircle, RefreshCw, Shield, Store, Database, PenLine, Vibrate, Volume2 } from "lucide-react";
 import { Group, IconTile, Row, Segmented, Switch, XButton } from "@/components/app/kit";
 import { onboarding } from "@/components/app/onboardingStore";
 import { Sheet } from "@/components/app/Sheet";
@@ -9,6 +9,7 @@ import { t } from "@/lib/strings";
 import { PageHeader } from "@/components/app/PageHeader";
 import { type ThemePref, useTheme } from "@/lib/theme";
 import { useLedger } from "@/services/LedgerProvider";
+import { useReceiptHaptics } from "../receipt/hapticPref";
 import { useReceiptSound } from "../receipt/soundPref";
 
 const THEME_OPTIONS: readonly { value: ThemePref; label: string }[] = [
@@ -36,6 +37,7 @@ export function PrivacyPage() {
   const { mode, txns, reset, forgetMode } = useLedger();
   const { pref, setPref } = useTheme();
   const [soundOn, setSoundOn] = useReceiptSound();
+  const [hapticsOn, setHapticsOn] = useReceiptHaptics();
   const [confirming, setConfirming] = useState(false);
   const [sheet, setSheet] = useState<"privacy" | null>(null);
   const navigate = useNavigate();
@@ -57,10 +59,16 @@ export function PrivacyPage() {
             title={t("me.sound")}
             trailing={<Switch checked={soundOn} onCheckedChange={setSoundOn} label={t("me.sound")} />}
           />
+          <Row
+            leading={<IconTile icon={Vibrate} tone="green" />}
+            title={t("me.haptics")}
+            trailing={<Switch checked={hapticsOn} onCheckedChange={setHapticsOn} label={t("me.haptics")} />}
+          />
         </Group>
 
         <Group inset="icon">
           <Row leading={<IconTile icon={Store} tone="blue" />} title={t("me.merchant")} chevron onClick={() => void navigate({ to: "/merchant" })} />
+          <Row leading={<IconTile icon={PenLine} tone="amber" />} title={t("me.entryDefault")} trailing={<span className="text-[15px] text-ink-3">{t("me.soon")}</span>} />
           <Row leading={<IconTile icon={PlayCircle} tone="green" />} title={t("me.guide")} chevron onClick={onboarding.replay} />
         </Group>
 

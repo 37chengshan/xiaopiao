@@ -22,7 +22,7 @@ function Tab({ to, label, icon: Icon, path }: Side & { path: string }) {
         to={to}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex h-14 flex-col items-center justify-center gap-[3px] text-[10px] font-medium tracking-[0.02em] transition-colors duration-150 ease-[var(--ease-out)] active:opacity-60",
+          "flex h-16 flex-col items-center justify-center gap-[3px] text-[10px] font-medium tracking-[0.02em] transition-colors duration-150 ease-[var(--ease-out)] active:opacity-60",
           active ? "text-ink" : "text-ink-3",
         )}
       >
@@ -45,9 +45,10 @@ export function TabBar() {
   return (
     <nav
       aria-label={t("nav.aria")}
-      className="material absolute inset-x-0 bottom-0 z-30 h-[var(--tabbar-h)] pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-0.5px_0_var(--hairline)]"
+      style={{ bottom: "calc(10px + env(safe-area-inset-bottom, 0px))" }}
+      className="material tab-capsule absolute inset-x-4 z-30 h-16 rounded-[32px]"
     >
-      <ul className="flex h-14 items-stretch">
+      <ul className="flex h-16 items-stretch px-2">
         {LEFT.map((x) => (
           <Tab key={x.to} {...x} path={path} />
         ))}
@@ -57,11 +58,11 @@ export function TabBar() {
             aria-label={t("nav.chat")}
             aria-current={onHome ? "page" : undefined}
             onClick={() => (onHome ? entry.open() : void navigate({ to: "/home" }))}
-            className="btn-clay absolute -top-[26px] grid size-[60px] place-items-center rounded-full bg-clay text-on-clay ring-[5px] ring-bg active:scale-[0.95]"
+            className="btn-clay absolute -top-[18px] grid size-[58px] place-items-center rounded-full bg-clay text-on-clay ring-4 ring-bg active:scale-[0.95]"
           >
             <MessageCircleHeart className="size-[28px]" strokeWidth={1.9} aria-hidden />
           </button>
-          <span className={cn("absolute bottom-[4px] text-[10px] font-medium tracking-[0.02em]", onHome ? "text-ink" : "text-ink-3")}>{t("nav.chat")}</span>
+          <span className={cn("absolute bottom-[7px] text-[10px] font-medium tracking-[0.02em]", onHome ? "text-ink" : "text-ink-3")}>{t("nav.chat")}</span>
         </li>
         {RIGHT.map((x) => (
           <Tab key={x.to} {...x} path={path} />

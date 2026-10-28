@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { BellRing, Check, EyeOff, Lock, ShieldCheck, Sparkles, type LucideIcon } from "lucide-react";
+import { BellRing, Check, EyeOff, Lock, ScanSearch, ShieldCheck, Sparkles, ToggleRight, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { type ThemePref, useTheme } from "@/lib/theme";
 import { t, type StringKey } from "@/lib/strings";
@@ -38,11 +38,18 @@ const THEMES: readonly { value: ThemePref; label: string }[] = [
   { value: "dark", label: "深色" },
 ];
 
-const BULLETS: { icon: LucideIcon; key: StringKey }[] = [
-  { icon: Lock, key: "ob.3.b1" },
-  { icon: EyeOff, key: "ob.3.b2" },
-  { icon: Check, key: "ob.3.b3" },
-];
+const BULLETS: Record<number, { icon: LucideIcon; key: StringKey }[]> = {
+  1: [
+    { icon: ScanSearch, key: "ob.2.b1" },
+    { icon: Lock, key: "ob.2.b2" },
+    { icon: ToggleRight, key: "ob.2.b3" },
+  ],
+  2: [
+    { icon: Lock, key: "ob.3.b1" },
+    { icon: EyeOff, key: "ob.3.b2" },
+    { icon: Check, key: "ob.3.b3" },
+  ],
+};
 
 const TOTAL = 4;
 
@@ -89,9 +96,9 @@ export function Onboarding({ onFinish }: { onFinish?: () => void }) {
             {i === 3 && <BigIcon icon={Sparkles} tone="amber" />}
             <h1 className="mt-9 font-serif text-[32px] font-semibold leading-[40px] tracking-[-0.02em] text-ink">{t(`ob.${i + 1}.title` as StringKey)}</h1>
             <p className="mx-auto mt-2.5 max-w-[17rem] text-[16px] leading-[24px] text-ink-2">{t(`ob.${i + 1}.body` as StringKey)}</p>
-            {i === 2 && (
+            {BULLETS[i] && (
               <ul className="mx-auto mt-7 w-fit space-y-3 text-left">
-                {BULLETS.map(({ icon: Icon, key }) => (
+                {BULLETS[i].map(({ icon: Icon, key }) => (
                   <li key={key} className="flex items-center gap-3 text-[15px] text-ink">
                     <span className="grid size-8 place-items-center rounded-[10px] bg-green-soft text-green" aria-hidden>
                       <Icon className="size-4" strokeWidth={1.9} />

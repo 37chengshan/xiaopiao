@@ -110,7 +110,7 @@
 :root {
   color-scheme: light;
   --radius: 0.875rem;
-  --tabbar-h: calc(56px + env(safe-area-inset-bottom, 0px));
+  --tabbar-h: calc(84px + env(safe-area-inset-bottom, 0px));
 
   --bg: oklch(0.982 0.0055 95);          /* #FAF9F5 */
   --bg-grouped: oklch(0.955 0.009 95);   /* #F3F1EA */
@@ -357,19 +357,18 @@
 .btn-clay,
 .btn-soft,
 .btn-round {
-  position: relative;
   transition:
-    transform 100ms var(--ease-out),
-    box-shadow 100ms var(--ease-out),
-    filter 100ms var(--ease-out);
+    transform 90ms var(--ease-out),
+    box-shadow 90ms var(--ease-out),
+    filter 90ms var(--ease-out);
 }
 .btn-ink {
   background-image: linear-gradient(to bottom, color-mix(in oklch, var(--ink) 88%, var(--bg)), var(--ink));
   box-shadow:
     inset 0 1px 0 oklch(1 0 0 / 22%),
+    inset 0 -1px 0 oklch(0 0 0 / 22%),
     0 0 0 1px var(--btn-glow),
-    0 1px 2px oklch(0 0 0 / 22%),
-    0 6px 14px -6px oklch(0 0 0 / 30%);
+    0 4px 12px -2px oklch(0 0 0 / 28%);
 }
 .dark .btn-ink {
   background-image: linear-gradient(to bottom, var(--ink), color-mix(in oklch, var(--ink) 82%, var(--bg)));
@@ -382,9 +381,9 @@
   background-image: linear-gradient(to bottom, color-mix(in oklch, var(--clay) 86%, white), var(--clay));
   box-shadow:
     inset 0 1px 0 oklch(1 0 0 / 28%),
+    inset 0 -1px 0 oklch(0 0 0 / 12%),
     0 0 0 1px var(--btn-glow),
-    0 1px 2px oklch(0.4 0.1 36 / 30%),
-    0 6px 14px -6px oklch(0.4 0.1 36 / 40%);
+    0 4px 12px oklch(0.5 0.13 36 / 28%);
 }
 .dark .btn-clay {
   box-shadow:
@@ -420,13 +419,27 @@
 .btn-soft:active,
 .btn-round:active {
   box-shadow:
-    inset 0 1px 2px oklch(0 0 0 / 18%),
-    0 0 0 1px var(--btn-glow);
-  filter: brightness(0.96);
+    inset 0 1px 0 oklch(1 0 0 / 20%),
+    0 0 0 1px var(--btn-glow),
+    0 1px 4px oklch(0.4 0.05 36 / 22%);
+  filter: brightness(0.97);
 }
 
 /* Card with a faint vertical tint and soft depth (light) / hairline ring (dark) */
 .card-tint {
   background-image: linear-gradient(to bottom, var(--card-hi), var(--card-lo));
   box-shadow: var(--shadow-soft);
+}
+
+/* Floating capsule tab bar: glass + inner hairline + soft drop shadow (dark: glow edge, no black shadow) */
+.tab-capsule {
+  box-shadow:
+    inset 0 0 0 1px var(--hairline),
+    inset 0 1px 0 oklch(1 0 0 / 40%),
+    0 8px 24px -8px oklch(0.2 0.01 90 / 22%);
+}
+.dark .tab-capsule {
+  box-shadow:
+    inset 0 0 0 1px oklch(1 0 0 / 12%),
+    inset 0 1px 0 oklch(1 0 0 / 10%);
 }
