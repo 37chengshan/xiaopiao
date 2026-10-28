@@ -10,7 +10,7 @@ import { annualCents, cycleLabel, detectSubscriptions } from "../../logic/subscr
 import { hhmm, relativeDayLabel, weekStartOf } from "../../logic/time";
 import { buildWeeklyReport } from "../../logic/weeklyReport";
 
-const CARD = "mx-0 ring-1 ring-hairline";
+const CARD = "mx-0";
 
 function DraftRow({
   d,

@@ -1,7 +1,7 @@
 import { animate, useReducedMotion } from "framer-motion";
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { CATEGORY_ICONS } from "@/components/app/categoryIcons";
+import { CATEGORY_ICONS, CATEGORY_TONES } from "@/components/app/categoryIcons";
 import { Footnote, Group, IconTile, Money, Row, SectionHeader, Segmented } from "@/components/app/kit";
 import { EmptyState } from "@/components/app/States";
 import { cn } from "@/lib/utils";
@@ -74,7 +74,7 @@ export function SubscriptionDetective({ txns, now }: { txns: readonly Txn[]; now
           return (
             <div key={s.merchant}>
               <Row
-                leading={<IconTile icon={CATEGORY_ICONS[cat === "OTHER" ? "SUBSCRIPTION" : cat]} />}
+                leading={<IconTile icon={CATEGORY_ICONS[cat === "OTHER" ? "SUBSCRIPTION" : cat]} tone={CATEGORY_TONES[cat === "OTHER" ? "SUBSCRIPTION" : cat]} />}
                 title={s.merchant}
                 subtitle={`${cycleLabel(s.cycleDays)} ¥${yuan(s.amountCents)} · ${countdown(s.nextChargeAt, now)}（${dayLabel(startOfDay(s.nextChargeAt))}）`}
                 trailing={
