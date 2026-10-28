@@ -8,5 +8,14 @@
     "qmuse-cloud": "0.0.5"
   },
   "defaultSpaceId": "S441925938414",
-  "targets": {}
+  "targets": {
+    "prod": {
+      "apiBaseUrl": "https://api.qmuse.cn",
+      "appId": "9958988893335767",
+      "spaceId": "S173156693805",
+      "lastVersionId": "91600220",
+      "lastSourceHash": "27a975960e2388cfdb8d4e1770e50987683901318beec8d3eab59117ced3896a",
+      "updatedAt": "2026-10-28T03:28:34.868Z"
+    }
+  }
 }
