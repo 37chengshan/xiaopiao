@@ -3,6 +3,7 @@ package com.xiaopiao.app.ui.chat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -123,15 +124,7 @@ fun WeekReportCard(stats: ChatStats) {
                 color = XpColors.InkSecondary,
             )
         }
-        MiniBars(
-            week.dayTotals.map { it.toFloat() },
-            Modifier.padding(top = XpSpace.m),
-            height = 34.dp,
-            barFraction = 0.58f,
-            // Monday-first index of today, so the highlighted column is "you are here".
-            highlightIndex = (((java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7))
-                .coerceIn(0, week.dayTotals.lastIndex),
-        )
+        WeekBars(week.dayTotals)
         val peak = stats.weekPeakDay
         Text(
             if (peak != null) "花得最多：${ChatCopy.WEEK[peak]} ${yuanText(stats.weekPeakCents)}" else "这周还没有支出",
@@ -252,6 +245,37 @@ fun ConfirmCard(item: ChatItem.Confirm, onConfirm: () -> Unit, onEdit: () -> Uni
                 style = MaterialTheme.typography.bodySmall,
                 color = XpColors.InkSecondary,
             )
+        }
+    }
+}
+
+/** Seven slim bars with weekday initials underneath; today's column carries the accent. */
+@Composable
+private fun WeekBars(dayTotals: List<Long>) {
+    val todayIdx = ((java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7)
+    val max = (dayTotals.maxOrNull() ?: 0L).coerceAtLeast(1L)
+    val labels = listOf("一", "二", "三", "四", "五", "六", "日")
+    Row(
+        Modifier.fillMaxWidth().padding(top = XpSpace.m),
+        horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        dayTotals.forEachIndexed { i, v ->
+            val ratio = (v.toFloat() / max).coerceIn(0f, 1f)
+            val active = i == todayIdx
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    Modifier.fillMaxWidth(0.6f).height((6f + 30f * ratio).dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(if (active) XpColors.Accent else XpColors.Fill),
+                )
+                Text(
+                    labels[i],
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (active) XpColors.Accent else XpColors.InkTertiary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
         }
     }
 }
