@@ -123,7 +123,7 @@ export function Onboarding({ onFinish }: { onFinish?: () => void }) {
 
       <div className="flex justify-center gap-1.5 pb-5" aria-hidden>
         {Array.from({ length: TOTAL }, (_, n) => (
-          <span key={n} className={cn("h-1.5 rounded-full transition-all duration-200 ease-[var(--ease-out)]", n === i ? "w-5 bg-ink" : "w-1.5 bg-fill")} />
+          <span key={n} className={cn("h-1.5 rounded-full transition-[width,background-color] duration-200 ease-[var(--ease-out)]", n === i ? "w-5 bg-ink" : "w-1.5 bg-fill")} />
         ))}
       </div>
 
