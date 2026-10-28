@@ -1,215 +1,446 @@
 package com.xiaopiao.app.ui.ledger
 
-import com.xiaopiao.app.ui.components.XpCard
-import com.xiaopiao.app.ui.components.MoneyText
-import com.xiaopiao.app.ui.components.MiniBars
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
-import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Txn
+import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.domain.yuan
+import com.xiaopiao.app.ui.components.EmptyState
 import com.xiaopiao.app.ui.components.NavIconButton
-import com.xiaopiao.app.ui.components.NumberTicker
 import com.xiaopiao.app.ui.components.NavScaffold
-import com.xiaopiao.app.ui.components.DemoChip
+import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.components.ShimmerBlock
 import com.xiaopiao.app.ui.components.UndoToastHost
 import com.xiaopiao.app.ui.components.pressableClick
-import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberNavScroll
+import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberUndoToastState
+import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.XpColors
-import com.xiaopiao.app.ui.theme.XpEase
-import com.xiaopiao.app.ui.theme.XpFonts
+import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.launch
-import java.util.Calendar
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.graphics.graphicsLayer
 
+/** Page margin and the gap between the cards of the ledger (docs/APP-DESIGN.md §3.7 栅格). */
+private val PageInset = XpSpace.page
+private val CardGap = XpSpace.cardGap
+
+/**
+ * 账单 tab (docs/APP-DESIGN.md §3.2, adopted from the wallet reference per §3.7):
+ * summary card → search/筛选 → day cards. Swipe or long-press to manage, calendar to jump to a day.
+ */
 @Composable
-fun LedgerScreen(container: AppContainer, onPrint: () -> Unit = {}, onVoiceStart: () -> Unit = {}, onOpenSettings: () -> Unit = {}) {
+fun LedgerScreen(
+    container: AppContainer,
+    onPrint: () -> Unit = {},
+    @Suppress("UNUSED_PARAMETER") onVoiceStart: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+) {
     val ledger = container.ledger
     val flow = remember(container) { ledger.observeAll() }
     val txns: List<Txn>? by flow.collectAsStateWithLifecycle(initialValue = null)
-    val scope = rememberCoroutineScope()
-    var sheetOpen by remember { mutableStateOf(false) }
-    var filterOpen by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val prefs = remember(context) { LedgerPrefs(context.applicationContext) }
+    val hidden by prefs.observeHidden().collectAsStateWithLifecycle(initialValue = false)
+    val recent by prefs.observeRecent().collectAsStateWithLifecycle(initialValue = emptyList<String>())
+
     var query by remember { mutableStateOf("") }
+    var searching by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf(LedgerFilter()) }
+    var filterOpen by remember { mutableStateOf(false) }
+    var calendarOpen by remember { mutableStateOf(false) }
+    var addOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Txn?>(null) }
+    var selection by remember { mutableStateOf<Set<Long>?>(null) }
+
     val toast = rememberUndoToastState()
     val listState = rememberLazyListState()
-    val now = System.currentTimeMillis()
-    val hasDemo = txns.orEmpty().any { it.note == DemoSeed.NOTE }
+    val scope = rememberCoroutineScope()
+    val haptics = rememberXpHaptics()
+    val keyboard = LocalSoftwareKeyboardController.current
     val reduceMotion = rememberReducedMotion()
 
-    fun openAdd(txn: Txn?) { editing = txn; sheetOpen = true }
+    val now = System.currentTimeMillis()
+    val minute = now / 60_000
+    val all = txns.orEmpty()
+    val visible = remember(all, filter, query, minute) { filter.apply(all, now, query) }
+    val groups = remember(visible, minute) { LedgerGrouping.group(visible, now) }
+    val summary = remember(all, minute) { LedgerTotals.summary(all, now) }
+    val searchHits = remember(all, filter, query, minute, searching) {
+        if (searching) filter.apply(all, now, query) else emptyList()
+    }
+    val searchGroups = remember(searchHits, minute) { LedgerGrouping.group(searchHits, now) }
 
+    fun deleteTxn(txn: Txn) {
+        scope.launch {
+            ledger.delete(txn.id)?.let { gone ->
+                toast.show("已删除「${gone.merchant}」", "撤销") { scope.launch { ledger.add(gone) } }
+            }
+        }
+    }
+
+    fun deleteSelected() {
+        val ids = selection ?: return
+        if (ids.isEmpty()) return
+        scope.launch {
+            val gone = ids.mapNotNull { ledger.delete(it) }
+            selection = null
+            if (gone.isNotEmpty()) {
+                toast.show("已删除 ${gone.size} 笔", "撤销") { scope.launch { gone.forEach { ledger.add(it) } } }
+            }
+        }
+    }
+
+    fun exitSearch() {
+        searching = false
+        query = ""
+        keyboard?.hide()
+    }
+
+    fun clearConditions() {
+        filter = LedgerFilter()
+        query = ""
+    }
+
+    fun jumpToDay(day: Long, fromSearch: Boolean = false) {
+        calendarOpen = false
+        val target = startOfDay(day)
+        val index = groups.indexOfFirst { it.dayStart == target }
+        if (index < 0) {
+            toast.show("那天没有账单")
+            return
+        }
+        // When searching, only the search page exists; jump only works from the normal list.
+        if (!fromSearch) scope.launch { listState.animateScrollToItem(HEADER_ITEMS + index) }
+    }
+
+    if (searching) {
+        BackHandler { exitSearch() }
+    } else if (selection != null) {
+        BackHandler { selection = null }
+    }
+
+    // ── Chrome ────────────────────────────────────────────────────────────────────────────────
     NavScaffold(
-        "记账",
-        rememberNavScroll(listState),
-        demo = hasDemo,
+        title = when {
+            searching -> "搜索"
+            selection != null -> "已选 ${selection?.size ?: 0} 项"
+            else -> "记账"
+        },
+        scroll = if (searching) NavScrollNone else rememberNavScroll(listState),
+        onBack = if (searching) ({ exitSearch() }) else null,
+        backLabel = "取消",
         trailing = {
-            NavIconButton(Icons.Outlined.ReceiptLong, "打印今日小票", onPrint)
-            NavIconButton(Icons.Outlined.Settings, "设置", onOpenSettings)
+            when {
+                searching -> NavIconButton(Icons.Outlined.Tune, if (filter.activeCount > 0) "筛选 ${filter.activeCount}" else "筛选", onClick = { filterOpen = true })
+                selection != null -> {
+                    Text(
+                        if (selection?.size == visible.size && visible.isNotEmpty()) "取消全选" else "全选",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = XpColors.Accent,
+                        modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill))
+                            .pressableClick(haptic = false) {
+                                val ids = visible.map { it.id }.toSet()
+                                selection = if (selection == ids) emptySet() else ids
+                            }
+                            .padding(horizontal = XpSpace.s, vertical = XpSpace.xs),
+                    )
+                    Text(
+                        "取消",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                        color = XpColors.Accent,
+                        modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill))
+                            .pressableClick(haptic = false) { selection = null }
+                            .padding(horizontal = XpSpace.s, vertical = XpSpace.xs),
+                    )
+                }
+                else -> {
+                    NavIconButton(Icons.Outlined.CalendarMonth, "按天跳转", onClick = { calendarOpen = true })
+                    NavIconButton(Icons.Outlined.ReceiptLong, "打印今日小票", onClick = onPrint)
+                    NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings)
+                }
+            }
         },
     ) { top ->
-        AnimatedContent(
-            targetState = when { txns == null -> 0; else -> 2 },
-            transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
-            label = "ledgerState",
-        ) { state ->
-            when (state) {
-                0 -> LedgerLoading(top)
-                else -> {
-                    var tab by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
-                    Column(Modifier.fillMaxSize().padding(top = top)) {
-                        val visible = filter.apply(txns.orEmpty(), now, query)
-                        val groups = remember(visible, now / 60_000) { LedgerGrouping.group(visible, now) }
-                        // One composed entrance per data load: the list rises 8dp and fades in, then stays still.
-                        val enter = remember(visible.isEmpty()) { androidx.compose.animation.core.Animatable(0f) }
-                        LaunchedEffect(visible.isEmpty()) {
-                            if (reduceMotion) enter.snapTo(1f) else { enter.snapTo(0f); enter.animateTo(1f, tween(220, easing = XpEase.out)) }
-                        }
-                        LazyColumn(
-                            Modifier.fillMaxSize().graphicsLayer {
-                                alpha = enter.value
-                                translationY = (1f - enter.value) * 8.dp.toPx()
-                            },
-                            state = listState,
-                            contentPadding = PaddingValues(bottom = 120.dp),
-                        ) {
-                            item(key = "hero") { LedgerHero(visible, now) }
-                            if (visible.isEmpty()) {
-                                item(key = "empty") { LedgerEmptyState(onAdd = { openAdd(null) }) }
-                            }
-                            groups.forEach { group ->
-                                item(key = "day-${group.dayStart}") {
-                                    DaySection(
-                                        group,
-                                        onDelete = { txn ->
-                                            scope.launch {
-                                                ledger.delete(txn.id)?.let { gone ->
-                                                    toast.show("已删除「${gone.merchant}」", "撤销") { scope.launch { ledger.add(gone) } }
-                                                }
-                                            }
-                                        },
-                                        onEdit = { openAdd(it) },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+        when {
+            txns == null -> LedgerLoading(top)
+            searching -> LedgerSearchPage(
+                top = top,
+                query = query,
+                onQuery = { query = it },
+                onSubmit = { scope.launch { prefs.pushRecent(query) } },
+                recent = recent,
+                onRecentPick = { query = it },
+                onClearRecent = { scope.launch { prefs.clearRecent() } },
+                groups = searchGroups,
+                hidden = hidden,
+                hits = searchHits,
+                onEdit = { editing = it; addOpen = true },
+                onClearConditions = { clearConditions() },
+                filter = filter,
+                onFilter = { filterOpen = true },
+            )
+            else -> LedgerList(
+                top = top,
+                groups = groups,
+                summary = summary,
+                hidden = hidden,
+                onToggleHidden = { scope.launch { prefs.setHidden(!hidden) } },
+                filterCount = filter.activeCount,
+                onOpenSearch = { searching = true },
+                onFilter = { filterOpen = true },
+                selection = selection,
+                onToggleSelect = { txn ->
+                    val current = selection.orEmpty()
+                    selection = if (txn.id in current) current - txn.id else current + txn.id
+                },
+                onLongPress = { txn -> haptics.thud(); selection = setOf(txn.id) },
+                onEdit = { editing = it; addOpen = true },
+                onDelete = { deleteTxn(it) },
+                onAdd = { editing = null; addOpen = true },
+                allEmpty = all.isEmpty(),
+                listState = listState,
+                reduceMotion = reduceMotion,
+                onClearConditions = { clearConditions() },
+            )
+        }
+
+        // Floating delete pill: 48dp, 96dp above the tab bar, disabled (Negative at 30%) until something is picked.
+        if (selection != null) {
+            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp).padding(horizontal = 56.dp)) {
+                DeleteCapsule(count = selection?.size ?: 0) { deleteSelected() }
             }
         }
 
-        UndoToastHost(toast, Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp))
+        UndoToastHost(
+            toast,
+            Modifier.align(Alignment.BottomCenter).padding(bottom = if (selection != null) 164.dp else 96.dp),
+        )
     }
 
-
-    if (sheetOpen) {
+    if (filterOpen) {
+        LedgerFilterSheet(
+            initial = filter,
+            now = now,
+            onApply = { filter = it; filterOpen = false },
+            onDismiss = { filterOpen = false },
+        )
+    }
+    if (calendarOpen) {
+        LedgerCalendarSheet(
+            anchor = LedgerRanges.monthStart(now),
+            selected = null,
+            today = startOfDay(now),
+            onPick = { jumpToDay(it) },
+            onDismiss = { calendarOpen = false },
+        )
+    }
+    if (addOpen) {
         AddTxnSheet(
-            editing = editing, now = System.currentTimeMillis(),
-            onDismiss = { sheetOpen = false; editing = null },
+            editing = editing,
+            now = System.currentTimeMillis(),
+            onDismiss = { addOpen = false; editing = null },
             onAddAll = { list -> scope.launch { list.forEach { ledger.add(it) } } },
-            onSave = { txn ->
-                scope.launch { if (txn.id == 0L) ledger.add(txn) else ledger.update(txn) }
-            },
+            onSave = { txn -> scope.launch { if (txn.id == 0L) ledger.add(txn) else ledger.update(txn) } },
         )
     }
 }
 
-/** The screen's one clay element: a floating capsule that opens the 记一笔 sheet. */
+/** Items above the first day card: summary + search row. */
+private const val HEADER_ITEMS = 2
+
 @Composable
-private fun AddFab(modifier: Modifier, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(50)
-    Row(
-        modifier.clip(shape).background(XpColors.Primary).pressableClick(onClick = onClick)
-            .height(48.dp).padding(horizontal = XpSpace.l + 2.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+private fun LedgerList(
+    top: androidx.compose.ui.unit.Dp,
+    groups: List<DayGroup>,
+    summary: LedgerSummary,
+    hidden: Boolean,
+    onToggleHidden: () -> Unit,
+    filterCount: Int,
+    onOpenSearch: () -> Unit,
+    onFilter: () -> Unit,
+    selection: Set<Long>?,
+    onToggleSelect: (Txn) -> Unit,
+    onLongPress: (Txn) -> Unit,
+    onEdit: (Txn) -> Unit,
+    onDelete: (Txn) -> Unit,
+    onAdd: () -> Unit,
+    allEmpty: Boolean,
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    reduceMotion: Boolean,
+    onClearConditions: () -> Unit,
+) {
+    LazyColumn(
+        Modifier.fillMaxSize().padding(top = top),
+        state = listState,
+        contentPadding = PaddingValues(start = PageInset, end = PageInset, top = XpSpace.m, bottom = 128.dp),
     ) {
-        Icon(Icons.Outlined.Add, contentDescription = null, tint = XpColors.OnPrimary, modifier = Modifier.size(20.dp))
-        Text("记一笔", style = MaterialTheme.typography.labelLarge, color = XpColors.OnPrimary)
+        if (selection == null) {
+            item(key = "summary") { LedgerSummaryCard(summary, hidden, onToggleHidden) }
+            item(key = "search") { LedgerSearchRow(filterCount, onOpenSearch, onFilter) }
+        }
+        if (groups.isEmpty()) {
+            item(key = "empty") {
+                if (allEmpty) {
+                    Column(Modifier.padding(top = XpSpace.xxl)) {
+                        EmptyState(
+                            icon = Icons.Outlined.ReceiptLong,
+                            title = "还没有账单",
+                            body = "开启自动记账，或者说一句「午饭 32」。",
+                            actionLabel = "记一笔",
+                            onAction = onAdd,
+                        )
+                    }
+                } else {
+                    LedgerNoResults(onClearConditions = onClearConditions)
+                }
+            }
+        }
+        itemsIndexed(groups, key = { _, g -> "day-${g.dayStart}" }) { index, group ->
+            Box(Modifier.padding(top = CardGap).staggerIn(if (selection != null) 0 else index, reduceMotion)) {
+                LedgerDayCard(
+                    group = group,
+                    hidden = hidden,
+                    selection = selection,
+                    onToggle = onToggleSelect,
+                    onLongPress = onLongPress,
+                    onEdit = onEdit,
+                    onDelete = onDelete,
+                )
+            }
+        }
+    }
+}
+
+/** Search page: one field, the recent list, and the matching rows shown as the same day cards. */
+@Composable
+private fun LedgerSearchPage(
+    top: androidx.compose.ui.unit.Dp,
+    query: String,
+    onQuery: (String) -> Unit,
+    onSubmit: () -> Unit,
+    recent: List<String>,
+    onRecentPick: (String) -> Unit,
+    onClearRecent: () -> Unit,
+    groups: List<DayGroup>,
+    hidden: Boolean,
+    hits: List<Txn>,
+    onEdit: (Txn) -> Unit,
+    onClearConditions: () -> Unit,
+    filter: LedgerFilter,
+    onFilter: () -> Unit,
+) {
+    Column(Modifier.fillMaxSize().padding(top = top).padding(horizontal = PageInset)) {
+        Row(Modifier.fillMaxWidth().padding(top = XpSpace.m), verticalAlignment = Alignment.CenterVertically) {
+            LedgerSearchField(query, onQuery, onSubmit, Modifier.weight(1f))
+            Text(
+                if (filter.activeCount > 0) "筛选 ${filter.activeCount}" else "筛选",
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (filter.activeCount > 0) XpColors.Accent else XpColors.Ink,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(XpRadius.pill))
+                    .pressableClick(haptic = false, onClick = onFilter)
+                    .padding(start = XpSpace.m, end = XpSpace.xs, top = XpSpace.s, bottom = XpSpace.s),
+            )
+        }
+        if (query.isBlank()) {
+            LedgerRecentSearches(recent, onRecentPick, onClearRecent)
+            return@Column
+        }
+        val outTotal = hits.filter { it.direction == Direction.OUT }.sumOf { it.amountCents }
+        Text(
+            "${hits.size} 笔 · 支出 ${if (hidden) "¥ $AMOUNT_MASK" else "¥ ${outTotal.yuan()}"}",
+            style = MaterialTheme.typography.bodySmall,
+            color = XpColors.InkSecondary,
+            modifier = Modifier.padding(top = XpSpace.m, bottom = XpSpace.xs),
+        )
+        if (hits.isEmpty()) {
+            LedgerNoResults(onClearConditions = onClearConditions)
+            return@Column
+        }
+        LazyColumn(contentPadding = PaddingValues(bottom = 128.dp)) {
+            itemsIndexed(groups, key = { _, g -> "hit-${g.dayStart}" }) { _, group ->
+                Box(Modifier.padding(top = CardGap)) {
+                    LedgerDayCard(
+                        group = group,
+                        hidden = hidden,
+                        selection = null,
+                        onToggle = {},
+                        onLongPress = {},
+                        onEdit = onEdit,
+                        onDelete = {},
+                        swipeToDelete = false,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeleteCapsule(count: Int, onClick: () -> Unit) {
+    val enabled = count > 0
+    Row(
+        Modifier.fillMaxWidth().height(48.dp)
+            .clip(RoundedCornerShape(XpRadius.pill))
+            .background(if (enabled) XpColors.Negative else XpColors.Negative.copy(alpha = 0.3f))
+            .clickable(enabled = enabled, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            if (count > 0) "删除 $count 笔" else "删除",
+            style = MaterialTheme.typography.labelLarge,
+            color = XpColors.OnAccent,
+        )
     }
 }
 
 @Composable
 private fun LedgerLoading(top: androidx.compose.ui.unit.Dp) {
-    Column(Modifier.fillMaxSize().padding(top = top)) {
-        Column(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-            repeat(5) { ShimmerBlock(Modifier.fillMaxWidth().height(52.dp), RoundedCornerShape(12.dp)) }
-        }
-    }
-}
-
-/** Hero: this month's spend as one big number, with a 14-day mini chart (last bar = today, in clay). */
-@Composable
-private fun LedgerHero(txns: List<Txn>, now: Long) {
-    val cal = Calendar.getInstance().apply { timeInMillis = now; set(Calendar.DAY_OF_MONTH, 1) }
-    val monthStart = com.xiaopiao.app.domain.startOfDay(cal.timeInMillis)
-    val out = txns.filter { it.direction == Direction.OUT }
-    val monthTotal = out.filter { it.occurredAt >= monthStart }.sumOf { it.amountCents }
-    val today = com.xiaopiao.app.domain.startOfDay(now)
-    val day = 24L * 60 * 60 * 1000
-    val bars = (13 downTo 0).map { d ->
-        val from = today - d * day
-        out.filter { it.occurredAt >= from && it.occurredAt < from + day }.sumOf { it.amountCents }.toFloat()
-    }
-    Column(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s)) {
-        XpCard {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("本月支出", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
-            }
-            NumberTicker(
-                text = monthTotal.yuan(),
-                style = MaterialTheme.typography.displayMedium.copy(fontFamily = XpFonts.sans),
-                rollFromZero = false,   // the KPI must never show zeros while it rolls
-                staggerMs = 28,
-            )
-            MiniBars(bars, Modifier.padding(top = XpSpace.m))
-        }
+    Column(Modifier.fillMaxSize().padding(top = top).padding(horizontal = PageInset, vertical = XpSpace.m), verticalArrangement = Arrangement.spacedBy(XpSpace.m)) {
+        ShimmerBlock(Modifier.fillMaxWidth().height(116.dp), RoundedCornerShape(XpRadius.contentCard))
+        ShimmerBlock(Modifier.fillMaxWidth().height(40.dp), RoundedCornerShape(XpRadius.pill))
+        repeat(4) { ShimmerBlock(Modifier.fillMaxWidth().height(56.dp), RoundedCornerShape(XpRadius.listCard)) }
     }
 }
