@@ -19,7 +19,7 @@ export function TabBar() {
           const active = to === "/home" ? path === "/home" || path === "/today" : path.startsWith(to);
           const cls = cn(
             "flex flex-col items-center gap-[3px] pb-1.5 pt-2 text-[10px] font-medium tracking-[0.01em] transition-colors duration-150",
-            active ? "text-clay" : "text-ink-3",
+            active ? "text-clay" : "text-ink-2",
           );
           const inner = (
             <>

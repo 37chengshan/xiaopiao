@@ -109,11 +109,11 @@
   --surface-2: oklch(0.948 0.011 95);    /* #F0EEE6 */
   --fill: oklch(0.925 0.015 95);         /* #E9E6DC */
   --ink: oklch(0.192 0.002 106);         /* #141413 */
-  --ink-2: oklch(0.52 0.009 100);        /* #6B6A64 */
-  --ink-3: oklch(0.7 0.011 100);         /* #A3A199 */
+  --ink-2: oklch(0.495 0.009 99);       /* #63625C */
+  --ink-3: oklch(0.626 0.012 95);       /* #8A8880 — icons/placeholder only, not text */
   --hairline: oklch(0.192 0.002 106 / 9%);
-  --clay: oklch(0.6 0.13 40);            /* #C96442 */
-  --clay-soft: oklch(0.93 0.025 45);     /* #F5E6DE */
+  --clay: oklch(0.538 0.14 36);          /* #B04A2E 印泥朱砂 */
+  --clay-soft: oklch(0.945 0.017 50);    /* #F7EAE3 */
   --on-clay: oklch(1 0 0);
   --positive: oklch(0.52 0.08 150);      /* #3F7D4E */
   --negative: oklch(0.52 0.14 32);       /* #B3412F */
@@ -177,7 +177,8 @@
   --ink-3: oklch(0.58 0.01 95);          /* #7C7A72 */
   --hairline: oklch(0.967 0.008 100 / 10%);
   --clay: oklch(0.67 0.13 42);           /* #D97757 */
-  --clay-soft: oklch(0.3 0.03 45);       /* #3B2A23 */
+  --clay-soft: oklch(0.276 0.025 43);    /* #33241E */
+  --on-clay: oklch(0.235 0.004 85);      /* dark text on clay: white fails 4.5:1 */
   --positive: oklch(0.72 0.08 150);
   --negative: oklch(0.67 0.14 32);
   --stamp: oklch(0.56 0.16 27);

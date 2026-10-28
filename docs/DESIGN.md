@@ -4,6 +4,11 @@
 > 方向：**Claude 的色彩与气质**（暖象牙白、陶土橙点缀、衬线标题、安静克制）+ **Apple 的结构与动效**（大标题、inset grouped 列表、毛玻璃导航、发丝分隔、弹簧物理）。
 > 必读 skill：`~/.agents/skills/apple-design/SKILL.md`、`~/.agents/skills/emil-design-eng/SKILL.md`（动效再看 `animate/`、`review-animations/`；Web 移动端看 `mobile-native/`）。
 
+> **设计简报（app-ui-design §1）**：调性 = 安静、温暖、有一点手作感的「生活小票」；核心任务 = 不费力地看清今天花了什么，并领一张有仪式感的小票。
+> 四个杠杆：字体 = 衬线标题（纸质票据/书信感）+ 系统无衬线正文；色彩 = 热敏纸的暖白 + **印泥朱砂**（来自小票上的印章，不是随手挑的「陶土色」）；圆角 = 分层（纸 2 / 控件 10–12 / 分组 14 / sheet 20）；措辞 = 友好、俏皮、不说教。
+> 理由备忘：「奶油底+陶土色」是已知 AI 味（app-ui-design §AI 味清单）。我们用它是因为产品隐喻就是一张纸质小票和一枚红印章，且用户点名要 Claude 风格——所以强调色必须和印章同色系、且稀缺使用。
+> 对比度已用 `app-ui-design/scripts/color_ramp.py contrast` 复核：正文/小字 ≥4.5:1，图标/大字 ≥3:1（`ink-3` 只用于图标与装饰）。
+
 ## 1. 原则（违反任何一条 = 返工）
 
 1. **陶土色是稀缺资源**。每屏最多 1–2 处：主按钮 / 选中 tab / 印章 / 图表里「当前」那一根。其余一律中性墨色。禁止大面积橙色底、橙色渐变 hero、橙色描边卡片。
@@ -26,12 +31,12 @@
 | `surface-2` | 次级容器、按下态 | `#F0EEE6` | `#34332F` |
 | `fill` | 图标方块、胶囊、segmented 底 | `#E9E6DC` | `#3D3C37` |
 | `ink` | 主文字 | `#141413` | `#F5F4EE` |
-| `ink-2` (InkSecondary) | 次文字 | `#6B6A64` | `#B4B1A7` |
-| `ink-3` (InkTertiary) | 占位、禁用、坐标轴 | `#A3A199` | `#7C7A72` |
+| `ink-2` (InkSecondary) | 次文字（最浅的**文字**色） | `#63625C` | `#B4B1A7` |
+| `ink-3` (InkTertiary) | **仅图标**/占位/禁用/装饰线（≥3:1，不可做正文） | `#8A8880` | `#7C7A72` |
 | `hairline` | 分隔线 | `rgba(20,20,19,0.09)` | `rgba(245,244,238,0.10)` |
-| `accent` | 陶土色（稀缺） | `#C96442` | `#D97757` |
-| `accent-soft` | 选中底、极轻强调 | `#F5E6DE` | `#3B2A23` |
-| `on-accent` | 陶土底上的字 | `#FFFFFF` | `#FFFFFF` |
+| `accent` | 印泥朱砂（稀缺，与印章同色系） | `#B04A2E` | `#D97757` |
+| `accent-soft` | 选中底、极轻强调 | `#F7EAE3` | `#33241E` |
+| `on-accent` | 朱砂底上的字 | `#FFFFFF` | `#1F1E1C` |
 | `positive` | 收入、正向 | `#3F7D4E` | `#7DB38A` |
 | `negative` | 删除、错误 | `#B3412F` | `#E0705C` |
 | `stamp` | 印章红（只在小票上） | `#B8322A` | `#C8463B` |
@@ -65,7 +70,7 @@
 - 间距 4 的倍数：4 / 8 / 12 / 16 / 20 / 24 / 32。页面左右 16（Web 手机列 16，桌面列最大 430 居中）。
 - 圆角：grouped 容器 14、按钮 12、胶囊 999、sheet 顶 20、小票纸 2（纸是直角的，靠锯齿边）。
 - **导航栏**：大标题在内容顶部（衬线 32），向下滚动 > 40px 后，顶部出现 material 毛玻璃条 + 居中 17px SemiBold 小标题，底部用渐隐遮罩而不是 1px 线。右侧放 1–2 个 icon 按钮（32px 圆形 `fill` 底）和 `演示` 胶囊。
-- **Tab bar**：material 毛玻璃，图标 24 线性，标签 10px；选中 = `accent` 图标+文字（不要选中底色块），未选中 `ink-3`。
+- **Tab bar**：material 毛玻璃，图标 24 线性，标签 10px；选中 = `accent` 图标+文字（不要选中底色块），未选中 `ink-2`。
 - **Grouped list**：section header 13px `ink-2` 左对齐 + 上 24 下 8；行高 ≥ 52（双行）/ 44（单行）；左图标方块 30、发丝分隔从文字起始处开始（inset）；右侧金额 tabular、chevron `ink-3`。
 - **按钮**：Primary = `ink` 底 `bg` 字（Claude 风黑按钮）或 `accent` 底（每屏最多 1 个）；Secondary = `fill` 底 `ink` 字；Plain = 无底 `accent` 字。高 48（大）/ 36（小），按下 `scale(0.97)` 100ms ease-out，按下即反馈。
 - **Segmented control**：`fill` 底，选中块 `surface` + 微阴影，选中块用 layout/shared 动画滑动（临界阻尼弹簧，response 0.3）。
@@ -88,6 +93,15 @@
 | 减少动态效果 | 一律换成 150ms 淡入淡出；小票直接出最终态 |
 
 禁止：`transition: all`、`scale(0)` 入场、`ease-in`、UI 动画 > 300ms（仪式除外）、tab 切换动画、无处不在的 hover 位移。
+
+## 5b. 质量门（app-ui-design，交付前逐项过）
+
+- **灰度检查**：截图转灰度（`ffmpeg -i in.png -vf hue=s=0 out.png`），眯眼看仍主次分明、每屏一个焦点、一个主操作。
+- **三种形态**：每个列表/卡片都要有 空 / 1 条 / 很多条；外加 加载 / 错误。
+- **最坏数据压测**（改 fixture，不改组件）：超长商户名（「美团外卖·老北京炸酱面（望京SOHO店）加辣不要香菜」）、一个字的商户、¥0 / ¥0.01 / ¥99,999.99 / 7 位数金额、一天 40 笔、零消费日、跨年日期；字体缩放 1.3 和 2.0（Android `adb shell settings put system font_scale 1.3`）、320dp 窄屏。金额永不截断；名称单行末尾省略，详情可看全文。
+- **触控目标**：Android ≥48dp，Web ≥44px（小图标按钮扩展点击区域）。
+- **平台收尾**：edge-to-edge 与安全区、预测性返回（Android 13+ `BackHandler` 正常）、无障碍标签（图标按钮都有 contentDescription / aria-label）。
+- **评审输出**：交付报告附一张 `| # | 严重度 | Before | After | Why（规则） |` 表（Broken / Ugly / Fragile），列出自己发现并修掉的问题。
 
 ## 6. 主题切换
 
