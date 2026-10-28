@@ -1,5 +1,6 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { DUR, EASE_OUT } from "@/lib/motion";
 import type { StepIndex } from "../logic/state";
 import { getInsights, merchantActions, useMerchantState } from "../store";
 import { DecideStep } from "./DecideStep";
@@ -12,6 +13,7 @@ import { TopBar } from "./TopBar";
 export function MerchantPage() {
   const state = useMerchantState();
   const insights = getInsights();
+  const reduce = useReducedMotion() ?? false;
   const [loading, setLoading] = useState(true);
   const topRef = useRef<HTMLDivElement>(null);
 
@@ -36,9 +38,9 @@ export function MerchantPage() {
 
       <motion.div
         key={state.step}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+        initial={reduce ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: DUR.fade, ease: EASE_OUT }}
       >
         {state.step === 0 &&
           (loading ? <InsightsSkeleton /> : <InsightsStep insights={insights} onNext={() => go(1)} />)}

@@ -1,10 +1,11 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUp, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DemoPill } from "@/components/app/DemoPill";
 import { Chip, XButton } from "@/components/app/kit";
 import { ErrorState, LoadingState } from "@/components/app/States";
+import { EASE_OUT } from "@/lib/motion";
 import { t } from "@/lib/strings";
 import { cn } from "@/lib/utils";
 import { useLedger } from "@/services/LedgerProvider";
@@ -76,6 +77,7 @@ export function HomeChat() {
   const ledger = useLedger();
   const { txns, now, isLoading, isError, refetch, mode, add } = ledger;
   const entry = useEntry();
+  const reduce = useReducedMotion() ?? false;
   const [msgs, setMsgs] = useState<Msg[]>(store.mode === mode ? store.msgs : []);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -274,7 +276,7 @@ export function HomeChat() {
             <div ref={contentRef} className="space-y-6">
               {msgs.map((m) =>
                 m.role === "user" ? (
-                  <motion.div key={m.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }} className="flex justify-end">
+                  <motion.div key={m.id} initial={reduce ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18, ease: EASE_OUT }} className="flex justify-end">
                     <div className="max-w-[82%] rounded-[18px] bg-surface-2 px-3.5 py-2 text-[16px] leading-[24px] text-ink">{m.text}</div>
                   </motion.div>
                 ) : (
@@ -288,7 +290,7 @@ export function HomeChat() {
                   <Mark />
                   <div className="flex gap-1">
                     {[0, 1, 2].map((i) => (
-                      <motion.span key={i} className="size-1.5 rounded-full bg-ink-3" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: i * 0.16 }} />
+                      <motion.span key={i} className="size-1.5 rounded-full bg-ink-3" animate={reduce ? { opacity: 0.6 } : { opacity: [0.3, 1, 0.3] }} transition={reduce ? { duration: 0 } : { repeat: Infinity, duration: 1, delay: i * 0.16 }} />
                     ))}
                   </div>
                 </div>

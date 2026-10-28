@@ -214,6 +214,23 @@
   --chart-5: oklch(0.68 0.06 330);
 }
 
+/*
+ * Motion tokens (docs/DESIGN.md §5) — the only place durations and curves are defined.
+ * `--ease-out` / `--ease-in-out` / `--ease-drawer` live in @theme above; JS mirrors in src/lib/motion.ts.
+ * Budget: press ≤160ms, UI ≤300ms; no ease-in; transform/opacity/clip-path only.
+ */
+:root {
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* small overshoot: release, undo toast */
+  --dur-press: 120ms; /* press-down, starts on pointerdown */
+  --dur-release: 320ms; /* spring back after release */
+  --dur-fade: 120ms; /* route crossfade */
+  --dur-tint: 160ms; /* icon / label colour tint */
+  --dur-row: 180ms; /* new list row */
+  --dur-collapse: 160ms; /* deleted row */
+  --dur-sheet: 280ms; /* drawers, sheets, scrim (with --ease-drawer) */
+  --dur-count: 520ms; /* KPI count-up, ≤600ms */
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -344,19 +361,54 @@
   }
 }
 
-/* Buttons (2026-10-28 rewrite): flat fills, no borders/gradients/inner highlights/shadows. Feel comes from press motion. */
+/*
+ * Buttons (2026-10-28 rewrite): flat fills, no borders/gradients/inner highlights/shadows. Feel comes from press motion.
+ * `:active` fires on pointerdown, so feedback starts on the press, not the release; the release inherits a spring curve.
+ */
 .press {
   transition:
-    transform 180ms var(--ease-out),
-    opacity 180ms var(--ease-out);
+    transform var(--dur-release) var(--ease-spring),
+    opacity var(--dur-release) var(--ease-out);
 }
 .press:active {
   transform: scale(0.97);
-  opacity: 0.88;
+  opacity: 0.86;
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    opacity var(--dur-press) var(--ease-out);
 }
 .press:disabled {
   transform: none;
   opacity: 0.4;
+}
+
+/*
+ * vaul bottom sheets: 280ms in and out on the iOS drawer curve; the scrim shares the clock so it fades with the
+ * sheet. 1:1 drag tracking and release-velocity projection are vaul's own.
+ * The extra `html` raises specificity over vaul's runtime-injected rules.
+ */
+html [data-vaul-drawer] {
+  transition-duration: var(--dur-sheet);
+  transition-timing-function: var(--ease-drawer);
+  animation-duration: var(--dur-sheet);
+  animation-timing-function: var(--ease-drawer);
+}
+html [data-vaul-overlay][data-vaul-snap-points="false"] {
+  animation-duration: var(--dur-sheet);
+  animation-timing-function: var(--ease-drawer);
+}
+html [data-vaul-overlay][data-vaul-snap-points="true"] {
+  transition-duration: var(--dur-sheet);
+  transition-timing-function: var(--ease-drawer);
+}
+
+/* Toasts (undo, confirmations): enter on a short spring instead of sonner's default ease. */
+html [data-sonner-toast] {
+  transition:
+    transform var(--dur-release) var(--ease-spring),
+    opacity var(--dur-row) var(--ease-out),
+    height var(--dur-release) var(--ease-out),
+    box-shadow 200ms var(--ease-out);
 }
 
 /* Glass: only for controls that float over content (tab capsule, return pill). Soft shadow in light, none in dark. */

@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Check, SlidersHorizontal, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CATEGORY_ICONS } from "@/components/app/categoryIcons";
+import { CountUpMoney } from "@/components/app/CountUp";
 import { Group, IconTile, Money, Row, XButton } from "@/components/app/kit";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, type Subscription, type Txn, startOfDay, yuan } from "../../domain/types";
@@ -157,7 +158,7 @@ export function WeeklySummaryCard({ txns, now }: { txns: readonly Txn[]; now: nu
     <Group className={CARD}>
       <div className="pb-4">
         <CardHead>本周颁奖典礼</CardHead>
-        <Money cents={r.totalCents} className="mt-0.5 block px-4 text-[34px] font-semibold leading-[40px] text-ink" />
+        <CountUpMoney cents={r.totalCents} className="mt-0.5 block px-4 text-[34px] font-semibold leading-[40px] text-ink" />
         <p className="mt-1 px-4 text-[13px] leading-[18px] text-ink-2">
           {r.deltaPct === null ? (
             r.comment
@@ -189,7 +190,7 @@ export function SubscriptionSummaryCard({ txns, now }: { txns: readonly Txn[]; n
     <Group className={CARD}>
       <div className="pb-3">
         <CardHead>订阅侦探 · 一年大约</CardHead>
-        <Money cents={yearly} className="mt-0.5 block px-4 text-[34px] font-semibold leading-[40px] text-ink" />
+        <CountUpMoney cents={yearly} className="mt-0.5 block px-4 text-[34px] font-semibold leading-[40px] text-ink" />
         <ul className="mt-2.5 space-y-1 px-4 text-[14px] leading-[20px]">
           {subs.slice(0, 4).map((s) => (
             <li key={s.merchant} className="flex items-baseline justify-between gap-3">

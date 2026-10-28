@@ -1,11 +1,13 @@
-import { motion, useMotionValue, useTransform } from "framer-motion";
+import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
 import { FileUp, NotebookPen, Plus, Trash2 } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { CATEGORY_ICONS, CATEGORY_TONES } from "@/components/app/categoryIcons";
+import { CountUpMoney } from "@/components/app/CountUp";
 import { Group, IconButton, IconTile, Money, Row, SectionHeader, XButton } from "@/components/app/kit";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/app/States";
+import { DUR, EASE_OUT } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useLedger } from "@/services/LedgerProvider";
 import { CATEGORIES, type Txn } from "../../domain/types";
@@ -33,14 +35,21 @@ function groupByDay(txns: readonly Txn[]): DayGroup[] {
 }
 
 /** One ledger row. Swipe left to reveal/trigger delete (1:1 tracking, snaps back if released early); tap to edit. */
-function TxnRow({ txn, onEdit, onDelete }: { txn: Txn; onEdit: () => void; onDelete: () => void }) {
+function TxnRow({ txn, fresh, reduce, onEdit, onDelete }: { txn: Txn; fresh: boolean; reduce: boolean; onEdit: () => void; onDelete: () => void }) {
   const dragged = useRef(false);
   const x = useMotionValue(0);
   const reveal = useTransform(x, [-24, 0], [1, 0]);
   const cat = CATEGORIES[txn.category];
   const income = txn.direction === "IN";
   return (
-    <div className="group relative overflow-hidden">
+    <motion.div
+      layout="position"
+      initial={fresh && !reduce ? { opacity: 0, y: 8 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduce ? { opacity: 0, transition: { duration: 0.01 } } : { opacity: 0, y: -6, transition: { duration: DUR.collapse, ease: EASE_OUT } }}
+      transition={{ duration: DUR.row, ease: EASE_OUT }}
+      className="group relative overflow-hidden"
+    >
       <motion.div style={{ opacity: reveal }} className="absolute inset-y-0 right-0 flex w-24 items-center justify-center gap-1 bg-negative text-[13px] font-medium text-on-clay" aria-hidden>
         <Trash2 className="size-[17px]" strokeWidth={1.9} />
         删除
@@ -75,7 +84,7 @@ function TxnRow({ txn, onEdit, onDelete }: { txn: Txn; onEdit: () => void; onDel
           <Trash2 className="size-4" strokeWidth={1.75} />
         </button>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -95,7 +104,7 @@ function MonthHero({ txns, now }: { txns: readonly Txn[]; now: number }) {
     <div className="mx-4 mb-1 flex items-end justify-between gap-4 rounded-[20px] bg-surface p-4">
       <div>
         <p className="text-[13px] text-ink-2">{d.getMonth() + 1} 月支出</p>
-        <Money cents={month} className="mt-0.5 block text-[40px] font-semibold leading-[46px] text-ink" />
+        <CountUpMoney cents={month} className="mt-0.5 block text-[40px] font-semibold leading-[46px] text-ink" />
       </div>
       <div className="flex h-12 items-end gap-[5px]" aria-hidden>
         {days.map((v, i) => (
@@ -110,6 +119,14 @@ export function LedgerPage() {
   const { txns, now, isLoading, isError, refetch, remove, restore } = useLedger();
   const entry = useEntry();
   const groups = useMemo(() => groupByDay(txns), [txns]);
+  const reduce = useReducedMotion() ?? false;
+  // Only rows added after the first paint rise in; existing rows are already there and must not re-animate.
+  const seen = useRef<Set<string> | null>(null);
+  if (!seen.current) seen.current = new Set(txns.map((t) => t.id));
+  const fresh = useMemo(() => new Set(txns.filter((t) => !seen.current!.has(t.id)).map((t) => t.id)), [txns]);
+  useEffect(() => {
+    for (const t of txns) seen.current!.add(t.id);
+  }, [txns]);
 
   const del = async (t: Txn) => {
     await remove(t.id);
@@ -167,9 +184,11 @@ export function LedgerPage() {
                 {relativeDayLabel(g.dayStart, now)}
               </SectionHeader>
               <Group inset="icon">
-                {g.items.map((t) => (
-                  <TxnRow key={t.id} txn={t} onEdit={() => entry.open({ initial: t, editing: true })} onDelete={() => void del(t)} />
-                ))}
+                <AnimatePresence initial={false}>
+                  {g.items.map((t) => (
+                    <TxnRow key={t.id} txn={t} fresh={fresh.has(t.id)} reduce={reduce} onEdit={() => entry.open({ initial: t, editing: true })} onDelete={() => void del(t)} />
+                  ))}
+                </AnimatePresence>
               </Group>
             </section>
           ))}

@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import type { Ref } from "react";
+import { EASE_OUT, SPRING_LAND } from "@/lib/motion";
 import { NumberTicker } from "./NumberTicker";
 import { DISCLAIMER, fmtMoney, STUB, TAGLINE, type DocGroup, type ReceiptDoc } from "./receiptModel";
 import { PAPER_W, paperClipPath } from "./zigzag";
@@ -20,12 +21,12 @@ function Stamp({ text, state }: { text: string; state: StampState }) {
         initial={false}
         animate={
           state === "slam"
-            ? { scale: [1.5, 0.93, 1.05, 0.985, 1.012, 1], rotate: -8, opacity: [0, 0.95, 0.92, 0.92, 0.92, 0.92] }
+            ? { scale: 1, rotate: -8, opacity: 0.92 }
             : shown
               ? { scale: 1, rotate: -8, opacity: 0.92 }
               : { scale: 1.5, rotate: -8, opacity: 0 }
         }
-        transition={state === "slam" ? { duration: 0.62, times: [0, 0.26, 0.48, 0.66, 0.84, 1], ease: [0.23, 1, 0.32, 1] } : { duration: 0 }}
+        transition={state === "slam" ? SPRING_LAND : { duration: 0 }}
         className="relative rounded-[6px] border-2 border-stamp px-3.5 py-1.5 font-serif text-[19px] font-semibold tracking-[0.14em] text-stamp mix-blend-multiply [box-shadow:inset_0_0_0_1.5px_var(--paper),inset_0_0_0_2.5px_var(--stamp)]"
       >
         {text}
@@ -35,13 +36,13 @@ function Stamp({ text, state }: { text: string; state: StampState }) {
               className="absolute -inset-1 rounded-[9px] border-[1.5px] border-stamp"
               initial={{ scale: 1, opacity: 0.55 }}
               animate={{ scale: 1.32, opacity: 0 }}
-              transition={{ duration: 0.55, ease: [0.23, 1, 0.32, 1], delay: 0.08 }}
+              transition={{ duration: 0.55, ease: EASE_OUT, delay: 0.08 }}
             />
             <motion.span
               className="absolute -inset-0.5 rounded-[8px] bg-stamp/15"
               initial={{ scale: 0.96, opacity: 0.9 }}
               animate={{ scale: 1.12, opacity: 0 }}
-              transition={{ duration: 0.7, ease: [0.23, 1, 0.32, 1], delay: 0.05 }}
+              transition={{ duration: 0.7, ease: EASE_OUT, delay: 0.05 }}
             />
           </>
         )}

@@ -10,7 +10,7 @@ function Digit({ digit, rolled, delay, instant }: { digit: number; rolled: boole
         className="block"
         style={{
           transform: `translateY(${rolled ? -digit * 10 : 0}%)`,
-          transition: instant ? "none" : `transform 760ms var(--ease-out) ${delay}ms`,
+          transition: instant ? "none" : `transform 560ms var(--ease-out) ${delay}ms`,
         }}
       >
         {Array.from({ length: 10 }, (_, i) => (

@@ -1,8 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Toaster as Sonner } from "sonner";
 import { EntryProvider } from "@/features/entry/EntryProvider";
+import { DUR, EASE_OUT } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useLedger } from "@/services/LedgerProvider";
 import { FirstRun, Onboarding } from "./FirstRun";
@@ -49,6 +51,11 @@ function useKeyboard() {
 export function AppShell({ children }: { children: ReactNode }) {
   const { mode } = useLedger();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const reduce = useReducedMotion() ?? false;
+  // Crossfade only when the route actually changes; the first paint appears as-is.
+  const prevPath = useRef(path);
+  const entering = prevPath.current !== path;
+  prevPath.current = path;
   const gated = CONSUMER_PATHS.includes(path) && mode === null;
   const { typing, vvh } = useKeyboard();
   const replaying = useReplayingOnboarding();
@@ -65,7 +72,17 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         <EntryProvider>
           <main className="absolute inset-0 overflow-y-auto overscroll-contain">
-            {gated ? <FirstRun /> : <div className="relative min-h-full pb-[var(--tabbar-h)]">{children}</div>}
+            {gated ? <FirstRun /> : (
+              <motion.div
+                key={path}
+                initial={entering && !reduce ? { opacity: 0 } : false}
+                animate={{ opacity: 1 }}
+                transition={{ duration: DUR.fade, ease: EASE_OUT }}
+                className="relative min-h-full pb-[var(--tabbar-h)]"
+              >
+                {children}
+              </motion.div>
+            )}
           </main>
           {replaying && !gated && (
             <div className="absolute inset-0 z-40 overflow-y-auto bg-bg">

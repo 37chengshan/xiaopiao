@@ -87,12 +87,17 @@
 | Sheet / 抽屉 | damping 0.85, response 0.3；拖拽释放带速度 |
 | 动量交互（甩卡、撕票、盖章） | damping 0.7–0.8，可回弹 |
 | 颜色/透明度 | 180ms ease-out `cubic-bezier(0.23,1,0.32,1)` |
-| 按下反馈 | scale 0.97，100ms ease-out |
+| 按下反馈 | scale 0.97，100–160ms ease-out，松手 320ms 弹簧回弹（`:active` 在 pointerdown 即生效） |
+| Tab / 路由切换 | 内容 120ms 交叉淡入（不位移）；选中 thumb 用 spring（bounce 0.18 / 0.42s）滑过去；图标着色 160ms |
+| 列表入场 / 删除 | 新行 8px 上浮 + 淡入 180ms ease-out；删除 160ms 收起，撤销 toast 弹簧入场 |
+| 数字 | tabular-nums；KPI 变化 count-up ≤600ms ease-out，首帧直接显示真值，不出现 0 占位 |
 | 列表入场 stagger | 每项 30–50ms，最多 8 项，只在首次进入 |
 | 主题切换 | 背景/文字颜色 200ms 过渡 |
-| 减少动态效果 | 一律换成 150ms 淡入淡出；小票直接出最终态 |
+| 减少动态效果 | 一律贴地（无位移/缩放/循环）；小票直接出最终态 |
 
-禁止：`transition: all`、`scale(0)` 入场、`ease-in`、UI 动画 > 300ms（仪式除外）、tab 切换动画、无处不在的 hover 位移。
+实现：`web/src/styles.css` 的 motion token 块（`--ease-out` / `--ease-drawer` / `--ease-spring` + `--dur-*`）是唯一来源，JS 镜像在 `web/src/lib/motion.ts`；Sheet 由 vaul 负责 1:1 拖拽与速度投影，时长走 `--dur-sheet`。
+
+禁止：`transition: all`、`scale(0)` 入场、`ease-in`、UI 动画 > 300ms（仪式除外）、全屏滑动转场、动画 width/height/margin。
 
 ## 5b. 质量门（app-ui-design，交付前逐项过）
 

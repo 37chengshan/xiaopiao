@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import type { DailyReceipt } from "../../domain/types";
+import { DUR, EASE_OUT } from "@/lib/motion";
 import { ReceiptPaper } from "./ReceiptPaper";
 import { ShareSheet } from "./ShareSheet";
 import { PAPER_W, paperClipPath, STUB_OVERLAP, stubClipPath, TOOTH_DEPTH } from "./zigzag";
@@ -36,10 +37,19 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
   const rot = useMotionValue(0);
   const opacity = useMotionValue(1);
   const stretch = useMotionValue(1);
+  /** 2px vertical nudge per printer tick: the paper shakes like it is being pulled through the gears. */
+  const shake = useMotionValue(0);
   const shadow = useTransform(y, [0, 420], [1, 0.15]);
   const [avail, setAvail] = useState(0);
 
-  const seq = usePrintSequence({ paperRef, reveal, reduce });
+  const kick = () => {
+    if (reduce) return;
+    shake.stop();
+    shake.set(2);
+    void animate(shake, 0, { duration: 0.06, ease: EASE_OUT });
+  };
+
+  const seq = usePrintSequence({ paperRef, reveal, reduce, onTick: kick });
   const { phase, send } = seq;
   const tear = useTear(
     { x, y, rot, opacity, stretch },
@@ -78,7 +88,11 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
   const fit = seq.paperH && avail ? Math.max(0.5, Math.min(1, (avail - PAPER_TOP - RESERVED_BOTTOM) / seq.paperH)) : 1;
   const heightRef = useRef(0);
   heightRef.current = seq.paperH;
-  const clipHeight = useTransform(reveal, (v) => (heightRef.current ? Math.min(heightRef.current, Math.max(0, v)) : Math.max(0, v)));
+  // The paper is laid out once at full height and revealed with clip-path: the print head never re-lays-out.
+  const revealClip = useTransform(reveal, (v) => {
+    const h = heightRef.current;
+    return h ? `inset(0px 0px ${Math.max(0, h - v)}px 0px)` : "inset(0px 0px 100% 0px)";
+  });
   const developY = useTransform(reveal, (v) => Math.max(0, v) - 56);
   const edgeY = useTransform(reveal, (v) => Math.max(0, v) - 1);
   const busy = phase === "idle" || phase === "printing";
@@ -91,7 +105,7 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
         className="absolute inset-0 bg-scrim"
         initial={reduce ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+        transition={{ duration: DUR.sheet, ease: EASE_OUT }}
         onClick={ready ? close : undefined}
       />
 
@@ -105,11 +119,13 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
             aria-label={ready ? "向下拖动撕下小票" : undefined}
           >
             <div aria-hidden className="absolute left-0 bg-paper" style={{ top: -STUB_OVERLAP, width: PAPER_W, height: STUB_OVERLAP + TOOTH_DEPTH, clipPath: stubClipPath() }} />
-            <motion.div aria-hidden className="pointer-events-none absolute left-0 top-2.5" style={{ height: clipHeight, width: PAPER_W, opacity: shadow }}>
+            <motion.div aria-hidden className="pointer-events-none absolute left-0 top-2.5" style={{ height: seq.paperH || "100%", width: PAPER_W, opacity: shadow, clipPath: revealClip }}>
               <div className="size-full bg-black/35 blur-[9px]" style={{ clipPath: paperClipPath() }} />
             </motion.div>
-            <motion.div className="relative overflow-hidden" style={{ height: clipHeight }}>
-              <ReceiptPaper ref={paperRef} doc={doc} stamp={seq.stamp} tickerRun={seq.tickerRun} instant={seq.instant} />
+            <motion.div className="relative" style={{ clipPath: revealClip }}>
+              <motion.div style={{ y: shake }}>
+                <ReceiptPaper ref={paperRef} doc={doc} stamp={seq.stamp} tickerRun={seq.tickerRun} instant={seq.instant} />
+              </motion.div>
               {seq.edge && (
                 <motion.div
                   aria-hidden
@@ -153,7 +169,7 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
             initial={reduce ? false : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, transition: { duration: 0.08 } }}
-            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+            transition={{ duration: 0.18, ease: EASE_OUT }}
             aria-live="polite"
           >
             {!busy && <ChevronsDown className="size-4 shrink-0 text-ink-2" strokeWidth={1.75} aria-hidden />}
