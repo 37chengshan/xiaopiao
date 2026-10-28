@@ -1,5 +1,6 @@
+import { animate, motion, useMotionValue, useReducedMotion } from "framer-motion";
 import { Check, Copy } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Segmented, XButton } from "@/components/app/kit";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
@@ -10,6 +11,9 @@ import { receiptPlainText, type Variant } from "./receiptModel";
 import { renderReceiptPng, saveBlob, shareReceiptFile } from "./receiptImage";
 import { ReceiptPaper } from "./ReceiptPaper";
 import { useReceiptDoc } from "./useReceiptDoc";
+
+const ZOOM = 0.62;
+const CARD_PAD = 44;
 
 const VARIANTS = [
   { value: "full", label: "完整" },
@@ -22,6 +26,20 @@ export function ShareSheet({ receipt, open, onClose }: { receipt: DailyReceipt; 
   const [gradient, setGradient] = useState(DEFAULT_GRADIENT);
   const [busy, setBusy] = useState<null | "share" | "save">(null);
   const doc = useReceiptDoc(receipt, variant);
+  const reduce = useReducedMotion() ?? false;
+  const [paperBox, setPaperBox] = useState<HTMLDivElement | null>(null);
+  const cardH = useMotionValue(0);
+  const seen = useRef(false);
+
+  // the card follows the paper's height with a spring when switching full / brief
+  useLayoutEffect(() => {
+    const h = paperBox?.offsetHeight;
+    if (!h) return;
+    const target = h * ZOOM + CARD_PAD;
+    if (!seen.current || reduce) cardH.set(target);
+    else void animate(cardH, target, { type: "spring", bounce: 0.15, duration: 0.5 });
+    seen.current = true;
+  }, [doc, paperBox, reduce, cardH]);
 
   const copy = async () => {
     try {
@@ -68,11 +86,11 @@ export function ShareSheet({ receipt, open, onClose }: { receipt: DailyReceipt; 
           </div>
           <DrawerDescription className="sr-only">选择背景和版式，然后分享或保存图片</DrawerDescription>
 
-          <div className="relative grid place-items-center overflow-hidden rounded-[16px] px-4 py-5" style={{ backgroundImage: cssGradient(gradient) }}>
-            <div className="[filter:drop-shadow(0_8px_14px_rgb(0_0_0/0.22))]" style={{ zoom: variant === "full" ? 0.62 : 0.7 }}>
+          <motion.div className="relative flex justify-center overflow-hidden rounded-[16px] pt-[22px]" style={{ backgroundImage: cssGradient(gradient), height: cardH }}>
+            <div ref={setPaperBox} className="h-fit [filter:drop-shadow(0_8px_14px_rgb(0_0_0/0.22))]" style={{ transform: `scale(${ZOOM})`, transformOrigin: "50% 0" }}>
               <ReceiptPaper doc={doc} stamp="shown" tickerRun instant />
             </div>
-          </div>
+          </motion.div>
 
           <div role="radiogroup" aria-label="背景" className="-mx-4 mt-3 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
             {GRADIENTS.map((g) => {

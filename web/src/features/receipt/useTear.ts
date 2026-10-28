@@ -2,13 +2,15 @@ import { animate, type MotionValue } from "framer-motion";
 import { useRef, useState, type PointerEvent } from "react";
 import { releaseVelocity, rubberband, shouldTear, TEAR_DISTANCE } from "./physics";
 import { tearRip } from "./sound";
-import { vibrate } from "./usePrintSequence";
+import { haptic } from "./haptics";
 
 interface Values {
   x: MotionValue<number>;
   y: MotionValue<number>;
   rot: MotionValue<number>;
   opacity: MotionValue<number>;
+  /** scaleY from the perforation: the paper stretches a hair before the fibres give */
+  stretch: MotionValue<number>;
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -18,7 +20,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
  * rubber-band when pulled up, release velocity projected to decide, then handed to a spring to fly out.
  * Grabbing a settling paper picks it up from its live position (apple-design §3).
  */
-export function useTear({ x, y, rot, opacity }: Values, opts: { enabled: boolean; reduce: boolean; onTear: () => void; onTorn: () => void }) {
+export function useTear({ x, y, rot, opacity, stretch }: Values, opts: { enabled: boolean; reduce: boolean; onTear: () => void; onTorn: () => void }) {
   const grab = useRef<{ id: number; ox: number; oy: number; samples: { t: number; y: number }[] } | null>(null);
   const armedRef = useRef(false);
   const [armed, setArmed] = useState(false);
@@ -30,16 +32,20 @@ export function useTear({ x, y, rot, opacity }: Values, opts: { enabled: boolean
     if (!opts.enabled) return;
     opts.onTear();
     tearRip();
-    vibrate(12);
+    haptic("tear");
     if (opts.reduce) {
       void animate(opacity, 0, { duration: 0.15, ease: "easeOut" }).then(opts.onTorn);
       return;
     }
     const dir = x.get() < 0 ? -1 : 1;
     const spring = { type: "spring" as const, stiffness: 240, damping: 26, restDelta: 4 };
-    void animate(rot, rot.get() + dir * 6, spring);
-    void animate(x, x.get() + dir * 24, spring);
-    void animate(y, window.innerHeight + 240, { ...spring, velocity: Math.max(velocity, 500) }).then(opts.onTorn);
+    // 1) stretch along the perforation, 2) fibres tear: snap back, 3) fly out rotating
+    void animate(stretch, 1.04, { duration: 0.09, ease: [0.23, 1, 0.32, 1] }).then(() => {
+      void animate(stretch, 1, { type: "spring", stiffness: 700, damping: 18 });
+      void animate(rot, rot.get() + dir * 6, spring);
+      void animate(x, x.get() + dir * 24, spring);
+      void animate(y, window.innerHeight + 240, { ...spring, velocity: Math.max(velocity, 500) }).then(opts.onTorn);
+    });
   };
 
   const back = (velocity: number) => {
@@ -72,7 +78,7 @@ export function useTear({ x, y, rot, opacity }: Values, opts: { enabled: boolean
       if (now !== armedRef.current) {
         armedRef.current = now;
         setArmed(now);
-        if (now) vibrate(8);
+        if (now) haptic("arm");
       }
     },
     onPointerUp: (e: PointerEvent<HTMLElement>) => {

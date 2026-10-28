@@ -49,8 +49,22 @@ function getCtx(): AudioContext | null {
 /** Call synchronously from the tap that starts printing; browsers only allow audio after a gesture. */
 export function unlockAudio(): void {
   if (!isReceiptSoundOn()) return;
+  // iOS: Web Audio follows the ringer switch unless the page declares itself playback media (Safari 16.4+).
+  try {
+    const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+    if (session) session.type = "playback";
+  } catch {
+    /* not supported */
+  }
   const c = getCtx();
-  if (c && c.state === "suspended") void c.resume().catch(() => undefined);
+  if (!c) return;
+  if (c.state === "suspended") void c.resume().catch(() => undefined);
+  // a silent one-sample buffer inside the gesture fully unlocks older iOS
+  const b = c.createBuffer(1, 1, 22050);
+  const src = c.createBufferSource();
+  src.buffer = b;
+  src.connect(c.destination);
+  src.start(0);
 }
 
 function ready(): AudioContext | null {

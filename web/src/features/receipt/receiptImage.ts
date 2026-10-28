@@ -1,5 +1,5 @@
 import type { ReceiptGradient } from "./gradients";
-import { DISCLAIMER, fmtMoney, STUB, TAGLINE, type ReceiptDoc } from "./receiptModel";
+import { DISCLAIMER, displayWidth, fmtMoney, STUB, TAGLINE, type ReceiptDoc } from "./receiptModel";
 import { bottomEdge, PAPER_W, topEdge } from "./zigzag";
 
 /**
@@ -22,7 +22,19 @@ type Op =
   | { k: "rule"; y: number }
   | { k: "stamp"; y: number; text: string };
 
-function layout(doc: ReceiptDoc): { ops: Op[]; height: number } {
+function wrapText(text: string, cols: number): string[] {
+  const out: string[] = [];
+  let cur = "";
+  for (const ch of text) {
+    if (displayWidth(cur + ch) > cols && cur) {
+      out.push(cur);
+      cur = ch;
+    } else cur += ch;
+  }
+  return cur ? [...out, cur] : out;
+}
+
+export function layout(doc: ReceiptDoc): { ops: Op[]; height: number } {
   const ops: Op[] = [];
   let y = 30;
   const rule = () => {
@@ -49,7 +61,9 @@ function layout(doc: ReceiptDoc): { ops: Op[]; height: number } {
   ops.push({ k: "center", y: y + 10, text: DISCLAIMER, size: 10.5, font: MONO, dim: true });
   y += 16;
   rule();
-  if (doc.zero) {
+  if (doc.variant === "brief") {
+    /* brief: no detail lines */
+  } else if (doc.zero) {
     ops.push({ k: "center", y: y + 28, text: "今日无消费", size: 22, font: SERIF, weight: 600 });
     y += 40;
     ops.push({ k: "center", y: y + 8, text: "钱包今天睡着了 🌙", size: 11.5, font: MONO, dim: true });
@@ -75,9 +89,12 @@ function layout(doc: ReceiptDoc): { ops: Op[]; height: number } {
     ops.push({ k: "center", y: y + 14, text: `${doc.stats.count}   ${doc.stats.delta}   ${doc.stats.weekDay}`, size: 10.5, font: MONO, dim: true });
     y += 20;
     rule();
-    ops.push({ k: "center", y: y + 16, text: `「${doc.remark}」`, size: 12.5, font: SERIF });
-    y += 26;
-  } else rule();
+  }
+  for (const part of wrapText(`「${doc.remark}」`, 40)) {
+    ops.push({ k: "center", y: y + 16, text: part, size: 12.5, font: SERIF });
+    y += 21;
+  }
+  y += 5;
   ops.push({ k: "stamp", y: y + 44, text: doc.stampText });
   y += 88;
   if (doc.variant === "full" && doc.badgeReason) {

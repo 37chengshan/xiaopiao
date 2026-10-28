@@ -55,3 +55,51 @@ describe("gradients", () => {
     for (const g of GRADIENTS) expect(luminance(g.stops[1]) < 0.2).toBe(g.dark);
   });
 });
+
+describe("worst-case data", () => {
+  it("keeps 7-digit amounts whole and 0.01 visible", () => {
+    expect(fmtMoney(123456789)).toBe("1,234,567.89");
+    expect(fmtMoney(0)).toBe("0.00");
+  });
+});
+
+import { layout } from "./receiptImage";
+import { buildReceiptDoc, receiptPlainText } from "./receiptModel";
+import type { DailyReceipt } from "../../domain/types";
+
+const sample = {
+  dayStart: Date.UTC(2026, 9, 27),
+  totalOutCents: 8800,
+  aiComment: "今天花得很从容，明天继续保持这个节奏就好，不用着急。",
+  badge: { emoji: "🥐", title: "早餐守护者", reason: "早餐按时打卡" },
+  items: [
+    { id: "1", merchant: "美团外卖", amountCents: 3200, direction: "OUT", category: "MEAL", occurredAt: Date.UTC(2026, 9, 27, 4) },
+    { id: "2", merchant: "公司食堂", amountCents: 2400, direction: "OUT", category: "MEAL", occurredAt: Date.UTC(2026, 9, 27, 5) },
+    { id: "3", merchant: "地铁", amountCents: 300, direction: "OUT", category: "TRANSPORT", occurredAt: Date.UTC(2026, 9, 27, 6) },
+  ],
+} as unknown as DailyReceipt;
+
+describe("share variants differ", () => {
+  const ctx = { now: Date.UTC(2026, 9, 27, 13), prevTotalCents: 5000, demo: false };
+  const full = buildReceiptDoc(sample, { ...ctx, variant: "full" });
+  const brief = buildReceiptDoc(sample, { ...ctx, variant: "brief" });
+  it("brief has no detail rows, full has", () => {
+    expect(full.groups.length).toBeGreaterThan(0);
+    expect(brief.groups).toHaveLength(0);
+    expect(brief.remark).toBe(full.remark);
+  });
+  it("text and PNG layout differ, brief is shorter and keeps total, stamp, remark", () => {
+    const tf = receiptPlainText(full);
+    const tb = receiptPlainText(brief);
+    expect(tb).not.toBe(tf);
+    expect(tb.split("\n").length).toBeLessThan(tf.split("\n").length);
+    expect(tf).toContain("美团外卖");
+    expect(tb).not.toContain("美团外卖");
+    for (const k of ["88.00", "早餐守护者", "今天花得很从容"]) expect(tb).toContain(k);
+    const lf = layout(full);
+    const lb = layout(brief);
+    expect(lb.height).toBeLessThan(lf.height);
+    expect(lb.ops.some((o) => o.k === "line" && o.left.includes("美团外卖"))).toBe(false);
+    expect(lf.ops.some((o) => o.k === "line" && o.left.includes("美团外卖"))).toBe(true);
+  });
+});

@@ -18,18 +18,32 @@ function Stamp({ text, state }: { text: string; state: StampState }) {
     <div className="pointer-events-none relative grid h-[88px] place-items-center" data-row aria-hidden>
       <motion.div
         initial={false}
-        animate={shown ? { scale: 1, rotate: -8, opacity: 0.92 } : { scale: 1.5, rotate: -8, opacity: 0 }}
-        transition={state === "slam" ? { type: "spring", bounce: 0.4, duration: 0.45 } : { duration: 0 }}
+        animate={
+          state === "slam"
+            ? { scale: [1.5, 0.93, 1.05, 0.985, 1.012, 1], rotate: -8, opacity: [0, 0.95, 0.92, 0.92, 0.92, 0.92] }
+            : shown
+              ? { scale: 1, rotate: -8, opacity: 0.92 }
+              : { scale: 1.5, rotate: -8, opacity: 0 }
+        }
+        transition={state === "slam" ? { duration: 0.62, times: [0, 0.26, 0.48, 0.66, 0.84, 1], ease: [0.23, 1, 0.32, 1] } : { duration: 0 }}
         className="relative rounded-[6px] border-2 border-stamp px-3.5 py-1.5 font-serif text-[19px] font-semibold tracking-[0.14em] text-stamp mix-blend-multiply [box-shadow:inset_0_0_0_1.5px_var(--paper),inset_0_0_0_2.5px_var(--stamp)]"
       >
         {text}
         {state === "slam" && (
-          <motion.span
-            className="absolute -inset-1 rounded-[9px] border-[1.5px] border-stamp"
-            initial={{ scale: 1, opacity: 0.55 }}
-            animate={{ scale: 1.32, opacity: 0 }}
-            transition={{ duration: 0.55, ease: [0.23, 1, 0.32, 1], delay: 0.08 }}
-          />
+          <>
+            <motion.span
+              className="absolute -inset-1 rounded-[9px] border-[1.5px] border-stamp"
+              initial={{ scale: 1, opacity: 0.55 }}
+              animate={{ scale: 1.32, opacity: 0 }}
+              transition={{ duration: 0.55, ease: [0.23, 1, 0.32, 1], delay: 0.08 }}
+            />
+            <motion.span
+              className="absolute -inset-0.5 rounded-[8px] bg-stamp/15"
+              initial={{ scale: 0.96, opacity: 0.9 }}
+              animate={{ scale: 1.12, opacity: 0 }}
+              transition={{ duration: 0.7, ease: [0.23, 1, 0.32, 1], delay: 0.05 }}
+            />
+          </>
         )}
       </motion.div>
     </div>
@@ -86,6 +100,8 @@ export function ReceiptPaper({
       <div className="relative bg-paper px-5 pb-[26px] pt-[30px] font-mono" style={{ clipPath: paperClipPath() }}>
         <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.07] mix-blend-multiply" style={{ backgroundImage: FIBRE }} />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-paper-ink/[0.06] to-transparent" />
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgb(60_40_20/0.07),transparent_9%,transparent_91%,rgb(60_40_20/0.07))]" />
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-paper-ink/[0.05] to-transparent" />
 
         <div className="text-center" data-row>
           <h2 className="pl-[0.5em] font-serif text-[23px] font-semibold leading-[30px] tracking-[0.5em]">今日小票</h2>
@@ -103,7 +119,7 @@ export function ReceiptPaper({
         </div>
         <Rule />
 
-        {doc.zero ? (
+        {!full ? null : doc.zero ? (
           <div className="py-5 text-center" data-row>
             <p className="font-serif text-[22px] font-semibold">今日无消费</p>
             <p className="mt-1 text-[11.5px] text-paper-ink/70">钱包今天睡着了 🌙</p>
@@ -129,7 +145,6 @@ export function ReceiptPaper({
             </div>
           </>
         )}
-
         {full && (
           <>
             <Rule />
@@ -139,12 +154,11 @@ export function ReceiptPaper({
               <span>{doc.stats.weekDay}</span>
             </div>
             <Rule />
-            <p className="px-1 text-center font-serif text-[12.5px] leading-[1.75]" data-row>
-              「{doc.remark}」
-            </p>
           </>
         )}
-        {!full && <Rule />}
+        <p className="px-1 text-center font-serif text-[12.5px] leading-[1.75]" data-row>
+          「{doc.remark}」
+        </p>
 
         <Stamp text={doc.stampText} state={stamp} />
         {full && doc.badgeReason && (
