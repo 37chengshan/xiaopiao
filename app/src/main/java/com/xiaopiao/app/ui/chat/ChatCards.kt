@@ -126,7 +126,11 @@ fun WeekReportCard(stats: ChatStats) {
         MiniBars(
             week.dayTotals.map { it.toFloat() },
             Modifier.padding(top = XpSpace.m),
-            height = 30.dp,
+            height = 34.dp,
+            barFraction = 0.58f,
+            // Monday-first index of today, so the highlighted column is "you are here".
+            highlightIndex = (((java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7))
+                .coerceIn(0, week.dayTotals.lastIndex),
         )
         val peak = stats.weekPeakDay
         Text(

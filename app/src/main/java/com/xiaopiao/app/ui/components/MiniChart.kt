@@ -28,6 +28,8 @@ fun MiniBars(
     height: Dp = 36.dp,
     color: Color = XpColors.InkTertiary,
     highlight: Color = XpColors.Accent,
+    highlightIndex: Int = -1,
+    barFraction: Float = 1f,
 ) {
     val reduced = rememberReducedMotion()
     val grow = remember { androidx.compose.animation.core.Animatable(if (reduced) 1f else 0f) }
@@ -44,9 +46,11 @@ fun MiniBars(
             // Stagger left → right so the column reads as one gesture, not 14 little ones.
             val local = ((progress * (values.size + 2) - i) / 3f).coerceIn(0f, 1f)
             val h = (v / max * size.height * local).coerceAtLeast(3.dp.toPx() * local)
+            val bw = (w * barFraction).coerceAtLeast(3.dp.toPx())
+            val marked = if (highlightIndex < 0) i == values.lastIndex else i == highlightIndex
             drawRoundRect(
-                if (i == values.lastIndex) highlight else color.copy(alpha = 0.35f),
-                Offset(i * (w + gap), size.height - h), Size(w, h), CornerRadius(w.coerceAtMost(4.dp.toPx())),
+                if (marked) highlight else color.copy(alpha = 0.35f),
+                Offset(i * (w + gap) + (w - bw) / 2f, size.height - h), Size(bw, h), CornerRadius(bw.coerceAtMost(3.dp.toPx())),
             )
         }
     }

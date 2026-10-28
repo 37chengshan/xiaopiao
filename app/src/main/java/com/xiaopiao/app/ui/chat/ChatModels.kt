@@ -76,7 +76,7 @@ data class ChatStats(
 data class ChatReminder(val text: String, val demo: Boolean)
 
 /** Suggested prompts shown above the input until the first message is sent. */
-val ChatSuggestions = listOf("今天花了多少", "这周哪天花得最多", "帮我记：午饭 28")
+val ChatSuggestions = listOf("今天花了多少", "家里人这周花了多少", "帮我记：午饭 28")
 
 fun yuanText(cents: Cents): String = "¥" + cents.yuan()
 
@@ -169,7 +169,7 @@ object ChatCopy {
     /** Tries the four things the local stats can actually answer, then falls back to a plain overview. */
     fun answer(text: String, stats: ChatStats): String = when {
         text.hasAny("你好", "在吗", "hi", "hello") ->
-            "在的。我只看得懂你自己的账本：今天花了多少、这周哪天花得最多、最大一笔、分类占比。"
+            "在的。我能看你的账本（今天花了多少、哪天花得最多、最大一笔、分类占比），也能看圈子里家里人共享的小票。"
         text.hasAny("占比", "分类", "花在", "构成") -> categoryAnswer(stats)
         text.hasAny("最大", "最贵") -> biggestAnswer(stats)
         text.hasAny("哪天", "最多", "最高") -> peakAnswer(stats)
@@ -179,7 +179,7 @@ object ChatCopy {
         else -> overviewAnswer(stats)
     }
 
-    private fun weekAnswer(stats: ChatStats): String {
+    fun weekAnswer(stats: ChatStats): String {
         val week = stats.week
         if (week.txnCount == 0) return "这周还没有记账。"
         val vs = week.vsPrevPercent?.let {
@@ -222,6 +222,12 @@ object ChatCopy {
             "本周合计 ${yuanText(stats.week.totalOutCents)}。我只做本机统计，不推荐也不比价。"
     }
 
+    private fun monthAnswerWith(stats: ChatStats, turn: ChatTurn): String =
+        "这个月的账我只存到今天，没法回看上一整月。先看本周：${ChatCopy.weekAnswer(stats)}"
+
+    private fun todayAnswerWith(stats: ChatStats): String =
+        "今天到现在一共 ${yuanText(stats.todayOutCents)}，${stats.todayOutCount} 笔。"
+
     private fun String.hasAny(vararg words: String): Boolean = words.any { contains(it, ignoreCase = true) }
 }
 
@@ -239,7 +245,19 @@ object ChatIntentRouter {
         "吗", "呢", "？", "?", "最大", "最贵", "占比", "合计", "统计", "平均", "还剩",
     )
 
-    fun route(text: String, stats: ChatStats): ChatReply {
+    fun route(text: String, stats: ChatStats, turn: ChatTurn? = null): ChatReply {
+        // Family / circle questions first: they read a different data set.
+        val wantFamily = text.hasAny("家人", "家里", "圈子", "妈妈", "我爸", "妹妹", "谁花", "家里花")
+        if (wantFamily) {
+            val ranking = text.hasAny("排行", "排名", "榜", "谁最", "谁花得")
+            return ChatReply.Answer(ChatFamily.answer(System.currentTimeMillis(), ranking))
+        }
+        // 「那上周呢」 style follow-ups reuse the previous topic.
+        if (turn != null) {
+            if (text.hasAny("上个月", "上月")) { turn.period = ChatPeriod.Month; return ChatReply.Answer(monthAnswerWith(stats, turn)) }
+            if (text.hasAny("上周", "上星期")) { turn.period = ChatPeriod.Week; return ChatReply.Answer(ChatCopy.weekAnswer(stats)) }
+            if (text.hasAny("今天呢", "今天花")) { turn.period = ChatPeriod.Today; return ChatReply.Answer(todayAnswerWith(stats)) }
+        }
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return ChatReply.Answer("说一句话就行，比如「今天花了多少」。")
 
@@ -313,5 +331,62 @@ object ChatIntentRouter {
         return categoryHints.firstOrNull { (_, words) -> words.any { lower.contains(it) } }?.first ?: Category.OTHER
     }
 
+    private fun monthAnswerWith(stats: ChatStats, turn: ChatTurn): String =
+        "这个月的账我只存到今天，没法回看上一整月。先看本周：${ChatCopy.weekAnswer(stats)}"
+
+    private fun todayAnswerWith(stats: ChatStats): String =
+        "今天到现在一共 ${yuanText(stats.todayOutCents)}，${stats.todayOutCount} 笔。"
+
     private fun String.hasAny(vararg words: String): Boolean = words.any { contains(it, ignoreCase = true) }
+}
+
+// --- conversation context + family/circle analysis (2026-10-28) ------------------------------
+
+enum class ChatPeriod(val label: String) { Today("今天"), Week("本周"), Month("本月") }
+
+/** What the last question was about, so 「那上周呢」 can be answered without repeating the topic. */
+data class ChatTurn(var period: ChatPeriod = ChatPeriod.Week, var category: Category? = null)
+
+/** One line per family member: their shared spend this week, or null when they have not shared it. */
+data class FamilyLine(val name: String, val cents: Cents?, val posts: Int)
+
+object ChatFamily {
+    /** Reads the same demo circle the 圈子 tab shows; masked members report null, never a fake 0. */
+    fun week(now: Long): List<FamilyLine> {
+        val from = now - 7L * 24 * 60 * 60 * 1000
+        val members = com.xiaopiao.app.ui.circle.CircleDemo.members()
+            .filter { !it.isMe }
+        val posts = com.xiaopiao.app.ui.circle.CircleDemo.feed(now)
+            .filterIsInstance<com.xiaopiao.app.ui.circle.ReceiptPost>()
+            .filter { it.at >= from }
+        return members.map { m ->
+            val mine = posts.filter { it.authorId == m.id }
+            val shared = m.shows(com.xiaopiao.app.ui.circle.CircleShare.TodayTotal)
+            FamilyLine(m.name, if (shared) mine.sumOf { it.totalCents } else null, mine.size)
+        }
+    }
+
+    fun answer(now: Long, ranking: Boolean): String {
+        val lines = week(now)
+        if (lines.isEmpty()) return "圈子里还没有人发小票。"
+        val shared = lines.filter { it.cents != null }
+        val rows = if (ranking) shared.sortedByDescending { it.cents } else lines
+        val body = rows.joinToString("，") { l ->
+            when {
+                l.cents == null -> "${l.name} 没共享金额"
+                l.cents == 0L -> "${l.name} 这周没花"
+                else -> "${l.name} ${yuanText(l.cents)}（${l.posts} 张）"
+            }
+        }
+        val hidden = lines.count { it.cents == null }
+        val head = if (ranking) "本周家人花得最多的是" else "本周家里人发来的小票："
+        return buildString {
+            append(head)
+            append(if (ranking) "" else "")
+            append(body)
+            append("。")
+            if (hidden > 0) append(" 有 $hidden 位没开金额共享，我不替 TA 猜。")
+            append(" 这些都是演示数据。")
+        }
+    }
 }

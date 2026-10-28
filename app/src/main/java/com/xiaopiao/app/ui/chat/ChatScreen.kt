@@ -96,6 +96,8 @@ fun ChatScreen(
     onRecordManual: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
 ) {
+    // Remembers what the last question was about so 「那上周呢」 works without repeating the topic.
+    val turn = remember { ChatTurn() }
     val history by remember(container) { container.ledger.observeAll() }
         .collectAsStateWithLifecycle(initialValue = null)
     // One pass over the ledger per emission; null means "still loading".
@@ -128,7 +130,7 @@ fun ChatScreen(
         val text = raw.trim()
         if (text.isEmpty()) return
         conversation.add(ChatItem.User(newId(), text))
-        val reply = stats?.let { ChatIntentRouter.route(text, it) }
+        val reply = stats?.let { ChatIntentRouter.route(text, it, turn) }
             ?: ChatReply.Answer("我还没数完今天的账，稍等一秒再说。")
         when (reply) {
             is ChatReply.Expense -> conversation.add(ChatItem.Confirm(newId(), reply.draft))
@@ -233,7 +235,6 @@ fun ChatScreen(
                     input = ""
                 }
             },
-            onPlus = onRecordManual,
             onVoice = onRecordVoice,
             focusRequester = focusRequester,
             showSuggestions = conversation.none { it is ChatItem.User },
@@ -323,7 +324,6 @@ private fun ChatComposer(
     value: String,
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
-    onPlus: () -> Unit,
     onVoice: () -> Unit,
     focusRequester: FocusRequester,
     showSuggestions: Boolean,
@@ -348,7 +348,6 @@ private fun ChatComposer(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
         ) {
-            RoundButton(Icons.Outlined.Add, "手动记一笔", onClick = onPlus)
             Box(
                 Modifier.weight(1f).height(40.dp)
                     .clip(RoundedCornerShape(XpRadius.pill))
