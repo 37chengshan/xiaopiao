@@ -1,8 +1,13 @@
 package com.xiaopiao.app.ui.components
 
+import com.xiaopiao.app.ui.theme.XpRadius
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -49,8 +54,8 @@ fun XpButton(
     when (style) {
         XpButtonStyle.Primary -> { bgTarget = XpColors.Ink; fgTarget = XpColors.Canvas }
         XpButtonStyle.Clay -> { bgTarget = XpColors.Accent; fgTarget = XpColors.OnAccent }
-        XpButtonStyle.Secondary -> { bgTarget = XpColors.Fill; fgTarget = XpColors.Ink }
-        XpButtonStyle.Destructive -> { bgTarget = XpColors.Fill; fgTarget = XpColors.Negative }
+        XpButtonStyle.Secondary -> { bgTarget = XpColors.Ink.copy(alpha = 0.07f); fgTarget = XpColors.Ink }
+        XpButtonStyle.Destructive -> { bgTarget = XpColors.Negative.copy(alpha = 0.12f); fgTarget = XpColors.Negative }
         XpButtonStyle.Plain -> { bgTarget = Color.Transparent; fgTarget = XpColors.Accent }
     }
     val bg by animateColorAsState(bgTarget, tween(180, easing = XpEase.out), label = "btnBg")
@@ -58,27 +63,23 @@ fun XpButton(
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val haptics = rememberXpHaptics()
-    val shape = RoundedCornerShape(14.dp)
-    val textual = style == XpButtonStyle.Plain
-    val surface = when {
-        textual -> Modifier
-        style == XpButtonStyle.Secondary || style == XpButtonStyle.Destructive -> Modifier.xpSoft(shape, bg)
-        else -> Modifier.xpRaised(shape, bg, pressed, if (style == XpButtonStyle.Clay) 8.dp else 6.dp)
-    }
+    val dim by animateFloatAsState(if (pressed) 0.85f else 1f, tween(60), label = "btnDim")
+    val shape = RoundedCornerShape(XpRadius.pill)
     Row(
         modifier
             .alpha(if (enabled) 1f else 0.4f)
             .pressableScale(source, 0.97f)
-            .then(surface)
+            .graphicsLayer { alpha = dim }
             .clip(shape)
+            .background(bg)
             .clickable(source, null, enabled = enabled) { haptics.select(); onClick() }
             .defaultMinSize(minWidth = 64.dp)
-            .height(if (textual) 40.dp else size.height.dp)
+            .height(if (style == XpButtonStyle.Plain) 40.dp else size.height.dp)
             .padding(horizontal = if (size == XpButtonSize.Small) XpSpace.l else XpSpace.xl),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
         if (leading != null) Text(leading, modifier = Modifier.padding(end = XpSpace.s))
-        Text(text, style = MaterialTheme.typography.labelLarge, color = fg)
+        Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = fg)
     }
 }

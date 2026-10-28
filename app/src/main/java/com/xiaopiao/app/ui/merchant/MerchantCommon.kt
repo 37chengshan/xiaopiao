@@ -120,14 +120,12 @@ fun SelectableCard(selected: Boolean, onClick: () -> Unit, modifier: Modifier = 
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.98f else 1f, SpringSnappy, label = "sel")
     val haptic = LocalHapticFeedback.current
-    val border = if (selected) BorderStroke(1.5.dp, XpColors.Accent) else BorderStroke(0.5.dp, XpColors.Hairline)
     Box(
         modifier
             .fillMaxWidth()
             .scale(scale)
             .clip(RoundedCornerShape(XpRadius.m))
             .background(if (selected) XpColors.AccentSoft else XpColors.Card)
-            .border(border, RoundedCornerShape(XpRadius.m))
             .clickable(interaction, indication = null) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onClick()

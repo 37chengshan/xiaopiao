@@ -25,8 +25,7 @@ fun SelectCapsule(text: String, selected: Boolean, onClick: () -> Unit, modifier
     val bg by animateColorAsState(if (selected) XpColors.Ink else XpColors.Fill, tween(180, easing = XpEase.out), label = "capBg")
     val fg by animateColorAsState(if (selected) XpColors.Canvas else XpColors.Ink, tween(180, easing = XpEase.out), label = "capFg")
     Box(
-        modifier.then(if (selected) Modifier.xpRaised(RoundedCornerShape(XpRadius.pill), bg, false, 3.dp) else Modifier.background(bg, RoundedCornerShape(XpRadius.pill)))
-            .clip(RoundedCornerShape(XpRadius.pill))
+        modifier.clip(RoundedCornerShape(XpRadius.pill)).background(bg)
             .pressableClick(onClick = onClick)
             .padding(horizontal = XpSpace.m + 2.dp, vertical = XpSpace.s),
         contentAlignment = Alignment.Center,

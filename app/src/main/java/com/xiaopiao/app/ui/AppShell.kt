@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
-import com.xiaopiao.app.ui.components.xpRaised
+import androidx.compose.ui.graphics.graphicsLayer
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.components.pressableScale
 import androidx.compose.ui.draw.clip
@@ -111,14 +111,14 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     }
 
     Scaffold(
-        containerColor = XpColors.Canvas,
+        containerColor = if (current == Tab.Today.route || current == null) XpColors.Canvas else XpColors.CanvasGrouped,
         contentWindowInsets = WindowInsets(0),
         bottomBar = { XpTabBar(current) { go(it) } },
     ) { padding ->
         // Screens built on NavScaffold draw under the status bar themselves; Today still expects the inset applied here.
         val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         val top = if (current == Tab.Today.route || current == null) statusTop else 0.dp
-        Box(Modifier.fillMaxSize().background(XpColors.Canvas).padding(top = top, bottom = padding.calculateBottomPadding())) {
+        Box(Modifier.fillMaxSize().background(if (current == Tab.Today.route || current == null) XpColors.Canvas else XpColors.CanvasGrouped).padding(top = top, bottom = padding.calculateBottomPadding())) {
             // Tab switches are instant: it is the most frequent navigation in the app (docs/DESIGN.md §5).
             NavHost(
                 nav, startDestination = Tab.Today.route,
@@ -146,10 +146,10 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit) {
     Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
         Box(
             Modifier.fillMaxWidth().padding(top = 16.dp).height(64.dp)
-                .then(if (dark) Modifier else Modifier.shadow(14.dp, capsule, ambientColor = Color(0x2E141413), spotColor = Color(0x2E141413)))
+                // Glass-style floating material. Real backdrop blur needs a library; until then an opaque-ish surface.
+                .then(if (dark) Modifier else Modifier.shadow(24.dp, capsule, ambientColor = Color(0x1A141413), spotColor = Color(0x1A141413)))
                 .clip(capsule)
-                .background(XpColors.Card.copy(alpha = 0.96f))
-                .border(0.5.dp, if (dark) Color.White.copy(alpha = 0.12f) else XpColors.Hairline, capsule),
+                .background(if (dark) XpColors.Surface2.copy(alpha = 0.94f) else XpColors.Card.copy(alpha = 0.94f)),
         )
         Row(Modifier.fillMaxWidth().padding(top = 16.dp).height(64.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f)) {
@@ -186,9 +186,9 @@ private fun PrimaryTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick:
     val haptics = rememberXpHaptics()
     Box(
         modifier.size(66.dp).pressableScale(source, 0.92f)
-            .background(XpColors.Canvas, CircleShape).padding(4.dp)
-            .xpRaised(CircleShape, if (selected) XpColors.Accent else XpColors.Ink, pressed, 10.dp)
-            .clip(CircleShape)
+            .graphicsLayer { alpha = if (pressed) 0.85f else 1f }
+            .background(XpColors.CanvasGrouped, CircleShape).padding(4.dp)
+            .clip(CircleShape).background(if (selected) XpColors.Accent else XpColors.Ink)
             .clickable(source, null) { haptics.select(); onClick() },
         contentAlignment = Alignment.Center,
     ) {

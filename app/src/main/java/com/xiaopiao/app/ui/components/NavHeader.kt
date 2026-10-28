@@ -85,7 +85,7 @@ fun NavScaffold(
 ) {
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val density = androidx.compose.ui.platform.LocalDensity.current.density
-    Box(modifier.fillMaxSize().background(XpColors.Canvas)) {
+    Box(modifier.fillMaxSize().background(XpColors.CanvasGrouped)) {
         content(topInset + BarHeight)
         Box(
             Modifier.fillMaxWidth()
@@ -140,8 +140,8 @@ fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, m
     val haptics = rememberXpHaptics()
     Box(
         modifier.size(34.dp).pressableScale(source)
-            .xpRaised(CircleShape, XpColors.Card, pressed, 3.dp)
-            .clip(CircleShape)
+            .graphicsLayer { alpha = if (pressed) 0.8f else 1f }
+            .clip(CircleShape).background(XpColors.Ink.copy(alpha = 0.07f))
             .clickable(source, null) { haptics.select(); onClick() },
         contentAlignment = Alignment.Center,
     ) {

@@ -33,7 +33,6 @@ fun XpCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() ->
             .fillMaxWidth()
             .clip(shape)
             .background(XpColors.Card)
-            .border(BorderStroke(0.5.dp, XpColors.Hairline), shape)
             .padding(XpSpace.l),
         content = content,
     )

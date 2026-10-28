@@ -145,7 +145,7 @@ private fun ChoiceButtons(round: GameRound, onChoose: (Side) -> Unit) {
 private fun CardFace(round: GameRound, lean: Float, modifier: Modifier = Modifier) {
     Column(
         modifier.fillMaxSize().clip(RoundedCornerShape(XpRadius.xl)).background(XpColors.Card)
-            .border(0.5.dp, XpColors.Hairline, RoundedCornerShape(XpRadius.xl)).padding(XpSpace.l),
+            .padding(XpSpace.l),
         verticalArrangement = Arrangement.spacedBy(XpSpace.m),
     ) {
         Text(
@@ -167,7 +167,7 @@ private fun ChoicePanel(c: GameChoice, glow: Float, modifier: Modifier) {
         modifier.fillMaxSize().clip(RoundedCornerShape(XpRadius.m))
             .background(XpColors.Surface2)
             .background(XpColors.AccentSoft.copy(alpha = glow))
-            .border(2.dp, XpColors.Accent.copy(alpha = glow), RoundedCornerShape(XpRadius.m)).padding(XpSpace.m),
+            .padding(XpSpace.m),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {

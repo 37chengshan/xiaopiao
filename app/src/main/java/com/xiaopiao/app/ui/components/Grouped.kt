@@ -87,8 +87,7 @@ fun GroupedSection(
             Spacer(Modifier.height(XpSpace.l))
         }
         Column(
-            Modifier.fillMaxWidth().clip(shape).background(XpColors.Card)
-                .border(BorderStroke(0.5.dp, XpColors.Hairline), shape),
+            Modifier.fillMaxWidth().clip(shape).background(XpColors.Card),
         ) {
             scope.rows.forEachIndexed { i, row ->
                 key(scope.keys[i]) {
