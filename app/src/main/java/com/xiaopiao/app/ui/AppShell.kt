@@ -84,6 +84,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.outlined.Add
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.draw.drawBehind
+import com.xiaopiao.app.ui.theme.XpEase
 
 /**
  * Five slots (docs/APP-DESIGN.md §2): 对话 · 账本 · [首页·记账+小票] · 圈子 · 我的.
@@ -103,6 +105,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     val current = backStack?.destination?.route
     var merchantMode by rememberSaveable { mutableStateOf(false) }
     val record = rememberRecordSheetState()
+    val voiceHost = com.xiaopiao.app.ui.record.rememberVoiceHost()
     var printSignal by remember { mutableIntStateOf(0) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val onboarding = remember { com.xiaopiao.app.ui.onboarding.OnboardingPrefs(context.applicationContext) }
@@ -133,6 +136,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         }
     }
 
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = XpColors.CanvasGrouped,
         contentWindowInsets = WindowInsets(0),
@@ -142,7 +146,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 current = current,
                 onSelect = { go(it) },
                 onRecord = { record.openManual() },
-                onVoice = { record.openVoice() },
+                onVoice = { voiceHost.request() },
             )
         },
     ) { padding ->
@@ -157,8 +161,12 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
             // Tab switches are instant: it is the most frequent navigation in the app (docs/APP-DESIGN.md §7).
             NavHost(
                 nav, startDestination = Tab.Ledger.route,
-                enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
-                popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None },
+                // Tabs are a frequent switch: keep it near-instant, only a 120ms crossfade so the
+                // screen does not "pop". No slide — that would slow down a dozens-times-a-day action.
+                enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) },
+                exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90)) },
+                popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) },
+                popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90)) },
             ) {
                 composable(Tab.Ledger.route) {
                     LedgerScreen(
@@ -173,7 +181,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 composable("print") {
                     // One job: print today's receipt, then leave.
                     BackHandler { nav.popBackStack() }
-                    TodayScreen(container, record, printSignal, printOnly = true, onDone = { nav.popBackStack() })
+                    TodayScreen(container, record, printSignal, printOnly = true, onDone = { nav.popBackStack() }, onVoiceStart = { voiceHost.request() })
                 }
                 composable(Tab.Chat.route) {
                     ChatScreen(container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openManual() })
@@ -182,6 +190,12 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 composable(Tab.Settings.route) { SettingsScreen(container, onOpenMerchant = { merchantMode = true }) }
             }
         }
+    }
+        com.xiaopiao.app.ui.record.VoiceOverlay(
+            host = voiceHost,
+            onTranscript = { text -> record.openText(text) },
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 104.dp),
+        )
     }
     RecordSheetHost(record, container)
 }
@@ -225,11 +239,16 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> 
 private fun TabItem(tab: Tab, current: String?, modifier: Modifier, onSelect: (Tab) -> Unit) {
     val selected = current?.startsWith(tab.route) == true
     val color = if (selected) XpColors.Accent else XpColors.InkSecondary
+    val iconScale by androidx.compose.animation.core.animateFloatAsState(
+        if (selected) 1.1f else 1f,
+        androidx.compose.animation.core.spring(0.5f, 500f),
+        label = "tabScale",
+    )
     Column(
         modifier.fillMaxHeight().pressableClick(haptic = false, scaleDown = 0.94f) { onSelect(tab) },
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
-        Icon(tab.icon, contentDescription = tab.label, tint = color, modifier = Modifier.size(24.dp))
+        Icon(tab.icon, contentDescription = tab.label, tint = color, modifier = Modifier.size(24.dp).graphicsLayer { scaleX = iconScale; scaleY = iconScale })
         Text(tab.label, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium, color = color)
     }
 }
@@ -240,9 +259,30 @@ private fun PrimaryTab(modifier: Modifier, onClick: () -> Unit, onLongPress: () 
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val haptics = rememberXpHaptics()
+    // Holding is the voice gesture: the key lifts and grows a halo so the user knows it "took".
+    var holding by remember { mutableStateOf(false) }
+    val holdScale by androidx.compose.animation.core.animateFloatAsState(
+        if (holding) 1.08f else 1f,
+        androidx.compose.animation.core.spring(0.55f, 380f),
+        label = "holdScale",
+    )
+    val halo by androidx.compose.animation.core.animateFloatAsState(
+        if (holding) 1f else 0f,
+        androidx.compose.animation.core.tween(140, easing = XpEase.out),
+        label = "halo",
+    )
     Box(
         modifier.size(66.dp).pressableScale(source, 0.92f)
-            .graphicsLayer { alpha = if (pressed) 0.85f else 1f }
+            .graphicsLayer { alpha = if (pressed) 0.9f else 1f; scaleX = holdScale; scaleY = holdScale }
+            .drawBehind {
+                if (halo > 0f) {
+                    drawCircle(
+                        color = XpColors.Primary.copy(alpha = 0.22f * halo),
+                        radius = size.minDimension / 2 + 5.dp.toPx() * halo,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx()),
+                    )
+                }
+            }
             .background(XpColors.CanvasGrouped, CircleShape).padding(4.dp)
             .clip(CircleShape).background(XpColors.Primary)
             .pointerInput(Unit) {
@@ -254,8 +294,10 @@ private fun PrimaryTab(modifier: Modifier, onClick: () -> Unit, onLongPress: () 
                         onClick()
                     } else {
                         haptics.thud()
+                        holding = true
                         onLongPress()
                         waitForUpOrCancellation()
+                        holding = false
                     }
                 }
             },

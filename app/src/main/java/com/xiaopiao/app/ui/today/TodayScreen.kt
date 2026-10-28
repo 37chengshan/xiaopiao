@@ -114,7 +114,7 @@ private data class DayData(val day: Long, val items: List<Txn>)
 
 /** "今日" tab: AI-first greeting, the receipt printer, per-category chips and recent-day mini receipts. */
 @Composable
-fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: Int = 0, printOnly: Boolean = false, onDone: (() -> Unit)? = null) {
+fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: Int = 0, printOnly: Boolean = false, onDone: (() -> Unit)? = null, onVoiceStart: () -> Unit = {}) {
     val today = remember { startOfDay(System.currentTimeMillis()) }
     var selectedDay by rememberSaveable { mutableLongStateOf(today) }
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -227,7 +227,7 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: 
                 Spacer(Modifier.height(XpSpace.xl))
             }
         }
-        if (!printOnly) RecordFab(record, Modifier.align(Alignment.BottomEnd).padding(end = XpSpace.l, bottom = XpSpace.m))
+        if (!printOnly) RecordFab(record, onVoiceStart, Modifier.align(Alignment.BottomEnd).padding(end = XpSpace.l, bottom = XpSpace.m))
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter))
         ReceiptOverlay(
             session, lines, timeline, receipt?.let { ReceiptLayout.stampText(it) }.orEmpty(),
@@ -300,113 +300,31 @@ private fun PrintCard(
 }
 
 /**
- * 记一笔 = the floating ball on the right (docs/APP-DESIGN.md §4.2).
- * Tap = manual form. Long-press = the ball sends a bar leftwards that grows a live waveform + transcript;
- * release to keep, swipe up to cancel.
+ * 记一笔 ball: tap = manual form, long-press = the shared voice bar (docs/APP-DESIGN.md §4.2).
+ * It holds no recognition state of its own — the bar lives at shell level so it survives tab switches.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RecordFab(record: RecordSheetState, modifier: Modifier = Modifier) {
+private fun RecordFab(record: RecordSheetState, onVoiceStart: () -> Unit, modifier: Modifier = Modifier) {
     val haptics = rememberXpHaptics()
-    val voice = rememberVoiceController()
-    var expanded by remember { mutableStateOf(false) }
-    var denied by remember { mutableStateOf(false) }
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        denied = !granted
-        if (granted) {
-            expanded = true
-            voice.start()
-        }
-    }
-    val expandFraction by animateFloatAsState(if (expanded) 1f else 0f, tween(220, easing = XpEase.out), label = "fabExpand")
-
-    LaunchedEffect(voice.transcript) {
-        voice.consume()?.let { text ->
-            expanded = false
-            record.openText(text)
-        }
-    }
-    LaunchedEffect(voice.error) {
-        if (voice.error != null && !voice.listening) {
-            kotlinx.coroutines.delay(1600)
-            expanded = false
-            voice.cancel()
-        }
-    }
-
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
-        if (expandFraction > 0.01f) {
-            Row(
-                Modifier.weight(expandFraction).height(56.dp).padding(end = XpSpace.s)
-                    .clip(RoundedCornerShape(XpRadius.pill))
-                    .background(XpColors.Primary)
-                    .padding(horizontal = XpSpace.l),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                VoiceWave(active = voice.listening || voice.partial.isNotEmpty(), level = voice.rms, onPrimary = true)
-                Spacer(Modifier.width(XpSpace.m))
-                Text(
-                    voice.error ?: voice.partial.ifBlank { if (voice.listening) "听你说…" else "松手记账" },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = XpColors.OnPrimary,
-                    maxLines = 2,
-                    modifier = Modifier.weight(1f),
-                )
-                Text("上滑取消", style = MaterialTheme.typography.labelSmall, color = XpColors.OnPrimary.copy(alpha = 0.6f))
-            }
-        }
-        Box(
-            Modifier.size(56.dp).clip(CircleShape).background(XpColors.Primary)
-                .pointerInput(record) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        val long = awaitLongPressOrCancellation(down.id)
-                        if (long == null) {
-                            haptics.select()
-                            if (expanded) {
-                                voice.stop()
-                            } else {
-                                record.openManual()
-                            }
-                            return@awaitEachGesture
-                        }
+    Box(
+        modifier.size(56.dp).clip(CircleShape).background(XpColors.Primary)
+            .pointerInput(record) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val long = awaitLongPressOrCancellation(down.id)
+                    if (long == null) {
+                        haptics.select()
+                        record.openManual()
+                    } else {
                         haptics.thud()
-                        if (!voice.hasPermission) {
-                            denied = true
-                            permission.launch(android.Manifest.permission.RECORD_AUDIO)
-                            return@awaitEachGesture
-                        }
-                        expanded = true
-                        voice.start()
-                        var cancelled = false
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            if (down.position.y - change.position.y > 60.dp.toPx()) {
-                                cancelled = true
-                                change.consume()
-                                break
-                            }
-                            if (!change.pressed) break
-                        }
-                        if (cancelled) {
-                            haptics.reject()
-                            voice.cancel()
-                            expanded = false
-                        } else {
-                            voice.stop()
-                        }
+                        onVoiceStart()
+                        waitForUpOrCancellation()
                     }
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Outlined.Mic,
-                contentDescription = if (expanded) "结束并记账" else "记一笔 · 长按说一句",
-                tint = XpColors.OnPrimary,
-                modifier = Modifier.size(24.dp),
-            )
-        }
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Outlined.Mic, contentDescription = "记一笔 · 长按说一句", tint = XpColors.OnPrimary, modifier = Modifier.size(24.dp))
     }
 }
 

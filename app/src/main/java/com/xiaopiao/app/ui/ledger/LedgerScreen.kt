@@ -45,18 +45,25 @@ import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Txn
+import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.ui.components.NavIconButton
+import com.xiaopiao.app.ui.components.NumberTicker
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.ShimmerBlock
 import com.xiaopiao.app.ui.components.UndoToastHost
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.components.rememberUndoToastState
 import com.xiaopiao.app.ui.theme.XpColors
+import com.xiaopiao.app.ui.theme.XpEase
+import com.xiaopiao.app.ui.theme.XpFonts
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.graphicsLayer
 
 @Composable
 fun LedgerScreen(container: AppContainer, onOpenInsights: () -> Unit = {}, onPrint: () -> Unit = {}) {
@@ -73,6 +80,7 @@ fun LedgerScreen(container: AppContainer, onOpenInsights: () -> Unit = {}, onPri
     val listState = rememberLazyListState()
     val now = System.currentTimeMillis()
     val hasDemo = txns.orEmpty().any { it.note == DemoSeed.NOTE }
+    val reduceMotion = rememberReducedMotion()
 
     fun openAdd(txn: Txn?) { editing = txn; sheetOpen = true }
 
@@ -98,7 +106,19 @@ fun LedgerScreen(container: AppContainer, onOpenInsights: () -> Unit = {}, onPri
                 else -> {
                     val visible = filter.apply(txns.orEmpty(), now, query)
                     val groups = remember(visible, now / 60_000) { LedgerGrouping.group(visible, now) }
-                    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(top = top, bottom = 120.dp)) {
+                    // One composed entrance per data load: the list rises 8dp and fades in, then stays still.
+                    val enter = remember(visible.isEmpty()) { androidx.compose.animation.core.Animatable(0f) }
+                    LaunchedEffect(visible.isEmpty()) {
+                        if (reduceMotion) enter.snapTo(1f) else { enter.snapTo(0f); enter.animateTo(1f, tween(220, easing = XpEase.out)) }
+                    }
+                    LazyColumn(
+                        Modifier.fillMaxSize().graphicsLayer {
+                            alpha = enter.value
+                            translationY = (1f - enter.value) * 8.dp.toPx()
+                        },
+                        state = listState,
+                        contentPadding = PaddingValues(top = top, bottom = 120.dp),
+                    ) {
                         item(key = "search") {
                             LedgerSearchBar(
                                 query = query,
@@ -186,7 +206,12 @@ private fun LedgerHero(txns: List<Txn>, now: Long) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("本月支出", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
             }
-            MoneyText(monthTotal, style = MaterialTheme.typography.displayMedium)
+            NumberTicker(
+                text = monthTotal.yuan(),
+                style = MaterialTheme.typography.displayMedium.copy(fontFamily = XpFonts.sans),
+                rollFromZero = false,   // the KPI must never show zeros while it rolls
+                staggerMs = 28,
+            )
             MiniBars(bars, Modifier.padding(top = XpSpace.m))
         }
     }

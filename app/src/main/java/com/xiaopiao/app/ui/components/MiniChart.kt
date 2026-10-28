@@ -4,6 +4,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -25,13 +29,21 @@ fun MiniBars(
     color: Color = XpColors.InkTertiary,
     highlight: Color = XpColors.Accent,
 ) {
+    val reduced = rememberReducedMotion()
+    val grow = remember { androidx.compose.animation.core.Animatable(if (reduced) 1f else 0f) }
+    LaunchedEffect(values, reduced) {
+        if (reduced) grow.snapTo(1f) else { grow.snapTo(0f); grow.animateTo(1f, spring(0.85f, 420f)) }
+    }
     Canvas(modifier.fillMaxWidth().height(height)) {
         if (values.isEmpty()) return@Canvas
+        val progress = grow.value
         val max = values.max().coerceAtLeast(1f)
         val gap = 4.dp.toPx()
         val w = (size.width - gap * (values.size - 1)) / values.size
         values.forEachIndexed { i, v ->
-            val h = (v / max * size.height).coerceAtLeast(3.dp.toPx())
+            // Stagger left → right so the column reads as one gesture, not 14 little ones.
+            val local = ((progress * (values.size + 2) - i) / 3f).coerceIn(0f, 1f)
+            val h = (v / max * size.height * local).coerceAtLeast(3.dp.toPx() * local)
             drawRoundRect(
                 if (i == values.lastIndex) highlight else color.copy(alpha = 0.35f),
                 Offset(i * (w + gap), size.height - h), Size(w, h), CornerRadius(w.coerceAtMost(4.dp.toPx())),
