@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-/** `/` lands on the chat home inside the app layout. */
+/** `/` lands on 记账, the first slot of the nav (docs/APP-DESIGN.md §3). */
 export const Route = createFileRoute("/")({
   beforeLoad: () => {
-    throw redirect({ to: "/home", replace: true });
+    throw redirect({ to: "/ledger", replace: true });
   },
 });

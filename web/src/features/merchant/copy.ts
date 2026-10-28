@@ -5,7 +5,7 @@
 export const copy = {
   shopName: "楼下的芋泥奶茶铺",
   backToUser: "返回用户版",
-  backToUserLabel: "返回用户版，回到我的页面",
+  backToUserLabel: "返回用户版，回到设置",
   dataInfo: "数据怎么来的",
   steps: { insights: "洞察", launch: "实验", results: "结果", decide: "决定" },
   insights: {

@@ -19,6 +19,7 @@ import { RegretSimulator } from "../insights/RegretSimulator";
 import { Receipt } from "../receipt/Receipt";
 import { DraftsCard, SubscriptionSummaryCard, WeeklySummaryCard } from "./cards";
 import { TypedText } from "./TypedText";
+import { SettingsButton } from "@/components/app/SettingsButton";
 
 type Card =
   | { kind: "drafts"; drafts: DraftTxn[]; saved: boolean }
@@ -246,6 +247,7 @@ export function HomeChat() {
           className={cn("material edge-fade-bottom absolute inset-x-0 -bottom-3 top-0 transition-opacity duration-200 ease-[var(--ease-out)]", scrolled ? "opacity-100" : "opacity-0")}
         />
         <h1 className="relative text-[22px] font-semibold leading-[28px] tracking-[-0.015em] text-ink">{new Date(now).toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" })}</h1>
+        <SettingsButton />
       </div>
       {isLoading ? (
         <div className="pt-[calc(56px+env(safe-area-inset-top,0px))]">

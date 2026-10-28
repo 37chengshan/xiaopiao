@@ -15,8 +15,8 @@ import { Route as AppGameRouteImport } from './routes/_app/game'
 import { Route as AppHomeRouteImport } from './routes/_app/home'
 import { Route as AppInsightsRouteImport } from './routes/_app/insights'
 import { Route as AppLedgerRouteImport } from './routes/_app/ledger'
-import { Route as AppMeRouteImport } from './routes/_app/me'
 import { Route as AppMerchantRouteImport } from './routes/_app/merchant'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppTodayRouteImport } from './routes/_app/today'
 
 const IndexRoute = IndexRouteImport.update({
@@ -48,14 +48,14 @@ const AppLedgerRoute = AppLedgerRouteImport.update({
   path: '/ledger',
   getParentRoute: () => AppRoute,
 } as any)
-const AppMeRoute = AppMeRouteImport.update({
-  id: '/me',
-  path: '/me',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppMerchantRoute = AppMerchantRouteImport.update({
   id: '/merchant',
   path: '/merchant',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTodayRoute = AppTodayRouteImport.update({
@@ -70,8 +70,8 @@ export interface FileRoutesByFullPath {
   '/home': typeof AppHomeRoute
   '/insights': typeof AppInsightsRoute
   '/ledger': typeof AppLedgerRoute
-  '/me': typeof AppMeRoute
   '/merchant': typeof AppMerchantRoute
+  '/settings': typeof AppSettingsRoute
   '/today': typeof AppTodayRoute
 }
 export interface FileRoutesByTo {
@@ -80,8 +80,8 @@ export interface FileRoutesByTo {
   '/home': typeof AppHomeRoute
   '/insights': typeof AppInsightsRoute
   '/ledger': typeof AppLedgerRoute
-  '/me': typeof AppMeRoute
   '/merchant': typeof AppMerchantRoute
+  '/settings': typeof AppSettingsRoute
   '/today': typeof AppTodayRoute
 }
 export interface FileRoutesById {
@@ -92,8 +92,8 @@ export interface FileRoutesById {
   '/_app/home': typeof AppHomeRoute
   '/_app/insights': typeof AppInsightsRoute
   '/_app/ledger': typeof AppLedgerRoute
-  '/_app/me': typeof AppMeRoute
   '/_app/merchant': typeof AppMerchantRoute
+  '/_app/settings': typeof AppSettingsRoute
   '/_app/today': typeof AppTodayRoute
 }
 export interface FileRouteTypes {
@@ -104,8 +104,8 @@ export interface FileRouteTypes {
     | '/home'
     | '/insights'
     | '/ledger'
-    | '/me'
     | '/merchant'
+    | '/settings'
     | '/today'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -114,8 +114,8 @@ export interface FileRouteTypes {
     | '/home'
     | '/insights'
     | '/ledger'
-    | '/me'
     | '/merchant'
+    | '/settings'
     | '/today'
   id:
     | '__root__'
@@ -125,8 +125,8 @@ export interface FileRouteTypes {
     | '/_app/home'
     | '/_app/insights'
     | '/_app/ledger'
-    | '/_app/me'
     | '/_app/merchant'
+    | '/_app/settings'
     | '/_app/today'
   fileRoutesById: FileRoutesById
 }
@@ -179,18 +179,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLedgerRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/me': {
-      id: '/_app/me'
-      path: '/me'
-      fullPath: '/me'
-      preLoaderRoute: typeof AppMeRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/merchant': {
       id: '/_app/merchant'
       path: '/merchant'
       fullPath: '/merchant'
       preLoaderRoute: typeof AppMerchantRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/today': {
@@ -208,8 +208,8 @@ interface AppRouteChildren {
   AppHomeRoute: typeof AppHomeRoute
   AppInsightsRoute: typeof AppInsightsRoute
   AppLedgerRoute: typeof AppLedgerRoute
-  AppMeRoute: typeof AppMeRoute
   AppMerchantRoute: typeof AppMerchantRoute
+  AppSettingsRoute: typeof AppSettingsRoute
   AppTodayRoute: typeof AppTodayRoute
 }
 
@@ -218,8 +218,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppHomeRoute: AppHomeRoute,
   AppInsightsRoute: AppInsightsRoute,
   AppLedgerRoute: AppLedgerRoute,
-  AppMeRoute: AppMeRoute,
   AppMerchantRoute: AppMerchantRoute,
+  AppSettingsRoute: AppSettingsRoute,
   AppTodayRoute: AppTodayRoute,
 }
 

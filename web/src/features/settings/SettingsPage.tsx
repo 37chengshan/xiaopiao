@@ -32,7 +32,7 @@ const PRIVACY: readonly { title: string; body: ReactNode }[] = [
   },
 ];
 
-export function PrivacyPage() {
+export function SettingsPage() {
   const { txns, reset } = useLedger();
   const { pref, setPref } = useTheme();
   const [soundOn, setSoundOn] = useReceiptSound();
@@ -44,7 +44,7 @@ export function PrivacyPage() {
 
   return (
     <>
-      <PageHeader title={t("me.title")} />
+      <PageHeader title={t("me.title")} back />
 
       <div className="space-y-3 pb-6">
         <Group>
