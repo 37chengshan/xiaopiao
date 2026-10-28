@@ -227,7 +227,11 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: 
                 Spacer(Modifier.height(XpSpace.xl))
             }
         }
-        if (!printOnly) RecordFab(record, onVoiceStart, Modifier.align(Alignment.BottomEnd).padding(end = XpSpace.l, bottom = XpSpace.m))
+        if (!printOnly) com.xiaopiao.app.ui.components.RecordBall(
+            onManual = { record.openManual() },
+            onVoice = onVoiceStart,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = XpSpace.l, bottom = XpSpace.m),
+        )
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter))
         ReceiptOverlay(
             session, lines, timeline, receipt?.let { ReceiptLayout.stampText(it) }.orEmpty(),
@@ -296,35 +300,6 @@ private fun PrintCard(
             style = MaterialTheme.typography.bodySmall,
             color = XpColors.InkTertiary,
         )
-    }
-}
-
-/**
- * 记一笔 ball: tap = manual form, long-press = the shared voice bar (docs/APP-DESIGN.md §4.2).
- * It holds no recognition state of its own — the bar lives at shell level so it survives tab switches.
- */
-@Composable
-private fun RecordFab(record: RecordSheetState, onVoiceStart: () -> Unit, modifier: Modifier = Modifier) {
-    val haptics = rememberXpHaptics()
-    Box(
-        modifier.size(56.dp).clip(CircleShape).background(XpColors.Primary)
-            .pointerInput(record) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    val long = awaitLongPressOrCancellation(down.id)
-                    if (long == null) {
-                        haptics.select()
-                        record.openManual()
-                    } else {
-                        haptics.thud()
-                        onVoiceStart()
-                        waitForUpOrCancellation()
-                    }
-                }
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(Icons.Outlined.Mic, contentDescription = "记一笔 · 长按说一句", tint = XpColors.OnPrimary, modifier = Modifier.size(24.dp))
     }
 }
 

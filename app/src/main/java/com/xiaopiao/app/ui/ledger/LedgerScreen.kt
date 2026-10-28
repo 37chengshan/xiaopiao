@@ -66,7 +66,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.graphicsLayer
 
 @Composable
-fun LedgerScreen(container: AppContainer, onOpenInsights: () -> Unit = {}, onPrint: () -> Unit = {}) {
+fun LedgerScreen(container: AppContainer, onOpenInsights: () -> Unit = {}, onPrint: () -> Unit = {}, onVoiceStart: () -> Unit = {}) {
     val ledger = container.ledger
     val flow = remember(container) { ledger.observeAll() }
     val txns: List<Txn>? by flow.collectAsStateWithLifecycle(initialValue = null)
@@ -117,7 +117,7 @@ fun LedgerScreen(container: AppContainer, onOpenInsights: () -> Unit = {}, onPri
                             translationY = (1f - enter.value) * 8.dp.toPx()
                         },
                         state = listState,
-                        contentPadding = PaddingValues(top = top, bottom = 120.dp),
+                        contentPadding = PaddingValues(top = top, bottom = 200.dp),
                     ) {
                         item(key = "search") {
                             LedgerSearchBar(
@@ -149,6 +149,11 @@ fun LedgerScreen(container: AppContainer, onOpenInsights: () -> Unit = {}, onPri
         }
 
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp))
+        com.xiaopiao.app.ui.components.RecordBall(
+            onManual = { openAdd(null) },
+            onVoice = onVoiceStart,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = XpSpace.l, bottom = 84.dp),
+        )
     }
 
     if (filterOpen) LedgerFilterSheet(filter, { filter = it; filterOpen = false }, { filterOpen = false })

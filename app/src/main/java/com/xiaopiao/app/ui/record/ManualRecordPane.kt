@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -169,12 +170,17 @@ private fun CategoryGrid(selected: Category, onSelect: (Category) -> Unit) {
 @Composable
 private fun CategoryEmojiTile(category: Category, selected: Boolean) {
     val shape = RoundedCornerShape(XpRadius.m)
+    // Selection is a fill change + a spring pop, never a border (no 框框).
+    val pop = remember { androidx.compose.animation.core.Animatable(1f) }
+    androidx.compose.runtime.LaunchedEffect(selected) {
+        if (selected) { pop.snapTo(0.9f); pop.animateTo(1f, androidx.compose.animation.core.spring(0.5f, 420f)) }
+    }
     Box(
         Modifier
             .size(42.dp)
+            .graphicsLayer { scaleX = pop.value; scaleY = pop.value }
             .clip(shape)
-            .background(if (selected) XpColors.AccentSoft else XpColors.Fill)
-            .then(if (selected) Modifier.border(1.5.dp, XpColors.Accent, shape) else Modifier),
+            .background(if (selected) XpColors.Primary else XpColors.Fill),
         contentAlignment = Alignment.Center,
     ) {
         Text(category.emoji, fontSize = 20.sp)

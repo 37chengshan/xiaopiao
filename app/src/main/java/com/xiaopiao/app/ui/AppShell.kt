@@ -173,6 +173,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         container,
                         onOpenInsights = { nav.navigate("insights") },
                         onPrint = { printSignal++; nav.navigate("print") },
+                        onVoiceStart = { voiceHost.request() },
                     )
                 }
                 composable("insights") {
