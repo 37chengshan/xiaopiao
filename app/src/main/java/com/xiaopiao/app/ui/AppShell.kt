@@ -111,6 +111,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     val record = rememberRecordSheetState()
     val voiceHost = com.xiaopiao.app.ui.record.rememberVoiceHost()
     var printSignal by remember { mutableIntStateOf(0) }
+    var gamesRequest by remember { mutableIntStateOf(0) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val onboarding = remember { com.xiaopiao.app.ui.onboarding.OnboardingPrefs(context.applicationContext) }
     val onboarded by onboarding.observeDone().collectAsState(initial = null)
@@ -151,6 +152,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 onSelect = { go(it) },
                 onRecord = { record.openManual() },
                 onVoice = { voiceHost.request() },
+                onGames = { gamesRequest++; if (current != Tab.Circle.route) go(Tab.Circle) },
             )
         },
     ) { padding ->
@@ -213,7 +215,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 composable(Tab.Chat.route) {
                     ChatScreen(container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openManual() })
                 }
-                composable(Tab.Circle.route) { CircleHome(container, onOpenSettings = { nav.navigate("settings") }) }
+                composable(Tab.Circle.route) { CircleHome(container, onOpenSettings = { nav.navigate("settings") }, openGames = gamesRequest) }
 
             }
         }
@@ -232,7 +234,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
  * the bar; long-press starts voice recording (docs/APP-DESIGN.md §4.2).
  */
 @Composable
-private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> Unit, onVoice: () -> Unit) {
+private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> Unit, onVoice: () -> Unit, onGames: () -> Unit) {
     val circleMode = current == Tab.Circle.route
     val capsule = RoundedCornerShape(32.dp)
     val dark = XpColors.isDark
@@ -294,7 +296,7 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> 
             ) {
                 TabItem(Tab.Chat, current, Modifier.width(64.dp).fillMaxHeight(), onSelect)
                 TabItem(Tab.Circle, current, Modifier.width(64.dp).fillMaxHeight(), onSelect)
-                CircleGameTab(Modifier.width(64.dp).fillMaxHeight()) { onSelect(Tab.Circle) }
+                CircleGameTab(Modifier.width(64.dp).fillMaxHeight(), onGames)
             }
             // Pull the group toward the middle instead of pinning it to the edge (tt#34).
             val tailWeight by androidx.compose.animation.core.animateFloatAsState(

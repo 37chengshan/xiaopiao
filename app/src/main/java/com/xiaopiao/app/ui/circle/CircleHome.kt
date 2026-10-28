@@ -65,7 +65,7 @@ private val ComposerHeight = 64.dp
  */
 @Suppress("UNUSED_PARAMETER")
 @Composable
-fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
+fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGames: Int = 0) {
     val now = remember { System.currentTimeMillis() }
     var members by remember { mutableStateOf(CircleDemo.members()) }
     var posts by remember { mutableStateOf(CircleDemo.feed(now)) }
@@ -103,6 +103,9 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
         draft = ""
         sendTick += 1
     }
+
+    // The nav's 游戏 cell opens the hub directly (tt#37).
+    LaunchedEffect(openGames) { if (openGames > 0) gamesOpen = true }
 
     LaunchedEffect(sendTick) {
         if (sendTick > 0 && rows.isNotEmpty()) listState.animateScrollToItem(rows.size)
