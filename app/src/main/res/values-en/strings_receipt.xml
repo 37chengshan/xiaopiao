@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="today_print">Print today\'s receipt</string>
+    <string name="today_print_day">Print this day\'s receipt</string>
+    <string name="today_spend">Spent today</string>
+    <string name="today_spend_day">Spent %1$s</string>
+    <string name="today_breakdown">Breakdown</string>
+    <string name="today_recent">Recent days</string>
+    <string name="today_warming_up">Warming up…</string>
+
+    <string name="onb_skip">Skip</string>
+    <string name="onb_next">Next</string>
+    <string name="onb_start">Get started</string>
+    <string name="onb_1_title">One receipt a day</string>
+    <string name="onb_1_body">Spending logged for you, printed as a receipt that talks</string>
+    <string name="onb_2_title">Auto logging</string>
+    <string name="onb_2_body">Reads payment notifications, or log by hand</string>
+    <string name="onb_2_allow">Allow notification access</string>
+    <string name="onb_2_manual">Log manually first</string>
+    <string name="onb_3_title">Bills stay on your phone</string>
+    <string name="onb_3_body">The cloud only holds structured fields, revocable anytime</string>
+    <string name="onb_3_chip_local">Parsed on device</string>
+    <string name="onb_3_chip_opt">Opt-in sharing</string>
+    <string name="onb_3_chip_revoke">Revocable</string>
+    <string name="onb_4_title">Make it yours</string>
+    <string name="onb_4_body">Appearance and print feedback, changeable later in Me</string>
+    <string name="onb_theme_system">System</string>
+    <string name="onb_theme_light">Light</string>
+    <string name="onb_theme_dark">Dark</string>
+    <string name="onb_sound">Print sound</string>
+    <string name="onb_vibration">Print vibration</string>
+</resources>

@@ -47,7 +47,7 @@ export function generateSuggestions(
       id: "pilot",
       emoji: "⏱️",
       title: `只在「${peak}」小范围试`,
-      summary: `演示数据里 ${peak} 来的人最多。只在这个时段试，成本小，也更容易看出差别。`,
+      summary: `人群数据里 ${peak} 来的人最多。只在这个时段试，成本小，也更容易看出差别。`,
       pros: "投入小、可随时叫停；刚好能服务最常来的那批顾客。",
       cons: "覆盖的顾客少，结论要慢一些才能看清；其他时段的顾客可能觉得没赶上。",
       firstStep: `这周先在 ${peak} 试一次，记下大概来了多少人。`,

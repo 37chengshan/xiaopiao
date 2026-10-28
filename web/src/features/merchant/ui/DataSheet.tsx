@@ -1,4 +1,4 @@
-import { Compass, FlaskConical, Gamepad2, Handshake, ShieldCheck, Sigma, Smartphone, type LucideIcon } from "lucide-react";
+import { Compass, Gamepad2, Handshake, ShieldCheck, Sigma, Smartphone, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Drawer } from "vaul";
 import { Group, IconTile } from "@/components/app/kit";
@@ -11,7 +11,6 @@ const SOURCES: ReadonlyArray<{ icon: LucideIcon; title: string; body: string }> 
   { icon: Smartphone, title: "原始通知不出手机", body: "支付通知等原始内容只留在顾客自己的手机里，不会上传给小店或我们。" },
   { icon: Gamepad2, title: "游戏表态不是真实消费", body: "小游戏里的选择叫「游戏表态」，和真实交易分开存放、分开展示。" },
   { icon: Compass, title: copy.sheet.decide.title, body: copy.sheet.decide.body },
-  { icon: FlaskConical, title: "当前全是演示数据", body: "本页所有数字都是模拟的，用来展示产品会怎么工作。" },
 ];
 
 /** 「数据怎么来的」bottom sheet (vaul): drags 1:1, releases by velocity, same path in and out. */

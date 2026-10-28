@@ -38,6 +38,12 @@ class RecordSheetState {
         mode = RecordMode.Text
     }
 
+    /** Tapping 「＋」: opens whichever input the user picked as default in settings. */
+    fun openDefault(method: RecordMethod) = when (method) {
+        RecordMethod.Manual -> openManual()
+        RecordMethod.Text -> openText()
+    }
+
     /** Voice lives on the dock; opening it is always the text path with an optional transcript. */
     fun openVoice() = openText(null)
 

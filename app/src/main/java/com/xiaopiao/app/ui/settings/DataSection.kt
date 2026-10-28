@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.settings
 
+import com.xiaopiao.app.BuildConfig
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
@@ -75,9 +76,10 @@ fun DataSection(
                 )
             }
         }
-        item {
+        // Test-ledger loader is a developer tool: it never ships in a release build.
+        if (BuildConfig.DEBUG) item {
             GroupedRow(
-                title = "载入示例账本",
+                title = "载入测试账本",
                 leading = { IconTile(Icons.Outlined.Science, tint = XpColors.Warning, background = XpColors.WarningSoft) },
                 onClick = onLoadDemo,
             )

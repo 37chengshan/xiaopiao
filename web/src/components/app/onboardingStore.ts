@@ -1,6 +1,17 @@
 import { useSyncExternalStore } from "react";
 
-/** Replaying the intro tour from 我的 (first run is gated by "no mode chosen yet"). */
+const DONE_KEY = "xiaopiao.onboarded";
+
+function readDone(): boolean {
+  try {
+    return localStorage.getItem(DONE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/** First run shows the intro tour once; a replay from 设置 reuses the same screen. */
+let firstRun = !readDone();
 let replaying = false;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
@@ -14,15 +25,27 @@ export const onboarding = {
     replaying = false;
     emit();
   },
+  finishFirstRun() {
+    firstRun = false;
+    try {
+      localStorage.setItem(DONE_KEY, "1");
+    } catch {
+      /* private mode: the tour just shows again next load */
+    }
+    emit();
+  },
 };
 
-export function useReplayingOnboarding(): boolean {
+function useStore(read: () => boolean): boolean {
   return useSyncExternalStore(
     (l) => {
       listeners.add(l);
       return () => listeners.delete(l);
     },
-    () => replaying,
+    read,
     () => false,
   );
 }
+
+export const useReplayingOnboarding = () => useStore(() => replaying);
+export const useFirstRun = () => useStore(() => firstRun);

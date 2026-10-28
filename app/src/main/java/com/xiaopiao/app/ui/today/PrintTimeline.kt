@@ -55,7 +55,7 @@ class PrintTimeline private constructor(
     }
 
     companion object {
-        const val SPEED_DP_PER_S = 380f
+        const val SPEED_DP_PER_S = 230f
         private const val STAMP_DELAY_MS = 220L
         const val SLAM_MS = 700L
 

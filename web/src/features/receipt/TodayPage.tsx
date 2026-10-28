@@ -1,7 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/app/States";
-import { DemoPill } from "@/components/app/DemoPill";
 import { useLedger } from "@/services/LedgerProvider";
 import { startOfDay } from "../../domain/types";
 import { buildDailyReceipt } from "../../logic/dailyReceipt";
@@ -25,9 +24,6 @@ export function TodayPage() {
   return (
     <>
       <div className="relative flex h-14 items-center justify-center gap-1 px-4 pt-[env(safe-area-inset-top,0px)]">
-        <div className="absolute left-4 top-[calc(env(safe-area-inset-top,0px)+14px)]">
-          <DemoPill />
-        </div>
         <button type="button" onClick={() => nav(-1)} aria-label="前一天" className={stepBtn}>
           <ChevronLeft className="size-5" strokeWidth={1.75} />
         </button>

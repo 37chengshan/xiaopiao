@@ -1,5 +1,6 @@
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
-import { FileUp, NotebookPen, Plus, Trash2 } from "lucide-react";
+import { t } from "@/lib/strings";
+import { FileUp, NotebookPen, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { CATEGORY_ICONS, CATEGORY_TONES } from "@/components/app/categoryIcons";
@@ -139,11 +140,10 @@ export function LedgerPage() {
   return (
     <>
       <PageHeader
-        title="账本"
+        title={t("nav.ledger")}
         right={
           <>
             <IconButton icon={FileUp} label="导入账单" onClick={() => entry.open({ tab: "import" })} />
-            <IconButton icon={Plus} label="记一笔" tone="ink" onClick={() => entry.open()} />
           </>
         }
       />

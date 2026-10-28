@@ -57,7 +57,6 @@ fun MerchantMineScreen(
     result: ExperimentResult?,
     onOpenSub: (MerchantSub) -> Unit,
     onPrivacy: () -> Unit,
-    onDemoNote: () -> Unit,
     onExit: () -> Unit,
 ) {
     val experiment = state.experiment
@@ -80,9 +79,8 @@ fun MerchantMineScreen(
                         IconTile(Icons.Outlined.Storefront, size = 40.dp, tint = XpColors.Accent, background = XpColors.AccentSoft)
                         Column(Modifier.weight(1f).padding(start = XpSpace.m)) {
                             Text(DEMO_SHOP_NAME, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                            Text("小店版 · 经营数据示例", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
+                            Text("小店版", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
                         }
-                        DemoPill()
                     }
                     Row(
                         Modifier.fillMaxWidth().padding(top = XpSpace.l),
@@ -148,12 +146,6 @@ fun MerchantMineScreen(
                         leading = { IconTile(Icons.Outlined.Info) }, onClick = onPrivacy,
                     )
                 }
-                item("demo") {
-                    GroupedRow(
-                        "账本说明", subtitle = "数据怎么来的、怎么换成自己的", chevron = true,
-                        leading = { IconTile(Icons.Outlined.Storefront) }, onClick = onDemoNote,
-                    )
-                }
             }
 
             SectionHeading("账户")
@@ -186,35 +178,6 @@ private fun StepBadge(n: Int, done: Boolean, icon: androidx.compose.ui.graphics.
             Icon(Icons.Outlined.Check, contentDescription = null, tint = XpColors.OnAccent, modifier = Modifier.size(18.dp))
         } else {
             Icon(icon, contentDescription = null, tint = XpColors.InkSecondary, modifier = Modifier.size(17.dp))
-        }
-    }
-}
-
-/** Short, honest explanation of what is seeded and how it gets replaced. */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-@Composable
-fun DemoDataSheet(onDismiss: () -> Unit) {
-    val points = listOf(
-        "只有示例才标「演示」" to "带「演示」标记的数字由程序生成，用来展示小店版长什么样，不是真实顾客。",
-        "你的数字会替换示例" to "记下自己的营收、或导入 CSV，同一天会替换成你的数字，标记跟着消失。",
-        "记录会合并" to "同一天再记一次会覆盖当天，不会重复累加。",
-        "只在你的手机里" to "小店版不读你的个人账单，也不上传任何数字；以后接入云端模型也只换文案。",
-    )
-    XpSheet(onDismiss, containerColor = XpColors.Canvas) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = XpSpace.xl)) {
-            Text(
-                "账本说明", Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s),
-                style = MaterialTheme.typography.headlineMedium, color = XpColors.Ink,
-            )
-            GroupedSection(dividerInset = 58.dp) {
-                points.forEachIndexed { i, (title, text) ->
-                    item(i) { GroupedRow(title, subtitle = text, subtitleMaxLines = 4, leading = { IconTile(Icons.Outlined.Info) }) }
-                }
-            }
-            XpButton(
-                "知道了", onDismiss,
-                Modifier.padding(horizontal = XpSpace.l).padding(top = XpSpace.l).fillMaxWidth(),
-            )
         }
     }
 }

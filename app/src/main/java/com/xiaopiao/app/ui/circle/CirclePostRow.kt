@@ -26,7 +26,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.domain.yuan
-import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.theme.XpColors
@@ -121,7 +120,6 @@ private fun ReceiptMessage(
                             )
                         }
                     }
-                    DemoChip()
                 }
 
                 Spacer(Modifier.height(XpSpace.s + 2.dp))
@@ -239,7 +237,7 @@ private fun ReceiptBody(post: ReceiptPost) {
             Spacer(Modifier.weight(1f))
             Text("¥${post.totalCents.yuan()}", style = mono, color = XpColors.Ink)
         }
-        Text("谢谢惠顾 · 本机演示", style = mono, color = XpColors.InkTertiary, maxLines = 1)
+        Text("谢谢惠顾", style = mono, color = XpColors.InkTertiary, maxLines = 1)
     }
 }
 

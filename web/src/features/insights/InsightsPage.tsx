@@ -1,4 +1,5 @@
 import { BarChart3, Users } from "lucide-react";
+import { t } from "@/lib/strings";
 import { motion, useReducedMotion } from "framer-motion";
 import { useRef, useState } from "react";
 import { Group, IconTile, Row, Segmented } from "@/components/app/kit";
@@ -26,7 +27,7 @@ export function InsightsPage() {
 
   return (
     <>
-      <PageHeader title="洞察" />
+      <PageHeader title={t("nav.insights")} />
       <Segmented className="mx-4 mb-1" value={tab} onChange={setTab} options={TABS} />
 
       <div className="pb-6">

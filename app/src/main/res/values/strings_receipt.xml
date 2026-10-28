@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="today_print">打印今日小票</string>
+    <string name="today_print_day">打印这天的小票</string>
+    <string name="today_spend">今日支出</string>
+    <string name="today_spend_day">%1$s 支出</string>
+    <string name="today_breakdown">明细</string>
+    <string name="today_recent">最近几天</string>
+    <string name="today_warming_up">我在热机，稍等一下下…</string>
+
+    <string name="onb_skip">跳过</string>
+    <string name="onb_next">下一步</string>
+    <string name="onb_start">开始使用</string>
+    <string name="onb_1_title">每天一张小票</string>
+    <string name="onb_1_body">自动记账，印成一张会说话的票</string>
+    <string name="onb_2_title">自动记账</string>
+    <string name="onb_2_body">读取支付通知，也可以手动记</string>
+    <string name="onb_2_allow">允许读取通知</string>
+    <string name="onb_2_manual">先手动记</string>
+    <string name="onb_3_title">原文只留在手机</string>
+    <string name="onb_3_body">云端只存结构化字段，随时可撤回</string>
+    <string name="onb_3_chip_local">本机解析</string>
+    <string name="onb_3_chip_opt">自愿贡献</string>
+    <string name="onb_3_chip_revoke">可撤回</string>
+    <string name="onb_4_title">选个喜欢的样子</string>
+    <string name="onb_4_body">外观与打印声音，之后可在「我的」修改</string>
+    <string name="onb_theme_system">跟随系统</string>
+    <string name="onb_theme_light">浅色</string>
+    <string name="onb_theme_dark">深色</string>
+    <string name="onb_sound">打印声音</string>
+    <string name="onb_vibration">打印震动</string>
+</resources>

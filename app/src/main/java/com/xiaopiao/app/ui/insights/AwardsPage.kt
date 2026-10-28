@@ -40,7 +40,6 @@ import com.xiaopiao.app.insights.WeeklyReport
 import com.xiaopiao.app.insights.WeeklyReportBuilder
 import com.xiaopiao.app.insights.addDays
 import com.xiaopiao.app.insights.startOfWeek
-import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.SectionHeader
 import com.xiaopiao.app.ui.components.XpCard
@@ -62,7 +61,7 @@ fun AwardsPage(input: InsightsInput, onBack: () -> Unit) {
     val haptic = LocalHapticFeedback.current
 
     Box {
-        InsightsPage("周报颁奖典礼", rangeLabel(report), input.demo, onBack) {
+        InsightsPage("周报颁奖典礼", rangeLabel(report), onBack) {
             Segmented(listOf(true to "上周", false to "本周"), lastWeek) { lastWeek = it; burst++ }
             if (report.isEmpty) {
                 InsightsEmpty("🏆", "这周还没有小票", "记几笔账，周日晚上就有颁奖典礼啦～")
@@ -147,7 +146,6 @@ private fun WeekStatsCard(r: WeeklyReport, demo: Boolean) {
     XpCard {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("本周花了", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
-            if (demo) DemoChip()
         }
         BigMoney(r.totalOutCents)
         r.vsPrevPercent?.let { p ->
@@ -186,7 +184,6 @@ private fun CategoriesCard(r: WeeklyReport) {
     XpCard {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("花得最多的", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
-            DemoChip()
         }
         val topTotal = r.topCategories.sumOf { it.cents }.coerceAtLeast(1L)
         r.topCategories.forEachIndexed { i, c ->

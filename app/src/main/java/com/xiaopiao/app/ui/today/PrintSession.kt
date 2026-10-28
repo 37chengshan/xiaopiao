@@ -13,7 +13,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
-import com.xiaopiao.app.ui.components.XpHaptics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
@@ -30,7 +29,7 @@ enum class PrintPhase { Closed, Printing, Printed, Tearing }
 @Stable
 class PrintSession(
     private val scope: CoroutineScope,
-    private val haptics: XpHaptics,
+    private val haptics: ReceiptHaptics,
     private val sound: ReceiptSound,
 ) {
     var phase by mutableStateOf(PrintPhase.Closed); private set
@@ -119,7 +118,7 @@ class PrintSession(
             kick.snapTo(6f)
             kick.animateTo(0f, spring(0.3f, 650f))
         }
-        stampScale.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = 450f))
+        stampScale.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 480f))
     }
 
     // ---- tear -----------------------------------------------------------
@@ -160,7 +159,7 @@ class PrintSession(
         job = scope.launch {
             phase = PrintPhase.Tearing
             tornTop = true
-            haptics.thud(); sound.tear()
+            haptics.confirm(); sound.tear()
             if (reduced) {
                 animate(1f, 0f, 0f, tween(150)) { v, _ -> paperAlpha = v }
                 onRelease()
@@ -194,7 +193,7 @@ class PrintSession(
         const val STAMP_FROM = 1.5f
         const val PAPER_DELAY_MS = 140L
         const val IMPACT_MS = 85L
-        const val BEAT_GAP_MS = 70L
+        const val BEAT_GAP_MS = 240L
         const val RELEASE_AFTER_MS = 260L
         const val MIN_FLING = 900f
         const val FLY_TILT = 13f

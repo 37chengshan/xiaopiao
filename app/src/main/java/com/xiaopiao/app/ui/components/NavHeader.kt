@@ -69,8 +69,7 @@ private val BarHeight = 44.dp
 /**
  * Apple-style navigation chrome. Content is laid out full-bleed and receives the height it must reserve
  * on top ([content]'s `top`); put a [LargeTitle] as its first child. As the content scrolls, a compact
- * translucent bar fades in with a centred small title and a hairline. [trailing] actions and the single
- * quiet 演示数据 chip ([demo]) stay put in both states.
+ * translucent bar fades in with a centred small title and a hairline. [trailing] actions stay put in both states.
  */
 @Composable
 fun NavScaffold(
@@ -126,13 +125,6 @@ fun NavScaffold(
         }
     }
 }
-
-/**
- * Was the 「演示数据」 chip. tt#27: the word must not appear on screen any more — the whole build
- * is mock data, so the label is noise. Kept as a no-op so call sites stay readable.
- */
-@Composable
-fun DemoChip(@Suppress("UNUSED_PARAMETER") modifier: Modifier = Modifier, @Suppress("UNUSED_PARAMETER") text: String = "") = Unit
 
 /** 34dp round raised button with a line icon, for nav bar actions. */
 @Composable

@@ -105,7 +105,7 @@ export function ResultsStep({
           <Row
             leading={<IconTile icon={Users} />}
             title={res.note}
-            subtitle={<span className="whitespace-normal">演示样本 {res.demoCount} 人 + 你邀请的顾客 {res.playerCount} 人</span>}
+            subtitle={<span className="whitespace-normal">人群样本 {res.demoCount} 人 + 你邀请的顾客 {res.playerCount} 人</span>}
             className="[&_span.truncate]:whitespace-normal"
           />
         </div>

@@ -6,17 +6,18 @@ import { Toaster as Sonner } from "sonner";
 import { EntryProvider } from "@/features/entry/EntryProvider";
 import { DUR, EASE_OUT } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import { useLedger } from "@/services/LedgerProvider";
 import { FirstRun, Onboarding } from "./FirstRun";
-import { onboarding, useReplayingOnboarding } from "./onboardingStore";
+import { onboarding, useFirstRun, useReplayingOnboarding } from "./onboardingStore";
 import { t } from "@/lib/strings";
 import { TabBar } from "./TabBar";
 
-/** Shop view: not a tab, reached from 我的; shows a return pill instead of the tab bar. */
+/** Shop view: not a tab, reached from 设置; shows a return pill instead of the tab bar. */
 const SHOP_PATHS = ["/merchant"];
-const CONSUMER_PATHS = ["/home", "/today", "/ledger", "/insights", "/game", "/me"];
+/** Standalone pages (a back button, no tab bar). */
+const BARE_PATHS = ["/settings"];
+const CONSUMER_PATHS = ["/home", "/today", "/ledger", "/insights", "/game", "/settings"];
 /** Pages built from inset grouped lists sit on `bg-grouped` so white groups lift off the page. */
-const GROUPED_PATHS = ["/ledger", "/insights", "/me"];
+const GROUPED_PATHS = ["/ledger", "/insights", "/settings"];
 
 /**
  * Phone column: full-bleed on phones, a centered ~430px device on desktop.
@@ -49,17 +50,18 @@ function useKeyboard() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { mode } = useLedger();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const reduce = useReducedMotion() ?? false;
   // Crossfade only when the route actually changes; the first paint appears as-is.
   const prevPath = useRef(path);
   const entering = prevPath.current !== path;
   prevPath.current = path;
-  const gated = CONSUMER_PATHS.includes(path) && mode === null;
+  const firstRun = useFirstRun();
+  const gated = CONSUMER_PATHS.includes(path) && firstRun;
   const { typing, vvh } = useKeyboard();
   const replaying = useReplayingOnboarding();
   const shop = SHOP_PATHS.includes(path);
+  const bare = BARE_PATHS.includes(path);
   const grouped = !gated && GROUPED_PATHS.includes(path);
   return (
     <div className="flex min-h-dvh items-center justify-center bg-bg-grouped md:p-4">
@@ -89,10 +91,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Onboarding onFinish={onboarding.close} />
             </div>
           )}
-          {!gated && !shop && <TabBar hidden={typing} />}
+          {!gated && !shop && !bare && <TabBar hidden={typing} />}
           {shop && (
             <Link
-              to="/me"
+              to="/settings"
               style={{ bottom: "max(16px, env(safe-area-inset-bottom, 0px))" }}
               className="glass-float absolute left-1/2 z-30 inline-flex !bg-surface-2 h-11 -translate-x-1/2 items-center gap-1.5 rounded-full px-5 text-[15px] font-medium text-ink"
             >

@@ -64,7 +64,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.domain.startOfDay
-import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.Pill
 import com.xiaopiao.app.ui.components.SelectCapsule
 import com.xiaopiao.app.ui.components.ShimmerBlock
@@ -385,7 +384,6 @@ private fun ChatHeader(dayLabel: String, demo: Boolean, onOpenSettings: () -> Un
                 Text("小票助手", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
                 Text(dayLabel, style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
             }
-            if (demo) DemoChip(Modifier.padding(end = XpSpace.s))
             Pill("本机统计")
             androidx.compose.foundation.layout.Spacer(Modifier.width(XpSpace.s))
             NavIconButton(Icons.Outlined.Settings, "设置", onOpenSettings)
@@ -442,7 +440,6 @@ private fun ReminderLine(reminder: ChatReminder) {
             style = MaterialTheme.typography.bodyMedium,
             color = XpColors.InkSecondary,
         )
-        if (reminder.demo) DemoChip(Modifier.padding(start = XpSpace.s))
     }
 }
 

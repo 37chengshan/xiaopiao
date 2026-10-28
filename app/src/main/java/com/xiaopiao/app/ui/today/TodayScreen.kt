@@ -67,7 +67,6 @@ import com.xiaopiao.app.ui.components.ShimmerBlock
 import com.xiaopiao.app.ui.components.UndoToastHost
 import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberUndoToastState
-import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.delay
@@ -83,7 +82,6 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material3.Icon
 import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.domain.yuan
-import com.xiaopiao.app.ui.components.DemoChip
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.record.RecordSheetState
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -142,13 +140,14 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: 
     val timeline = remember(lines, reduced) { PrintTimeline.build(lines, reduced) }
 
     val scope = rememberCoroutineScope()
-    val haptics = rememberXpHaptics()
     val context = LocalContext.current
+    val haptics = remember { ReceiptHaptics(context) }
     val sound = remember { ReceiptSound(context) }
     DisposableEffect(sound) { onDispose { sound.release() } }
     val soundPrefs = remember { ReceiptSoundPrefs(context) }
     val soundOn by soundPrefs.observeEnabled().collectAsState(initial = true)
-    SideEffect { sound.enabled = soundOn }
+    val vibrationOn by soundPrefs.observeVibration().collectAsState(initial = true)
+    SideEffect { sound.enabled = soundOn; haptics.enabled = vibrationOn }
     val session = remember { PrintSession(scope, haptics, sound) }
     val toast = rememberUndoToastState()
     var share by remember { mutableStateOf<ShareContent?>(null) }
@@ -177,7 +176,6 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: 
         val isToday = selectedDay == today
         share = ShareContent(
             full = ReceiptLayout.build(r, isToday, hasDemo, expanded = true, meta = meta),
-            brief = ReceiptLayout.build(r, isToday, hasDemo, brief = true, meta = meta),
             stampText = ReceiptLayout.stampText(r),
             fileKey = ReceiptLayout.isoDay(selectedDay).substringBefore(' '),
         )
@@ -242,7 +240,6 @@ private fun TodayHeader(dateLabel: String, count: Int, spentCents: Long, hasDemo
     Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l).padding(top = XpSpace.s, bottom = XpSpace.m)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(dateLabel, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
-            if (hasDemo) DemoChip()
         }
         Spacer(Modifier.height(XpSpace.xs))
         Text(

@@ -37,7 +37,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.xiaopiao.app.merchant.DEMO_LABEL
 import com.xiaopiao.app.ui.components.Pill
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
@@ -46,11 +45,6 @@ import kotlinx.coroutines.delay
 
 val SpringSoft = spring<Float>(dampingRatio = 0.75f, stiffness = Spring.StiffnessLow)
 val SpringSnappy = spring<Float>(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium)
-
-@Composable
-fun DemoPill(@Suppress("UNUSED_PARAMETER") modifier: Modifier = Modifier) {
-    // tt#27: demo wording is gone from the UI; the data model still marks seeded rows.
-}
 
 /** 0→1 progress that springs in once when first composed (and again when [key] changes). */
 @Composable

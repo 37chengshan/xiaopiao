@@ -1,8 +1,7 @@
 import type { Category, Cents } from "../../../domain/types";
 import { mulberry32, pickWeighted, type Rng } from "./rng";
 
-/** All merchant-side data is synthetic. Surfaces must carry the `演示数据` label. */
-export const DEMO_LABEL = "演示数据";
+/** All merchant-side data is synthetic (mock) until real aggregates exist; audit before submission (docs/APP-DESIGN.md §9). */
 
 export const WEEKDAY_LABELS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"] as const;
 export const SLOT_LABELS = ["早晨", "上午", "午间", "下午", "傍晚", "夜间"] as const;

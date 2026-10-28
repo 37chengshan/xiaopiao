@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import com.xiaopiao.app.ui.theme.XpColors
 
 val PaperWidth = 296.dp
 private val ToothDp = 12.dp
@@ -49,6 +50,7 @@ fun ReceiptPaper(
                 clipPath(path) {
                     drawPaperBackground(density)
                     this@drawWithContent.drawContent()
+                    if (!clock.instant) drawThermalHead(density)
                 }
             }
             .layout { measurable, c ->
@@ -70,4 +72,19 @@ fun ReceiptPaper(
             }
         }
     }
+}
+
+/**
+ * Thermal development at the leading edge while the paper feeds: freshly printed ink is still pale and darkens
+ * as the paper moves on, plus the print head's scan line at the very bottom.
+ */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawThermalHead(density: Float) {
+    val fade = 64f * density
+    val top = (size.height - fade).coerceAtLeast(0f)
+    drawRect(
+        androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, XpColors.Paper.copy(alpha = 0.78f)), startY = top, endY = size.height),
+        topLeft = androidx.compose.ui.geometry.Offset(0f, top), size = androidx.compose.ui.geometry.Size(size.width, size.height - top),
+    )
+    val y = size.height - 8f * density
+    drawRect(Color.Black.copy(alpha = 0.22f), androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Size(size.width, 1.5f * density))
 }

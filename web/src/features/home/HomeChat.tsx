@@ -2,7 +2,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUp, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { DemoPill } from "@/components/app/DemoPill";
 import { Chip, XButton } from "@/components/app/kit";
 import { ErrorState, LoadingState } from "@/components/app/States";
 import { EASE_OUT } from "@/lib/motion";
@@ -20,6 +19,7 @@ import { RegretSimulator } from "../insights/RegretSimulator";
 import { Receipt } from "../receipt/Receipt";
 import { DraftsCard, SubscriptionSummaryCard, WeeklySummaryCard } from "./cards";
 import { TypedText } from "./TypedText";
+import { SettingsButton } from "@/components/app/SettingsButton";
 
 type Card =
   | { kind: "drafts"; drafts: DraftTxn[]; saved: boolean }
@@ -37,8 +37,8 @@ interface Msg {
   chips?: string[];
 }
 
-/** Chat survives tab switches (module scope) but not reloads; keyed by ledger mode. */
-const store: { mode: string | null; msgs: Msg[]; seen: Set<string> } = { mode: null, msgs: [], seen: new Set() };
+/** Chat survives tab switches (module scope) but not reloads. */
+const store: { msgs: Msg[]; seen: Set<string> } = { msgs: [], seen: new Set() };
 let seq = 0;
 const nid = () => `m${Date.now()}-${++seq}`;
 
@@ -75,10 +75,10 @@ function AiMessage({ msg, children }: { msg: Msg; children?: React.ReactNode }) 
 
 export function HomeChat() {
   const ledger = useLedger();
-  const { txns, now, isLoading, isError, refetch, mode, add } = ledger;
+  const { txns, now, isLoading, isError, refetch, add } = ledger;
   const entry = useEntry();
   const reduce = useReducedMotion() ?? false;
-  const [msgs, setMsgs] = useState<Msg[]>(store.mode === mode ? store.msgs : []);
+  const [msgs, setMsgs] = useState<Msg[]>(store.msgs);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -87,16 +87,15 @@ export function HomeChat() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    store.mode = mode;
     store.msgs = msgs;
-  }, [mode, msgs]);
+  }, [msgs]);
 
   // AI speaks first, once data is ready
   useEffect(() => {
-    if (isLoading || isError || msgs.length > 0 || mode === null) return;
+    if (isLoading || isError || msgs.length > 0) return;
     const o = templateAssistant.opening(txns, now);
     setMsgs([{ id: nid(), role: "ai", text: o.text, chips: o.chips }]);
-  }, [isLoading, isError, msgs.length, mode, txns, now]);
+  }, [isLoading, isError, msgs.length, txns, now]);
 
   // keep the newest content in view, including cards that grow after they mount (receipt, typing)
   const stick = useRef(true);
@@ -248,9 +247,7 @@ export function HomeChat() {
           className={cn("material edge-fade-bottom absolute inset-x-0 -bottom-3 top-0 transition-opacity duration-200 ease-[var(--ease-out)]", scrolled ? "opacity-100" : "opacity-0")}
         />
         <h1 className="relative text-[22px] font-semibold leading-[28px] tracking-[-0.015em] text-ink">{new Date(now).toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" })}</h1>
-        <div className="relative">
-          <DemoPill />
-        </div>
+        <SettingsButton />
       </div>
       {isLoading ? (
         <div className="pt-[calc(56px+env(safe-area-inset-top,0px))]">

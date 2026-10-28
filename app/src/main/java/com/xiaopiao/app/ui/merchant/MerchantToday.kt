@@ -182,12 +182,6 @@ fun MerchantTodayScreen(
                 }
             }
 
-            Text(
-                "带「演示」标记的数字是示例数据，记下你自己的数字就会替换掉它。",
-                style = MaterialTheme.typography.labelSmall,
-                color = XpColors.InkSecondary,
-                modifier = Modifier.padding(horizontal = XpSpace.l),
-            )
             NavBottomSpace()
         }
     }

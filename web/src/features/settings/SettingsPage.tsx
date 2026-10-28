@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
-import { Eraser, Info, Palette, PlayCircle, RefreshCw, Shield, Store, Database, PenLine, Vibrate, Volume2 } from "lucide-react";
+import { Eraser, Info, Palette, PlayCircle, Shield, Store, PenLine, Vibrate, Volume2 } from "lucide-react";
 import { Group, IconTile, Row, Segmented, Switch, XButton } from "@/components/app/kit";
 import { onboarding } from "@/components/app/onboardingStore";
 import { Sheet } from "@/components/app/Sheet";
@@ -26,27 +26,25 @@ const PRIVACY: readonly { title: string; body: ReactNode }[] = [
   },
   { title: "商家洞察需要你主动同意", body: "只有你主动勾选「贡献匿名数据」，你的消费才会进入商家洞察；不勾选，数据一分都不会被用于商家端。随时可以关闭。" },
   { title: "聚合门槛 k ≥ 20", body: "商家端只能看到至少 20 位用户汇总后的统计，没有任何个人明细，也无法反查到具体的人。" },
-  { title: "演示数据会被明确标注", body: "带有「演示数据」标签的内容都是虚构的，不是真实用户的消费，也不会混入任何统计。" },
   {
     title: "AI 的边界：不提供理财建议",
     body: "AI 只做四件事：记录、总结、提醒、模拟。每一笔账都由你确认；后悔模拟器只是把你过去的花费做算术外推，不含投资收益，也不告诉你该买什么。",
   },
 ];
 
-export function PrivacyPage() {
-  const { mode, txns, reset, forgetMode } = useLedger();
+export function SettingsPage() {
+  const { txns, reset } = useLedger();
   const { pref, setPref } = useTheme();
   const [soundOn, setSoundOn] = useReceiptSound();
   const [hapticsOn, setHapticsOn] = useReceiptHaptics();
   const [confirming, setConfirming] = useState(false);
   const [sheet, setSheet] = useState<"privacy" | null>(null);
   const navigate = useNavigate();
-  const modeLabel = mode === "demo" ? t("me.mode.demo") : mode === "empty" ? t("me.mode.empty") : t("me.mode.none");
-  const canClear = mode && txns.length > 0;
+  const canClear = txns.length > 0;
 
   return (
     <>
-      <PageHeader title={t("me.title")} />
+      <PageHeader title={t("me.title")} back />
 
       <div className="space-y-3 pb-6">
         <Group>
@@ -73,8 +71,6 @@ export function PrivacyPage() {
         </Group>
 
         <Group inset="icon">
-          <Row leading={<IconTile icon={Database} tone="neutral" />} title={t("me.mode")} trailing={<span className="text-[15px] text-ink-2">{modeLabel}</span>} />
-          <Row leading={<IconTile icon={RefreshCw} />} title={t("me.switchMode")} chevron onClick={mode ? forgetMode : undefined} className={mode ? "" : "opacity-40"} />
           {confirming ? (
             <div className="px-4 py-3" role="alert">
               <p className="text-[15px] leading-[22px] text-ink">清空当前的 {txns.length} 笔账目？无法撤销。</p>
