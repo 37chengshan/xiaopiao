@@ -223,12 +223,12 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> 
         Row(Modifier.fillMaxWidth().padding(top = 16.dp).height(64.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f)) {
                 TabItem(Tab.Ledger, current, Modifier.weight(1f), onSelect)
-                TabItem(Tab.Chat, current, Modifier.weight(1f), onSelect)
+                Spacer(Modifier.weight(1f))
             }
             Spacer(Modifier.width(78.dp))
             Row(Modifier.weight(1f)) {
-                // Mirror the left pair so the two visible tabs sit symmetrically around the centre key.
-                Spacer(Modifier.weight(1f))
+                // tt#21: 记账 ｜〔记一笔〕｜ AI ｜ 圈子 — AI lives on the RIGHT of the centre key.
+                TabItem(Tab.Chat, current, Modifier.weight(1f), onSelect)
                 TabItem(Tab.Circle, current, Modifier.weight(1f), onSelect)
             }
         }
