@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ReceiptLong
+import com.xiaopiao.app.ui.today.ReceiptStrip
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.MaterialTheme
@@ -71,7 +72,6 @@ private val CardGap = XpSpace.cardGap
 @Composable
 fun LedgerScreen(
     container: AppContainer,
-    onPrint: () -> Unit = {},
     @Suppress("UNUSED_PARAMETER") onVoiceStart: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
 ) {
@@ -196,7 +196,7 @@ fun LedgerScreen(
                 }
                 else -> {
                     NavIconButton(Icons.Outlined.CalendarMonth, "按天跳转", onClick = { calendarOpen = true })
-                    NavIconButton(Icons.Outlined.ReceiptLong, "打印今日小票", onClick = onPrint)
+                    ReceiptStrip()
                     NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings)
                 }
             }

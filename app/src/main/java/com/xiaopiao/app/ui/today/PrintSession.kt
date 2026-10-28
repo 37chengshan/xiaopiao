@@ -51,6 +51,9 @@ class PrintSession(
     var tilt by mutableFloatStateOf(0f); private set
     var paperAlpha by mutableFloatStateOf(1f); private set
 
+    /** Window-space centre of the resident receipt strip that started this print; the printer flies out of it. */
+    var anchor by mutableStateOf<androidx.compose.ui.geometry.Offset?>(null); private set
+
     private var job: Job? = null
     private var settle: Job? = null
     private var crossed = false
@@ -62,8 +65,9 @@ class PrintSession(
 
     // ---- print ----------------------------------------------------------
 
-    fun open(timeline: PrintTimeline, reduced: Boolean) {
+    fun open(timeline: PrintTimeline, reduced: Boolean, from: androidx.compose.ui.geometry.Offset? = null) {
         job?.cancel(); settle?.cancel()
+        anchor = from
         job = scope.launch {
             resetVisuals()
             phase = PrintPhase.Printing
@@ -72,8 +76,8 @@ class PrintSession(
                 showFinal(timeline)
                 return@launch
             }
-            launch { present.animateTo(1f, tween(240, easing = EaseOut)) }
-            delay(PAPER_DELAY_MS)
+            launch { present.animateTo(1f, tween(if (from != null) 320 else 240, easing = EaseOut)) }
+            delay(if (from != null) PAPER_DELAY_MS + 120 else PAPER_DELAY_MS)
             coroutineScope {
                 launch { elapsed.animateTo(timeline.feedEndMs.toFloat(), tween(timeline.feedEndMs.toInt(), easing = LinearEasing)) }
                 launch { beats(timeline) }

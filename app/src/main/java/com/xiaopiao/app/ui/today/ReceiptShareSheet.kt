@@ -66,8 +66,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 
 /** The two versions of the printed card, both pre-built by the caller (the same receipt, more or fewer rows). */
-class ShareContent(val full: List<ReceiptLine>, val stampText: String, val fileKey: String) {
-    val brief: List<ReceiptLine> = ReceiptLayout.brief(full)
+class ShareContent(
+    val full: List<ReceiptLine>,
+    val stampText: String,
+    val fileKey: String,
+    /** A purpose-built 简版 (hero total + share bars + stamp); null derives one from [full]. */
+    briefLines: List<ReceiptLine>? = null,
+    /** The paper colours chosen in 小票页; null = the app's classic paper. */
+    val colors: PaperColors? = null,
+) {
+    val brief: List<ReceiptLine> = briefLines ?: ReceiptLayout.brief(full)
     fun linesFor(briefMode: Boolean): List<ReceiptLine> = if (briefMode) brief else full
 }
 
@@ -107,7 +115,7 @@ fun ReceiptShareSheet(content: ShareContent, onDismiss: () -> Unit) {
                 Modifier.weight(1f, fill = false).fillMaxWidth().padding(vertical = XpSpace.s)
                     .clip(RoundedCornerShape(XpRadius.m)).animateContentSize(spring(0.85f, 380f)).verticalScroll(rememberScrollState()),
             ) {
-                ShareCard(lines, content.stampText, GradientPresets.byIndex(gradient), Modifier.drawWithContent {
+                ShareCard(lines, content.stampText, GradientPresets.byIndex(gradient), content.colors, Modifier.drawWithContent {
                     layer.record { this@drawWithContent.drawContent() }
                     drawLayer(layer)
                 })
@@ -154,7 +162,7 @@ private fun Modifier.defaultMin() = this.then(Modifier.height(48.dp))
 
 /** The exported image: the paper floating on the chosen gradient with a small signature. Captured as-is by the sheet. */
 @Composable
-private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: CardGradient, modifier: Modifier = Modifier) {
+private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: CardGradient, colors: PaperColors?, modifier: Modifier = Modifier) {
     val timeline = remember(lines) { PrintTimeline.build(lines, reduced = true) }
     val clock = remember(timeline) { PrintClock(timeline, instant = true) { 0L } }
     val stamp = remember { StampVisuals({ 1f }, { 1f }, { 0f }) }
@@ -164,7 +172,9 @@ private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: Car
             .padding(horizontal = 24.dp, vertical = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        ReceiptPaper(lines, clock, stampText, stamp, tornTop = true)
+        androidx.compose.runtime.CompositionLocalProvider(LocalPaperColors provides (colors ?: LocalPaperColors.current)) {
+            ReceiptPaper(lines, clock, stampText, stamp, tornTop = true)
+        }
         Spacer(Modifier.height(18.dp))
         Text("今日小票 · 每天印一张", style = MaterialTheme.typography.labelMedium, color = ink, textAlign = TextAlign.Center)
     }

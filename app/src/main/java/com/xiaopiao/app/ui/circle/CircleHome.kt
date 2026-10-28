@@ -120,7 +120,10 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGam
         title = CircleDemo.CIRCLE_NAME,
         scroll = NavScrollNone,
         demo = true,
-        trailing = { NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onOpenSettings) },
+        trailing = {
+            com.xiaopiao.app.ui.today.ReceiptStrip()
+            NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onOpenSettings)
+        },
     ) { top ->
         Box(Modifier.fillMaxSize()) {
             val feedIn = remember { androidx.compose.animation.core.Animatable(0f) }

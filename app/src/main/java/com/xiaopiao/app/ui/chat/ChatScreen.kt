@@ -386,6 +386,8 @@ private fun ChatHeader(dayLabel: String, demo: Boolean, onOpenSettings: () -> Un
             }
             Pill("本机统计")
             androidx.compose.foundation.layout.Spacer(Modifier.width(XpSpace.s))
+            com.xiaopiao.app.ui.today.ReceiptStrip()
+            androidx.compose.foundation.layout.Spacer(Modifier.width(XpSpace.s))
             NavIconButton(Icons.Outlined.Settings, "设置", onOpenSettings)
         }
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpColors.Hairline))

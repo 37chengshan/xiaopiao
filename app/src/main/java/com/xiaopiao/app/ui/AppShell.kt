@@ -81,7 +81,11 @@ import com.xiaopiao.app.ui.record.rememberRecordSheetState
 import com.xiaopiao.app.ui.settings.SettingsScreen
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
-import com.xiaopiao.app.ui.today.TodayScreen
+import com.xiaopiao.app.ui.today.LocalReceiptHost
+import com.xiaopiao.app.ui.today.ReceiptHostOverlay
+import com.xiaopiao.app.ui.today.ReceiptPage
+import com.xiaopiao.app.ui.today.rememberReceiptHost
+import androidx.compose.runtime.CompositionLocalProvider
 import com.xiaopiao.app.work.ReminderIntents
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -115,7 +119,6 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     var merchantMode by rememberSaveable { mutableStateOf(false) }
     val record = rememberRecordSheetState()
     val voiceHost = com.xiaopiao.app.ui.record.rememberVoiceHost()
-    var printSignal by remember { mutableIntStateOf(0) }
     var gamesRequest by remember { mutableIntStateOf(0) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val onboarding = remember { com.xiaopiao.app.ui.onboarding.OnboardingPrefs(context.applicationContext) }
@@ -140,21 +143,28 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         restoreState = true
     }
 
+    // The resident receipt: pages place a ReceiptStrip, the ceremony itself lives here, above the navigation.
+    val receiptHost = rememberReceiptHost(container) {
+        if (nav.currentDestination?.route != "receipt") nav.navigate("receipt") { launchSingleTop = true }
+    }
+
     LaunchedEffect(open) {
         when (open?.target) {
-            ReminderIntents.OPEN_TODAY -> { go(Tab.Ledger); onOpenConsumed() }
+            // The 21:30 reminder goes straight into the print ceremony.
+            ReminderIntents.OPEN_TODAY -> { go(Tab.Ledger); receiptHost.print(); onOpenConsumed() }
             // Insights consumes the request itself after jumping to the sub-page.
             ReminderIntents.OPEN_WEEKLY, ReminderIntents.OPEN_SUBSCRIPTIONS -> go(Tab.Ledger)
         }
     }
 
+    CompositionLocalProvider(LocalReceiptHost provides receiptHost) {
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = XpColors.CanvasGrouped,
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
-            // The print page owns the screen; no tabs while the paper is coming out.
-            if (current != "print" && current != "settings") XpTabBar(
+            // Standalone pages own the screen; no tabs.
+            if (current != "receipt" && current != "settings") XpTabBar(
                 current = current,
                 onSelect = { go(it) },
                 onRecord = { record.openDefault(recordMethod) },
@@ -165,7 +175,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     ) { padding ->
         // Screens built on NavScaffold draw under the status bar themselves; Today still expects the inset applied here.
         val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val top = if (current == "print" || current == null) statusTop else 0.dp
+        val top = if (current == null) statusTop else 0.dp
         Box(
             Modifier.fillMaxSize()
                 .background(XpColors.CanvasGrouped)
@@ -184,7 +194,6 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 composable(Tab.Ledger.route) {
                     LedgerScreen(
                         container,
-                        onPrint = { printSignal++; nav.navigate("print") },
                         onOpenSettings = { nav.navigate("settings") },
                     )
                 }
@@ -214,10 +223,19 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         onBack = { nav.popBackStack() },
                     )
                 }
-                composable("print") {
-                    // One job: print today's receipt, then leave.
-                    BackHandler { nav.popBackStack() }
-                    TodayScreen(container, record, printSignal, printOnly = true, onDone = { nav.popBackStack() }, onVoiceStart = { voiceHost.request() })
+                composable(
+                    "receipt",
+                    enterTransition = {
+                        androidx.compose.animation.slideInVertically(androidx.compose.animation.core.spring(0.9f, 340f)) { it / 6 } +
+                            androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(180))
+                    },
+                    exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140)) },
+                    popExitTransition = {
+                        androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.spring(0.9f, 320f)) { it / 6 } +
+                            androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140))
+                    },
+                ) {
+                    ReceiptPage(container, receiptHost, onBack = { nav.popBackStack() })
                 }
                 composable(Tab.Chat.route) {
                     ChatScreen(container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openDefault(recordMethod) })
@@ -234,6 +252,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         )
     }
     RecordSheetHost(record, container)
+    ReceiptHostOverlay(receiptHost)
+    }
 }
 
 private val SlotMax = 64.dp
