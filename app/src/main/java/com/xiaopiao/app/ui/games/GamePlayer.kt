@@ -215,9 +215,14 @@ private fun QuestionView(
     onAnswer: (GameAnswer) -> Unit,
     onContinue: () -> Unit,
 ) {
-    Box(Modifier.fillMaxSize()) {
+    Column(
+        Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        // Short questions sit in the middle of the screen; long ones scroll inside the same box.
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
         Column(
-            Modifier.align(Alignment.TopCenter)
+            Modifier
                 .widthIn(max = 560.dp)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
@@ -256,16 +261,16 @@ private fun QuestionView(
                 )
             }
 
-            Spacer(Modifier.height(XpSpace.xl))
-            Text(
-                GAME_DISCLAIMER,
-                style = MaterialTheme.typography.labelSmall,
-                color = XpColors.InkTertiary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(XpSpace.s))
+            Spacer(Modifier.height(XpSpace.l))
         }
+        }
+        Text(
+            GAME_DISCLAIMER,
+            style = MaterialTheme.typography.labelSmall,
+            color = XpColors.InkTertiary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(bottom = XpSpace.s),
+        )
     }
 }
 
