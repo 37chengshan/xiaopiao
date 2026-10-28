@@ -36,19 +36,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.AppContainer
+import com.xiaopiao.app.OpenRequest
 import com.xiaopiao.app.insights.SampleData
 import com.xiaopiao.app.ui.components.LargeTitle
 import com.xiaopiao.app.ui.components.Pill
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.work.ReminderIntents
 import com.xiaopiao.app.work.ReminderScheduler
 
 private enum class InsightsRoute { HUB, AWARDS, SUBSCRIPTIONS, REGRET }
 
 /** 洞察 tab: a hub of cards that navigate (internally) to awards, subscription detective and regret simulator. */
 @Composable
-fun InsightsScreen(container: AppContainer) {
+fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenConsumed: () -> Unit = {}) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { ReminderScheduler.ensureScheduled(context) }
 
@@ -58,6 +60,16 @@ fun InsightsScreen(container: AppContainer) {
     val now = remember { System.currentTimeMillis() }
     val sample = remember(now) { SampleData.generate(now) }
     val input = InsightsInput(if (demo) sample else real, now, demo)
+
+    LaunchedEffect(open) {
+        val target = when (open?.target) {
+            ReminderIntents.OPEN_WEEKLY -> InsightsRoute.AWARDS
+            ReminderIntents.OPEN_SUBSCRIPTIONS -> InsightsRoute.SUBSCRIPTIONS
+            else -> return@LaunchedEffect
+        }
+        route = target
+        onOpenConsumed()
+    }
 
     BackHandler(route != InsightsRoute.HUB) { route = InsightsRoute.HUB }
     AnimatedContent(
