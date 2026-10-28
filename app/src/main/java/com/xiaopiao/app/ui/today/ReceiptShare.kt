@@ -41,6 +41,9 @@ object ReceiptShare {
         }.isSuccess
     }
 
+    /** The plain text for 分享 fallback / 复制文字, built from the chosen layout (完整 or 简版). */
+    fun textFor(content: ShareContent, briefMode: Boolean): String = ReceiptLayout.toPlainText(content.linesFor(briefMode))
+
     fun copyText(context: Context, text: String) {
         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         cm.setPrimaryClip(ClipData.newPlainText("今日小票", text))

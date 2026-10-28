@@ -176,7 +176,6 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: 
         val isToday = selectedDay == today
         share = ShareContent(
             full = ReceiptLayout.build(r, isToday, hasDemo, expanded = true, meta = meta),
-            brief = ReceiptLayout.build(r, isToday, hasDemo, brief = true, meta = meta),
             stampText = ReceiptLayout.stampText(r),
             fileKey = ReceiptLayout.isoDay(selectedDay).substringBefore(' '),
         )

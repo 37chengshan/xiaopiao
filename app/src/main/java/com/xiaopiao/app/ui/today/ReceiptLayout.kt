@@ -235,6 +235,21 @@ object ReceiptLayout {
         }
     }.joinToString("\n")
 
+    /** 简版 for sharing: title strip, hero total, one AI remark and the stamp. No metadata, rows or stats. */
+    fun brief(lines: List<ReceiptLine>): List<ReceiptLine> {
+        val keep = setOf(
+            LineKind.BLANK, LineKind.TITLE, LineKind.SUBTITLE, LineKind.DEMO, LineKind.DASH, LineKind.TOTAL, LineKind.BIG,
+            LineKind.NOTICE, LineKind.COMMENT, LineKind.STAMP_SPACE, LineKind.FOOTER,
+        )
+        val out = mutableListOf<ReceiptLine>()
+        for (l in lines) {
+            if (l.kind !in keep) continue
+            if (l.kind == LineKind.DASH && out.lastOrNull()?.kind == LineKind.DASH) continue
+            out += l
+        }
+        return out
+    }
+
     /** Total paper height in dp. */
     fun heightDp(lines: List<ReceiptLine>): Float = lines.sumOf { it.kind.heightDp.toDouble() }.toFloat()
 

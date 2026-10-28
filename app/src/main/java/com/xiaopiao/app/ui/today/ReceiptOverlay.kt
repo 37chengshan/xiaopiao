@@ -135,7 +135,9 @@ fun ReceiptOverlay(
             Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = SlotTop + SlotHeight / 2)
                 .graphicsLayer {
                     translationY = session.dragY + session.kick.value * density.density
-                    rotationZ = session.tilt
+                    // Paper sways about 1 degree while it is fed out and rings down after the stamp kick.
+                    val sway = if (phase == PrintPhase.Printing) 0.8f * kotlin.math.sin(session.elapsed.value / 90f) else session.kick.value * 0.16f
+                    rotationZ = session.tilt + sway
                     scaleX = fit; scaleY = fit
                     alpha = session.paperAlpha * session.present.value
                     transformOrigin = TransformOrigin(0.5f, 0f)
