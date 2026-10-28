@@ -26,7 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Insights
-import androidx.compose.material.icons.outlined.ReceiptLong
+import com.xiaopiao.app.ui.today.ReceiptStrip
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -68,7 +68,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.graphicsLayer
 
 @Composable
-fun LedgerScreen(container: AppContainer, onPrint: () -> Unit = {}, onVoiceStart: () -> Unit = {}, onOpenSettings: () -> Unit = {}) {
+fun LedgerScreen(container: AppContainer, onVoiceStart: () -> Unit = {}, onOpenSettings: () -> Unit = {}) {
     val ledger = container.ledger
     val flow = remember(container) { ledger.observeAll() }
     val txns: List<Txn>? by flow.collectAsStateWithLifecycle(initialValue = null)
@@ -91,7 +91,7 @@ fun LedgerScreen(container: AppContainer, onPrint: () -> Unit = {}, onVoiceStart
         rememberNavScroll(listState),
         demo = hasDemo,
         trailing = {
-            NavIconButton(Icons.Outlined.ReceiptLong, "打印今日小票", onPrint)
+            ReceiptStrip()
             NavIconButton(Icons.Outlined.Settings, "设置", onOpenSettings)
         },
     ) { top ->

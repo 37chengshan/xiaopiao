@@ -67,6 +67,7 @@ fun ReceiptOverlay(
     onTorn: () -> Unit,
     onSkip: () -> Unit,
     onClose: () -> Unit,
+    onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val phase = session.phase
@@ -83,6 +84,8 @@ fun ReceiptOverlay(
     val fit = ((screenH - topInset - bottomInset - SlotTop - 16.dp - 96.dp).value / (timeline.totalHeightDp + PaperDepth.value)).coerceIn(0.5f, 1f)
     val thresholdPx = with(density) { TearThreshold.toPx() }
     val screenPx = with(density) { screenH.toPx() }
+    val screenWidthPx = with(density) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
+    val slotCenterY = with(density) { topInset.toPx() + (SlotTop + SlotHeight / 2).toPx() }
     val latestTear by rememberUpdatedState(onTear)
     val latestTorn by rememberUpdatedState(onTorn)
 
@@ -123,7 +126,17 @@ fun ReceiptOverlay(
         // Slot (always above the paper so the sheet reads as coming out of it).
         Box(
             Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = SlotTop).zIndex(2f)
-                .graphicsLayer { alpha = session.present.value; translationY = -8.dp.toPx() * (1f - session.present.value) }
+                .graphicsLayer {
+                    val k = 1f - session.present.value
+                    val from = session.anchor
+                    alpha = if (from != null) (session.present.value * 3f).coerceAtMost(1f) else session.present.value
+                    if (from != null) {
+                        // The printer flies out of the resident strip: from its position and size to the top centre.
+                        translationX = (from.x - screenWidthPx / 2f) * k
+                        translationY = (from.y - slotCenterY) * k
+                        scaleX = 1f - 0.82f * k; scaleY = 1f - 0.5f * k
+                    } else translationY = -8.dp.toPx() * k
+                }
                 .width(SlotWidth).height(SlotHeight).clip(RoundedCornerShape(SlotHeight / 2))
                 .background(XpColors.PrinterBody),
         ) {
@@ -151,6 +164,7 @@ fun ReceiptOverlay(
             phase = phase,
             onSkip = onSkip,
             onTear = { latestTear(0f) },
+            onSettings = onSettings,
             onClose = onClose,
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = XpSpace.xl).zIndex(3f)
                 .graphicsLayer { alpha = session.present.value; translationY = 16.dp.toPx() * (1f - session.present.value) },
@@ -165,6 +179,7 @@ private fun StatusCapsule(
     phase: PrintPhase,
     onSkip: () -> Unit,
     onTear: () -> Unit,
+    onSettings: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -181,8 +196,8 @@ private fun StatusCapsule(
                 CapsuleAction("跳过 ✕", "跳过打印动画", onSkip)
             }
             PrintPhase.Printed -> {
-                Text("向下拖动撕下小票", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
-                CapsuleAction("撕下", "撕下小票并分享", onTear, accent = true)
+                CapsuleAction("撕下分享", "撕下小票并分享", onTear, accent = true)
+                CapsuleAction("小票设置", "打开小票设置页", onSettings)
                 CapsuleAction("✕", "关闭小票", onClose)
             }
             else -> Text("咔～", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary, modifier = Modifier.padding(end = XpSpace.l))

@@ -127,6 +127,9 @@ fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenCon
         NavScrollNone,
         demo = false,
         onBack = onBack,
-        trailing = { NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onOpenSettings) },
+        trailing = {
+            com.xiaopiao.app.ui.today.ReceiptStrip()
+            NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onOpenSettings)
+        },
     ) { top -> body(top) }
 }

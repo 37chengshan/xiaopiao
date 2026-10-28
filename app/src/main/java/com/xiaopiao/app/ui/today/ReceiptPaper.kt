@@ -19,7 +19,6 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
-import com.xiaopiao.app.ui.theme.XpColors
 
 val PaperWidth = 296.dp
 private val ToothDp = 12.dp
@@ -39,18 +38,20 @@ fun ReceiptPaper(
     modifier: Modifier = Modifier,
 ) {
     val timeline = clock.timeline
+    val c = LocalPaperColors.current
     val stampTop = ReceiptLayout.stampTopDp(lines)
     Box(
         modifier
             .width(PaperWidth)
             .drawWithContent {
                 val path = paperPath(size.width, size.height, ToothDp.toPx(), PaperDepth.toPx(), tornTop)
-                // Soft contact shadow: a few translucent copies of the outline, nudged down.
-                for (i in 1..5) translate(top = i * 1.6f * density) { drawPath(path, Color.Black.copy(alpha = 0.035f)) }
+                // Soft contact shadow: translucent copies of the outline, nudged down and slightly out, fading with distance.
+                for (i in 1..8) translate(top = i * 1.5f * density) { drawPath(path, Color.Black.copy(alpha = 0.04f - i * 0.0036f)) }
                 clipPath(path) {
-                    drawPaperBackground(density)
+                    drawPaperBackground(density, c)
                     this@drawWithContent.drawContent()
-                    if (!clock.instant) drawThermalHead(density)
+                    drawThermalUnevenness(density, c)
+                    if (!clock.instant) drawThermalHead(density, c)
                 }
             }
             .layout { measurable, c ->
@@ -78,11 +79,11 @@ fun ReceiptPaper(
  * Thermal development at the leading edge while the paper feeds: freshly printed ink is still pale and darkens
  * as the paper moves on, plus the print head's scan line at the very bottom.
  */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawThermalHead(density: Float) {
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawThermalHead(density: Float, c: PaperColors) {
     val fade = 64f * density
     val top = (size.height - fade).coerceAtLeast(0f)
     drawRect(
-        androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, XpColors.Paper.copy(alpha = 0.78f)), startY = top, endY = size.height),
+        androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, c.paper.copy(alpha = 0.78f)), startY = top, endY = size.height),
         topLeft = androidx.compose.ui.geometry.Offset(0f, top), size = androidx.compose.ui.geometry.Size(size.width, size.height - top),
     )
     val y = size.height - 8f * density
