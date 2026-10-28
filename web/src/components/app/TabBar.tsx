@@ -3,7 +3,7 @@ import { BarChart3, ReceiptText, Store, UserRound, MessageCircleHeart } from "lu
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { to: "/", label: "今日", icon: MessageCircleHeart },
+  { to: "/home", label: "今日", icon: MessageCircleHeart },
   { to: "/ledger", label: "账本", icon: ReceiptText },
   { to: "/insights", label: "洞察", icon: BarChart3 },
   { to: "/merchant", label: "小店", icon: Store },
@@ -16,7 +16,7 @@ export function TabBar() {
     <nav aria-label="主导航" className="shrink-0 border-t border-hairline bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
       <ul className="flex">
         {TABS.map(({ to, label, icon: Icon }) => {
-          const active = to === "/" ? path === "/" || path === "/today" : path.startsWith(to);
+          const active = to === "/home" ? path === "/home" || path === "/today" : path.startsWith(to);
           const cls = cn(
             "flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors",
             active ? "text-coral" : "text-ink-2 hover:text-ink",
