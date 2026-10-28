@@ -87,6 +87,7 @@ export function tagOf(round: GameRound, choice: OptionId): PersonaTag {
 
 /** Most frequent tag wins; ties break by TAG_ORDER. No answers → classic. */
 export function pickBadge(answers: readonly GameAnswer[]): Badge {
+  if (answers.length === 0) return BADGES.classic;
   const counts = new Map<PersonaTag, number>();
   for (const a of answers) counts.set(a.tag, (counts.get(a.tag) ?? 0) + 1);
   let best: PersonaTag = "classic";
