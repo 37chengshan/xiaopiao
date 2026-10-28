@@ -91,6 +91,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.graphics.graphicsLayer
 import com.xiaopiao.app.ui.components.NavIconButton
+import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.components.XpSheet
 import com.xiaopiao.app.ui.components.GroupedRow
 import androidx.compose.foundation.clickable
@@ -186,6 +187,18 @@ fun ChatScreen(
                     }
                 }
             }
+            // Rich rendering: a week question also gets the chart, not just a sentence.
+            if (!reduced && stats != null && (text.contains("周") || text.contains("哪天")) &&
+                !text.contains("家人") && !text.contains("圈子") && !text.contains("妈") && !text.contains("爸")) {
+                conversation.add(
+                    ChatItem.Chart(
+                        newId(),
+                        "本周每日支出",
+                        stats.week.dayTotals,
+                        "合计 ${yuanText(stats.week.totalOutCents)} · 共 ${stats.week.txnCount} 笔",
+                    ),
+                )
+            }
             scrollSignal++
         }
     }
@@ -268,6 +281,7 @@ fun ChatScreen(
                         is ChatItem.Assistant -> AssistantText(item.text)
                         is ChatItem.User -> UserBubble(item.text)
                         is ChatItem.Tool -> ToolRow(item)
+                        is ChatItem.Chart -> ChartCard(item)
                         is ChatItem.Confirm -> ConfirmCard(
                             item,
                             onConfirm = { confirm(item) },
@@ -540,6 +554,18 @@ private fun ToolRow(item: ChatItem.Tool) {
         Text(item.label, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
         item.detail?.let {
             Text("· $it", style = MaterialTheme.typography.bodySmall, color = XpColors.InkTertiary, maxLines = 1)
+        }
+    }
+}
+
+/** Chart card inside the flow: answers carry a picture when they are about a period. */
+@Composable
+private fun ChartCard(item: ChatItem.Chart) {
+    XpCard(Modifier.padding(top = XpSpace.s)) {
+        Text(item.title, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+        WeekBars(item.days)
+        item.caption?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = XpColors.InkTertiary, modifier = Modifier.padding(top = XpSpace.s))
         }
     }
 }

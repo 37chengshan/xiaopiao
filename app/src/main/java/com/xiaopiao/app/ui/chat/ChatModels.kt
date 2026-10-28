@@ -33,6 +33,9 @@ sealed interface ChatItem {
         val state: ConfirmState = ConfirmState.Pending,
     ) : ChatItem
 
+    /** Rich answer: the same numbers as a chart, so the reply is not only prose. */
+    data class Chart(override val id: Long, val title: String, val days: List<Long>, val caption: String?) : ChatItem
+
     /** A visible tool step: the assistant says what it is reading before it answers. */
     data class Tool(
         override val id: Long,

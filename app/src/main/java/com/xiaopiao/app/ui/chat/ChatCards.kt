@@ -251,7 +251,7 @@ fun ConfirmCard(item: ChatItem.Confirm, onConfirm: () -> Unit, onEdit: () -> Uni
 
 /** Seven slim bars with weekday initials underneath; today's column carries the accent. */
 @Composable
-private fun WeekBars(dayTotals: List<Long>) {
+internal fun WeekBars(dayTotals: List<Long>) {
     val todayIdx = ((java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7)
     val max = (dayTotals.maxOrNull() ?: 0L).coerceAtLeast(1L)
     val labels = listOf("一", "二", "三", "四", "五", "六", "日")
