@@ -65,7 +65,6 @@ import com.xiaopiao.app.ui.components.ShimmerBlock
 import com.xiaopiao.app.ui.components.UndoToastHost
 import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberUndoToastState
-import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.delay
@@ -108,13 +107,14 @@ fun TodayScreen(container: AppContainer) {
     val timeline = remember(lines, reduced) { PrintTimeline.build(lines, reduced) }
 
     val scope = rememberCoroutineScope()
-    val haptics = rememberXpHaptics()
     val context = LocalContext.current
+    val haptics = remember { ReceiptHaptics(context) }
     val sound = remember { ReceiptSound(context) }
     DisposableEffect(sound) { onDispose { sound.release() } }
     val soundPrefs = remember { ReceiptSoundPrefs(context) }
     val soundOn by soundPrefs.observeEnabled().collectAsState(initial = true)
-    SideEffect { sound.enabled = soundOn }
+    val vibrationOn by soundPrefs.observeVibration().collectAsState(initial = true)
+    SideEffect { sound.enabled = soundOn; haptics.enabled = vibrationOn }
     val session = remember { PrintSession(scope, haptics, sound) }
     val toast = rememberUndoToastState()
     var share by remember { mutableStateOf<ShareContent?>(null) }
