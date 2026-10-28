@@ -48,7 +48,9 @@ val SpringSoft = spring<Float>(dampingRatio = 0.75f, stiffness = Spring.Stiffnes
 val SpringSnappy = spring<Float>(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium)
 
 @Composable
-fun DemoPill(modifier: Modifier = Modifier) = Pill(DEMO_LABEL, modifier)
+fun DemoPill(@Suppress("UNUSED_PARAMETER") modifier: Modifier = Modifier) {
+    // tt#27: demo wording is gone from the UI; the data model still marks seeded rows.
+}
 
 /** 0→1 progress that springs in once when first composed (and again when [key] changes). */
 @Composable

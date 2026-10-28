@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -449,27 +450,23 @@ private fun ChatComposer(
                 horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
             ) {
                 ChatSuggestions.forEach { label ->
-                    SelectCapsule(label, selected = false, onClick = { onSuggestion(label) })
+                    ChatChip(label) { onSuggestion(label) }
                 }
             }
         }
+        // One capsule: field + action live together, so the composer is a single object (tt#29).
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = XpSpace.m, vertical = XpSpace.s),
+            Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s)
+                .height(48.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill)
+                .padding(start = XpSpace.l, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
         ) {
-            Box(
-                Modifier.weight(1f).height(40.dp)
-                    .clip(RoundedCornerShape(XpRadius.pill))
-                    .background(XpColors.Fill)
-                    .padding(horizontal = XpSpace.m),
-                contentAlignment = Alignment.CenterStart,
-            ) {
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 BasicTextField(
                     value = value,
                     onValueChange = onValueChange,
                     modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = XpColors.Ink),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = XpColors.Ink),
                     singleLine = true,
                     cursorBrush = SolidColor(XpColors.Primary),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -479,7 +476,7 @@ private fun ChatComposer(
                             if (value.isEmpty()) {
                                 Text(
                                     "说一句「午饭 28」",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.bodyLarge,
                                     color = XpColors.InkTertiary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -491,9 +488,15 @@ private fun ChatComposer(
                 )
             }
             if (value.isBlank()) {
-                RoundButton(Icons.Outlined.Mic, "按住说话", onClick = onVoice, onLongClick = onVoice)
+                Box(
+                    Modifier.size(36.dp).clip(CircleShape).clickable { onVoice() },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Outlined.Mic, contentDescription = "语音", tint = XpColors.InkSecondary, modifier = Modifier.size(20.dp)) }
             } else {
-                XpButton("发送", onSend, style = XpButtonStyle.Primary, size = XpButtonSize.Small)
+                Box(
+                    Modifier.size(36.dp).clip(CircleShape).background(XpColors.Primary).clickable { onSend() },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "发送", tint = XpColors.OnPrimary, modifier = Modifier.size(18.dp)) }
             }
         }
     }
@@ -567,5 +570,17 @@ private fun ChartCard(item: ChatItem.Chart) {
         item.caption?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = XpColors.InkTertiary, modifier = Modifier.padding(top = XpSpace.s))
         }
+    }
+}
+
+/** Quick-reply chip: smaller and quieter than a selectable capsule (tt#30). */
+@Composable
+private fun ChatChip(label: String, onClick: () -> Unit) {
+    Box(
+        Modifier.height(30.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill)
+            .clickable { onClick() }.padding(horizontal = XpSpace.m),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = XpColors.Ink, maxLines = 1)
     }
 }

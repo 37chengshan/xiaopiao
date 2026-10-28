@@ -106,7 +106,7 @@ fun MerchantMineScreen(
             GroupedSection(dividerInset = 58.dp) {
                 item("crowd") {
                     GroupedRow(
-                        "人群洞察", value = "演示人群 300 人", chevron = true,
+                        "人群洞察", value = "本机生成的人群", chevron = true,
                         leading = { StepBadge(1, done = true, icon = Icons.Outlined.Insights) },
                     ) { onOpenSub(MerchantSub.Crowd) }
                 }
@@ -150,7 +150,7 @@ fun MerchantMineScreen(
                 }
                 item("demo") {
                     GroupedRow(
-                        "演示数据说明", subtitle = "哪些是示例、怎样换成自己的", chevron = true,
+                        "账本说明", subtitle = "数据怎么来的、怎么换成自己的", chevron = true,
                         leading = { IconTile(Icons.Outlined.Storefront) }, onClick = onDemoNote,
                     )
                 }
@@ -197,13 +197,13 @@ fun DemoDataSheet(onDismiss: () -> Unit) {
     val points = listOf(
         "只有示例才标「演示」" to "带「演示」标记的数字由程序生成，用来展示小店版长什么样，不是真实顾客。",
         "你的数字会替换示例" to "记下自己的营收、或导入 CSV，同一天会替换成你的数字，标记跟着消失。",
-        "标记会自动消失" to "所有演示行都被替换后，页面上的「演示数据」标记就不再见到了。",
+        "记录会合并" to "同一天再记一次会覆盖当天，不会重复累加。",
         "只在你的手机里" to "小店版不读你的个人账单，也不上传任何数字；以后接入云端模型也只换文案。",
     )
     XpSheet(onDismiss, containerColor = XpColors.Canvas) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = XpSpace.xl)) {
             Text(
-                "演示数据说明", Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s),
+                "账本说明", Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s),
                 style = MaterialTheme.typography.headlineMedium, color = XpColors.Ink,
             )
             GroupedSection(dividerInset = 58.dp) {

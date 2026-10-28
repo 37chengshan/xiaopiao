@@ -7,6 +7,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -55,6 +60,8 @@ import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
 
 /** The two versions of the printed card, both pre-built by the caller (the same receipt, more or fewer rows). */
 class ShareContent(
@@ -110,17 +117,35 @@ fun ReceiptShareSheet(content: ShareContent, onDismiss: () -> Unit) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth()) {
                 itemsIndexed(GradientPresets.all) { i, g -> Swatch(g, i == gradient) { haptics.select(); gradient = i } }
             }
-            Spacer(Modifier.height(XpSpace.s))
-            ModeToggle(briefMode) { haptics.select(); briefMode = it }
             Spacer(Modifier.height(XpSpace.m))
-            Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s), modifier = Modifier.fillMaxWidth()) {
-                InkButton("分享", Modifier.weight(1f)) { haptics.confirm(); scope.launch { ReceiptShare.share(context, render(), plain, content.fileKey) } }
+            // 简版/完整 on the left (narrow), the single save action on the right (tt#31).
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                ModeToggle(briefMode, Modifier.width(132.dp)) { haptics.select(); briefMode = it }
+                Spacer(Modifier.weight(1f))
                 XpButton("保存图片", {
                     scope.launch {
                         val ok = ReceiptShare.save(context, render(), content.fileKey)
                         toast(if (ok) "已保存到相册" else "保存失败，试试「分享」")
                     }
-                }, Modifier.weight(1f), style = XpButtonStyle.Secondary)
+                }, style = XpButtonStyle.Secondary)
+            }
+            Spacer(Modifier.height(XpSpace.m))
+            // One row of icon + small label actions — not two rows of pills.
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                ShareAction(Icons.Outlined.Share, "分享") {
+                    haptics.confirm()
+                    scope.launch { ReceiptShare.share(context, render(), plain, content.fileKey) }
+                }
+                ShareAction(Icons.Outlined.Groups, "发到圈子") {
+                    haptics.select()
+                    ReceiptShare.copyText(context, plain)
+                    toast("小票文字已复制，去圈子粘贴")
+                }
+                ShareAction(Icons.Outlined.ContentCopy, "复制文字") {
+                    haptics.select()
+                    ReceiptShare.copyText(context, plain)
+                    toast("已复制文字")
+                }
             }
             Spacer(Modifier.height(XpSpace.l))
         }
@@ -170,18 +195,18 @@ private fun Swatch(g: CardGradient, selected: Boolean, onClick: () -> Unit) {
 
 /** Segmented 完整 / 简版. */
 @Composable
-private fun ModeToggle(brief: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.s)).background(XpColors.Fill).padding(2.dp)) {
+private fun ModeToggle(brief: Boolean, modifier: Modifier = Modifier, onChange: (Boolean) -> Unit) {
+    Row(modifier.height(34.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill).padding(2.dp)) {
         listOf(false to "完整", true to "简版").forEach { (value, label) ->
             val on = brief == value
             Box(
-                Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(XpRadius.s - 2.dp))
+                Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(XpRadius.pill))
                     .background(if (on) XpColors.Card else Color.Transparent)
                     .pressableClick(haptic = false) { onChange(value) }
                     .semantics { selected = on },
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label, style = MaterialTheme.typography.labelLarge, color = if (on) XpColors.Ink else XpColors.InkSecondary)
+                Text(label, style = MaterialTheme.typography.bodySmall, color = if (on) XpColors.Ink else XpColors.InkSecondary)
             }
         }
     }
@@ -194,4 +219,18 @@ private fun InkButton(text: String, modifier: Modifier, onClick: () -> Unit) {
         modifier.height(50.dp).clip(RoundedCornerShape(14.dp)).background(XpColors.Ink).pressableClick(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Text(text, style = MaterialTheme.typography.labelLarge, color = XpColors.Canvas) }
+}
+
+/** Icon over a small caption: the only shape used for the share actions (tt#31). */
+@Composable
+private fun ShareAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Column(
+        Modifier.clip(RoundedCornerShape(XpRadius.m)).pressableClick(onClick = onClick)
+            .padding(horizontal = XpSpace.l, vertical = XpSpace.s),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(icon, contentDescription = label, tint = XpColors.Ink, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.height(4.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
+    }
 }

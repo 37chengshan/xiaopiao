@@ -66,10 +66,11 @@ class ReceiptLayoutTest {
         assertTrue(expanded.none { it.kind == LineKind.MORE })
     }
 
-    @Test fun incomeRowsAndDemoLabel() {
+    @Test fun incomeRowsStayInColumns() {
         val r = receipt(listOf(txn(1), txn(2, 50000, Direction.IN, "工资")))
+        // tt#27: the receipt no longer prints a 「演示数据」 line.
         val lines = ReceiptLayout.build(r, true, demo = true)
-        assertTrue(lines.any { it.kind == LineKind.DEMO && it.left.contains("演示数据") })
+        assertTrue(lines.none { it.kind == LineKind.DEMO })
         assertTrue(lines.first { it.kind == LineKind.ITEM && it.positive }.right.startsWith("+¥"))
         assertEquals("+¥500", lines.first { it.kind == LineKind.INCOME }.right)
     }

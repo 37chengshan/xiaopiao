@@ -291,7 +291,7 @@ private fun DemoStamp() {
             )
         }
         Text(
-            "演示数据",
+            "",
             style = ReceiptRow.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp),
             color = ink,
             modifier = Modifier.padding(horizontal = XpSpace.m + 2.dp, vertical = 3.dp),
@@ -315,6 +315,6 @@ private fun receiptText(entries: List<RevenueEntry>, day: Long): String {
     }
     sb.appendLine(MerchantAi.receiptLine(entries, day))
     sb.append("本机生成 · 仅记录（非正式票据）")
-    if (entry?.seeded == true) sb.append("\n【演示数据】")
+    
     return sb.toString()
 }

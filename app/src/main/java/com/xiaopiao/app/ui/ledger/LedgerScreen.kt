@@ -106,66 +106,38 @@ fun LedgerScreen(container: AppContainer, onPrint: () -> Unit = {}, onVoiceStart
                 else -> {
                     var tab by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
                     Column(Modifier.fillMaxSize().padding(top = top)) {
-                        // 账单 / 统计 live in one page; the switch stays put instead of scrolling away.
-                        Box(
-                            Modifier.fillMaxWidth().padding(vertical = XpSpace.xs),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            com.xiaopiao.app.ui.components.Segmented(
-                                options = listOf("账单", "统计"),
-                                selected = tab,
-                                onSelect = { tab = it },
-                                modifier = Modifier.width(232.dp),
-                            )
+                        val visible = filter.apply(txns.orEmpty(), now, query)
+                        val groups = remember(visible, now / 60_000) { LedgerGrouping.group(visible, now) }
+                        // One composed entrance per data load: the list rises 8dp and fades in, then stays still.
+                        val enter = remember(visible.isEmpty()) { androidx.compose.animation.core.Animatable(0f) }
+                        LaunchedEffect(visible.isEmpty()) {
+                            if (reduceMotion) enter.snapTo(1f) else { enter.snapTo(0f); enter.animateTo(1f, tween(220, easing = XpEase.out)) }
                         }
-                        if (tab == 1) {
-                            Box(Modifier.padding(bottom = 84.dp)) {
-                                com.xiaopiao.app.ui.insights.InsightsScreen(container, embedded = true)
+                        LazyColumn(
+                            Modifier.fillMaxSize().graphicsLayer {
+                                alpha = enter.value
+                                translationY = (1f - enter.value) * 8.dp.toPx()
+                            },
+                            state = listState,
+                            contentPadding = PaddingValues(bottom = 120.dp),
+                        ) {
+                            item(key = "hero") { LedgerHero(visible, now) }
+                            if (visible.isEmpty()) {
+                                item(key = "empty") { LedgerEmptyState(onAdd = { openAdd(null) }) }
                             }
-                        } else {
-                            val visible = filter.apply(txns.orEmpty(), now, query)
-                            val groups = remember(visible, now / 60_000) { LedgerGrouping.group(visible, now) }
-                            // One composed entrance per data load: the list rises 8dp and fades in, then stays still.
-                            val enter = remember(visible.isEmpty()) { androidx.compose.animation.core.Animatable(0f) }
-                            LaunchedEffect(visible.isEmpty()) {
-                                if (reduceMotion) enter.snapTo(1f) else { enter.snapTo(0f); enter.animateTo(1f, tween(220, easing = XpEase.out)) }
-                            }
-                            LazyColumn(
-                                Modifier.fillMaxSize().graphicsLayer {
-                                    alpha = enter.value
-                                    translationY = (1f - enter.value) * 8.dp.toPx()
-                                },
-                                state = listState,
-                                contentPadding = PaddingValues(bottom = 200.dp),
-                            ) {
-                                item(key = "search") {
-                                    LedgerSearchBar(
-                                        query = query,
-                                        onQuery = { query = it },
-                                        filterActive = filter.active,
-                                        onFilter = { filterOpen = true },
-                                    )
-                                }
-                                item(key = "hero") { LedgerHero(visible, now) }
-                                if (visible.isEmpty()) {
-                                    item(key = "empty") {
-                                        LedgerEmptyState(onAdd = { openAdd(null) })
-                                    }
-                                }
-                                groups.forEach { group ->
-                                    item(key = "day-${group.dayStart}") {
-                                        DaySection(
-                                            group,
-                                            onDelete = { txn ->
-                                                scope.launch {
-                                                    ledger.delete(txn.id)?.let { gone ->
-                                                        toast.show("已删除「${gone.merchant}」", "撤销") { scope.launch { ledger.add(gone) } }
-                                                    }
+                            groups.forEach { group ->
+                                item(key = "day-${group.dayStart}") {
+                                    DaySection(
+                                        group,
+                                        onDelete = { txn ->
+                                            scope.launch {
+                                                ledger.delete(txn.id)?.let { gone ->
+                                                    toast.show("已删除「${gone.merchant}」", "撤销") { scope.launch { ledger.add(gone) } }
                                                 }
-                                            },
-                                            onEdit = { openAdd(it) },
-                                        )
-                                    }
+                                            }
+                                        },
+                                        onEdit = { openAdd(it) },
+                                    )
                                 }
                             }
                         }
@@ -177,7 +149,6 @@ fun LedgerScreen(container: AppContainer, onPrint: () -> Unit = {}, onVoiceStart
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter).padding(bottom = 72.dp))
     }
 
-    if (filterOpen) LedgerFilterSheet(filter, { filter = it; filterOpen = false }, { filterOpen = false })
 
     if (sheetOpen) {
         AddTxnSheet(
