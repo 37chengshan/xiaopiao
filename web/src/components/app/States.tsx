@@ -5,14 +5,14 @@ import { cn } from "@/lib/utils";
 /** Soft skeleton rows shaped like a grouped list. */
 export function LoadingState({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="px-4 py-4" role="status" aria-label="加载中">
+    <div className="px-4 py-2" role="status" aria-label="加载中">
       <div className="overflow-hidden rounded-[14px] bg-surface">
         {Array.from({ length: rows }, (_, i) => (
           <div key={i} className="flex items-center gap-3 px-4 py-3">
-            <div className="size-[30px] animate-pulse rounded-[8px] bg-surface-2" />
+            <div className="size-[30px] shimmer rounded-[8px]" />
             <div className="flex-1 space-y-2">
-              <div className="h-3 w-2/5 animate-pulse rounded bg-surface-2" />
-              <div className="h-2.5 w-1/4 animate-pulse rounded bg-surface-2" />
+              <div className="shimmer h-3 w-2/5 rounded" />
+              <div className="shimmer h-2.5 w-1/4 rounded" />
             </div>
           </div>
         ))}
