@@ -28,6 +28,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -101,7 +102,17 @@ fun InsightsScreen(container: AppContainer, open: OpenRequest? = null, onOpenCon
                 val noop = {}
                 // Keep the page viewport clear of the floating tab bar, otherwise charts and the
                 // last row are cut off by the capsule.
-                Box(Modifier.padding(bottom = 88.dp)) {
+                val enter = remember(r) { androidx.compose.animation.core.Animatable(0f) }
+                LaunchedEffect(r) {
+                    enter.snapTo(0f)
+                    enter.animateTo(1f, androidx.compose.animation.core.tween(200, easing = com.xiaopiao.app.ui.theme.XpEase.out))
+                }
+                Box(
+                    Modifier.padding(bottom = 88.dp).graphicsLayer {
+                        alpha = enter.value
+                        translationY = (1f - enter.value) * 10.dp.toPx()
+                    },
+                ) {
                     when (r) {
                         InsightsRoute.AWARDS -> AwardsPage(input, noop)
                         InsightsRoute.SUBSCRIPTIONS -> SubscriptionPage(input, noop)

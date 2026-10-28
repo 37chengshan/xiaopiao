@@ -38,6 +38,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -115,9 +116,16 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
         trailing = { NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onOpenSettings) },
     ) { top ->
         Box(Modifier.fillMaxSize()) {
+            val feedIn = remember { androidx.compose.animation.core.Animatable(0f) }
+            LaunchedEffect(Unit) {
+                feedIn.animateTo(1f, androidx.compose.animation.core.tween(220, easing = com.xiaopiao.app.ui.theme.XpEase.out))
+            }
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().graphicsLayer {
+                    alpha = feedIn.value
+                    translationY = (1f - feedIn.value) * 10.dp.toPx()
+                },
                 contentPadding = PaddingValues(top = top + XpSpace.xs, bottom = ComposerHeight + XpSpace.l),
             ) {
                 if (rows.isEmpty()) {
