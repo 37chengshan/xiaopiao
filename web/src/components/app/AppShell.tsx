@@ -6,7 +6,7 @@ import { useLedger } from "@/services/LedgerProvider";
 import { FirstRun } from "./FirstRun";
 import { TabBar } from "./TabBar";
 
-const CONSUMER_PATHS = ["/", "/today", "/ledger", "/insights", "/me"];
+const CONSUMER_PATHS = ["/home", "/today", "/ledger", "/insights", "/me"];
 
 /** Phone column: full-bleed on phones, a centered ~430px device on desktop. */
 export function AppShell({ children }: { children: ReactNode }) {
