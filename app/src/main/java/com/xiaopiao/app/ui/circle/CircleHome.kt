@@ -1,7 +1,6 @@
 package com.xiaopiao.app.ui.circle
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -46,13 +45,13 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.AppContainer
+import com.xiaopiao.app.domain.games.GameContent
 import com.xiaopiao.app.ui.components.EmptyState
 import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
-import com.xiaopiao.app.ui.components.SelectCapsule
-import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.games.GamesHub
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -72,7 +71,7 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
     var posts by remember { mutableStateOf(CircleDemo.feed(now)) }
     var mineReactions by remember { mutableStateOf(emptySet<String>()) }
     var shareSheetFor by rememberSaveable { mutableStateOf<String?>(null) }
-    var gameSheet by rememberSaveable { mutableStateOf<String?>(null) }
+    var gamesOpen by rememberSaveable { mutableStateOf(false) }
     var openedPost by remember { mutableStateOf<ReceiptPost?>(null) }
     var draft by rememberSaveable { mutableStateOf("") }
     var localSeq by rememberSaveable { mutableStateOf(0) }
@@ -107,6 +106,11 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
 
     LaunchedEffect(sendTick) {
         if (sendTick > 0 && rows.isNotEmpty()) listState.animateScrollToItem(rows.size)
+    }
+
+    if (gamesOpen) {
+        GamesHub(onBack = { gamesOpen = false })
+        return
     }
 
     NavScaffold(
@@ -159,17 +163,10 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
                     }
                 }
                 item(key = "circle-games") {
-                    Column(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m)) {
-                        Text("小游戏 · 娱乐，不构成建议", style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary)
-                        androidx.compose.foundation.layout.Row(
-                            Modifier.padding(top = XpSpace.s),
-                            horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
-                        ) {
-                            listOf("钱包人格测试", "消费二选一").forEach { title ->
-                                SelectCapsule(title, selected = false, onClick = { gameSheet = title })
-                            }
-                        }
-                    }
+                    CircleGamesCard(
+                        modifier = Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m),
+                        onClick = { gamesOpen = true },
+                    )
                 }
                 item(key = "circle-tail") {
                     Text(
@@ -199,9 +196,6 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
             onDismiss = { shareSheetFor = null },
         )
     }
-    gameSheet?.let { title ->
-        CircleGameSheet(title = title, onDismiss = { gameSheet = null })
-    }
     // Tapping a receipt opens it (tt#27): the day's items, masked exactly like the card.
     openedPost?.let { post ->
         val author = byId[post.authorId]
@@ -209,45 +203,35 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}) {
     }
 }
 
+/** The single 游戏 card: one entry for the whole hub, with an emoji block as the non-text anchor. */
 @Composable
-private fun CircleHeader(
-    members: List<CircleMember>,
-    onMemberClick: (String) -> Unit,
-    onShareClick: () -> Unit,
-    onGame: (String) -> Unit,
-) {
-    XpCard(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.xs)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            members.forEach { member ->
-                Column(
-                    Modifier.weight(1f)
-                        .pressableClick(scaleDown = 0.96f) { onMemberClick(member.id) }
-                        .padding(vertical = 2.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    CircleAvatar(member, size = 38.dp)
-                    Text(
-                        member.name,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = XpColors.InkSecondary,
-                        modifier = Modifier.padding(top = 4.dp),
-                        maxLines = 1,
-                    )
-                }
-            }
-            Spacer(Modifier.width(XpSpace.s))
-            ShareEntryChip(onClick = onShareClick)
+private fun CircleGamesCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Row(
+        modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(XpRadius.l))
+            .background(XpColors.Card)
+            .pressableClick(scaleDown = 0.98f, onClick = onClick)
+            .padding(XpSpace.l),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(48.dp)
+                .clip(RoundedCornerShape(XpRadius.m))
+                .background(XpColors.AccentSoft),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("🎲", style = MaterialTheme.typography.titleLarge)
         }
-        Text(
-            "小游戏 · 娱乐，不构成建议",
-            style = MaterialTheme.typography.labelSmall,
-            color = XpColors.InkTertiary,
-            modifier = Modifier.padding(top = XpSpace.m + 2.dp, bottom = XpSpace.s - 2.dp),
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-            SelectCapsule("钱包人格测试", selected = false, onClick = { onGame("钱包人格测试") })
-            SelectCapsule("消费二选一", selected = false, onClick = { onGame("消费二选一") })
+        Column(Modifier.weight(1f).padding(start = XpSpace.m)) {
+            Text("游戏", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+            Text(
+                "${GameContent.games.size} 个小游戏 · 娱乐，不构成建议",
+                style = MaterialTheme.typography.labelSmall,
+                color = XpColors.InkSecondary,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
+        Text("›", style = MaterialTheme.typography.titleLarge, color = XpColors.InkTertiary)
     }
 }
 
