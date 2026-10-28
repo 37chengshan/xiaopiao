@@ -11,7 +11,7 @@
 - React 19 + Vite + TanStack Router（文件路由，`src/routeTree.gen.ts` 自动生成，冲突时 `npm run check` 重新生成）+ Tailwind v4 + shadcn（`src/components/ui/*` 已全套）+ framer-motion + recharts + cmdk + sonner + vaul + lucide-react。**不新增依赖**；确需新增先写进 commit message 说明理由。
 - 金额一律整数分（`src/domain/types.ts` 的 `Cents`），展示走现有格式化函数；数字 `font-variant-numeric: tabular-nums`。
 - 文案全部走 `src/lib/strings.ts` 的 `t(key)`，zh / en 都写，英文原生写、不机翻。界面不出现「演示 / 示例 / demo」。
-- 数据：当前用 `src/services/` 的内存账本（`createMemoryLedger`）。**不要**用 localStorage 冒充后端（偏好设置除外）。云端（账号、同步、访客账号）是 W4，需 tt 批准，本期不做，入口按钮做成占位（点击弹一个「即将开放」的轻提示，不伪造登录）。
+- 数据：账本走 `useLedger()`（`src/services/LedgerProvider.tsx`），背后是 QMuse 云服务（W4 已接，见 `docs/WEB-DESIGN.md`「W4 实现说明」）；不要直接 import `src/services/appwrite.ts`，只用领域 Service。**不要**用 localStorage 冒充后端（偏好设置除外）。登录走 QMuse 账号，入口按钮仍做成占位（点击弹「即将开放」轻提示，不伪造登录）。全局启动逻辑在 `src/routes/_app.tsx`，不要放进 `main.tsx` / `__root.tsx`。
 - 所有动效只动 `transform` / `opacity` / `filter` / `clip-path`；尊重 `prefers-reduced-motion`（降级规则写在各节）；触屏（`(pointer: coarse)`）关闭鼠标特效。
 - 提交：只 `git add <具体路径>`；不 push、不合并 main。
 
@@ -136,6 +136,37 @@
 - 旧手机式路由 `src/routes/_app.tsx`、`src/routes/_app/**`：功能搬完后改成重定向到对应 `/app/*`；`src/components/app/TabBar.tsx` 等手机外壳不再被引用后删除。
 - 快捷键：N 记一笔（弹出记账对话框：金额、商户、分类、日期）、/ 聚焦搜索、P 打印今天、⌘K 命令面板、⌘\\ 折叠侧边栏。
 - 响应式：≥1024 完整；768–1024 侧边栏自动收成图标；<768 侧边栏变抽屉。
+
+### A.4 内页动效清单（tt#64）
+
+| 场景 | 动效 | 参数 |
+|---|---|---|
+| 切页 | 内容区淡入 + y 4px；侧边栏选中底色块用 `layoutId` 平滑滑到新项 | 160ms ease-out；滑块 spring(400, 35) |
+| 首次进入页面 | Kpi / 卡片错峰上浮 y 8→0 + 淡入；Kpi 数字从 0 滚到目标值 | 每张间隔 40ms，总长 ≤400ms；数字 600ms ease-out |
+| 图表 | 首次出现柱子 / 面积从基线生长；切换期间时旧图淡出、新图生长，不闪白 | 柱 错峰 30ms、单根 400ms；面积 clip-path 从左到右 500ms |
+| 表格 | 新增行从高 0 展开 + 背景 accent 8% 闪一次后淡去；删除行高度收起 + 淡出；排序时行用 `layout` 移动 | 220ms；闪烁 600ms |
+| 弹层 | 对话框 scale 0.96→1 + 淡入；侧边抽屉从右滑入；命令面板从上 8px 落下 | 180ms；关闭 140ms |
+| 按压 | 所有按钮 / 行 / 卡片按下 scale 0.98 + 变暗 4%，松手回弹 | 按下 80ms、回弹 spring |
+| hover | 卡片 hover 只变底色或轻微抬起 1px，不做大阴影 | 120ms |
+| 加载 | 首帧骨架（shimmer 1.2s 循环），数据到后骨架交叉淡出为内容 | 最短显示 200ms 防闪 |
+| 小票控件 | 今日合计变化时纸条吐出 2px + 数字滚动；点击后从控件位置展开成打印预览（共享元素） | spring(300, 26) |
+| 侧边栏折叠 | 宽度 232↔64 动画，文字先淡出再收宽 | 220ms |
+
+全部遵循：只动 transform / opacity / clip-path / filter；reduced-motion 时只保留淡入淡出（≤120ms）。
+
+### A.5 AI 流式渲染（`/app/ai`、总览 AI 小结卡，tt#64）
+
+一轮回答的事件流（与 `docs/AGENT.md` 的 `tool_start / tool_end / token / card` 一致），本期由本机规则引擎模拟同样的事件节奏（每个 token 20–40ms，带少量随机抖动），接云后直接替换数据源：
+
+1. **发送**：用户消息气泡从输入框位置上浮进入列表（y 12→0，160ms），输入框清空并保持焦点。
+2. **思考中**：助手位置出现一行三点脉冲 + 「正在看你的账…」灰字；超过 1.5s 未出 token 时显示已用时间。
+3. **工具步骤**：每个工具一行胶囊（图标 + 可读名称如「查本周账单」），开始时左侧转圈、完成时变成勾并显示一句结果摘要（「找到 23 笔」）；整组可折叠，回答完成后自动折叠成一行「用了 2 个工具」。
+4. **流式文字**：逐 token 追加，末尾一个 2px 宽闪烁光标（1s 周期）；新文字淡入（opacity 0→1，120ms），**不要**逐字打字机抖动；数字整段出现（不拆成单个字符）。列表自动滚到底，**用户手动上滚后停止自动滚动**，右下角出现「↓ 新消息」按钮。
+5. **卡片**：图表卡 / 账单引用卡在文字结束后插入，高度从 0 展开 + 图表生长；右侧「引用」面板同步高亮对应卡片。
+6. **完成**：光标消失；消息下方淡入一排小操作（复制 / 重新生成 / 有用 / 没用）。
+7. **打断**：生成中发送键变成「停止」（实心方块图标）；点停止 → 保留已生成文字并标「已停止」。
+8. **失败**：气泡内一行 negative 小字「这次没答上来」+「重试」链接；云端不可用时自动回落本机规则，不报错。
+9. **总览 AI 小结卡**：内容更新时旧文本上移淡出、新文本自下方进入（固定高度，不跳动），右下「更新于 HH:mm」。
 
 ---
 

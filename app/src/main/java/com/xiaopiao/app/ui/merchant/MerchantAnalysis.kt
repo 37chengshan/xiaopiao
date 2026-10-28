@@ -43,6 +43,7 @@ import com.xiaopiao.app.ui.components.XpButtonSize
 import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -74,7 +75,8 @@ fun MerchantAnalysisScreen(
 
     NavScaffold(title = "分析", scroll = NavScrollNone, demo = demo) { top ->
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl),
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl)
+                .xpRevealLayer(index = 0),
             verticalArrangement = Arrangement.spacedBy(XpSpace.m),
         ) {
             Column(Modifier.padding(horizontal = XpSpace.l)) {

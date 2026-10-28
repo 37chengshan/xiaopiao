@@ -42,13 +42,18 @@ fun Segmented(
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberXpHaptics()
+    val reduced = rememberReducedMotion()
     val inset = 2.dp
     BoxWithConstraints(
         modifier.fillMaxWidth().height(36.dp).clip(RoundedCornerShape(10.dp)).background(XpColors.Fill),
     ) {
         val count = options.size.coerceAtLeast(1)
         val segment = (maxWidth - inset * 2) / count
-        val pos by animateFloatAsState(selected.toFloat(), XpMotion.snappy(), label = "segThumb")
+        val pos by animateFloatAsState(
+            targetValue = selected.toFloat(),
+            animationSpec = if (reduced) androidx.compose.animation.core.snap() else XpMotion.snappy(),
+            label = "segThumb",
+        )
         Box(
             Modifier
                 .padding(inset)

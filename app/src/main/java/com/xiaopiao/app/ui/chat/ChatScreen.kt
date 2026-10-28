@@ -1,6 +1,12 @@
 package com.xiaopiao.app.ui.chat
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -41,18 +47,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -73,6 +82,8 @@ import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.pressableScale
 import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberXpHaptics
+import com.xiaopiao.app.ui.motion.MotionMath
+import com.xiaopiao.app.ui.motion.rememberSkeletonVisible
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpRadius
@@ -91,12 +102,14 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.layout.width
-import androidx.compose.ui.graphics.graphicsLayer
 import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.components.XpSheet
 import com.xiaopiao.app.ui.components.GroupedRow
 import androidx.compose.foundation.clickable
+
+/** Characters per second for the streaming reply; dt-based, so refresh rate cannot change it. */
+private const val StreamCharsPerSecond = 78f
 
 /**
  * AI 对话 — the left-most tab. Assistant speaks first, cards live in the same flow, and every answer is a
@@ -171,26 +184,39 @@ fun ChatScreen(
                     conversation.add(ChatItem.Confirm(newId(), reply.draft))
                 }
                 is ChatReply.Answer -> {
-                    // Stream the answer in chunks so it reads like a model writing, not a paste.
+                    // Stream the answer like a model writing: the reveal advances by real dt, so the
+                    // text finishes in the same wall-clock time on 60/90/120Hz (never by frame count).
                     val id = newId()
-                    conversation.add(ChatItem.Assistant(id, if (reduced) reply.text else ""))
+                    conversation.add(ChatItem.Assistant(id, if (reduced) reply.text else "", streaming = !reduced))
                     if (!reduced) {
-                        val steps = 26
-                        val size = (reply.text.length / steps).coerceAtLeast(1)
                         var shown = 0
+                        var carry = 0f
+                        var lastFrame = 0L
                         while (shown < reply.text.length) {
-                            shown = (shown + size).coerceAtMost(reply.text.length)
+                            val now = withFrameNanos { it }
+                            val dt = MotionMath.dtSeconds(lastFrame, now)
+                            lastFrame = now
+                            if (dt <= 0f) continue
+                            carry += dt * StreamCharsPerSecond
+                            val add = carry.toInt()
+                            if (add <= 0) continue
+                            carry -= add
+                            shown = (shown + add).coerceAtMost(reply.text.length)
                             val i = conversation.indexOfFirst { it.id == id }
                             if (i < 0) break
-                            conversation[i] = ChatItem.Assistant(id, reply.text.substring(0, shown))
+                            conversation[i] = ChatItem.Assistant(
+                                id, reply.text.substring(0, shown), streaming = shown < reply.text.length,
+                            )
                             scrollSignal++
-                            delay(16)
                         }
+                        val i = conversation.indexOfFirst { it.id == id }
+                        if (i >= 0) conversation[i] = ChatItem.Assistant(id, reply.text)
                     }
                 }
             }
             // Rich rendering: a week question also gets the chart, not just a sentence.
-            if (!reduced && stats != null && (text.contains("周") || text.contains("哪天")) &&
+            // A chart is information, not decoration: reduced-motion users get it too (just static).
+            if (stats != null && (text.contains("周") || text.contains("哪天")) &&
                 !text.contains("家人") && !text.contains("圈子") && !text.contains("妈") && !text.contains("爸")) {
                 conversation.add(
                     ChatItem.Chart(
@@ -247,6 +273,9 @@ fun ChatScreen(
         }
     }
 
+    // Skeletons stay up for at least 200ms, so a cache hit never flashes a placeholder.
+    val skeletonVisible = rememberSkeletonVisible(stats == null)
+
     Column(Modifier.fillMaxSize().background(XpColors.Canvas).imePadding()) {
         ChatHeader(dayLabel, demo = stats?.hasDemo == true, onOpenSettings = onOpenSettings, onOpenHistory = { historyOpen = true })
         LazyColumn(
@@ -257,11 +286,13 @@ fun ChatScreen(
         ) {
             item(key = "greeting") { AssistantText(ChatCopy.greeting(stats, hello)) }
             if (stats == null) {
-                item(key = "loading") {
-                    ShimmerBlock(
-                        Modifier.padding(horizontal = XpSpace.l).fillMaxWidth().height(120.dp),
-                        RoundedCornerShape(XpRadius.m),
-                    )
+                if (skeletonVisible) {
+                    item(key = "loading") {
+                        ShimmerBlock(
+                            Modifier.padding(horizontal = XpSpace.l).fillMaxWidth().height(120.dp),
+                            RoundedCornerShape(XpRadius.m),
+                        )
+                    }
                 }
             } else {
                 if (reminder != null) item(key = "reminder") { ReminderLine(reminder) }
@@ -280,7 +311,7 @@ fun ChatScreen(
                     ),
                 ) {
                     when (item) {
-                        is ChatItem.Assistant -> AssistantText(item.text)
+                        is ChatItem.Assistant -> AssistantText(item.text, streaming = item.streaming)
                         is ChatItem.User -> UserBubble(item.text)
                         is ChatItem.Tool -> ToolRow(item)
                         is ChatItem.Chart -> ChartCard(item)
@@ -386,6 +417,8 @@ private fun ChatHeader(dayLabel: String, demo: Boolean, onOpenSettings: () -> Un
             }
             Pill("本机统计")
             androidx.compose.foundation.layout.Spacer(Modifier.width(XpSpace.s))
+            com.xiaopiao.app.ui.today.ReceiptStrip()
+            androidx.compose.foundation.layout.Spacer(Modifier.width(XpSpace.s))
             NavIconButton(Icons.Outlined.Settings, "设置", onOpenSettings)
         }
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpColors.Hairline))
@@ -394,12 +427,40 @@ private fun ChatHeader(dayLabel: String, demo: Boolean, onOpenSettings: () -> Un
 
 /** Assistant text: no bubble, left-aligned ink. */
 @Composable
-private fun AssistantText(text: String) {
-    Text(
-        text,
-        Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.xs),
-        style = MaterialTheme.typography.bodyLarge,
-        color = XpColors.Ink,
+private fun AssistantText(text: String, streaming: Boolean = false) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.xs)) {
+        Text(
+            text,
+            Modifier.weight(1f, fill = false),
+            style = MaterialTheme.typography.bodyLarge,
+            color = XpColors.Ink,
+        )
+        if (streaming) {
+            StreamingCursor(Modifier.align(Alignment.Bottom).padding(start = 3.dp, bottom = 3.dp))
+        }
+    }
+}
+
+/** Blinking caret while the reply is still being written: a pulse, never a strobe. dt-driven. */
+@Composable
+private fun StreamingCursor(modifier: Modifier = Modifier) {
+    val reduced = rememberReducedMotion()
+    var alpha by remember { mutableFloatStateOf(1f) }
+    LaunchedEffect(reduced) {
+        if (reduced) return@LaunchedEffect
+        var phaseMs = 0f
+        var last = 0L
+        while (true) {
+            val now = withFrameNanos { it }
+            val dt = MotionMath.dtSeconds(last, now)
+            last = now
+            phaseMs = (phaseMs + dt * 1000f) % 900f
+            alpha = if (phaseMs < 450f) 1f - 0.7f * (phaseMs / 450f) else 0.3f + 0.7f * ((phaseMs - 450f) / 450f)
+        }
+    }
+    Box(
+        modifier.width(2.dp).height(15.dp).clip(RoundedCornerShape(1.dp))
+            .graphicsLayer { this.alpha = alpha }.background(XpColors.Ink),
     )
 }
 
@@ -532,8 +593,8 @@ private fun RoundButton(
     val haptics = rememberXpHaptics()
     Box(
         Modifier.size(40.dp)
-            .pressableScale(source, 0.94f)
             .clip(CircleShape)
+            .pressableScale(source, 0.94f)
             .background(XpColors.Fill)
             .combinedClickable(
                 interactionSource = source,
@@ -560,21 +621,38 @@ private fun ToolRow(item: ChatItem.Tool) {
         label = "toolSpin",
     )
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        Modifier.fillMaxWidth().padding(vertical = 6.dp).animateContentSize(tween(160, easing = XpEase.out)),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
     ) {
-        if (item.running) {
-            Icon(
-                Icons.Outlined.Autorenew, contentDescription = null,
-                tint = XpColors.Accent, modifier = Modifier.size(14.dp).graphicsLayer { rotationZ = angle },
-            )
-        } else {
-            Icon(Icons.Outlined.Check, contentDescription = null, tint = XpColors.Positive, modifier = Modifier.size(14.dp))
+        // The step flips from running to done: icon crossfades, the result line slides in under it.
+        AnimatedContent(
+            targetState = item.running,
+            transitionSpec = {
+                (fadeIn(tween(140)) + androidx.compose.animation.scaleIn(initialScale = 0.7f) ) togetherWith
+                    fadeOut(tween(80))
+            },
+            label = "toolIcon",
+        ) { running ->
+            if (running) {
+                Icon(
+                    Icons.Outlined.Autorenew, contentDescription = null,
+                    tint = XpColors.Accent, modifier = Modifier.size(14.dp).graphicsLayer { rotationZ = angle },
+                )
+            } else {
+                Icon(Icons.Outlined.Check, contentDescription = null, tint = XpColors.Positive, modifier = Modifier.size(14.dp))
+            }
         }
         Text(item.label, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
-        item.detail?.let {
-            Text("· $it", style = MaterialTheme.typography.bodySmall, color = XpColors.InkTertiary, maxLines = 1)
+        AnimatedContent(
+            targetState = item.detail,
+            transitionSpec = {
+                (fadeIn(tween(160)) + slideInVertically(tween(160)) { it / 2 }) togetherWith fadeOut(tween(90))
+            },
+            label = "toolDetail",
+        ) { detail ->
+            if (detail == null) Spacer(Modifier.size(0.dp))
+            else Text("· $detail", style = MaterialTheme.typography.bodySmall, color = XpColors.InkTertiary, maxLines = 1)
         }
     }
 }

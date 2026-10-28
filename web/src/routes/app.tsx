@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { Shell } from "@/components/desktop/Shell";
 import { initLocalePref } from "@/components/desktop/localePref";
+import { startApp } from "@/components/desktop/startApp";
 import { LedgerProvider } from "@/services/LedgerProvider";
 
 /**
@@ -12,6 +13,8 @@ import { LedgerProvider } from "@/services/LedgerProvider";
 export const Route = createFileRoute("/app")({ component: AppLayout });
 
 function AppLayout() {
+  // Theme + cloud receipt prefs, the same startup the phone layout used to own.
+  useLayoutEffect(startApp, []);
   useEffect(() => {
     initLocalePref();
   }, []);

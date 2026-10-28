@@ -288,6 +288,10 @@ object XpSpace {
     val s = 8.dp
     val m = 12.dp
     val l = 16.dp
+    /** Page gutter for the ledger / report screens (§3.7): 20dp, not 16. */
+    val page = 20.dp
+    /** Gap between two cards in the same page (§3.7): 14dp. */
+    val cardGap = 14.dp
     val xl = 24.dp
     val xxl = 32.dp
 }
@@ -298,7 +302,13 @@ object XpRadius {
     val s get() = if (apple) 8.dp else 10.dp
     val m get() = if (apple) 11.dp else 14.dp
     val l get() = if (apple) 18.dp else 20.dp
+    /** List cards (§3.7): 10dp in both styles — the ledger's day cards. */
+    val listCard = 10.dp
+    /** Content cards sitting on the page (§3.7): summary, filter blocks. */
+    val contentCard = 14.dp
     val xl = 28.dp
+    /** Full-screen sheets (settings sub-pages, pickers): measured from the wallet reference. */
+    val sheet = 32.dp
     val pill = 999.dp
 }
 

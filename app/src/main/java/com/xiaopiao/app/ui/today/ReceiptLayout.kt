@@ -11,7 +11,7 @@ import kotlin.math.roundToInt
 enum class LineKind(val heightDp: Float) {
     BLANK(10f), TITLE(48f), SUBTITLE(22f), DEMO(22f), DASH(14f), META(22f), TOTAL(80f), NOTICE(24f),
     INCOME(22f), HEADER(24f), CATEGORY(26f), ITEM(21f), MORE(22f), STATS(30f), COMMENT(22f), BIG(70f),
-    STAMP_SPACE(100f), FOOTER(28f),
+    STAMP_SPACE(100f), FOOTER(28f), SHARE_BAR(24f), BARCODE(46f),
 }
 
 /**
@@ -146,8 +146,10 @@ object ReceiptLayout {
         expanded: Boolean = false,
         brief: Boolean = false,
         meta: ReceiptMeta = ReceiptMeta(),
+        content: ReceiptContent = ReceiptContent.PLAIN,
     ): List<ReceiptLine> {
         val out = mutableListOf<ReceiptLine>()
+        fun dash() { if (out.lastOrNull()?.kind != LineKind.DASH) out += ReceiptLine(LineKind.DASH) }
         val spend = receipt.items.filter { it.direction == Direction.OUT }
         out += ReceiptLine(LineKind.BLANK)
         out += ReceiptLine(LineKind.TITLE, if (isToday) "今日小票" else "往日小票")
@@ -156,37 +158,70 @@ object ReceiptLayout {
         out += ReceiptLine(LineKind.META, "日期", isoDay(receipt.dayStart))
         out += ReceiptLine(LineKind.META, "出票", clock(meta.printedAtMs))
         out += ReceiptLine(LineKind.DASH)
-        if (spend.isEmpty()) {
-            out += ReceiptLine(LineKind.BIG, "今日无消费")
-        } else {
-            out += ReceiptLine(LineKind.TOTAL, if (isToday) "今日支出" else "当日支出", moneyFixed(receipt.totalOutCents), receipt.totalOutCents)
+        if (content.total) {
+            if (spend.isEmpty()) {
+                out += ReceiptLine(LineKind.BIG, "今日无消费")
+            } else {
+                out += ReceiptLine(LineKind.TOTAL, if (isToday) "今日支出" else "当日支出", moneyFixed(receipt.totalOutCents), receipt.totalOutCents)
+            }
+            out += ReceiptLine(LineKind.NOTICE, NOTICE_TEXT)
+            val income = receipt.items.filter { it.direction == Direction.IN }.sumOf { it.amountCents }
+            if (income > 0) out += ReceiptLine(LineKind.INCOME, "收入", money(income, "+"), income, positive = true)
         }
-        out += ReceiptLine(LineKind.NOTICE, NOTICE_TEXT)
-        val income = receipt.items.filter { it.direction == Direction.IN }.sumOf { it.amountCents }
-        if (income > 0) out += ReceiptLine(LineKind.INCOME, "收入", money(income, "+"), income, positive = true)
         if (receipt.items.isNotEmpty()) {
-            out += ReceiptLine(LineKind.DASH)
-            out += ReceiptLine(LineKind.HEADER, "分类 / 明细", "金额")
-            out += groupLines(receipt.items, expanded, brief)
-            if (!brief) {
-                out += ReceiptLine(LineKind.DASH)
+            if (content.items || brief) {
+                dash()
+                out += ReceiptLine(LineKind.HEADER, "分类 / 明细", "金额")
+                out += groupLines(receipt.items, expanded, brief)
+            }
+            if (content.bars) {
+                val bars = shareBars(spend)
+                if (bars.isNotEmpty()) { dash(); out += bars }
+            }
+            if (content.weekCompare && !brief) {
+                dash()
                 out += ReceiptLine(
                     LineKind.STATS, "笔数 ${receipt.items.size}", deltaText(receipt.totalOutCents, meta.previousOutCents, isToday),
                     extra = weekDayNumber(receipt.dayStart),
                 )
             }
         }
-        out += ReceiptLine(LineKind.DASH)
-        val remark = wrap(receipt.aiComment, COMMENT_COLS)
-        remark.forEachIndexed { i, text ->
-            val open = if (i == 0) "「" else ""
-            val close = if (i == remark.lastIndex) "」" else ""
-            out += ReceiptLine(LineKind.COMMENT, "$open$text$close")
+        if (content.remark) {
+            dash()
+            val remark = wrap(receipt.aiComment, COMMENT_COLS)
+            remark.forEachIndexed { i, text ->
+                val open = if (i == 0) "「" else ""
+                val close = if (i == remark.lastIndex) "」" else ""
+                out += ReceiptLine(LineKind.COMMENT, "$open$text$close")
+            }
         }
-        out += ReceiptLine(LineKind.STAMP_SPACE, stampText(receipt))
+        if (content.stamp) out += ReceiptLine(LineKind.STAMP_SPACE, stampText(receipt))
+        else dash()
+        if (content.barcode) out += ReceiptLine(LineKind.BARCODE, serialFor(receipt))
         out += ReceiptLine(LineKind.FOOTER, FOOTER_TEXT)
         out += ReceiptLine(LineKind.BLANK)
         return out
+    }
+
+    /** Top three spending categories as share bars: [ReceiptLine.extra] is the percentage of the day's spend (0..100). */
+    fun shareBars(spend: List<Txn>): List<ReceiptLine> {
+        val total = spend.sumOf { it.amountCents }
+        if (total <= 0L) return emptyList()
+        return spend.groupBy { it.category }
+            .map { (c, list) -> c to list.sumOf { it.amountCents } }
+            .sortedByDescending { it.second }
+            .take(3)
+            .map { (c, sum) ->
+                val pct = (sum * 100.0 / total).roundToInt().coerceIn(0, 100)
+                ReceiptLine(LineKind.SHARE_BAR, "${c.emoji} ${c.label}", "$pct%", sum, extra = pct)
+            }
+    }
+
+    /** "NO.20261028-0731": the day plus a stable four-digit hash of what was printed, so a reprint carries the same number. */
+    fun serialFor(receipt: DailyReceipt): String {
+        val c = Calendar.getInstance().apply { timeInMillis = receipt.dayStart }
+        val seed = receipt.totalOutCents * 31 + receipt.items.size * 7 + receipt.dayStart / 86_400_000L
+        return "NO.%04d%02d%02d-%04d".format(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH), kotlin.math.abs(seed) % 10_000)
     }
 
     /** Category rows with subtotals (biggest first); a one-item category stays a single row unless [expanded]. */
@@ -231,6 +266,8 @@ object ReceiptLayout {
             LineKind.STATS -> "${l.left}  ${l.right}  本周第 ${l.extra} 天"
             LineKind.STAMP_SPACE -> "[ ${l.left} ]"
             LineKind.MORE -> l.left
+            LineKind.SHARE_BAR -> row(l.left, l.right)
+            LineKind.BARCODE -> l.left
             LineKind.BLANK -> null
         }
     }.joinToString("\n")
@@ -239,7 +276,7 @@ object ReceiptLayout {
     fun brief(lines: List<ReceiptLine>): List<ReceiptLine> {
         val keep = setOf(
             LineKind.BLANK, LineKind.TITLE, LineKind.SUBTITLE, LineKind.DEMO, LineKind.DASH, LineKind.TOTAL, LineKind.BIG,
-            LineKind.NOTICE, LineKind.COMMENT, LineKind.STAMP_SPACE, LineKind.FOOTER,
+            LineKind.NOTICE, LineKind.COMMENT, LineKind.STAMP_SPACE, LineKind.FOOTER, LineKind.SHARE_BAR,
         )
         val out = mutableListOf<ReceiptLine>()
         for (l in lines) {

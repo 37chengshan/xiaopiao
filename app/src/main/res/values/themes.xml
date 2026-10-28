@@ -4,4 +4,16 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowBackground">#FFF5F3EE</item>
     </style>
+
+    <!--
+        Cold-start splash (docs/APP-DESIGN.md §2.5). The AVD rolls a paper strip out of the printer
+        (<= 700ms, platform budget is 1000ms); the Compose host then flies the same paper to the
+        persistent receipt control and fades out, so the whole thing stays inside 1.2s.
+    -->
+    <style name="Theme.Xiaopiao.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#F5F3EE</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_animated</item>
+        <item name="windowSplashScreenAnimationDuration">700</item>
+        <item name="postSplashScreenTheme">@style/Theme.Xiaopiao</item>
+    </style>
 </resources>

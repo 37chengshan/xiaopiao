@@ -1,0 +1,59 @@
+{
+  "databaseId": "qmuse-app-db",
+  "projectAlias": "default",
+  "tables": [
+    {
+      "tableId": "transactions",
+      "name": "账单",
+      "columns": [
+        { "key": "ownerId", "type": "string", "size": 64, "comment": "所属用户", "required": true },
+        { "key": "amountCents", "type": "integer", "comment": "金额（分）", "required": true },
+        { "key": "direction", "type": "string", "format": "enum", "elements": ["OUT", "IN"], "size": 64, "comment": "收支方向", "required": true },
+        { "key": "merchant", "type": "string", "size": 128, "comment": "商户", "required": true },
+        {
+          "key": "category",
+          "type": "string",
+          "format": "enum",
+          "elements": ["MEAL", "DRINK", "SNACK", "GROCERY", "TRANSPORT", "SHOPPING", "FUN", "SUBSCRIPTION", "HOUSING", "HEALTH", "SOCIAL", "LEARNING", "OTHER"],
+          "size": 64,
+          "comment": "分类",
+          "required": true
+        },
+        { "key": "occurredAt", "type": "datetime", "comment": "发生时间", "required": true },
+        { "key": "source", "type": "string", "format": "enum", "elements": ["VOICE", "QUICK_ADD", "MANUAL", "CSV"], "size": 64, "comment": "来源", "required": true },
+        { "key": "note", "type": "string", "size": 500, "comment": "备注", "required": false },
+        { "key": "dedupeKey", "type": "string", "size": 128, "comment": "去重键", "required": false }
+      ],
+      "indexes": [
+        { "key": "idx_owner_occurred", "type": "key", "attributes": ["ownerId", "occurredAt"] }
+      ]
+    },
+    {
+      "tableId": "merchant_revenue",
+      "name": "小店营收",
+      "columns": [
+        { "key": "ownerId", "type": "string", "size": 64, "comment": "所属用户", "required": true },
+        { "key": "day", "type": "datetime", "comment": "营业日", "required": true },
+        { "key": "revenueCents", "type": "integer", "comment": "营收（分）", "required": true },
+        { "key": "orders", "type": "integer", "comment": "订单数", "required": false, "default": 0 },
+        { "key": "source", "type": "string", "format": "enum", "elements": ["MANUAL", "CSV"], "size": 64, "comment": "来源", "required": true },
+        { "key": "note", "type": "string", "size": 200, "comment": "备注", "required": false }
+      ],
+      "indexes": [
+        { "key": "idx_owner_day", "type": "key", "attributes": ["ownerId", "day"] }
+      ]
+    },
+    {
+      "tableId": "receipt_prefs",
+      "name": "小票设置",
+      "columns": [
+        { "key": "ownerId", "type": "string", "size": 64, "comment": "所属用户", "required": true },
+        { "key": "soundOn", "type": "boolean", "comment": "打印声音", "required": false, "default": true },
+        { "key": "hapticsOn", "type": "boolean", "comment": "震动反馈", "required": false, "default": true }
+      ],
+      "indexes": [
+        { "key": "idx_owner", "type": "key", "attributes": ["ownerId"] }
+      ]
+    }
+  ]
+}

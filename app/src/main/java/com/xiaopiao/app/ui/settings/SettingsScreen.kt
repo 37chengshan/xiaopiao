@@ -3,6 +3,7 @@ package com.xiaopiao.app.ui.settings
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -14,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +28,8 @@ import com.xiaopiao.app.data.CaptureLogEntry
 import com.xiaopiao.app.importer.ImportSummary
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.rememberNavScroll
+import com.xiaopiao.app.ui.motion.XpPushHost
+import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.ThemeMode
 import com.xiaopiao.app.ui.theme.DesignStyle
 import com.xiaopiao.app.ui.theme.ThemePrefs
@@ -34,6 +38,13 @@ import com.xiaopiao.app.ui.record.RecordMethodPrefs
 import com.xiaopiao.app.ui.record.recordMethodStore
 import com.xiaopiao.app.ui.today.ReceiptSoundPrefs
 import kotlinx.coroutines.launch
+
+/** The three settings sub-pages that get a real push transition (docs/APP-DESIGN.md §7.5). */
+private enum class SettingsSub(val title: String) {
+    Appearance("外观"),
+    Data("数据与隐私"),
+    About("关于"),
+}
 
 @Composable
 fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}, onBack: (() -> Unit)? = null) {
@@ -45,6 +56,7 @@ fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}, onB
     var summary by remember { mutableStateOf<ImportSummary?>(null) }
     var privacyOpen by remember { mutableStateOf(false) }
     var demoMessage by remember { mutableStateOf<String?>(null) }
+    var sub by rememberSaveable { mutableStateOf<SettingsSub?>(null) }
     val logFlow = remember(container) { container.captureLog.observeRecent() }
     val log: List<CaptureLogEntry> by logFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -74,39 +86,86 @@ fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}, onB
 
     val scroll = rememberScrollState()
     if (privacyOpen) PrivacySheet { privacyOpen = false }
-    NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack) { top ->
-        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
-            AppearanceSection(mode, designStyle, { scope.launch { themePrefs.setMode(it) } }, { scope.launch { themePrefs.setStyle(it) } })
-            RecordMethodSection(recordMethod) { scope.launch { methodPrefs.set(it) } }
-            ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }
-            CaptureSection(
-                listenerEnabled = listenerOn, postGranted = postGranted,
-                onOpenListenerSettings = { NotificationAccess.openListenerSettings(context) },
-                onRequestPost = { postLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
-            )
-            DataSection(
-                importing = importing, summary = summary, log = log, demoMessage = demoMessage,
-                onPickCsv = {
-                    csvLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "application/octet-stream"))
-                },
-                onClearLog = { scope.launch { container.captureLog.clear() } },
-                onLoadDemo = {
-                    scope.launch {
-                        val n = container.loadDemoData()
-                        demoMessage = if (n > 0) "已载入 $n 笔，去记账页看看吧～" else "测试账本已经在里面了"
-                    }
-                },
-                onClearAll = {
-                    scope.launch {
-                        container.clearAllData()
-                        summary = null
-                        demoMessage = "已清空，从零开始～"
-                    }
-                },
-            )
-            MerchantSwitchSection(onOpenMerchant)
-            ReplayOnboardingSection { scope.launch { com.xiaopiao.app.ui.onboarding.OnboardingPrefs(context.applicationContext).reset() } }
-            AboutSection { privacyOpen = true }
+
+    // Sub-page push: the incoming page slides in over this list (220ms), this list drifts 1/8 left.
+    XpPushHost(
+        page = sub?.let { target ->
+            {
+                when (target) {
+                    SettingsSub.Appearance -> AppearancePage(
+                        mode = mode,
+                        style = designStyle,
+                        onMode = { scope.launch { themePrefs.setMode(it) } },
+                        onStyle = { scope.launch { themePrefs.setStyle(it) } },
+                        onBack = { sub = null },
+                    )
+
+                    SettingsSub.Data -> DataPage(
+                        importing = importing,
+                        summary = summary,
+                        log = log,
+                        demoMessage = demoMessage,
+                        onPickCsv = {
+                            csvLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "application/octet-stream"))
+                        },
+                        onClearLog = { scope.launch { container.captureLog.clear() } },
+                        onLoadDemo = {
+                            scope.launch {
+                                val n = container.loadDemoData()
+                                demoMessage = if (n > 0) "已载入 $n 笔，去记账页看看吧～" else "账本里已经有数据了"
+                            }
+                        },
+                        onClearAll = {
+                            scope.launch {
+                                container.clearAllData()
+                                summary = null
+                                demoMessage = "已清空，从零开始～"
+                            }
+                        },
+                        onBack = { sub = null },
+                    )
+
+                    SettingsSub.About -> AboutPage(onPrivacy = { privacyOpen = true }, onBack = { sub = null })
+                }
+            }
+        },
+        onBack = { sub = null },
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack) { top ->
+            Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
+                Box(Modifier.xpRevealLayer(index = 0)) {
+                    AppearanceNavSection(
+                        value = "${mode.label} · ${designStyle.label}",
+                        onOpen = { sub = SettingsSub.Appearance },
+                    )
+                }
+                Box(Modifier.xpRevealLayer(index = 1)) {
+                    RecordMethodSection(recordMethod) { scope.launch { methodPrefs.set(it) } }
+                }
+                Box(Modifier.xpRevealLayer(index = 2)) {
+                    ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }
+                }
+                Box(Modifier.xpRevealLayer(index = 3)) {
+                    CaptureSection(
+                        listenerEnabled = listenerOn, postGranted = postGranted,
+                        onOpenListenerSettings = { NotificationAccess.openListenerSettings(context) },
+                        onRequestPost = { postLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                    )
+                }
+                Box(Modifier.xpRevealLayer(index = 4)) {
+                    DataNavSection(onOpen = { sub = SettingsSub.Data })
+                }
+                Box(Modifier.xpRevealLayer(index = 5)) {
+                    MerchantSwitchSection(onOpenMerchant)
+                }
+                Box(Modifier.xpRevealLayer(index = 6)) {
+                    ReplayOnboardingSection { scope.launch { com.xiaopiao.app.ui.onboarding.OnboardingPrefs(context.applicationContext).reset() } }
+                }
+                Box(Modifier.xpRevealLayer(index = 7)) {
+                    AboutNavSection(onOpen = { sub = SettingsSub.About })
+                }
+            }
         }
     }
 }

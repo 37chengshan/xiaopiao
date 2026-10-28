@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,11 +31,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import com.xiaopiao.app.domain.games.GameContent
 import com.xiaopiao.app.domain.games.GameDefinition
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.motion.MotionMath
+import com.xiaopiao.app.ui.motion.XpPushHost
+import com.xiaopiao.app.ui.motion.XpReveal
+import com.xiaopiao.app.ui.motion.XpTiming
+import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -49,12 +56,19 @@ fun GamesHub(onBack: () -> Unit) {
     val game = openId?.let(GameContent::byId)
 
     BackHandler(enabled = game == null) { onBack() }
-
-    if (game != null) {
-        GamePlayer(game = game, onExit = { openId = null })
-        return
+    // Cards stagger in once; anything that scrolls into view later arrives already visible.
+    var introDone by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(MotionMath.STAGGER_MAX_MS.toLong() + XpTiming.Enter + 80L)
+        introDone = true
     }
 
+    // Playing a game is a pushed page: (220ms in, 180ms back) so the grid stays underneath.
+    XpPushHost(
+        page = game?.let { selected -> { GamePlayer(game = selected, onExit = { openId = null }) } },
+        onBack = { openId = null },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     NavScaffold(title = "游戏", scroll = NavScrollNone, onBack = onBack) { top ->
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
@@ -68,11 +82,12 @@ fun GamesHub(onBack: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(XpSpace.m),
             verticalArrangement = Arrangement.spacedBy(XpSpace.m),
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }) { GamesHero() }
+            item(span = { GridItemSpan(maxLineSpan) }) { XpReveal(index = 0) { GamesHero() } }
             itemsIndexed(GameContent.games, key = { _, game -> game.id }) { index, item ->
-                GameCard(game = item, index = index) { openId = item.id }
+                GameCard(game = item, index = index, animate = !introDone && index < 8) { openId = item.id }
             }
         }
+    }
     }
 }
 
@@ -112,15 +127,16 @@ private fun GamesHero() {
 }
 
 @Composable
-private fun GameCard(game: GameDefinition, index: Int, onClick: () -> Unit) {
+private fun GameCard(game: GameDefinition, index: Int, animate: Boolean = true, onClick: () -> Unit) {
     val tints = listOf(XpColors.InfoSoft, XpColors.PositiveSoft, XpColors.WarningSoft, XpColors.AccentSoft)
     val tint = tints[index % tints.size]
     Column(
         Modifier.fillMaxWidth()
+            .xpRevealLayer(index = index + 1, animate = animate)
             .height(160.dp)
             .clip(RoundedCornerShape(XpRadius.m))
             .background(XpColors.Card)
-            .pressableClick(onClick = onClick)
+            .pressableClick(haptic = true, onClick = onClick)
             .padding(XpSpace.m),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

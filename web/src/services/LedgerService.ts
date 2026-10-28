@@ -7,7 +7,7 @@ export interface AddResult {
   duplicates: number;
 }
 
-/** Persistence boundary. Today only an in-memory demo adapter exists; QMuse 云服务 will implement this later. */
+/** Persistence boundary: QMuse 云服务 (`cloudLedger.ts`) plus the in-memory starter adapter (`demoLedger.ts`). */
 export interface LedgerService {
   readonly mode: LedgerMode;
   list(): Promise<Txn[]>;
