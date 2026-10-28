@@ -49,16 +49,17 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     queryFn: () => service!.list(),
     enabled: service !== null,
   });
+  const { data, isLoading: loading, isError, refetch } = query;
   const invalidate = useCallback(() => qc.invalidateQueries({ queryKey: ["txns"] }), [qc]);
 
   const value = useMemo<LedgerContextValue>(
     () => ({
       mode,
       service,
-      txns: query.data ?? [],
-      isLoading: service !== null && query.isLoading,
-      isError: query.isError,
-      refetch: () => void query.refetch(),
+      txns: data ?? [],
+      isLoading: service !== null && loading,
+      isError,
+      refetch: () => void refetch(),
       now: Date.now(),
       chooseMode: (m) => {
         try {
@@ -100,7 +101,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         await invalidate();
       },
     }),
-    [mode, service, query.data, query.isLoading, query.isError, query.refetch, invalidate],
+    [mode, service, data, loading, isError, refetch, invalidate],
   );
 
   return <LedgerContext.Provider value={value}>{children}</LedgerContext.Provider>;
