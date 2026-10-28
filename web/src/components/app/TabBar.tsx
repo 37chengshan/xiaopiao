@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { BarChart3, MessageCircleHeart, ReceiptText, Ticket, UserRound, type LucideIcon } from "lucide-react";
+import { BarChart3, MessageCircleHeart, ReceiptText, UserRound, Users, type LucideIcon } from "lucide-react";
 import { useEntry } from "@/features/entry/EntryProvider";
 import { t, type StringKey } from "@/lib/strings";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ const LEFT: Side[] = [
   { to: "/insights", label: "nav.insights", icon: BarChart3 },
 ];
 const RIGHT: Side[] = [
-  { to: "/today", label: "nav.receipt", icon: Ticket },
+  { to: "/game", label: "nav.circle", icon: Users },
   { to: "/me", label: "nav.me", icon: UserRound },
 ];
 
@@ -37,7 +37,7 @@ function Tab({ to, label, icon: Icon, path }: Side & { path: string }) {
  * Translucent tab bar: two tabs, a raised round primary button in the middle (chat + log), two tabs.
  * Selected = ink icon and label (clay is spent on the centre button). The shop view is not a tab; it lives in 我的.
  */
-export function TabBar() {
+export function TabBar({ hidden = false }: { hidden?: boolean }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const entry = useEntry();
@@ -46,7 +46,11 @@ export function TabBar() {
     <nav
       aria-label={t("nav.aria")}
       style={{ bottom: "calc(10px + env(safe-area-inset-bottom, 0px))" }}
-      className="material tab-capsule absolute inset-x-4 z-30 h-16 rounded-[32px]"
+      inert={hidden || undefined}
+      className={cn(
+        "material tab-capsule absolute inset-x-4 z-30 h-16 rounded-[32px] transition-[transform,opacity] duration-200 ease-[var(--ease-out)]",
+        hidden && "pointer-events-none translate-y-[120%] opacity-0",
+      )}
     >
       <ul className="flex h-16 items-stretch px-2">
         {LEFT.map((x) => (
