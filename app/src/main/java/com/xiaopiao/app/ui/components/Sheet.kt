@@ -52,7 +52,7 @@ fun XpSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         modifier = modifier,
-        shape = RoundedCornerShape(topStart = XpRadius.l, topEnd = XpRadius.l),
+        shape = RoundedCornerShape(topStart = XpRadius.xl, topEnd = XpRadius.xl),
         containerColor = containerColor,
         scrimColor = XpColors.Scrim,
         dragHandle = { Grabber() },
