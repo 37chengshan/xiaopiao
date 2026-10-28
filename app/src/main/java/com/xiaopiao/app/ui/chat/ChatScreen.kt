@@ -80,6 +80,20 @@ import com.xiaopiao.app.ui.today.TodayGreeting
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.graphicsLayer
+import com.xiaopiao.app.ui.components.NavIconButton
+import com.xiaopiao.app.ui.components.XpSheet
+import com.xiaopiao.app.ui.components.GroupedRow
+import androidx.compose.foundation.clickable
 
 /**
  * AI 对话 — the left-most tab. Assistant speaks first, cards live in the same flow, and every answer is a
@@ -89,6 +103,7 @@ import java.util.Calendar
  * header) and the keyboard (so the input bar rides above it). If the host already reserves the tab bar as
  * fixed dp, pass that inset down rather than wrapping this screen in another imePadding.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     container: AppContainer,
@@ -120,6 +135,10 @@ fun ChatScreen(
 
     var input by rememberSaveable { mutableStateOf("") }
     var scrollSignal by remember { mutableIntStateOf(0) }
+    var historyOpen by remember { mutableStateOf(false) }
+    // Past conversations live in memory for this session; archiving keeps their items so switching restores them.
+    val sessions = remember { androidx.compose.runtime.mutableStateListOf<ChatSession>() }
+    var sessionSeq by remember { mutableIntStateOf(0) }
     val haptics = rememberXpHaptics()
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -130,14 +149,45 @@ fun ChatScreen(
         val text = raw.trim()
         if (text.isEmpty()) return
         conversation.add(ChatItem.User(newId(), text))
+        haptics.select()
         val reply = stats?.let { ChatIntentRouter.route(text, it, turn) }
             ?: ChatReply.Answer("我还没数完今天的账，稍等一秒再说。")
-        when (reply) {
-            is ChatReply.Expense -> conversation.add(ChatItem.Confirm(newId(), reply.draft))
-            is ChatReply.Answer -> conversation.add(ChatItem.Assistant(newId(), reply.text))
+        // Tools first: the user sees what was read before the answer appears (tt#23).
+        val tools = ChatTools.plan(text, stats, text.contains("家人") || text.contains("圈子"))
+        scope.launch {
+            tools.forEach { step ->
+                val toolId = newId()
+                conversation.add(ChatItem.Tool(toolId, step.label, running = true))
+                scrollSignal++
+                delay(if (reduced) 0 else 320)
+                val i = conversation.indexOfFirst { it.id == toolId }
+                if (i >= 0) conversation[i] = ChatItem.Tool(toolId, step.label, step.detail, running = false)
+            }
+            when (reply) {
+                is ChatReply.Expense -> {
+                    conversation.add(ChatItem.Confirm(newId(), reply.draft))
+                }
+                is ChatReply.Answer -> {
+                    // Stream the answer in chunks so it reads like a model writing, not a paste.
+                    val id = newId()
+                    conversation.add(ChatItem.Assistant(id, if (reduced) reply.text else ""))
+                    if (!reduced) {
+                        val steps = 26
+                        val size = (reply.text.length / steps).coerceAtLeast(1)
+                        var shown = 0
+                        while (shown < reply.text.length) {
+                            shown = (shown + size).coerceAtMost(reply.text.length)
+                            val i = conversation.indexOfFirst { it.id == id }
+                            if (i < 0) break
+                            conversation[i] = ChatItem.Assistant(id, reply.text.substring(0, shown))
+                            scrollSignal++
+                            delay(16)
+                        }
+                    }
+                }
+            }
+            scrollSignal++
         }
-        scrollSignal++
-        haptics.select()
     }
 
     fun confirm(card: ChatItem.Confirm) {
@@ -183,7 +233,7 @@ fun ChatScreen(
     }
 
     Column(Modifier.fillMaxSize().background(XpColors.Canvas).imePadding()) {
-        ChatHeader(dayLabel, demo = stats?.hasDemo == true)
+        ChatHeader(dayLabel, demo = stats?.hasDemo == true, onOpenSettings = onOpenSettings, onOpenHistory = { historyOpen = true })
         LazyColumn(
             Modifier.fillMaxWidth().weight(1f),
             state = listState,
@@ -217,6 +267,7 @@ fun ChatScreen(
                     when (item) {
                         is ChatItem.Assistant -> AssistantText(item.text)
                         is ChatItem.User -> UserBubble(item.text)
+                        is ChatItem.Tool -> ToolRow(item)
                         is ChatItem.Confirm -> ConfirmCard(
                             item,
                             onConfirm = { confirm(item) },
@@ -240,23 +291,68 @@ fun ChatScreen(
             showSuggestions = conversation.none { it is ChatItem.User },
             onSuggestion = { send(it) },
         )
+        if (historyOpen) {
+            XpSheet(onDismiss = { historyOpen = false }) {
+                androidx.compose.foundation.layout.Column(Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s)) {
+                    Text("会话", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+                    XpButton(
+                        "新对话", {
+                            val firstUser = conversation.firstOrNull { it is ChatItem.User } as? ChatItem.User
+                            if (firstUser != null) {
+                                sessions.add(0, ChatSession(++sessionSeq, firstUser.text.take(18), conversation.toList()))
+                            }
+                            conversation.clear()
+                            turn.period = ChatPeriod.Week
+                            turn.category = null
+                            historyOpen = false
+                        },
+                        Modifier.fillMaxWidth().padding(top = XpSpace.m),
+                    )
+                    sessions.forEach { item ->
+                        GroupedRow(
+                            title = item.title,
+                            subtitle = "${item.items.count { it is ChatItem.User }} 轮",
+                            modifier = Modifier.clickable {
+                                conversation.clear()
+                                conversation.addAll(item.items)
+                                historyOpen = false
+                            },
+                        )
+                    }
+                    if (sessions.isEmpty()) {
+                        Text(
+                            "还没有别的会话。开一个新对话，刚才这段会留在这里。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = XpColors.InkTertiary,
+                            modifier = Modifier.padding(vertical = XpSpace.m),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
+data class ChatSession(val id: Int, val title: String, val items: List<ChatItem>)
+
 /** Compact tab-root header (no large title): who is speaking + the date; the pill says it all stays local. */
 @Composable
-private fun ChatHeader(dayLabel: String, demo: Boolean) {
+private fun ChatHeader(dayLabel: String, demo: Boolean, onOpenSettings: () -> Unit, onOpenHistory: () -> Unit) {
     Column(Modifier.fillMaxWidth().background(XpColors.Canvas)) {
         Row(
             Modifier.fillMaxWidth().statusBarsPadding().height(52.dp).padding(horizontal = XpSpace.l),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            NavIconButton(Icons.Outlined.Menu, "会话管理", onOpenHistory)
+            androidx.compose.foundation.layout.Spacer(Modifier.width(XpSpace.s))
             Column(Modifier.weight(1f)) {
                 Text("小票助手", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
                 Text(dayLabel, style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
             }
             if (demo) DemoChip(Modifier.padding(end = XpSpace.s))
             Pill("本机统计")
+            androidx.compose.foundation.layout.Spacer(Modifier.width(XpSpace.s))
+            NavIconButton(Icons.Outlined.Settings, "设置", onOpenSettings)
         }
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpColors.Hairline))
     }
@@ -416,5 +512,34 @@ private fun RoundButton(
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = null, tint = XpColors.Ink, modifier = Modifier.size(20.dp))
+    }
+}
+
+/** One tool step: a small spinner while it runs, then the one-line result. */
+@Composable
+private fun ToolRow(item: ChatItem.Tool) {
+    val spin = rememberInfiniteTransition(label = "tool")
+    val angle by spin.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing)),
+        label = "toolSpin",
+    )
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+    ) {
+        if (item.running) {
+            Icon(
+                Icons.Outlined.Autorenew, contentDescription = null,
+                tint = XpColors.Accent, modifier = Modifier.size(14.dp).graphicsLayer { rotationZ = angle },
+            )
+        } else {
+            Icon(Icons.Outlined.Check, contentDescription = null, tint = XpColors.Positive, modifier = Modifier.size(14.dp))
+        }
+        Text(item.label, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+        item.detail?.let {
+            Text("· $it", style = MaterialTheme.typography.bodySmall, color = XpColors.InkTertiary, maxLines = 1)
+        }
     }
 }

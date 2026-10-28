@@ -32,6 +32,14 @@ sealed interface ChatItem {
         val draft: ExpenseDraft,
         val state: ConfirmState = ConfirmState.Pending,
     ) : ChatItem
+
+    /** A visible tool step: the assistant says what it is reading before it answers. */
+    data class Tool(
+        override val id: Long,
+        val label: String,
+        val detail: String? = null,
+        val running: Boolean = true,
+    ) : ChatItem
 }
 
 enum class ConfirmState { Pending, Saving, Saved, Duplicate }
@@ -387,6 +395,30 @@ object ChatFamily {
             append("。")
             if (hidden > 0) append(" 有 $hidden 位没开金额共享，我不替 TA 猜。")
             append(" 这些都是演示数据。")
+        }
+    }
+}
+
+/** Which local tools a question needs, and the one-line result each produces. */
+object ChatTools {
+    data class Step(val label: String, val detail: String)
+
+    fun plan(text: String, stats: ChatStats?, family: Boolean): List<Step> {
+        if (stats == null) return listOf(Step("读取账本", "账本还在加载"))
+        return when {
+            family -> listOf(
+                Step("读取圈子共享", "3 位家人，按各自授权脱敏"),
+                Step("汇总本周小票", "只统计已共享的金额"),
+            )
+            text.contains("花") || text.contains("多少") || text.contains("支出") -> listOf(
+                Step("读取账本", "本机 ${stats.week.txnCount} 笔记录"),
+                Step("汇总本周", "合计 ${yuanText(stats.week.totalOutCents)}"),
+            )
+            text.contains("最大") || text.contains("最多") -> listOf(
+                Step("读取账本", "扫描本周全部记录"),
+                Step("找出最大一笔", "按金额排序"),
+            )
+            else -> listOf(Step("读取账本", "本机记录"))
         }
     }
 }
