@@ -118,7 +118,7 @@ class PrintSession(
             kick.snapTo(6f)
             kick.animateTo(0f, spring(0.3f, 650f))
         }
-        stampScale.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = 450f))
+        stampScale.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 480f))
     }
 
     // ---- tear -----------------------------------------------------------

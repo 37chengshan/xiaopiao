@@ -1,6 +1,8 @@
 package com.xiaopiao.app.ui.today
 
 import android.widget.Toast
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -57,7 +59,10 @@ import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.launch
 
 /** The two versions of the printed card, both pre-built by the caller (the same receipt, more or fewer rows). */
-class ShareContent(val full: List<ReceiptLine>, val brief: List<ReceiptLine>, val stampText: String, val fileKey: String)
+class ShareContent(val full: List<ReceiptLine>, val stampText: String, val fileKey: String) {
+    val brief: List<ReceiptLine> = ReceiptLayout.brief(full)
+    fun linesFor(briefMode: Boolean): List<ReceiptLine> = if (briefMode) brief else full
+}
 
 /** "分享小票" sheet: the receipt on a pick-your-own gradient card, 完整/简版, 分享 / 保存图片 / 复制文字. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,8 +74,8 @@ fun ReceiptShareSheet(content: ShareContent, onDismiss: () -> Unit) {
     val layer = rememberGraphicsLayer()
     var gradient by rememberSaveable { mutableIntStateOf(0) }
     var briefMode by rememberSaveable { mutableStateOf(false) }
-    val lines = if (briefMode) content.brief else content.full
-    val plain = remember(lines) { ReceiptLayout.toPlainText(lines) }
+    val lines = content.linesFor(briefMode)
+    val plain = ReceiptShare.textFor(content, briefMode)
 
     fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
     suspend fun render() = layer.toImageBitmap().asAndroidBitmap()
@@ -93,7 +98,7 @@ fun ReceiptShareSheet(content: ShareContent, onDismiss: () -> Unit) {
             }
             Box(
                 Modifier.weight(1f, fill = false).fillMaxWidth().padding(vertical = XpSpace.s)
-                    .clip(RoundedCornerShape(XpRadius.m)).verticalScroll(rememberScrollState()),
+                    .clip(RoundedCornerShape(XpRadius.m)).animateContentSize(spring(0.85f, 380f)).verticalScroll(rememberScrollState()),
             ) {
                 ShareCard(lines, content.stampText, GradientPresets.byIndex(gradient), Modifier.drawWithContent {
                     layer.record { this@drawWithContent.drawContent() }
