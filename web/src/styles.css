@@ -421,3 +421,50 @@ html [data-sonner-toast] {
 .dark .glass-float {
   box-shadow: none;
 }
+
+/*
+ * Desktop Web tokens (docs/WEB-SPEC.md §0.2, 2026-10-28). Prefixed d- so legacy mobile screens keep their palette.
+ * Use as bg-d-canvas / text-d-ink / border-d-hairline … ; sidebar material = bg-d-canvas/80 + backdrop-blur-xl.
+ */
+:root {
+  --d-canvas: oklch(0.971 0.003 286.4); /* #F5F5F7 */
+  --d-surface: oklch(1.000 0 0); /* #FFFFFF */
+  --d-ink: oklch(0.232 0.004 286.1); /* #1D1D1F */
+  --d-ink-2: oklch(0.540 0.008 286.1); /* #6E6E73 */
+  --d-ink-3: oklch(0.752 0.006 286.3); /* #AEAEB2 */
+  --d-hairline: oklch(0.923 0.007 286.3); /* #E5E5EA */
+  --d-fill: oklch(0.947 0.004 286.3); /* #EDEDF0 */
+  --d-accent: oklch(0.522 0.177 255.8); /* #0066CC */
+  --d-positive: oklch(0.558 0.146 147.5); /* #248A3D */
+  --d-negative: oklch(0.553 0.225 27.3); /* #D70015 */
+  --d-warning: oklch(0.547 0.147 48.9); /* #B25000 */
+  --d-paper: oklch(0.977 0.010 87.5); /* #FAF7F0 */
+}
+.dark {
+  --d-canvas: oklch(0.000 0 0); /* #000000 */
+  --d-surface: oklch(0.227 0.004 286.1); /* #1C1C1E */
+  --d-ink: oklch(0.971 0.003 286.4); /* #F5F5F7 */
+  --d-ink-2: oklch(0.681 0.007 286.2); /* #98989D */
+  --d-ink-3: oklch(0.501 0.005 286.2); /* #636366 */
+  --d-hairline: oklch(0.341 0.003 286.2); /* #38383A */
+  --d-fill: oklch(0.294 0.004 286.2); /* #2C2C2E */
+  --d-accent: oklch(0.669 0.181 251.8); /* #2997FF */
+  --d-positive: oklch(0.756 0.208 147.0); /* #30D158 */
+  --d-negative: oklch(0.663 0.224 28.3); /* #FF453A */
+  --d-warning: oklch(0.782 0.171 67.2); /* #FF9F0A */
+  --d-paper: oklch(0.977 0.010 87.5); /* #FAF7F0 */
+}
+@theme inline {
+  --color-d-canvas: var(--d-canvas);
+  --color-d-surface: var(--d-surface);
+  --color-d-ink: var(--d-ink);
+  --color-d-ink-2: var(--d-ink-2);
+  --color-d-ink-3: var(--d-ink-3);
+  --color-d-hairline: var(--d-hairline);
+  --color-d-fill: var(--d-fill);
+  --color-d-accent: var(--d-accent);
+  --color-d-positive: var(--d-positive);
+  --color-d-negative: var(--d-negative);
+  --color-d-warning: var(--d-warning);
+  --color-d-paper: var(--d-paper);
+}

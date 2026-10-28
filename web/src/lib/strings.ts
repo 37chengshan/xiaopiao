@@ -2,6 +2,8 @@
  * Copy dictionary for new UI text (2026-10-28). zh is the source; en is filled for the bilingual pass.
  * Add new strings here instead of hard-coding them in components.
  */
+import { useSyncExternalStore } from "react";
+
 export type Locale = "zh" | "en";
 
 const zh = {
@@ -98,10 +100,37 @@ const en: Record<StringKey, string> = {
 
 const dicts: Record<Locale, Record<StringKey, string>> = { zh, en };
 let locale: Locale = "zh";
+const listeners = new Set<() => void>();
 
+export function getLocale(): Locale {
+  return locale;
+}
 export function setLocale(l: Locale) {
   locale = l;
+  listeners.forEach((f) => f());
 }
 export function t(key: StringKey): string {
   return dicts[locale][key];
+}
+
+/** Re-renders the caller when the locale changes; use at the top of any component that calls t()/a module's strings. */
+export function useLocale(): Locale {
+  return useSyncExternalStore(
+    (f) => {
+      listeners.add(f);
+      return () => listeners.delete(f);
+    },
+    getLocale,
+    getLocale,
+  );
+}
+
+/**
+ * Per-feature dictionaries, so parallel features don't all edit this file:
+ *   const s = defineStrings({ hero: "每天一张…" }, { hero: "A receipt a day…" });
+ *   s("hero")
+ * en must have exactly the same keys as zh (checked by the type).
+ */
+export function defineStrings<K extends string>(zhDict: Record<K, string>, enDict: Record<K, string>) {
+  return (key: K): string => (locale === "en" ? enDict : zhDict)[key];
 }
