@@ -77,7 +77,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link
               to="/me"
               style={{ bottom: "max(16px, env(safe-area-inset-bottom, 0px))" }}
-              className="glass-float absolute left-1/2 z-30 inline-flex h-11 -translate-x-1/2 items-center gap-1.5 rounded-full px-5 text-[15px] font-medium text-ink"
+              className="glass-float absolute left-1/2 z-30 inline-flex !bg-surface-2 h-11 -translate-x-1/2 items-center gap-1.5 rounded-full px-5 text-[15px] font-medium text-ink"
             >
               <ArrowLeft className="size-4" aria-hidden />
               {t("back.personal")}
