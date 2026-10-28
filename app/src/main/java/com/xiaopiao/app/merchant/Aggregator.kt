@@ -75,6 +75,10 @@ object Aggregator {
         )
     }
 
+    /** Quietest slot that is still shown (>= k people); null when every cell is suppressed. */
+    fun quietestVisibleSlot(stats: CohortStats): String? =
+        stats.heatmap.flatten().filter { !it.suppressed }.minByOrNull { it.people!! }?.label
+
     private fun suppressedAll(total: Int): CohortStats = CohortStats(
         totalPeople = total,
         avgPriceCents = null,

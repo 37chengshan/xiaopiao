@@ -63,4 +63,13 @@ class AggregatorTest {
         val r = Aggregator.compute(crowd).repeatRate!!
         assertTrue(r in 0f..1f)
     }
+
+    @Test fun quietestVisibleSlotIsAVisibleCellWithMinimumPeople() {
+        val stats = Aggregator.compute(crowd)
+        val slot = Aggregator.quietestVisibleSlot(stats)!!
+        val cell = stats.heatmap.flatten().first { it.label == slot }
+        assertFalse(cell.suppressed)
+        assertTrue(stats.heatmap.flatten().filter { !it.suppressed }.all { it.people!! >= cell.people!! })
+        assertNull(Aggregator.quietestVisibleSlot(Aggregator.compute(crowd.take(5))))
+    }
 }
