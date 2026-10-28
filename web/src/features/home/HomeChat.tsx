@@ -2,7 +2,8 @@ import { motion } from "framer-motion";
 import { ArrowUp, Mic, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/app/PageHeader";
+import { DemoPill } from "@/components/app/DemoPill";
+import { Chip, XButton } from "@/components/app/kit";
 import { ErrorState, LoadingState } from "@/components/app/States";
 import { cn } from "@/lib/utils";
 import { useLedger } from "@/services/LedgerProvider";
@@ -40,15 +41,22 @@ const store: { mode: string | null; msgs: Msg[]; seen: Set<string> } = { mode: n
 let seq = 0;
 const nid = () => `m${Date.now()}-${++seq}`;
 
-function AiBubble({ msg, children }: { msg: Msg; children?: React.ReactNode }) {
+/** Claude-style assistant turn: a small serif mark, plain text on the canvas, cards underneath at full width. */
+function Mark() {
+  return (
+    <span className="mt-[3px] grid size-6 shrink-0 place-items-center rounded-full bg-fill font-serif text-[13px] font-semibold text-ink" aria-hidden>
+      票
+    </span>
+  );
+}
+
+function AiMessage({ msg, children }: { msg: Msg; children?: React.ReactNode }) {
   const [typed, setTyped] = useState(store.seen.has(msg.id));
   return (
-    <div className="flex items-start gap-2">
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-coral text-base" aria-hidden>
-        🧾
-      </span>
-      <div className="min-w-0 max-w-[88%]">
-        <div className="inline-block rounded-2xl rounded-tl-md bg-card px-3.5 py-2.5 text-[15px] leading-relaxed text-ink shadow-sm">
+    <div>
+      <div className="flex items-start gap-2.5">
+        <Mark />
+        <p className="min-w-0 flex-1 text-[16px] leading-[26px] text-ink">
           <TypedText
             text={msg.text}
             skip={store.seen.has(msg.id)}
@@ -57,9 +65,9 @@ function AiBubble({ msg, children }: { msg: Msg; children?: React.ReactNode }) {
               setTyped(true);
             }}
           />
-        </div>
-        {typed && children}
+        </p>
       </div>
+      {typed && children && <div className="mt-3">{children}</div>}
     </div>
   );
 }
@@ -72,6 +80,9 @@ export function HomeChat() {
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  const [dockH, setDockH] = useState(120);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     store.mode = mode;
@@ -102,6 +113,15 @@ export function HomeChat() {
     return () => ro.disconnect();
   }, [isLoading, isError]);
 
+  // the composer dock floats over the messages; keep the last message clear of it
+  useEffect(() => {
+    const el = dockRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setDockH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isLoading, isError]);
+
   const patch = useCallback((id: string, fn: (m: Msg) => Msg) => setMsgs((ms) => ms.map((m) => (m.id === id ? fn(m) : m))), []);
 
   const send = useCallback(
@@ -128,7 +148,7 @@ export function HomeChat() {
           const todays = txns.filter((t) => t.direction === "OUT" && t.occurredAt >= startOfDay(now));
           const total = todays.reduce((s, t) => s + t.amountCents, 0);
           reply({
-            text: todays.length ? `今天到现在花了 ¥${yuan(total)}，共 ${todays.length} 笔。最近一笔是「${todays[todays.length - 1].merchant}」。` : "今天一分钱没花，钱包在睡大觉 😴",
+            text: todays.length ? `今天到现在花了 ¥${yuan(total)}，共 ${todays.length} 笔。最近一笔是「${todays[todays.length - 1].merchant}」。` : "今天一分钱没花，钱包在睡大觉",
             chips: ["打印小票", "这周周报"],
           });
           break;
@@ -140,7 +160,7 @@ export function HomeChat() {
           reply({ text: "本周的颁奖典礼，请看～", card: { kind: "weekly" } });
           break;
         case "SUBSCRIPTIONS":
-          if (detectSubscriptions(txns, now).length === 0) reply({ text: "暂时没发现自动续费，干净得很 🕵️" });
+          if (detectSubscriptions(txns, now).length === 0) reply({ text: "暂时没发现自动续费，干净得很" });
           else reply({ text: "侦探出动！这些是规律扣款的订阅：", card: { kind: "subs" } });
           break;
         case "REGRET":
@@ -150,7 +170,7 @@ export function HomeChat() {
           reply({ text: "可以导入支付宝/微信的 CSV 账单，会自动去重。", card: { kind: "import" } });
           break;
         default:
-          reply({ text: "这个我还没听懂 😅 试试直接说「午饭 32 奶茶 15」，或者问我「今天花了多少」。", chips: ["午饭 32 奶茶 15", "今天花了多少", "打印小票"] });
+          reply({ text: "这个我还没听懂，试试直接说「午饭 32 奶茶 15」，或者问我「今天花了多少」。", chips: ["午饭 32 奶茶 15", "今天花了多少", "打印小票"] });
       }
     },
     [now, thinking, txns],
@@ -163,7 +183,7 @@ export function HomeChat() {
     },
     (err) => {
       if (err === "unsupported") {
-        setMsgs((ms) => [...ms, { id: nid(), role: "ai", text: "这个浏览器暂时不支持语音输入 🎙️ 换 Chrome / Safari 试试，或者直接打字告诉我～" }]);
+        setMsgs((ms) => [...ms, { id: nid(), role: "ai", text: "这个浏览器暂时不支持语音输入，换 Chrome / Safari 试试，或者直接打字告诉我～" }]);
       } else if (err === "not-allowed" || err === "service-not-allowed") toast.error("没有麦克风权限，可以在浏览器设置里打开");
       else if (err !== "no-speech" && err !== "aborted") toast.error("语音没听清，再说一次吧");
     },
@@ -175,7 +195,7 @@ export function HomeChat() {
     try {
       await add(rows);
       patch(m.id, (x) => (x.card?.kind === "drafts" ? { ...x, card: { ...x.card, saved: true } } : x));
-      toast.success(`记好 ${rows.length} 笔 ✅`);
+      toast.success(`记好 ${rows.length} 笔`);
     } catch {
       toast.error("没记上，再试一次");
     }
@@ -194,6 +214,7 @@ export function HomeChat() {
             now={now}
             saved={c.saved}
             onConfirm={() => void confirmDrafts(m)}
+            onChange={(d) => patch(m.id, (x) => (x.card?.kind === "drafts" ? { ...x, card: { ...x.card, drafts: x.card.drafts.map((o) => (o.id === d.id ? d : o)) } } : x))}
             onRemove={(id) => patch(m.id, (x) => (x.card?.kind === "drafts" ? { ...x, card: { ...x.card, drafts: x.card.drafts.filter((d) => d.id !== id) } } : x))}
             onEdit={(d) =>
               entry.open({
@@ -207,22 +228,22 @@ export function HomeChat() {
           />
         );
       case "receipt":
-        return <div className="-mx-2 mt-2 rounded-3xl bg-secondary/60 pb-2"><Receipt receipt={receipt} /></div>;
+        return <div className="rounded-[14px] bg-bg-grouped pb-2"><Receipt receipt={receipt} /></div>;
       case "weekly":
         return <WeeklySummaryCard txns={txns} now={now} />;
       case "subs":
         return <SubscriptionSummaryCard txns={txns} now={now} />;
       case "regret":
         return (
-          <div className="mt-2 w-[min(100%,22rem)]">
+          <div className="-mx-4">
             <RegretSimulator txns={txns} now={now} initialTarget={c.target} initialPct={c.pct} initialMonths={c.months} />
           </div>
         );
       case "import":
         return (
-          <button onClick={() => entry.open({ tab: "import" })} className="mt-2 rounded-xl bg-coral px-4 py-2 text-sm font-bold text-white active:scale-95">
+          <XButton size="sm" onClick={() => entry.open({ tab: "import" })}>
             选择账单文件
-          </button>
+          </XButton>
         );
     }
   };
@@ -231,12 +252,25 @@ export function HomeChat() {
   const lastIsAi = msgs[msgs.length - 1]?.role === "ai";
 
   return (
-    <div className="flex h-full flex-col">
-      <PageHeader title="今日" subtitle="我先开口，你来确认" />
+    <div className="absolute inset-0">
+      <div className="absolute inset-x-0 top-0 z-20 flex h-[calc(44px+env(safe-area-inset-top,0px))] items-center justify-between px-4 pt-[env(safe-area-inset-top,0px)]">
+        <div
+          aria-hidden
+          className={cn("material edge-fade-bottom absolute inset-x-0 -bottom-3 top-0 transition-opacity duration-200 ease-[var(--ease-out)]", scrolled ? "opacity-100" : "opacity-0")}
+        />
+        <h1 className="relative font-serif text-[20px] font-semibold tracking-[-0.01em] text-ink">今日小票</h1>
+        <div className="relative">
+          <DemoPill />
+        </div>
+      </div>
       {isLoading ? (
-        <LoadingState rows={3} />
+        <div className="pt-[calc(56px+env(safe-area-inset-top,0px))]">
+          <LoadingState rows={3} />
+        </div>
       ) : isError ? (
-        <ErrorState onRetry={refetch} />
+        <div className="pt-[calc(56px+env(safe-area-inset-top,0px))]">
+          <ErrorState onRetry={refetch} />
+        </div>
       ) : (
         <>
           <div
@@ -244,82 +278,88 @@ export function HomeChat() {
             onScroll={(e) => {
               const b = e.currentTarget;
               stick.current = b.scrollHeight - b.scrollTop - b.clientHeight < 80;
+              setScrolled(b.scrollTop > 8);
             }}
-            className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-2"
+            style={{ paddingBottom: `calc(var(--tabbar-h) + ${dockH}px + 8px)` }}
+            className="absolute inset-0 overflow-y-auto overscroll-contain px-4 pt-[calc(56px+env(safe-area-inset-top,0px))]"
             aria-live="polite"
           >
-            <div ref={contentRef} className="space-y-3">
-            {msgs.map((m) =>
-              m.role === "user" ? (
-                <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
-                  <div className="max-w-[80%] rounded-2xl rounded-br-md bg-coral px-3.5 py-2.5 text-[15px] text-white shadow-sm">{m.text}</div>
-                </motion.div>
-              ) : (
-                <AiBubble key={m.id} msg={m}>
-                  {renderCard(m)}
-                </AiBubble>
-              ),
-            )}
-            {thinking && (
-              <div className="flex items-center gap-2" role="status" aria-label="小票正在输入">
-                <span className="grid size-8 place-items-center rounded-full bg-coral text-base" aria-hidden>
-                  🧾
-                </span>
-                <div className="flex gap-1 rounded-2xl bg-card px-3.5 py-3 shadow-sm">
-                  {[0, 1, 2].map((i) => (
-                    <motion.span key={i} className="size-1.5 rounded-full bg-ink-2" animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.7, delay: i * 0.12 }} />
-                  ))}
+            <div ref={contentRef} className="space-y-6">
+              {msgs.map((m) =>
+                m.role === "user" ? (
+                  <motion.div key={m.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }} className="flex justify-end">
+                    <div className="max-w-[82%] rounded-[18px] bg-surface-2 px-3.5 py-2 text-[16px] leading-[24px] text-ink">{m.text}</div>
+                  </motion.div>
+                ) : (
+                  <AiMessage key={m.id} msg={m}>
+                    {renderCard(m)}
+                  </AiMessage>
+                ),
+              )}
+              {thinking && (
+                <div className="flex items-center gap-2.5" role="status" aria-label="小票正在输入">
+                  <Mark />
+                  <div className="flex gap-1">
+                    {[0, 1, 2].map((i) => (
+                      <motion.span key={i} className="size-1.5 rounded-full bg-ink-3" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: i * 0.16 }} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
             </div>
           </div>
 
-          {lastIsAi && lastChips && !thinking && (
-            <div className="hide-scrollbar flex shrink-0 gap-1.5 overflow-x-auto px-4 pb-2">
-              {lastChips.map((c) => (
-                <button key={c} onClick={() => send(c)} className="shrink-0 rounded-full border border-hairline bg-card px-3 py-1.5 text-[13px] font-semibold text-ink active:scale-95">
-                  {c}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(input);
-            }}
-            className="flex shrink-0 items-center gap-2 border-t border-hairline bg-canvas px-3 py-2.5"
-          >
-            <button type="button" onClick={() => entry.open()} aria-label="手动记一笔" className="grid size-10 shrink-0 place-items-center rounded-full bg-card text-ink shadow-sm active:scale-95">
-              <Plus className="size-5" />
-            </button>
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={speech.listening ? "正在听…请说话" : "说点什么，例如：午饭 32 奶茶 15"}
-              aria-label="消息"
-              enterKeyHint="send"
-              className="h-10 min-w-0 flex-1 rounded-full border border-hairline bg-card px-4 text-[15px] outline-none focus:border-coral"
-            />
-            {input.trim() ? (
-              <button type="submit" aria-label="发送" className="grid size-10 shrink-0 place-items-center rounded-full bg-coral text-white active:scale-95">
-                <ArrowUp className="size-5" />
+          <div ref={dockRef} className="absolute inset-x-0 bottom-[var(--tabbar-h)] z-20 bg-gradient-to-t from-bg from-65% to-transparent pb-2 pt-5">
+            {lastIsAi && lastChips && !thinking && (
+              <div className="hide-scrollbar mb-2 flex gap-2 overflow-x-auto px-4">
+                {lastChips.map((c) => (
+                  <Chip key={c} onClick={() => send(c)} className="text-ink">
+                    {c}
+                  </Chip>
+                ))}
+              </div>
+            )}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                send(input);
+              }}
+              className="mx-3 flex items-center gap-0.5 rounded-[26px] border border-hairline bg-surface p-1 shadow-[0_1px_2px_oklch(0_0_0/5%)]"
+            >
+              <button type="button" onClick={() => entry.open()} aria-label="手动记一笔" className="grid size-9 shrink-0 place-items-center rounded-full text-ink-2 transition-transform duration-100 active:scale-[0.94]">
+                <Plus className="size-5" strokeWidth={1.75} />
               </button>
-            ) : (
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={speech.listening ? "正在听，请说话" : "说点什么，如：午饭 32"}
+                aria-label="消息"
+                enterKeyHint="send"
+                className="h-9 min-w-0 flex-1 bg-transparent px-1 text-[16px] text-ink outline-none placeholder:text-ink-3"
+              />
               <button
                 type="button"
                 onClick={() => (speech.listening ? speech.stop() : speech.start())}
                 aria-label={speech.listening ? "停止语音输入" : "语音输入"}
                 aria-pressed={speech.listening}
-                className={cn("relative grid size-10 shrink-0 place-items-center rounded-full text-white active:scale-95", speech.listening ? "bg-stamp" : "bg-ink")}
+                className={cn(
+                  "relative grid size-9 shrink-0 place-items-center rounded-full transition-[transform,background-color,color] duration-150 active:scale-[0.94]",
+                  speech.listening ? "bg-negative text-on-clay" : "text-ink-2",
+                )}
               >
-                {speech.listening && <span className="absolute inset-0 animate-ping rounded-full bg-stamp/50" aria-hidden />}
-                <Mic className="relative size-5" />
+                {speech.listening && <span className="absolute inset-0 animate-ping rounded-full bg-negative/40" aria-hidden />}
+                <Mic className="relative size-5" strokeWidth={1.75} />
               </button>
-            )}
-          </form>
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                aria-label="发送"
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-ink text-bg transition-[transform,background-color,color] duration-150 active:scale-[0.94] disabled:bg-fill disabled:text-ink-3 disabled:active:scale-100"
+              >
+                <ArrowUp className="size-5" strokeWidth={2.25} />
+              </button>
+            </form>
+          </div>
         </>
       )}
     </div>

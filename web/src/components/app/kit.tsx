@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { ChevronRight, type LucideIcon } from "lucide-react";
+import * as SwitchPrimitive from "@radix-ui/react-switch";
 import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -11,17 +12,27 @@ import { cn } from "@/lib/utils";
 /** Footnote-style header above a grouped section. */
 export function SectionHeader({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex items-end justify-between px-4 pb-2 pt-6">
+    <div className="flex items-end justify-between px-8 pb-2 pt-6">
       <h2 className="text-[13px] font-normal leading-[18px] text-ink-2">{children}</h2>
       {action}
     </div>
   );
 }
 
-/** Inset grouped container: one rounded surface, rows separated by inset hairlines. */
-export function Group({ children, className }: { children: ReactNode; className?: string }) {
+/**
+ * Inset grouped container: one rounded surface, rows separated by inset hairlines.
+ * `inset="icon"` starts the hairline at the text of rows that have a 30px IconTile; default starts at the row edge padding.
+ */
+export function Group({ children, className, inset = "plain" }: { children: ReactNode; className?: string; inset?: "plain" | "icon" }) {
   return (
-    <div className={cn("mx-4 overflow-hidden rounded-[14px] bg-surface [&>*+*]:shadow-[inset_0_1px_0_var(--hairline)]", className)}>
+    <div
+      className={cn(
+        "mx-4 overflow-hidden rounded-[14px] bg-surface",
+        "[&>*+*]:relative [&>*+*]:after:pointer-events-none [&>*+*]:after:absolute [&>*+*]:after:right-0 [&>*+*]:after:top-0 [&>*+*]:after:h-px [&>*+*]:after:bg-hairline [&>*+*]:after:content-['']",
+        inset === "icon" ? "[&>*+*]:after:left-[58px]" : "[&>*+*]:after:left-4",
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -77,6 +88,70 @@ export function Row({
   ) : (
     <div className={cls}>{body}</div>
   );
+}
+
+/** 32px round icon button for nav rows: `fill` (default), `ink` (the primary round action) or `clay`. */
+export function IconButton({
+  icon: Icon,
+  label,
+  tone = "fill",
+  className,
+  ...props
+}: { icon: LucideIcon; label: string; tone?: "fill" | "ink" | "clay" } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children">) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      {...props}
+      className={cn(
+        "relative grid size-8 shrink-0 place-items-center rounded-full transition-transform duration-100 ease-[var(--ease-out)] before:absolute before:-inset-1.5 before:content-[''] active:scale-[0.94]",
+        tone === "fill" && "bg-fill text-ink",
+        tone === "ink" && "bg-ink text-bg",
+        tone === "clay" && "bg-clay text-on-clay",
+        className,
+      )}
+    >
+      <Icon className="size-[17px]" strokeWidth={1.9} aria-hidden />
+    </button>
+  );
+}
+
+/** Selectable capsule: quiet `fill` when idle, ink when selected. */
+export function Chip({
+  selected,
+  className,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { selected?: boolean }) {
+  return (
+    <button
+      type="button"
+      {...props}
+      className={cn(
+        "inline-flex h-8 shrink-0 items-center rounded-full px-3.5 text-[14px] font-medium transition-[transform,background-color,color] duration-150 ease-[var(--ease-out)] active:scale-[0.97]",
+        selected ? "bg-ink text-bg" : "bg-fill text-ink-2",
+        className,
+      )}
+    />
+  );
+}
+
+/** iOS-style switch built on Radix; 51x31 with a soft thumb. */
+export function Switch({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange: (v: boolean) => void; label: string }) {
+  return (
+    <SwitchPrimitive.Root
+      checked={checked}
+      onCheckedChange={onCheckedChange}
+      aria-label={label}
+      className="relative h-[31px] w-[51px] shrink-0 rounded-full bg-fill transition-colors duration-200 ease-[var(--ease-out)] data-[state=checked]:bg-positive"
+    >
+      <SwitchPrimitive.Thumb className="block size-[27px] translate-x-[2px] rounded-full bg-white shadow-[0_2px_4px_oklch(0_0_0/22%)] transition-transform duration-200 ease-[var(--ease-out)] data-[state=checked]:translate-x-[22px]" />
+    </SwitchPrimitive.Root>
+  );
+}
+
+/** Small ink-2 explanatory text that sits under a group. */
+export function Footnote({ children, className }: { children: ReactNode; className?: string }) {
+  return <p className={cn("px-8 pt-2 text-[13px] leading-[18px] text-ink-2", className)}>{children}</p>;
 }
 
 type ButtonVariant = "primary" | "clay" | "secondary" | "plain";

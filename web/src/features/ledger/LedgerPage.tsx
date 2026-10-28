@@ -1,11 +1,14 @@
 import { motion, useMotionValue, useTransform } from "framer-motion";
-import { FileUp, Plus, Trash2 } from "lucide-react";
+import { FileUp, NotebookPen, Plus, Trash2 } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { toast } from "sonner";
-import { EmptyState, ErrorState, LoadingState } from "@/components/app/States";
+import { CATEGORY_ICONS } from "@/components/app/categoryIcons";
+import { Group, IconButton, IconTile, Money, Row, SectionHeader, XButton } from "@/components/app/kit";
 import { PageHeader } from "@/components/app/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/app/States";
+import { cn } from "@/lib/utils";
 import { useLedger } from "@/services/LedgerProvider";
-import { CATEGORIES, type Txn, yuan } from "../../domain/types";
+import { CATEGORIES, type Txn } from "../../domain/types";
 import { dateKey, hhmm, parseDateKey, relativeDayLabel } from "../../logic/time";
 import { useEntry } from "../entry/EntryProvider";
 
@@ -28,57 +31,50 @@ function groupByDay(txns: readonly Txn[]): DayGroup[] {
   return [...map.values()];
 }
 
-function Row({ txn, onEdit, onDelete }: { txn: Txn; onEdit: () => void; onDelete: () => void }) {
+/** One ledger row. Swipe left to reveal/trigger delete (1:1 tracking, snaps back if released early); tap to edit. */
+function TxnRow({ txn, onEdit, onDelete }: { txn: Txn; onEdit: () => void; onDelete: () => void }) {
   const dragged = useRef(false);
   const x = useMotionValue(0);
   const reveal = useTransform(x, [-24, 0], [1, 0]);
   const cat = CATEGORIES[txn.category];
+  const income = txn.direction === "IN";
   return (
-    <li className="group relative overflow-hidden rounded-2xl">
-      <motion.div style={{ opacity: reveal }} className="absolute inset-y-0 right-0 flex w-24 items-center justify-end bg-stamp pr-6 text-white" aria-hidden>
-        <Trash2 className="size-5" />
+    <div className="group relative overflow-hidden">
+      <motion.div style={{ opacity: reveal }} className="absolute inset-y-0 right-0 flex w-24 items-center justify-center gap-1 bg-negative text-[13px] font-medium text-on-clay" aria-hidden>
+        <Trash2 className="size-[17px]" strokeWidth={1.9} />
+        删除
       </motion.div>
       <motion.div
         drag="x"
-        style={{ x }}
+        style={{ x, touchAction: "pan-y" }}
         dragConstraints={{ left: -96, right: 0 }}
         dragElastic={0.1}
+        dragSnapToOrigin
         onDragStart={() => (dragged.current = true)}
         onDragEnd={(_, info) => {
           if (info.offset.x < -70) onDelete();
           setTimeout(() => (dragged.current = false), 50);
         }}
-        className="relative flex items-center bg-card"
+        className="relative flex items-center bg-surface"
       >
-        <button
+        <Row
+          className="flex-1"
+          leading={<IconTile icon={CATEGORY_ICONS[txn.category]} />}
+          title={txn.merchant}
+          subtitle={`${hhmm(txn.occurredAt)} · ${cat.label}${txn.source === "CSV" ? " · 导入" : ""}`}
+          trailing={<Money cents={income ? txn.amountCents : -txn.amountCents} sign={income} className={cn(income && "text-positive")} />}
           onClick={() => !dragged.current && onEdit()}
-          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
-          aria-label={`编辑 ${txn.merchant} ${yuan(txn.amountCents)} 元`}
-        >
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-secondary text-xl" aria-hidden>
-            {cat.emoji}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-semibold text-ink">{txn.merchant}</span>
-            <span className="block text-[12px] text-ink-2">
-              {hhmm(txn.occurredAt)} · {cat.label}
-              {txn.source === "CSV" && " · 导入"}
-            </span>
-          </span>
-          <span className={`thermal shrink-0 text-[15px] font-bold ${txn.direction === "IN" ? "text-good" : "text-ink"}`}>
-            {txn.direction === "IN" ? "+" : "-"}
-            {yuan(txn.amountCents)}
-          </span>
-        </button>
+        />
         <button
+          type="button"
           onClick={onDelete}
           aria-label={`删除 ${txn.merchant}`}
-          className="mr-2 grid size-8 shrink-0 place-items-center rounded-full text-ink-2 pointer-events-none opacity-0 transition hover:bg-secondary hover:text-stamp focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:hover)]:group-hover:pointer-events-auto [@media(hover:hover)]:group-hover:opacity-100"
+          className="pointer-events-none mr-2 grid size-8 shrink-0 place-items-center rounded-full text-ink-3 opacity-0 transition-opacity focus-visible:pointer-events-auto focus-visible:opacity-100 [@media(hover:hover)]:group-hover:pointer-events-auto [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:hover:text-negative"
         >
-          <Trash2 className="size-4" />
+          <Trash2 className="size-4" strokeWidth={1.75} />
         </button>
       </motion.div>
-    </li>
+    </div>
   );
 }
 
@@ -101,14 +97,10 @@ export function LedgerPage() {
         title="账本"
         subtitle={txns.length ? `共 ${txns.length} 笔 · 左滑删除，点一下编辑` : undefined}
         right={
-          <div className="flex gap-2">
-            <button onClick={() => entry.open({ tab: "import" })} aria-label="导入账单" className="grid size-9 place-items-center rounded-full bg-card text-ink-2 shadow-sm active:scale-95">
-              <FileUp className="size-4" />
-            </button>
-            <button onClick={() => entry.open()} aria-label="记一笔" className="grid size-9 place-items-center rounded-full bg-coral text-white shadow-sm active:scale-95">
-              <Plus className="size-5" />
-            </button>
-          </div>
+          <>
+            <IconButton icon={FileUp} label="导入账单" onClick={() => entry.open({ tab: "import" })} />
+            <IconButton icon={Plus} label="记一笔" tone="ink" onClick={() => entry.open()} />
+          </>
         }
       />
       {isLoading ? (
@@ -117,17 +109,17 @@ export function LedgerPage() {
         <ErrorState onRetry={refetch} />
       ) : groups.length === 0 ? (
         <EmptyState
-          emoji="📒"
+          icon={NotebookPen}
           title="账本还是空的"
-          hint="记第一笔，或者导入支付宝/微信账单"
+          hint="记第一笔，或者导入支付宝、微信账单"
           action={
             <div className="flex gap-2">
-              <button onClick={() => entry.open()} className="rounded-full bg-coral px-5 py-2 text-sm font-bold text-white">
+              <XButton variant="primary" size="sm" onClick={() => entry.open()}>
                 记一笔
-              </button>
-              <button onClick={() => entry.open({ tab: "import" })} className="rounded-full bg-card px-5 py-2 text-sm font-bold text-ink shadow-sm">
+              </XButton>
+              <XButton size="sm" onClick={() => entry.open({ tab: "import" })}>
                 导入账单
-              </button>
+              </XButton>
             </div>
           }
         />
@@ -135,18 +127,25 @@ export function LedgerPage() {
         <div className="pb-6">
           {groups.map((g) => (
             <section key={g.key} aria-label={g.key}>
-              <div className="sticky top-[68px] z-10 flex items-baseline justify-between bg-canvas/95 px-4 py-1.5 backdrop-blur">
-                <h2 className="text-[13px] font-extrabold text-ink">{relativeDayLabel(g.dayStart, now)}</h2>
-                <span className="thermal text-[12px] text-ink-2">支出 ¥{yuan(g.totalOut)}</span>
-              </div>
-              <ul className="space-y-1.5 px-4 pb-2">
+              <SectionHeader
+                action={
+                  g.totalOut > 0 ? (
+                    <span className="text-[13px] leading-[18px] text-ink-2">
+                      支出 <Money cents={g.totalOut} className="text-ink-2" />
+                    </span>
+                  ) : undefined
+                }
+              >
+                {relativeDayLabel(g.dayStart, now)}
+              </SectionHeader>
+              <Group inset="icon">
                 {g.items.map((t) => (
-                  <Row key={t.id} txn={t} onEdit={() => entry.open({ initial: t, editing: true })} onDelete={() => void del(t)} />
+                  <TxnRow key={t.id} txn={t} onEdit={() => entry.open({ initial: t, editing: true })} onDelete={() => void del(t)} />
                 ))}
-              </ul>
+              </Group>
             </section>
           ))}
-          <p className="px-4 pt-2 text-center text-[11px] text-ink-2">到底啦～</p>
+          <p className="px-4 pt-6 text-center text-[12px] text-ink-2">到底啦</p>
         </div>
       )}
     </>

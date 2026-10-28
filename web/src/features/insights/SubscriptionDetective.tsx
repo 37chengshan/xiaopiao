@@ -1,92 +1,98 @@
-import { animate } from "framer-motion";
+import { animate, useReducedMotion } from "framer-motion";
+import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+import { CATEGORY_ICONS } from "@/components/app/categoryIcons";
+import { Footnote, Group, IconTile, Money, Row, SectionHeader, Segmented } from "@/components/app/kit";
+import { EmptyState } from "@/components/app/States";
 import { cn } from "@/lib/utils";
-import { CATEGORIES, type Subscription, type Txn, yuan } from "../../domain/types";
+import { DAY_MS, type Subscription, type Txn, startOfDay, yuan } from "../../domain/types";
 import { categorize } from "../../logic/categorize";
 import { CANCEL_GUIDES, type CancelPlatform, annualCents, cycleLabel, detectSubscriptions } from "../../logic/subscriptions";
-import { dayLabel, startOfDayOf } from "./util";
+import { dayLabel } from "./util";
 
 function useCountUp(target: number): number {
-  const [v, setV] = useState(0);
+  const reduce = useReducedMotion();
+  const [v, setV] = useState(reduce ? target : 0);
   useEffect(() => {
-    const c = animate(0, target, { duration: 1, ease: "easeOut", onUpdate: (x) => setV(Math.round(x)) });
+    if (reduce) {
+      setV(target);
+      return;
+    }
+    const c = animate(0, target, { duration: 0.6, ease: [0.23, 1, 0.32, 1], onUpdate: (x) => setV(Math.round(x)) });
     return () => c.stop();
-  }, [target]);
+  }, [target, reduce]);
   return v;
+}
+
+function countdown(nextChargeAt: number, now: number): string {
+  const days = Math.round((startOfDay(nextChargeAt) - startOfDay(now)) / DAY_MS);
+  if (days <= 0) return days === 0 ? "今天扣款" : "近期扣款";
+  return days === 1 ? "明天扣款" : `${days} 天后扣款`;
+}
+
+function CancelGuide({ merchant }: { merchant: string }) {
+  const [platform, setPlatform] = useState<CancelPlatform>("alipay");
+  const platforms = Object.keys(CANCEL_GUIDES) as CancelPlatform[];
+  return (
+    <div className="px-4 pb-4 pt-1">
+      <p className="mb-2 text-[13px] leading-[18px] text-ink-2">怎么取消「{merchant}」：仅为操作指引，请在对应 App 里自己完成。</p>
+      <Segmented value={platform} onChange={setPlatform} options={platforms.map((p) => ({ value: p, label: CANCEL_GUIDES[p].name }))} />
+      <ol className="mt-3 space-y-2.5">
+        {CANCEL_GUIDES[platform].steps.map((step, i) => (
+          <li key={step} className="flex gap-3 text-[15px] leading-[22px] text-ink">
+            <span className="num grid size-[22px] shrink-0 place-items-center rounded-full bg-fill text-[12px] font-medium text-ink-2">{i + 1}</span>
+            {step}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
 }
 
 export function SubscriptionDetective({ txns, now }: { txns: readonly Txn[]; now: number }) {
   const subs = useMemo(() => detectSubscriptions(txns, now), [txns, now]);
   const yearly = subs.reduce((s, x) => s + annualCents(x), 0);
   const rolled = useCountUp(yearly);
-  const [guideFor, setGuideFor] = useState<Subscription | null>(null);
-  const [platform, setPlatform] = useState<CancelPlatform>("alipay");
+  const [open, setOpen] = useState<string | null>(null);
 
   if (subs.length === 0) {
-    return (
-      <div className="rounded-2xl bg-card p-5 text-center">
-        <div className="text-4xl" aria-hidden>
-          🕵️
-        </div>
-        <p className="mt-2 font-semibold text-ink">没发现自动续费</p>
-        <p className="mt-1 text-sm text-ink-2">同一家、金额差不多、按周/月/季/年规律出现的扣款，我会帮你揪出来～</p>
-      </div>
-    );
+    return <EmptyState icon={Search} title="没发现自动续费" hint="同一家、金额差不多、按周/月/季/年规律出现的扣款，我会帮你揪出来" />;
   }
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-2xl bg-ink p-5 text-center text-white">
-        <p className="text-[13px] opacity-70">🕵️ 订阅侦探发现 {subs.length} 项自动续费</p>
-        <p className="mt-1 text-[13px] opacity-70">一年大约会花掉</p>
-        <p className="thermal text-[44px] font-extrabold leading-tight text-coral">¥{yuan(rolled)}</p>
+    <div>
+      <div className="px-8 pt-5">
+        <p className="text-[13px] leading-[18px] text-ink-2">发现 {subs.length} 项自动续费，一年大约会花掉</p>
+        <Money cents={rolled} className="mt-1 block text-[48px] font-semibold leading-[52px] tracking-[-0.03em] text-ink" />
       </div>
 
-      <ul className="space-y-2">
-        {subs.map((s) => (
-          <li key={s.merchant} className="flex items-center gap-3 rounded-2xl bg-card p-3">
-            <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-secondary text-2xl" aria-hidden>
-              {CATEGORIES[categorize(s.merchant) === "OTHER" ? "SUBSCRIPTION" : categorize(s.merchant)].emoji}
+      <SectionHeader>订阅</SectionHeader>
+      <Group inset="icon">
+        {subs.map((s: Subscription) => {
+          const cat = categorize(s.merchant);
+          const expanded = open === s.merchant;
+          return (
+            <div key={s.merchant}>
+              <Row
+                leading={<IconTile icon={CATEGORY_ICONS[cat === "OTHER" ? "SUBSCRIPTION" : cat]} />}
+                title={s.merchant}
+                subtitle={`${cycleLabel(s.cycleDays)} ¥${yuan(s.amountCents)} · ${countdown(s.nextChargeAt, now)}（${dayLabel(startOfDay(s.nextChargeAt))}）`}
+                trailing={
+                  <span className="flex flex-col items-end leading-tight">
+                    <Money cents={annualCents(s)} />
+                    <span className="text-[11px] text-ink-2">每年</span>
+                  </span>
+                }
+                onClick={() => setOpen(expanded ? null : s.merchant)}
+              />
+              <div className={cn("grid transition-[grid-template-rows,opacity] duration-200 ease-[var(--ease-out)]", expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")} aria-hidden={!expanded}>
+                <div className="overflow-hidden">{expanded && <CancelGuide merchant={s.merchant} />}</div>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold text-ink">{s.merchant}</p>
-              <p className="text-[12px] text-ink-2">
-                {cycleLabel(s.cycleDays)} ¥{yuan(s.amountCents)} · 下次约 {dayLabel(startOfDayOf(s.nextChargeAt))}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="thermal text-sm font-bold text-ink">¥{yuan(annualCents(s))}/年</p>
-              <button onClick={() => setGuideFor(s)} className="mt-0.5 text-[12px] font-semibold text-coral">
-                怎么取消
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <p className="px-1 text-[11px] text-ink-2">识别规则：同一商家、金额浮动在 ±10% 内、间隔接近每周/月/季/年。小票不会替你取消任何订阅。</p>
-
-      <Drawer open={guideFor !== null} onOpenChange={(o) => !o && setGuideFor(null)}>
-        <DrawerContent className="mx-auto max-w-[430px] bg-canvas outline-none">
-          <DrawerTitle className="px-5 pt-4 text-lg font-extrabold">怎么取消「{guideFor?.merchant}」</DrawerTitle>
-          <DrawerDescription className="px-5 text-[13px]">仅为操作指引，请在对应 App 里自己完成（不同版本入口可能略有差异）</DrawerDescription>
-          <div className="mx-5 mt-3 flex rounded-full bg-secondary p-0.5" role="tablist">
-            {(Object.keys(CANCEL_GUIDES) as CancelPlatform[]).map((p) => (
-              <button key={p} role="tab" aria-selected={platform === p} onClick={() => setPlatform(p)} className={cn("flex-1 rounded-full py-1.5 text-sm font-semibold", platform === p ? "bg-card text-ink shadow-sm" : "text-ink-2")}>
-                {CANCEL_GUIDES[p].name}
-              </button>
-            ))}
-          </div>
-          <ol className="space-y-2 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
-            {CANCEL_GUIDES[platform].steps.map((step, i) => (
-              <li key={step} className="flex gap-3 text-[15px] text-ink">
-                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-coral-soft text-xs font-bold text-coral">{i + 1}</span>
-                {step}
-              </li>
-            ))}
-          </ol>
-        </DrawerContent>
-      </Drawer>
+          );
+        })}
+      </Group>
+      <Footnote>点一行看「怎么取消」。识别规则：同一商家、金额浮动在 ±10% 内、间隔接近每周/月/季/年。小票不会替你取消任何订阅。</Footnote>
     </div>
   );
 }

@@ -102,6 +102,7 @@
 :root {
   color-scheme: light;
   --radius: 0.875rem;
+  --tabbar-h: calc(52px + env(safe-area-inset-bottom, 0px));
 
   --bg: oklch(0.982 0.0055 95);          /* #FAF9F5 */
   --bg-grouped: oklch(0.955 0.009 95);   /* #F3F1EA */
@@ -203,6 +204,7 @@
   html {
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
   }
 
   body {
@@ -221,6 +223,15 @@
   button,
   [role="button"] {
     cursor: pointer;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
   }
 
   :focus-visible {
@@ -274,6 +285,27 @@
 }
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Scroll-edge effect: the bottom of floating chrome fades out instead of ending in a 1px line */
+.edge-fade-bottom {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+}
+
+/* Soft skeleton shimmer: surface-2 -> fill -> surface-2 */
+.shimmer {
+  background-image: linear-gradient(90deg, var(--surface-2) 0%, var(--fill) 50%, var(--surface-2) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
 }
 
 @media (prefers-reduced-transparency: reduce) {
