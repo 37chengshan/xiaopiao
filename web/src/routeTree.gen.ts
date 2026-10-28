@@ -10,14 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GameRouteImport } from './routes/game'
 import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as LedgerRouteImport } from './routes/ledger'
 import { Route as MeRouteImport } from './routes/me'
+import { Route as MerchantRouteImport } from './routes/merchant'
 import { Route as TodayRouteImport } from './routes/today'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GameRoute = GameRouteImport.update({
+  id: '/game',
+  path: '/game',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InsightsRoute = InsightsRouteImport.update({
@@ -35,6 +42,11 @@ const MeRoute = MeRouteImport.update({
   path: '/me',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MerchantRoute = MerchantRouteImport.update({
+  id: '/merchant',
+  path: '/merchant',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TodayRoute = TodayRouteImport.update({
   id: '/today',
   path: '/today',
@@ -43,39 +55,56 @@ const TodayRoute = TodayRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/game': typeof GameRoute
   '/insights': typeof InsightsRoute
   '/ledger': typeof LedgerRoute
   '/me': typeof MeRoute
+  '/merchant': typeof MerchantRoute
   '/today': typeof TodayRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/game': typeof GameRoute
   '/insights': typeof InsightsRoute
   '/ledger': typeof LedgerRoute
   '/me': typeof MeRoute
+  '/merchant': typeof MerchantRoute
   '/today': typeof TodayRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/game': typeof GameRoute
   '/insights': typeof InsightsRoute
   '/ledger': typeof LedgerRoute
   '/me': typeof MeRoute
+  '/merchant': typeof MerchantRoute
   '/today': typeof TodayRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/insights' | '/ledger' | '/me' | '/today'
+  fullPaths:
+    '/' | '/game' | '/insights' | '/ledger' | '/me' | '/merchant' | '/today'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/insights' | '/ledger' | '/me' | '/today'
-  id: '__root__' | '/' | '/insights' | '/ledger' | '/me' | '/today'
+  to: '/' | '/game' | '/insights' | '/ledger' | '/me' | '/merchant' | '/today'
+  id:
+    | '__root__'
+    | '/'
+    | '/game'
+    | '/insights'
+    | '/ledger'
+    | '/me'
+    | '/merchant'
+    | '/today'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GameRoute: typeof GameRoute
   InsightsRoute: typeof InsightsRoute
   LedgerRoute: typeof LedgerRoute
   MeRoute: typeof MeRoute
+  MerchantRoute: typeof MerchantRoute
   TodayRoute: typeof TodayRoute
 }
 
@@ -86,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/game': {
+      id: '/game'
+      path: '/game'
+      fullPath: '/game'
+      preLoaderRoute: typeof GameRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/insights': {
@@ -109,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/merchant': {
+      id: '/merchant'
+      path: '/merchant'
+      fullPath: '/merchant'
+      preLoaderRoute: typeof MerchantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/today': {
       id: '/today'
       path: '/today'
@@ -121,9 +164,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GameRoute: GameRoute,
   InsightsRoute: InsightsRoute,
   LedgerRoute: LedgerRoute,
   MeRoute: MeRoute,
+  MerchantRoute: MerchantRoute,
   TodayRoute: TodayRoute,
 }
 export const routeTree = rootRouteImport
