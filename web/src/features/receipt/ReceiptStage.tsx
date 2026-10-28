@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
+import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
 import { ChevronsDown, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import type { DailyReceipt } from "../../domain/types";
 import { ReceiptPaper } from "./ReceiptPaper";
 import { ShareSheet } from "./ShareSheet";
-import { PAPER_W, STUB_OVERLAP, stubClipPath, TOOTH_DEPTH } from "./zigzag";
+import { PAPER_W, paperClipPath, STUB_OVERLAP, stubClipPath, TOOTH_DEPTH } from "./zigzag";
 import { haptic } from "./haptics";
 import { unlockAudio } from "./sound";
 import { usePrintSequence } from "./usePrintSequence";
@@ -35,19 +35,26 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
   const y = useMotionValue(0);
   const rot = useMotionValue(0);
   const opacity = useMotionValue(1);
+  const stretch = useMotionValue(1);
+  const shadow = useTransform(y, [0, 420], [1, 0.15]);
   const [avail, setAvail] = useState(0);
 
   const seq = usePrintSequence({ paperRef, reveal, reduce });
   const { phase, send } = seq;
   const tear = useTear(
-    { x, y, rot, opacity },
+    { x, y, rot, opacity, stretch },
     { enabled: phase === "printed", reduce, onTear: () => send("tear"), onTorn: () => send("torn") },
   );
   usePushBack(column, true, reduce);
 
   useEffect(() => {
     if (phase === "torn") haptic("success");
-  }, [phase]);
+    // the finished sheet settles in the slot: a small swing that rings down
+    if (phase === "printed" && !reduce) {
+      rot.set(0.7);
+      void animate(rot, 0, { type: "spring", stiffness: 260, damping: 5, mass: 0.6 });
+    }
+  }, [phase, reduce, rot]);
 
   const close = () => {
     if (phase === "torn") toast("小票已撕下，明天见 ✂️");
@@ -69,7 +76,10 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
   });
 
   const fit = seq.paperH && avail ? Math.max(0.5, Math.min(1, (avail - PAPER_TOP - RESERVED_BOTTOM) / seq.paperH)) : 1;
-  const clipHeight = useTransform(reveal, (v) => Math.max(0, v));
+  const heightRef = useRef(0);
+  heightRef.current = seq.paperH;
+  const clipHeight = useTransform(reveal, (v) => (heightRef.current ? Math.min(heightRef.current, Math.max(0, v)) : Math.max(0, v)));
+  const developY = useTransform(reveal, (v) => Math.max(0, v) - 56);
   const edgeY = useTransform(reveal, (v) => Math.max(0, v) - 1);
   const busy = phase === "idle" || phase === "printing";
   const ready = phase === "printed";
@@ -90,13 +100,23 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
         <div style={{ transform: `scale(${fit})`, transformOrigin: "top center" }}>
           <motion.div
             {...tear.handlers}
-            className="pointer-events-auto relative select-none [filter:drop-shadow(0_10px_18px_rgb(0_0_0/0.28))]"
-            style={{ x, y, rotate: rot, opacity, width: PAPER_W, touchAction: "none", cursor: ready ? (tear.dragging ? "grabbing" : "grab") : "default" }}
+            className="pointer-events-auto relative select-none"
+            style={{ x, y, rotate: rot, opacity, scaleY: stretch, transformOrigin: "50% 0", width: PAPER_W, touchAction: "none", cursor: ready ? (tear.dragging ? "grabbing" : "grab") : "default" }}
             aria-label={ready ? "向下拖动撕下小票" : undefined}
           >
             <div aria-hidden className="absolute left-0 bg-paper" style={{ top: -STUB_OVERLAP, width: PAPER_W, height: STUB_OVERLAP + TOOTH_DEPTH, clipPath: stubClipPath() }} />
+            <motion.div aria-hidden className="pointer-events-none absolute left-0 top-2.5" style={{ height: clipHeight, width: PAPER_W, opacity: shadow }}>
+              <div className="size-full bg-black/35 blur-[9px]" style={{ clipPath: paperClipPath() }} />
+            </motion.div>
             <motion.div className="relative overflow-hidden" style={{ height: clipHeight }}>
               <ReceiptPaper ref={paperRef} doc={doc} stamp={seq.stamp} tickerRun={seq.tickerRun} instant={seq.instant} />
+              {seq.edge && (
+                <motion.div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-t from-paper/75 to-transparent"
+                  style={{ y: developY }}
+                />
+              )}
             </motion.div>
             {seq.edge && <motion.div aria-hidden className="absolute inset-x-0 h-0.5 bg-paper-ink/25" style={{ y: edgeY }} />}
           </motion.div>
@@ -111,6 +131,12 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
       >
         <div className="absolute inset-x-3 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-black shadow-[inset_0_1px_2px_rgb(0_0_0/0.9)]" />
       </div>
+
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 h-5 -translate-x-1/2 bg-gradient-to-b from-black/30 to-transparent"
+        style={{ top: safeTop(SLOT_TOP + SLOT_H - 2), width: PAPER_W }}
+      />
 
       {/* status capsule */}
       <motion.div
