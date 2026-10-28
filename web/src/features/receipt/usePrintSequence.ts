@@ -3,18 +3,11 @@ import { useEffect, useReducer, useRef, useState, type RefObject } from "react";
 import { nextPhase } from "./physics";
 import { dueTicks, planPrint } from "./printTimeline";
 import { measureRows, type StampState } from "./ReceiptPaper";
+import { haptic } from "./haptics";
 import { printTick, stampThump } from "./sound";
 
 const START_DELAY = 240;
 const STAMP_DELAY = 180;
-
-export function vibrate(ms: number) {
-  try {
-    navigator.vibrate?.(ms);
-  } catch {
-    /* not supported */
-  }
-}
 
 /**
  * Drives one print run: the leading edge travels linearly down the paper (`reveal`, px), each row it uncovers
@@ -62,6 +55,7 @@ export function usePrintSequence({ paperRef, reveal, reduce }: { paperRef: RefOb
             const n = dueTicks(m.rowBottoms, next, v);
             if (n > next) {
               printTick();
+              haptic("tick");
               next = n;
             }
             if (!totalStarted && v >= m.totalBottom) {
@@ -76,7 +70,7 @@ export function usePrintSequence({ paperRef, reveal, reduce }: { paperRef: RefOb
               window.setTimeout(() => {
                 setStamp("slam");
                 stampThump();
-                vibrate(18);
+                haptic("stamp");
                 send("done");
               }, STAMP_DELAY),
             );

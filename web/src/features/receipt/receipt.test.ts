@@ -55,3 +55,10 @@ describe("gradients", () => {
     for (const g of GRADIENTS) expect(luminance(g.stops[1]) < 0.2).toBe(g.dark);
   });
 });
+
+describe("worst-case data", () => {
+  it("keeps 7-digit amounts whole and 0.01 visible", () => {
+    expect(fmtMoney(123456789)).toBe("1,234,567.89");
+    expect(fmtMoney(0)).toBe("0.00");
+  });
+});

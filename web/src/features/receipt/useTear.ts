@@ -2,7 +2,7 @@ import { animate, type MotionValue } from "framer-motion";
 import { useRef, useState, type PointerEvent } from "react";
 import { releaseVelocity, rubberband, shouldTear, TEAR_DISTANCE } from "./physics";
 import { tearRip } from "./sound";
-import { vibrate } from "./usePrintSequence";
+import { haptic } from "./haptics";
 
 interface Values {
   x: MotionValue<number>;
@@ -30,7 +30,7 @@ export function useTear({ x, y, rot, opacity }: Values, opts: { enabled: boolean
     if (!opts.enabled) return;
     opts.onTear();
     tearRip();
-    vibrate(12);
+    haptic("tear");
     if (opts.reduce) {
       void animate(opacity, 0, { duration: 0.15, ease: "easeOut" }).then(opts.onTorn);
       return;
@@ -72,7 +72,7 @@ export function useTear({ x, y, rot, opacity }: Values, opts: { enabled: boolean
       if (now !== armedRef.current) {
         armedRef.current = now;
         setArmed(now);
-        if (now) vibrate(8);
+        if (now) haptic("arm");
       }
     },
     onPointerUp: (e: PointerEvent<HTMLElement>) => {

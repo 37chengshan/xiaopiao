@@ -2,10 +2,12 @@ import { AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform
 import { ChevronsDown, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import type { DailyReceipt } from "../../domain/types";
 import { ReceiptPaper } from "./ReceiptPaper";
 import { ShareSheet } from "./ShareSheet";
 import { PAPER_W, STUB_OVERLAP, stubClipPath, TOOTH_DEPTH } from "./zigzag";
+import { haptic } from "./haptics";
 import { unlockAudio } from "./sound";
 import { usePrintSequence } from "./usePrintSequence";
 import { usePushBack } from "./usePushBack";
@@ -43,7 +45,12 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
   );
   usePushBack(column, true, reduce);
 
+  useEffect(() => {
+    if (phase === "torn") haptic("success");
+  }, [phase]);
+
   const close = () => {
+    if (phase === "torn") toast("小票已撕下，明天见 ✂️");
     send("close");
     onClose();
   };
