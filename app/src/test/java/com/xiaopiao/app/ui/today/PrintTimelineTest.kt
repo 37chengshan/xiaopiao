@@ -36,7 +36,7 @@ class PrintTimelineTest {
         assertEquals(0L, tl.totalMs)
         assertTrue(tl.steps.all { it.startMs == 0L && it.durationMs == 0L })
         assertEquals(tl.totalHeightDp, tl.revealedHeightDp(0), 0.001f)
-        assertEquals(1f, tl.textProgress(tl.steps[3], 0), 0f)
+        assertEquals(1f, tl.progress(tl.steps[3], 0), 0f)
     }
 
     @Test fun revealedHeightGrowsWithTime() {
@@ -51,10 +51,7 @@ class PrintTimelineTest {
         assertEquals(tl.totalHeightDp, tl.revealedHeightDp(tl.feedEndMs), 0.001f)
     }
 
-    @Test fun typedCharsAndActiveIndex() {
-        assertEquals(0, PrintTimeline.typedChars(10, 0f))
-        assertEquals(5, PrintTimeline.typedChars(10, 0.5f))
-        assertEquals(10, PrintTimeline.typedChars(10, 1f))
+    @Test fun activeIndexFollowsClock() {
         val tl = PrintTimeline.build(lines)
         assertEquals(-1, tl.activeIndex(-5))
         assertEquals(lines.size - 1, tl.activeIndex(tl.feedEndMs))
