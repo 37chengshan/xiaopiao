@@ -10,6 +10,7 @@ Alipay 智能体涌现奖 Season 1 参赛作品。截止 2026-12-06（按 12-05 
 
 - `docs/SPEC.md` — 定稿 Spec（需求、已定决策 D1–D11、架构、优先级、节奏）。**改动需求前先对照它**，标 `[假设]` 的项可被用户推翻。
 - `docs/BRIEF.md` — 简要背景。
+- `docs/RUNBOOK.md` — 启动与常用命令（Android 构建/安装、Web dev/发布、真机、worktree、gradle 串行锁）。
 - `web/AGENTS.md` — QMuse Web 子项目规则（云服务、`qmuse import`、assets 约定）。编辑 `web/` 前必读，规则以它为准。
 
 ## 目录

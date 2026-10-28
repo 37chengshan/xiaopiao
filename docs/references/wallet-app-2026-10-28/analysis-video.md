@@ -138,7 +138,7 @@
 | tab 槽宽 | 约 84（252 ÷ 3） | |
 | 选中胶囊（首页） | 约 84 × 38–44，颜色 `#EAEAEA`，圆角 999 | 垂直居中，上下留 6–9 dp |
 | tab 图标 | 22–24，**实心填充**（不是线性图标） | 首页 = 品牌圆标 24 |
-| tab 文字 | 10–11 sp / 500 | 选中 `#00C48C` 系绿，未选中 `#3A3D45` |
+| tab 文字 | 10–11 sp / 500 | 选中 `#12C486`，未选中 `#4B4E52` |
 | 独立圆按钮（投资） | 56 × 56，白底 | 图标 24 + **文字在圆外下方**，标签压在背景图上 |
 | 阴影 | 胶囊与圆各有 1–2 dp 柔影 | 只有浮层有影 |
 
@@ -200,7 +200,7 @@
 > 现有实现参照：`ui/AppShell.kt`（4 tab + 64 dp 胶囊 + 右侧 64 dp 圆）、`ui/components/Sheet.kt`（顶圆角 `XpRadius.l` = 18/20 dp + 36×5 抓手）、`ui/components/Grouped.kt`（行高 48/56 dp）、`ui/components/ShimmerBlock.kt`、`ui/theme/Tokens.kt`（`XpRadius` / `XpMotion.snappy` 0.35 s / `XpEase.out` 0.23,1,0.32,1）。
 
 **1. 一级 tab 改成 0 ms 硬切，把动效预算全给浮层**
-`AppShell.kt` 的 `NavHost` 显式 `enterTransition = { EnterTransition.None }`、`exitTransition = { ExitTransition.None }`（现在是显式写的 `fadeIn(tween(120))` / `fadeOut(tween(90))`）。理由：参考 App 的 4 次一级切换全是单帧硬切（1.88 / 2.90 / 3.47 / 4.15 / 4.80 / 5.70 s），而「有动画」的部分全部集中在 sheet/push。硬切还能消除「切 tab 时列表位置在变」的错觉。
+`AppShell.kt` 的 `NavHost` 显式 `enterTransition = { EnterTransition.None }`、`exitTransition = { ExitTransition.None }`（现在是显式写的 `fadeIn(tween(120))` / `fadeOut(tween(90))`）。理由：参考 App 的 6 次一级切换全是单帧硬切（1.88 / 2.90 / 3.47 / 4.15 / 4.80 / 5.70 s），而「有动画」的部分全部集中在 sheet/push。硬切还能消除「切 tab 时列表位置在变」的错觉。
 
 **2. 选中 pill 改成「填满槽位的胶囊」**
 `AppShell.kt` `TabItem`：`RoundedCornerShape(14.dp)` → `999.dp`；宽 = 槽宽 − 8 dp（64−8 = 56 dp）、高 40 dp、色 `XpColors.Fill` alpha 1.0（现在 `0.7f * pill`）；`iconScale 1.1` 保留（参考 App 也放大图标）。参考值：pill `#EAEAEA`、slot 84×38–44。
@@ -212,15 +212,15 @@
 `SettingsScreen.kt` 里外观/数据与隐私等子页现在是无过渡替换。改为 `AnimatedContent(transitionSpec = { slideInHorizontally { it / 4 } + fadeIn(220) togetherWith slideOutHorizontally { -it / 8 } })`，`SizeTransform(clip = false)`；返回用 `slideInHorizontally { -it / 8 } + slideOutHorizontally { it }`、180 ms、`XpEase.out`。**不要**照搬 100 ms 黑屏，也不要照搬 `× → ←` 的图标替换（保持固定返回箭头）。
 
 **5. 骨架屏推广到统计 / AI / 圈子三个 tab**
-`ShimmerBlock.kt` 已存在但只用在记账列表首帧。参数照抄参考：页面底 `XpColors.CanvasGrouped`，卡片内条高 14 dp、圆角 7 dp、行距 10 dp，图标位 40 dp 圆占位；tab 切进来**同一帧**出骨架、0 转圈，最短显示 200 ms 防闪烁。
+`ShimmerBlock.kt` 已用在 `LedgerScreen` / `TodayScreen` / `ChatScreen`，缺口是统计页与圈子页（`InsightsScreen.kt` 目前是空态直接出结果）。参数照抄参考：页面底 `XpColors.CanvasGrouped`，卡片内条高 14 dp、圆角 7 dp、行距 10 dp，图标位 40 dp 圆占位；tab 切进来**同一帧**出骨架、0 转圈，最短显示 200 ms 防闪烁。
 
 **6. AI 小结卡加「固定行高 + 上行 20 dp」的事实轮播**
-`ui/insights/InsightsScreen.kt` 的 AI 小结卡（现固定 1 条 2 行文案）改成 3 条事实轮播：容器高 36 dp 固定（两行）、`AnimatedContent` 用 `slideInVertically { it / 2 } + fadeIn(170) togetherWith slideOutVertically { -it / 2 } + fadeOut(120)`、停留 1200 ms、只在卡片可见且未滚动时跑；三条内容 = 最大类目 / 环比方向 / 记账天数。**关键约束：容器高度不变**，否则会像参考 App 的资产页那样在动画里重排。
+`docs/APP-DESIGN.md` §3.3 的 AI 小结卡还没落地（`InsightsScreen.kt` 里没有这块），落地时按轮播做：容器高 36 dp 固定（两行）、`AnimatedContent` 用 `slideInVertically { it / 2 } + fadeIn(170) togetherWith slideOutVertically { -it / 2 } + fadeOut(120)`、停留 1200 ms、只在卡片可见且未滚动时跑；三条内容 = 最大类目 / 环比方向 / 记账天数。**关键约束：容器高度不变**，否则会像参考 App 的资产页那样在动画里重排。
 
 **7. 设置类列表的右侧「值」与危险项**
 `SettingsSections.kt`：单行右侧除 chevron 外允许一个 13 sp `InkSecondary` 值（如「通知自动 · 已开启」写文案、版本号、导入时间），参考 App 用邮箱这么做；危险项（清空演示数据 / 切回用户版之类）做成普通白卡 + 16 sp `Ink` 居中文字，「安全退出」式处理，**不用红字红底**，红色只留在小图标与差额文字上（与 §1 语义色约定一致）。
 
-（可选的第 8 条：`ui/circle/Ranking`/`CirclePostRow.kt` 的排行行去掉 hairline，改 56 dp 行高 + 40 dp 圆头像 + 12 dp 间距 + 自己那行 `AccentSoft` 淡底，参考 App 的「动态」列表就是无分隔线靠 55 dp 行距区分的。）
+（可选第 8 条：无分隔线的列表也可以用在还没落地的圈子榜单行——§5.2 的「名次 / 头像 / 名字 / 指标值」行改成 56 dp 行高、无 hairline、靠 12 dp 间距区分，自己那行 `AccentSoft` 淡底。参考 App 的「动态」列表就是靠 55 dp 行距而不是分割线分行的。）
 
 ## 5. 不要学的
 
