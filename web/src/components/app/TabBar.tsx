@@ -29,16 +29,9 @@ export function TabBar() {
           );
           return (
             <li key={to} className="flex-1">
-              {to === "/merchant" ? (
-                // The merchant route is mounted by the integrator, so it is not in this branch's typed route tree.
-                <a href="#/merchant" className={cls} aria-current={active ? "page" : undefined}>
-                  {inner}
-                </a>
-              ) : (
-                <Link to={to} className={cls} aria-current={active ? "page" : undefined}>
-                  {inner}
-                </Link>
-              )}
+              <Link to={to} className={cls} aria-current={active ? "page" : undefined}>
+                {inner}
+              </Link>
             </li>
           );
         })}

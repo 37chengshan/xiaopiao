@@ -4,7 +4,7 @@
 
 - **赛事**：Alipay 智能体涌现奖（Emergent Agent Award）Season 1，主报「生活好帮手」
 - **截止**：2026-12-06（按 12-05 提交）
-- **形态**：Android 原生 App（Kotlin + Jetpack Compose）；`web/` 为 QMuse Web 模板，暂缓
+- **形态**：Android 原生 App（Kotlin + Jetpack Compose）；`web/` 为 QMuse Web 智能体，是比赛提交物
 - **Spec**：[`docs/SPEC.md`](docs/SPEC.md) · [`docs/BRIEF.md`](docs/BRIEF.md)
 - **协作约定**：[`AGENTS.md`](AGENTS.md)（`CLAUDE.md` 引用同一份）
 

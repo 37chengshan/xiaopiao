@@ -16,8 +16,8 @@ Alipay 智能体涌现奖 Season 1 参赛作品。截止 2026-12-06（按 12-05 
 
 | 路径 | 内容 |
 |---|---|
-| `app/` | Android 原生 App（Kotlin + Jetpack Compose，包名 `com.xiaopiao.app`），**当前主战场** |
-| `web/` | QMuse Web 模板（React + Vite + TanStack Router + shadcn）；Spec 中 Web 端暂缓，不主动扩写 |
+| `app/` | Android 原生 App（Kotlin + Jetpack Compose，包名 `com.xiaopiao.app`），自用 + 视频高光 |
+| `web/` | QMuse Web 智能体（React + Vite + TanStack Router + shadcn），**比赛提交物**（评委通过 QMuse 链接体验） |
 | `docs/` | Spec 与 Brief |
 | `gradle/libs.versions.toml` | Android 依赖版本目录；加依赖先改这里 |
 

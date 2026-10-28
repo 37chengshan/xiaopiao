@@ -1,7 +1,6 @@
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { Info } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import type { StepIndex } from "../logic/state";
 import { getInsights, merchantActions, useMerchantState } from "../store";
@@ -171,7 +170,6 @@ export function MerchantPage() {
           </motion.div>
         </AnimatePresence>
       </main>
-      <Toaster position="top-center" />
     </PhoneFrame>
   );
 }
