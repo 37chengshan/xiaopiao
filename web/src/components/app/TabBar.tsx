@@ -13,17 +13,17 @@ const TABS = [
 export function TabBar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   return (
-    <nav aria-label="主导航" className="shrink-0 border-t border-hairline bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+    <nav aria-label="主导航" className="material shrink-0 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_var(--hairline)]">
       <ul className="flex">
         {TABS.map(({ to, label, icon: Icon }) => {
           const active = to === "/home" ? path === "/home" || path === "/today" : path.startsWith(to);
           const cls = cn(
-            "flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors",
-            active ? "text-coral" : "text-ink-2 hover:text-ink",
+            "flex flex-col items-center gap-[3px] pb-1.5 pt-2 text-[10px] font-medium tracking-[0.01em] transition-colors duration-150",
+            active ? "text-clay" : "text-ink-3",
           );
           const inner = (
             <>
-              <Icon className="size-[22px]" strokeWidth={active ? 2.4 : 1.8} aria-hidden />
+              <Icon className="size-6" strokeWidth={active ? 2 : 1.6} aria-hidden />
               {label}
             </>
           );

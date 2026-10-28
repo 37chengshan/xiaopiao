@@ -4,7 +4,9 @@ import ReactDOM from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
 import { getRouter } from "./router";
 import "./styles.css";
+import { initTheme } from "./lib/theme";
 
+initTheme();
 const router = getRouter();
 
 function reportFatalReactError(

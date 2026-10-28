@@ -14,8 +14,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const gated = CONSUMER_PATHS.includes(path) && mode === null;
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-canvas-outer md:p-4">
-      <div className="relative flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-canvas md:h-[min(900px,calc(100dvh-2rem))] md:rounded-[2rem] md:shadow-2xl md:ring-1 md:ring-black/5">
+    <div className="flex min-h-dvh items-center justify-center bg-bg-grouped md:p-4">
+      <div className="relative flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-bg md:h-[min(900px,calc(100dvh-2rem))] md:rounded-[2.25rem] md:shadow-[0_24px_80px_-24px_oklch(0_0_0/25%)] md:ring-1 md:ring-hairline">
         <EntryProvider>
           <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{gated ? <FirstRun /> : children}</main>
           {!gated && <TabBar />}
