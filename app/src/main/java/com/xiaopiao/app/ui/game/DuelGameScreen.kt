@@ -34,7 +34,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.merchant.Experiment
-import com.xiaopiao.app.ui.merchant.DemoPill
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import com.xiaopiao.app.ui.components.NavIconButton
+import com.xiaopiao.app.ui.components.NavScaffold
+import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 
@@ -55,42 +59,43 @@ fun DuelGameScreen(
     val answers = remember(seed, playKey) { mutableStateListOf<GameChoice>() }
     val finished = answers.size >= rounds.size
 
-    Column(Modifier.fillMaxSize().background(XpColors.Canvas)) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
-        ) {
-            Text("✕", Modifier.clickable(onClick = onExit).padding(end = 8.dp, top = 6.dp, bottom = 6.dp), style = MaterialTheme.typography.titleMedium, color = XpColors.InkSecondary)
-            ProgressDots(rounds.size, answers.size, Modifier.weight(1f))
-            DemoPill()
-        }
-        AnimatedContent(
-            targetState = finished,
-            transitionSpec = { fadeIn(spring(stiffness = Spring.StiffnessLow)) togetherWith fadeOut() },
-            label = "game-phase",
-            modifier = Modifier.weight(1f),
-        ) { done ->
-            if (done) {
-                val outcome = remember(rounds, answers.toList()) { GameLogic.outcome(answers.toList()) }
-                LaunchedEffect(playKey) { onFinished(outcome.badge.code) }
-                GameResultScreen(
-                    outcome = outcome,
-                    recordedExperiment = experiment != null,
-                    onAgain = { playKey += 1 },
-                    onExit = onExit,
-                )
-            } else {
-                val idx = answers.size.coerceAtMost(rounds.lastIndex)
-                SwipeDeck(
-                    round = rounds[idx],
-                    next = rounds.getOrNull(idx + 1),
-                    onPick = { side ->
-                        val round = rounds[idx]
-                        val choice = if (side == Side.Left) round.left else round.right
-                        if (round.isExperiment) onExperimentAnswer(choice.id)
-                        answers.add(choice)
-                    },
-                )
+    NavScaffold("二选一大作战", NavScrollNone, demo = true, trailing = {}) { top ->
+        Column(Modifier.fillMaxSize().padding(top = top)) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.m),
+            ) {
+                NavIconButton(Icons.Outlined.Close, "退出", onExit)
+                ProgressDots(rounds.size, answers.size, Modifier.weight(1f))
+            }
+            AnimatedContent(
+                targetState = finished,
+                transitionSpec = { fadeIn(spring(stiffness = Spring.StiffnessLow)) togetherWith fadeOut() },
+                label = "game-phase",
+                modifier = Modifier.weight(1f),
+            ) { done ->
+                if (done) {
+                    val outcome = remember(rounds, answers.toList()) { GameLogic.outcome(answers.toList()) }
+                    LaunchedEffect(playKey) { onFinished(outcome.badge.code) }
+                    GameResultScreen(
+                        outcome = outcome,
+                        recordedExperiment = experiment != null,
+                        onAgain = { playKey += 1 },
+                        onExit = onExit,
+                    )
+                } else {
+                    val idx = answers.size.coerceAtMost(rounds.lastIndex)
+                    SwipeDeck(
+                        round = rounds[idx],
+                        next = rounds.getOrNull(idx + 1),
+                        onPick = { side ->
+                            val round = rounds[idx]
+                            val choice = if (side == Side.Left) round.left else round.right
+                            if (round.isExperiment) onExperimentAnswer(choice.id)
+                            answers.add(choice)
+                        },
+                    )
+                }
             }
         }
     }
@@ -101,7 +106,7 @@ private fun ProgressDots(total: Int, done: Int, modifier: Modifier = Modifier) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
         repeat(total) { i ->
             val w by animateDpAsState(if (i == done) 22.dp else 8.dp, spring(0.6f, Spring.StiffnessMedium), label = "dotw")
-            val c by animateColorAsState(if (i <= done) XpColors.Accent else XpColors.InkTertiary.copy(alpha = 0.5f), label = "dotc")
+            val c by animateColorAsState(if (i <= done) XpColors.Ink else XpColors.Fill, label = "dotc")
             Box(Modifier.width(w).height(8.dp).clip(RoundedCornerShape(4.dp)).background(c))
         }
     }

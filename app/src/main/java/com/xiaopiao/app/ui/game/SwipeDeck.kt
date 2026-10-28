@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.ui.merchant.MerchantButton
 import com.xiaopiao.app.ui.theme.XpColors
+import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -143,12 +144,12 @@ private fun ChoiceButtons(round: GameRound, onChoose: (Side) -> Unit) {
 @Composable
 private fun CardFace(round: GameRound, lean: Float, modifier: Modifier = Modifier) {
     Column(
-        modifier.fillMaxSize().clip(RoundedCornerShape(28.dp)).background(XpColors.Card)
-            .border(1.dp, XpColors.Hairline, RoundedCornerShape(28.dp)).padding(XpSpace.l),
+        modifier.fillMaxSize().clip(RoundedCornerShape(XpRadius.xl)).background(XpColors.Card)
+            .border(0.5.dp, XpColors.Hairline, RoundedCornerShape(XpRadius.xl)).padding(XpSpace.l),
         verticalArrangement = Arrangement.spacedBy(XpSpace.m),
     ) {
         Text(
-            if (round.isExperiment) "🏪 楼下的芋泥奶茶铺 想听听你的想法" else "🎲 小热身",
+            if (round.isExperiment) "楼下的芋泥奶茶铺 想听听你的想法" else "小热身",
             style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
         )
         Text(round.question, style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
@@ -163,10 +164,10 @@ private fun CardFace(round: GameRound, lean: Float, modifier: Modifier = Modifie
 @Composable
 private fun ChoicePanel(c: GameChoice, glow: Float, modifier: Modifier) {
     Column(
-        modifier.fillMaxSize().clip(RoundedCornerShape(20.dp))
-            .background(XpColors.Canvas)
+        modifier.fillMaxSize().clip(RoundedCornerShape(XpRadius.m))
+            .background(XpColors.Surface2)
             .background(XpColors.AccentSoft.copy(alpha = glow))
-            .border(2.dp, XpColors.Accent.copy(alpha = glow), RoundedCornerShape(20.dp)).padding(XpSpace.m),
+            .border(2.dp, XpColors.Accent.copy(alpha = glow), RoundedCornerShape(XpRadius.m)).padding(XpSpace.m),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
