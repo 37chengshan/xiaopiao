@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 
@@ -31,7 +32,9 @@ fun EmptyState(
     onAction: (() -> Unit)? = null,
 ) {
     Column(
-        modifier.fillMaxWidth().padding(horizontal = XpSpace.xl, vertical = XpSpace.xl),
+        modifier.fillMaxWidth()
+            .xpRevealLayer(index = 0, riseDp = 8.dp)
+            .padding(horizontal = XpSpace.xl, vertical = XpSpace.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(XpSpace.s),
     ) {

@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.merchant.DEMO_LABEL
 import com.xiaopiao.app.ui.components.Pill
+import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -63,17 +64,14 @@ fun rememberEnter(key: Any? = Unit, delayMs: Long = 0): Float {
     return a.value
 }
 
-/** Staggered fade + rise on first appearance. */
+/**
+ * Staggered fade + rise on first appearance. Uses the shared [xpRevealLayer] (graphicsLayer only), so a
+ * hidden block never leaves the layout — the page cannot reflow while it animates (that was the old
+ * AnimatedVisibility version's flaw) and it respects reduced motion.
+ */
 @Composable
 fun Reveal(index: Int, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    var shown by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { delay(index * 70L); shown = true }
-    AnimatedVisibility(
-        visible = shown,
-        modifier = modifier,
-        enter = fadeIn(spring(stiffness = Spring.StiffnessLow)) +
-            slideInVertically(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessLow)) { it / 6 },
-    ) { content() }
+    Box(modifier.xpRevealLayer(index = index, riseDp = 10.dp)) { content() }
 }
 
 /** Ink primary / fill secondary button (the shared XpButton), full width. */

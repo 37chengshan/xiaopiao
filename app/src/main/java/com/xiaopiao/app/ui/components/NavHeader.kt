@@ -141,9 +141,9 @@ fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, m
     val pressed by source.collectIsPressedAsState()
     val haptics = rememberXpHaptics()
     Box(
-        modifier.size(34.dp).pressableScale(source)
+        modifier.size(34.dp).clip(CircleShape).pressableScale(source)
             .graphicsLayer { alpha = if (pressed) 0.8f else 1f }
-            .clip(CircleShape).background(XpColors.Ink.copy(alpha = 0.07f))
+            .background(XpColors.Ink.copy(alpha = 0.07f))
             .clickable(source, null) { haptics.select(); onClick() },
         contentAlignment = Alignment.Center,
     ) {

@@ -4,7 +4,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -65,15 +67,25 @@ fun XpButton(
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val haptics = rememberXpHaptics()
-    // Press shows as a hair of scale + light, not a colour flip: the fill stays the fill.
-    val press by animateFloatAsState(if (pressed) 0.97f else 1f, tween(120, easing = XpEase.out), label = "btnPress")
+    val reduced = rememberReducedMotion()
+    // Press = 0.96 scale + 7% ink veil, landing on the first frame (docs/APP-DESIGN.md §7.5).
+    val press by animateFloatAsState(
+        targetValue = if (pressed) 1f else 0f,
+        animationSpec = if (pressed) tween(com.xiaopiao.app.ui.motion.XpTiming.Press) else spring(dampingRatio = 1f, stiffness = 900f),
+        label = "btnPress",
+    )
+    val pressScale = if (reduced) 1f else 1f - 0.04f * press
     val shape = RoundedCornerShape(XpRadius.pill)
     Row(
         modifier
             .alpha(if (enabled) 1f else 0.45f)
-            .graphicsLayer { scaleX = press; scaleY = press }
+            .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
             .clip(shape)
             .background(bg)
+            .drawWithContent {
+                drawContent()
+                if (press > 0f) drawRect(XpColors.Ink.copy(alpha = 0.07f * press))
+            }
             .clickable(source, null, enabled = enabled) { haptics.select(); onClick() }
             .defaultMinSize(minWidth = 56.dp)
             .height(if (style == XpButtonStyle.Plain) 36.dp else size.height.dp)

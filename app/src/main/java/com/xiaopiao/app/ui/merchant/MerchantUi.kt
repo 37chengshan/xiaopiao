@@ -27,6 +27,9 @@ import androidx.compose.ui.unit.sp
 import com.xiaopiao.app.merchant.Change
 import com.xiaopiao.app.merchant.RevenueBook
 import com.xiaopiao.app.merchant.RevenueSource
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.Pill
 import com.xiaopiao.app.ui.theme.XpColors
@@ -46,10 +49,34 @@ fun RevenueMoney(
     color: Color = XpColors.Ink,
     prefix: String = "",
     textAlign: TextAlign? = null,
-) = MoneyText(
-    amount = RevenueBook.money(cents).replace("¥", ""),
-    modifier = modifier, style = style, color = color, prefix = prefix, textAlign = textAlign,
-)
+    /** Hero amounts only: a changed number rolls (old up, new in) instead of swapping in place. */
+    animateChange: Boolean = false,
+) {
+    val amount = RevenueBook.money(cents).replace("¥", "")
+    if (!animateChange) {
+        MoneyText(amount = amount, modifier = modifier, style = style, color = color, prefix = prefix, textAlign = textAlign)
+        return
+    }
+    val reduced = com.xiaopiao.app.ui.components.rememberReducedMotion()
+    androidx.compose.animation.AnimatedContent(
+        targetState = amount,
+        modifier = modifier,
+        transitionSpec = {
+            if (reduced) {
+                androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) togetherWith
+                    androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90))
+            } else {
+                (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(160)) +
+                    androidx.compose.animation.slideInVertically { it / 2 }) togetherWith
+                    (androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120)) +
+                        androidx.compose.animation.slideOutVertically { -it / 2 })
+            }
+        },
+        label = "revenueMoney",
+    ) { value ->
+        MoneyText(amount = value, style = style, color = color, prefix = prefix, textAlign = textAlign)
+    }
+}
 
 /** 40dp date block: the day number is the icon, the weekday the caption. */
 @Composable
@@ -73,11 +100,11 @@ fun DateTile(dayStart: Long, modifier: Modifier = Modifier, dimmed: Boolean = fa
     }
 }
 
-/** Small source marker: demo rows are always labelled, imported rows lead back to the file. */
+/** Small source marker: seeded rows say 预置, imported rows lead back to the file. */
 @Composable
 fun SourcePill(source: RevenueSource, modifier: Modifier = Modifier) {
     when (source) {
-        RevenueSource.SEED -> Pill("演示", modifier)
+        RevenueSource.SEED -> Pill("预置", modifier)
         RevenueSource.CSV -> Pill("导入", modifier)
         RevenueSource.MANUAL -> Unit
     }

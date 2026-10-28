@@ -35,6 +35,7 @@ import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.components.XpButton
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -78,7 +79,7 @@ fun MerchantTodayScreen(
             Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl),
             verticalArrangement = Arrangement.spacedBy(XpSpace.m),
         ) {
-            Column(Modifier.padding(horizontal = XpSpace.l)) {
+            Column(Modifier.padding(horizontal = XpSpace.l).xpRevealLayer(index = 0)) {
                 XpCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("今日营收", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
@@ -94,6 +95,7 @@ fun MerchantTodayScreen(
                             todayEntry.revenueCents,
                             modifier = Modifier.padding(top = XpSpace.s),
                             style = MaterialTheme.typography.headlineLarge,
+                            animateChange = true,
                         )
                     } else {
                         Text(
@@ -140,7 +142,7 @@ fun MerchantTodayScreen(
                 }
             }
 
-            Column(Modifier.padding(horizontal = XpSpace.l)) {
+            Column(Modifier.padding(horizontal = XpSpace.l).xpRevealLayer(index = 1)) {
                 XpButton(
                     text = if (todayEntry == null || todayEntry.seeded) "记今日营收" else "修改今日营收",
                     onClick = onRecordToday,
@@ -148,7 +150,7 @@ fun MerchantTodayScreen(
                 )
             }
 
-            Column(Modifier.padding(horizontal = XpSpace.l)) {
+            Column(Modifier.padding(horizontal = XpSpace.l).xpRevealLayer(index = 2)) {
                 XpCard {
                     Text("对比", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
                     ComparisonLine("昨日（${RevenueBook.weekdayLabel(RevenueBook.plusDays(today, -1))}）", yesterdayCents, vsYesterday)
@@ -159,9 +161,9 @@ fun MerchantTodayScreen(
                 }
             }
 
-            SectionHeading("最近记录") {
+            Box(Modifier.xpRevealLayer(index = 3)) { SectionHeading("最近记录") {
                 LinkText("全部 ›", onClick = onOpenRevenue)
-            }
+            } }
             if (recent.isEmpty()) {
                 Column(Modifier.padding(horizontal = XpSpace.l)) {
                     XpCard {
@@ -182,12 +184,6 @@ fun MerchantTodayScreen(
                 }
             }
 
-            Text(
-                "带「演示」标记的数字是示例数据，记下你自己的数字就会替换掉它。",
-                style = MaterialTheme.typography.labelSmall,
-                color = XpColors.InkSecondary,
-                modifier = Modifier.padding(horizontal = XpSpace.l),
-            )
             NavBottomSpace()
         }
     }

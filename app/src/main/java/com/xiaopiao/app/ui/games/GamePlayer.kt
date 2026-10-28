@@ -307,7 +307,7 @@ private fun DuelCard(option: GameOption, modifier: Modifier, onClick: () -> Unit
         modifier.height(172.dp)
             .clip(RoundedCornerShape(XpRadius.m))
             .background(XpColors.Surface2)
-            .pressableClick(scaleDown = 0.96f, onClick = onClick)
+            .pressableClick(scaleDown = 0.96f, haptic = true, onClick = onClick)
             .padding(XpSpace.m),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -329,7 +329,7 @@ private fun OptionRow(option: GameOption, onClick: () -> Unit) {
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(XpRadius.m))
             .background(XpColors.Fill)
-            .pressableClick(scaleDown = 0.98f, onClick = onClick)
+            .pressableClick(scaleDown = 0.98f, haptic = true, onClick = onClick)
             .padding(horizontal = XpSpace.l, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -489,7 +489,7 @@ private fun ScaleBlock(question: ScaleQuestion, onAnswer: (GameAnswer) -> Unit) 
                     .height(52.dp)
                     .clip(RoundedCornerShape(XpRadius.m))
                     .background(if (selected) XpColors.Primary else XpColors.Fill)
-                    .pressableClick(scaleDown = 0.94f) {
+                    .pressableClick(scaleDown = 0.94f, haptic = true) {
                         if (chosen == null) {
                             chosen = value
                             onAnswer(GameAnswer.Scale(value))

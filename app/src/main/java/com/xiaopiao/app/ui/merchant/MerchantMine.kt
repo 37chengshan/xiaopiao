@@ -43,6 +43,7 @@ import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.components.XpButton
 import com.xiaopiao.app.ui.components.XpSheet
+import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -69,7 +70,8 @@ fun MerchantMineScreen(
 
     NavScaffold(title = "我的", scroll = NavScrollNone, demo = book.any { it.seeded }) { top ->
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl),
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl)
+                .xpRevealLayer(index = 0),
         ) {
             Column(Modifier.padding(horizontal = XpSpace.l)) {
                 Column(

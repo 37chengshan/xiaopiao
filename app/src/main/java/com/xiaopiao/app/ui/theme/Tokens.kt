@@ -299,6 +299,8 @@ object XpRadius {
     val m get() = if (apple) 11.dp else 14.dp
     val l get() = if (apple) 18.dp else 20.dp
     val xl = 28.dp
+    /** Full-screen sheets (settings sub-pages, pickers): measured from the wallet reference. */
+    val sheet = 32.dp
     val pill = 999.dp
 }
 

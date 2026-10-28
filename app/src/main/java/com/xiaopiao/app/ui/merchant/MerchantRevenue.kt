@@ -38,6 +38,7 @@ import com.xiaopiao.app.ui.components.XpButtonSize
 import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -73,7 +74,8 @@ fun MerchantRevenueScreen(
         },
     ) { top ->
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl),
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl)
+                .xpRevealLayer(index = 0),
             verticalArrangement = Arrangement.spacedBy(XpSpace.s),
         ) {
             if (currentMonth == null) {
@@ -101,7 +103,7 @@ fun MerchantRevenueScreen(
                             )
                         }
                         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = XpSpace.s)) {
-                            RevenueMoney(currentMonth.totalCents, style = MaterialTheme.typography.headlineLarge)
+                            RevenueMoney(currentMonth.totalCents, style = MaterialTheme.typography.headlineLarge, animateChange = true)
                         }
                         Row(
                             Modifier.fillMaxWidth().padding(top = XpSpace.m),
@@ -168,7 +170,7 @@ fun MerchantRevenueScreen(
                 }
 
                 Text(
-                    "本机保存 · 不读你的个人账单 · 带「演示」的是示例数据",
+                    "本机保存 · 不读你的个人账单 · 记一笔就会有自己的数字",
                     style = MaterialTheme.typography.labelSmall,
                     color = XpColors.InkSecondary,
                     modifier = Modifier.padding(horizontal = XpSpace.l).padding(top = XpSpace.l),

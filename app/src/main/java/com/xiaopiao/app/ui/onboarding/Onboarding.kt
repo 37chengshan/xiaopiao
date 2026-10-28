@@ -83,11 +83,14 @@ fun OnboardingHost(onDone: () -> Unit) {
             Row(Modifier.fillMaxWidth().padding(top = XpSpace.s), horizontalArrangement = Arrangement.End) {
                 XpButton("跳过", onDone, style = XpButtonStyle.Plain)
             }
+            val reduced = com.xiaopiao.app.ui.components.rememberReducedMotion()
             AnimatedContent(
                 targetState = page,
                 modifier = Modifier.weight(1f),
                 transitionSpec = {
-                    (fadeIn(tween(180)) + slideInHorizontally { it / 8 }) togetherWith
+                    // Reduced motion: dissolve only, no travel.
+                    if (reduced) fadeIn(tween(120)) togetherWith fadeOut(tween(90))
+                    else (fadeIn(tween(180)) + slideInHorizontally { it / 8 }) togetherWith
                         (fadeOut(tween(140)) + slideOutHorizontally { -it / 8 })
                 },
                 label = "onboarding",
@@ -100,10 +103,21 @@ fun OnboardingHost(onDone: () -> Unit) {
             }
             Row(Modifier.fillMaxWidth().padding(bottom = XpSpace.m), horizontalArrangement = Arrangement.Center) {
                 repeat(pages) { i ->
+                    val selectedDot = i == page
+                    val size by androidx.compose.animation.core.animateDpAsState(
+                        targetValue = if (selectedDot) 8.dp else 6.dp,
+                        animationSpec = com.xiaopiao.app.ui.theme.XpMotion.snappy(),
+                        label = "dotSize$i",
+                    )
+                    val dotColor by androidx.compose.animation.animateColorAsState(
+                        targetValue = if (selectedDot) XpColors.Ink else XpColors.InkTertiary.copy(alpha = 0.4f),
+                        animationSpec = tween(180, easing = com.xiaopiao.app.ui.theme.XpEase.out),
+                        label = "dotColor$i",
+                    )
                     Box(
-                        Modifier.padding(horizontal = 3.dp).size(if (i == page) 8.dp else 6.dp)
+                        Modifier.padding(horizontal = 3.dp).size(size)
                             .clip(CircleShape)
-                            .background(if (i == page) XpColors.Ink else XpColors.InkTertiary.copy(alpha = 0.4f)),
+                            .background(dotColor),
                     )
                 }
             }
@@ -154,14 +168,20 @@ private fun PageGestures() {
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
         PageHead("手势比按钮快", "不用找按钮。按住不放，比点来点去快。")
         Spacer(Modifier.height(XpSpace.xl))
-        GestureRow(Icons.Outlined.ReceiptLong, "长按底部的小票键", "约 1.5 秒，震一下就开始打印")
-        GestureRow(Icons.Outlined.CallMade, "长按右侧的圆球", "向左展开说话，松手记账，上滑取消")
-        GestureRow(Icons.Outlined.TouchApp, "轻点圆球", "打开手动表单，键盘输入一样快")
+        GestureRow(Icons.Outlined.ReceiptLong, "长按右上角的小票", "约 1.5 秒，震一下就开始打印", index = 0)
+        GestureRow(Icons.Outlined.CallMade, "长按中间的「＋」", "向左展开说话，松手记账，上滑取消", index = 1)
+        GestureRow(Icons.Outlined.TouchApp, "轻点「＋」", "打开手动表单，键盘输入一样快", index = 2)
     }
 }
 
 @Composable
-private fun GestureRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String) {
+private fun GestureRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    body: String,
+    index: Int = 0,
+) {
+    com.xiaopiao.app.ui.motion.XpReveal(index = index + 1) {
     Row(Modifier.fillMaxWidth().padding(vertical = XpSpace.m), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.size(44.dp).clip(RoundedCornerShape(XpRadius.m)).background(XpColors.Fill),
@@ -173,6 +193,7 @@ private fun GestureRow(icon: androidx.compose.ui.graphics.vector.ImageVector, ti
             Text(body, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
         }
     }
+    }
 }
 
 @Composable
@@ -180,8 +201,8 @@ private fun PagePrivacy() {
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
         PageHead("账是私事", "账单原文、截图、语音都只在这台手机上处理。")
         Spacer(Modifier.height(XpSpace.xl))
-        GestureRow(Icons.Outlined.Lock, "原文不出手机", "只保存结构化字段，云端拿不到截图")
-        GestureRow(Icons.Outlined.Lock, "贡献默认关闭", "要分享聚合数据，得你自己打开")
-        GestureRow(Icons.Outlined.Lock, "随时撤回", "关掉开关，历史贡献一并失效")
+        GestureRow(Icons.Outlined.Lock, "原文不出手机", "只保存结构化字段，云端拿不到截图", index = 0)
+        GestureRow(Icons.Outlined.Lock, "贡献默认关闭", "要分享聚合数据，得你自己打开", index = 1)
+        GestureRow(Icons.Outlined.Lock, "随时撤回", "关掉开关，历史贡献一并失效", index = 2)
     }
 }

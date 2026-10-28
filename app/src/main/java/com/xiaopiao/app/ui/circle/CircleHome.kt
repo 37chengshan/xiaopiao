@@ -51,6 +51,7 @@ import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.motion.XpPushHost
 import com.xiaopiao.app.ui.games.GamesHub
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
@@ -111,11 +112,12 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGam
         if (sendTick > 0 && rows.isNotEmpty()) listState.animateScrollToItem(rows.size)
     }
 
-    if (gamesOpen) {
-        GamesHub(onBack = { gamesOpen = false })
-        return
-    }
-
+    // 游戏 hub is a pushed page, not a swap: it slides in over the feed (220ms) and pops back in 180ms.
+    XpPushHost(
+        page = if (gamesOpen) { { GamesHub(onBack = { gamesOpen = false }) } } else null,
+        onBack = { gamesOpen = false },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     NavScaffold(
         title = CircleDemo.CIRCLE_NAME,
         scroll = NavScrollNone,
@@ -145,6 +147,13 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGam
                     }
                 }
                 items(items = rows, key = { it.key }) { row ->
+                    Box(
+                        Modifier.animateItem(
+                            fadeInSpec = androidx.compose.animation.core.tween(180, easing = com.xiaopiao.app.ui.theme.XpEase.out),
+                            placementSpec = androidx.compose.animation.core.tween(200, easing = com.xiaopiao.app.ui.theme.XpEase.out),
+                            fadeOutSpec = androidx.compose.animation.core.tween(140),
+                        ),
+                    ) {
                     when (row) {
                         is CircleFeedRow.Day -> CircleDayDivider(row.dayStart, now)
                         is CircleFeedRow.Post -> {
@@ -163,6 +172,7 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGam
                                 onReceiptOpen = { openedPost = it },
                             )
                         }
+                    }
                     }
                 }
                 item(key = "circle-games") {
@@ -189,6 +199,7 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGam
             )
         }
     }
+    }
 
     shareSheetFor?.let { selectedId ->
         CircleShareSheet(
@@ -213,7 +224,7 @@ private fun CircleGamesCard(modifier: Modifier = Modifier, onClick: () -> Unit) 
         modifier.fillMaxWidth()
             .clip(RoundedCornerShape(XpRadius.l))
             .background(XpColors.Card)
-            .pressableClick(scaleDown = 0.98f, onClick = onClick)
+            .pressableClick(scaleDown = 0.98f, haptic = true, onClick = onClick)
             .padding(XpSpace.l),
         verticalAlignment = Alignment.CenterVertically,
     ) {
