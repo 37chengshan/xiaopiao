@@ -1,5 +1,8 @@
 package com.xiaopiao.app.ui.components
 
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -129,11 +132,17 @@ fun NavScaffold(
 @Composable
 fun DemoChip(modifier: Modifier = Modifier, text: String = "演示数据") = Pill(text, modifier)
 
-/** 32dp round fill button with a line icon, for nav bar actions. */
+/** 34dp round raised button with a line icon, for nav bar actions. */
 @Composable
 fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val source = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val haptics = rememberXpHaptics()
     Box(
-        modifier.size(32.dp).clip(CircleShape).background(XpColors.Fill).pressableClick(onClick = onClick),
+        modifier.size(34.dp).pressableScale(source)
+            .xpRaised(CircleShape, XpColors.Card, pressed, 3.dp)
+            .clip(CircleShape)
+            .clickable(source, null) { haptics.select(); onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = description, tint = XpColors.Ink, modifier = Modifier.size(18.dp))

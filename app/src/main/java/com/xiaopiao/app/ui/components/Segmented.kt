@@ -55,9 +55,8 @@ fun Segmented(
                 .width(segment)
                 .fillMaxHeight()
                 .graphicsLayer { translationX = pos * segment.toPx() }
-                .shadow(1.dp, RoundedCornerShape(8.dp), clip = false)
-                .clip(RoundedCornerShape(8.dp))
-                .background(XpColors.Card),
+                .xpRaised(RoundedCornerShape(8.dp), XpColors.Card, false, 2.dp)
+                .clip(RoundedCornerShape(8.dp)),
         )
         Row(Modifier.fillMaxWidth().fillMaxHeight().padding(inset)) {
             options.forEachIndexed { i, label ->

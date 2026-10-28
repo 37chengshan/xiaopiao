@@ -33,6 +33,10 @@ data class XpPalette(
     val printerBody: Color,
     val printerHighlight: Color,
     val printerSlit: Color,
+    val info: Color,
+    val infoSoft: Color,
+    val positiveSoft: Color,
+    val warningSoft: Color,
 )
 
 val LightPalette = XpPalette(
@@ -61,6 +65,10 @@ val LightPalette = XpPalette(
     printerBody = Color(0xFF1F1E1C),
     printerHighlight = Color(0xFF3A3935),
     printerSlit = Color(0xFF0A0A09),
+    info = Color(0xFF3A6EA5),
+    infoSoft = Color(0xFFE6EEF6),
+    positiveSoft = Color(0xFFE5F0E8),
+    warningSoft = Color(0xFFF8EEDC),
 )
 
 val DarkPalette = XpPalette(
@@ -89,6 +97,10 @@ val DarkPalette = XpPalette(
     printerBody = Color(0xFF0E0E0D),
     printerHighlight = Color(0xFF2A2926),
     printerSlit = Color(0xFF000000),
+    info = Color(0xFF7FA8D6),
+    infoSoft = Color(0xFF1F2A37),
+    positiveSoft = Color(0xFF1F2E24),
+    warningSoft = Color(0xFF33291A),
 )
 
 /** Current palette, swapped by [XiaopiaoTheme]. Snapshot state, so composition and draw scopes that read it update. */
@@ -121,6 +133,11 @@ object XpColors {
     val Negative get() = p.negative
     val Warning get() = p.warning
     val Stamp get() = p.stamp
+    /** Semantic tints for icon blocks (docs/DESIGN.md §2b): a hue + its soft background. */
+    val Info get() = p.info
+    val InfoSoft get() = p.infoSoft
+    val PositiveSoft get() = p.positiveSoft
+    val WarningSoft get() = p.warningSoft
     /** Translucent bar background for nav / tab bars. */
     val Material get() = p.material
 
