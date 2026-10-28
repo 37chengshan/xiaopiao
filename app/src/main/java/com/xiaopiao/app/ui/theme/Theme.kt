@@ -109,7 +109,7 @@ fun XiaopiaoTheme(content: @Composable () -> Unit) {
     val ink by animateColorAsState(target.ink, tween(200), label = "ink")
     val live = target.copy(canvas = canvas, ink = ink)
     // Written before `content` composes, so every screen reads the new palette in the same pass.
-    if (XpPaletteState.current != live) XpPaletteState.current = live
+    XpPaletteState.applyBase(live)
     if (XpPaletteState.style != style) XpPaletteState.style = style
 
     val view = LocalView.current

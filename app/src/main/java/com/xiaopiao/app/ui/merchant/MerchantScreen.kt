@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,10 +53,16 @@ enum class MerchantRoute(val order: Int, val title: String) {
 }
 
 @Composable
-fun MerchantScreen(container: AppContainer, onExit: () -> Unit = {}) {
+fun MerchantScreen(
+    container: AppContainer,
+    onExit: () -> Unit = {},
+    routeState: MutableState<MerchantRoute>? = null,
+) {
     val store = remember { MerchantStore.get(container.appContext) }
     val state by store.state.collectAsState()
-    var route by rememberSaveable { mutableStateOf(MerchantRoute.Landing) }
+    val rs = routeState ?: remember { mutableStateOf(MerchantRoute.Landing) }
+    val route = rs.value
+    fun setRoute(to: MerchantRoute) { rs.value = to }
     var gameReturn by rememberSaveable { mutableStateOf(MerchantRoute.Landing) }
     var gameSeed by rememberSaveable { mutableStateOf(0L) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
@@ -63,18 +70,18 @@ fun MerchantScreen(container: AppContainer, onExit: () -> Unit = {}) {
     val experiment = state.experiment
     val result = remember(experiment, store.crowd) { experiment?.let { ExperimentEngine.result(it, store.crowd) } }
 
-    fun go(to: MerchantRoute) { route = to }
+    fun go(to: MerchantRoute) { setRoute(to) }
     fun playGame(from: MerchantRoute) {
         gameSeed = System.currentTimeMillis()
         gameReturn = from
-        route = MerchantRoute.Game
+        setRoute(MerchantRoute.Game)
     }
 
     BackHandler {
         when (route) {
             MerchantRoute.Landing -> onExit()
-            MerchantRoute.Game -> route = gameReturn
-            else -> route = MerchantRoute.Landing
+            MerchantRoute.Game -> setRoute(gameReturn)
+            else -> setRoute(MerchantRoute.Landing)
         }
     }
 
@@ -94,7 +101,7 @@ fun MerchantScreen(container: AppContainer, onExit: () -> Unit = {}) {
                     seed = gameSeed,
                     onExperimentAnswer = { id -> store.update { it.addGameResponse(id, System.currentTimeMillis()) } },
                     onFinished = { code -> store.update { it.finishGame(code) } },
-                    onExit = { route = gameReturn },
+                    onExit = { setRoute(gameReturn) },
                 )
                 else -> FlowFrame(r, hasExperiment = experiment != null, onJump = ::go, onBack = { go(MerchantRoute.Landing) }, onPrivacy = { showPrivacy = true }) {
                     when (r) {
