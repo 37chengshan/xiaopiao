@@ -73,6 +73,13 @@ import com.xiaopiao.app.ui.settings.SettingsScreen
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.today.TodayScreen
 import com.xiaopiao.app.work.ReminderIntents
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.launch
 
 /**
  * Five slots (docs/APP-DESIGN.md §2): 对话 · 账本 · [首页·记账+小票] · 圈子 · 我的.
@@ -93,6 +100,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     val current = backStack?.destination?.route
     var merchantMode by rememberSaveable { mutableStateOf(false) }
     val record = rememberRecordSheetState()
+    var printSignal by remember { mutableIntStateOf(0) }
 
     if (merchantMode) {
         // 小店版 is a whole-product mode (palette, nav, landing), not a page (docs/APP-DESIGN.md §6).
@@ -121,7 +129,9 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
             XpTabBar(
                 current = current,
                 onSelect = { go(it) },
-                onVoice = { record.openVoice() },
+                onPrint = {
+                    printSignal++
+                },
             )
         },
     ) { padding ->
@@ -143,7 +153,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                     ChatScreen(container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openManual() })
                 }
                 composable(Tab.Ledger.route) { LedgerScreen(container) }
-                composable(Tab.Today.route) { TodayScreen(container, record) }
+                composable(Tab.Today.route) { TodayScreen(container, record, printSignal) }
                 composable(Tab.Circle.route) { CircleHome(container) }
                 composable(Tab.Settings.route) { SettingsScreen(container, onOpenMerchant = { merchantMode = true }) }
             }
@@ -157,7 +167,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
  * the bar; long-press starts voice recording (docs/APP-DESIGN.md §4.2).
  */
 @Composable
-private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onVoice: () -> Unit) {
+private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onPrint: () -> Unit) {
     val capsule = RoundedCornerShape(32.dp)
     val dark = XpColors.isDark
     Box(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
@@ -184,7 +194,7 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onVoice: () -> U
             selected = current?.startsWith(Tab.Today.route) == true,
             Modifier.align(Alignment.TopCenter),
             onClick = { onSelect(Tab.Today) },
-            onLongClick = onVoice,
+            onLongPrint = onPrint,
         )
     }
 }
@@ -204,23 +214,38 @@ private fun TabItem(tab: Tab, current: String?, modifier: Modifier, onSelect: (T
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun PrimaryTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun PrimaryTab(tab: Tab, selected: Boolean, modifier: Modifier, onClick: () -> Unit, onLongPrint: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val haptics = rememberXpHaptics()
+    val scope = rememberCoroutineScope()
     Box(
         modifier.size(66.dp).pressableScale(source, 0.92f)
             .graphicsLayer { alpha = if (pressed) 0.85f else 1f }
             .background(XpColors.CanvasGrouped, CircleShape).padding(4.dp)
             .clip(CircleShape).background(XpColors.Primary)
-            .combinedClickable(
-                interactionSource = source,
-                indication = null,
-                onClick = { haptics.select(); onClick() },
-                onLongClick = { haptics.thud(); onLongClick() },
-            ),
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    haptics.tick()
+                    var fired = false
+                    // Hold 1.5s = print (docs/APP-DESIGN.md §3.1). The haptic lands exactly when it fires.
+                    val hold = scope.launch {
+                        kotlinx.coroutines.delay(1500)
+                        fired = true
+                        haptics.confirm()
+                        onLongPrint()
+                    }
+                    val up = waitForUpOrCancellation()
+                    hold.cancel()
+                    if (up != null && !fired) {
+                        haptics.select()
+                        onClick()
+                    }
+                }
+            },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(tab.icon, contentDescription = if (selected) "今日" else "今日 · 长按说一句", tint = XpColors.OnPrimary, modifier = Modifier.size(28.dp))
+        Icon(tab.icon, contentDescription = if (selected) "今日 · 长按打印小票" else "今日 · 长按打印小票", tint = XpColors.OnPrimary, modifier = Modifier.size(28.dp))
     }
 }

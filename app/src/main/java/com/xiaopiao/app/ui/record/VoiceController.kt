@@ -30,6 +30,9 @@ class VoiceController(private val context: Context) {
         private set
     var error by mutableStateOf<String?>(null)
         private set
+    /** 0..1, smoothed loudness for the waveform. */
+    var rms by mutableStateOf(0f)
+        private set
 
     private var recognizer: SpeechRecognizer? = null
 
@@ -48,7 +51,11 @@ class VoiceController(private val context: Context) {
         r.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: android.os.Bundle?) { listening = true }
             override fun onBeginningOfSpeech() { listening = true }
-            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onRmsChanged(rmsdB: Float) {
+                // rmsdB runs roughly -2..10; normalise and ease so the bars breathe instead of jumping.
+                val target = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
+                rms = rms + (target - rms) * 0.35f
+            }
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() { listening = false }
             override fun onError(error: Int) {
@@ -104,6 +111,7 @@ class VoiceController(private val context: Context) {
     fun cancel() {
         if (recognizer != null) runCatching { recognizer?.cancel() }
         listening = false
+        rms = 0f
         partial = ""
         transcript = null
         error = null

@@ -114,7 +114,7 @@ private data class DayData(val day: Long, val items: List<Txn>)
 
 /** "今日" tab: AI-first greeting, the receipt printer, per-category chips and recent-day mini receipts. */
 @Composable
-fun TodayScreen(container: AppContainer, record: RecordSheetState) {
+fun TodayScreen(container: AppContainer, record: RecordSheetState, printSignal: Int = 0) {
     val today = remember { startOfDay(System.currentTimeMillis()) }
     var selectedDay by rememberSaveable { mutableLongStateOf(today) }
     var demo by rememberSaveable { mutableStateOf(false) }
@@ -161,6 +161,10 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState) {
     val latestTimeline by rememberUpdatedState(timeline)
     fun startPrint() = session.open(latestTimeline, reduced)
 
+    // The nav's long-press (1.5s) asks for a print; ignore the initial 0.
+    LaunchedEffect(printSignal) {
+        if (printSignal > 0 && receipt != null) startPrint()
+    }
     var pendingPrint by remember { mutableStateOf(false) }
     LaunchedEffect(pendingPrint, data) {
         if (pendingPrint && data != null) { pendingPrint = false; startPrint() }
@@ -231,8 +235,8 @@ fun TodayScreen(container: AppContainer, record: RecordSheetState) {
                 }
                 Spacer(Modifier.height(XpSpace.xl))
             }
-            RecordDock(record)
         }
+        RecordFab(record, Modifier.align(Alignment.BottomEnd).padding(end = XpSpace.l, bottom = XpSpace.m))
         UndoToastHost(toast, Modifier.align(Alignment.BottomCenter))
         ReceiptOverlay(
             session, lines, timeline, receipt?.let { ReceiptLayout.stampText(it) }.orEmpty(),
@@ -278,17 +282,35 @@ private fun PrintCard(
     XpCard(Modifier.padding(horizontal = XpSpace.l).padding(bottom = XpSpace.m)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("今日小票", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("今日小票", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+                    if (demo) { Spacer(Modifier.width(XpSpace.s)); DemoChip() }
+                }
                 Spacer(Modifier.height(2.dp))
                 Text(
                     if (count == 0) "今天钱包休息" else "$count 笔 · ¥${totalCents.yuan()}",
                     style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary,
                 )
             }
-            if (demo) DemoChip()
+            // A torn stub of paper: the visual anchor of this card, so it is not just two lines of text.
+            Column(
+                Modifier.width(54.dp).height(66.dp).clip(RoundedCornerShape(4.dp)).background(XpColors.PaperShade)
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                repeat(3) { i ->
+                    Box(Modifier.fillMaxWidth(if (i == 2) 0.6f else 1f).height(2.dp).background(XpColors.PaperInk.copy(alpha = 0.18f)))
+                }
+                Spacer(Modifier.weight(1f))
+                Text("小票", style = MaterialTheme.typography.labelSmall, color = XpColors.PaperInk.copy(alpha = 0.5f))
+            }
         }
         Spacer(Modifier.height(XpSpace.m))
-        PrintButton(label = if (isToday) "打印今日小票" else "打印这天的小票", subtitle = if (count == 0) "今天钱包休息" else "$count 笔 · ¥${totalCents.yuan()}", onClick = onPrint)
+        Text(
+            "长按底部的小票键打印",
+            style = MaterialTheme.typography.bodySmall,
+            color = XpColors.InkTertiary,
+        )
         if (demo) {
             Spacer(Modifier.height(XpSpace.xs))
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -304,19 +326,21 @@ private fun PrintCard(
 }
 
 /**
- * Always-on record dock above the tab bar (docs/APP-DESIGN.md §4.2):
- * tap = manual form, long-press = the dock **expands in place** into voice input.
+ * 记一笔 = the floating ball on the right (docs/APP-DESIGN.md §4.2).
+ * Tap = manual form. Long-press = the ball sends a bar leftwards that grows a live waveform + transcript;
+ * release to keep, swipe up to cancel.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RecordDock(record: RecordSheetState) {
+private fun RecordFab(record: RecordSheetState, modifier: Modifier = Modifier) {
     val haptics = rememberXpHaptics()
     val voice = rememberVoiceController()
-    val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
     var denied by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) { denied = false } else denied = true
+        denied = !granted
     }
+    val expandFraction by animateFloatAsState(if (expanded) 1f else 0f, tween(220, easing = XpEase.out), label = "fabExpand")
 
     LaunchedEffect(voice.transcript) {
         voice.consume()?.let { text ->
@@ -324,123 +348,98 @@ private fun RecordDock(record: RecordSheetState) {
             record.openText(text)
         }
     }
-    LaunchedEffect(expanded) {
-        // Auto-close the panel a moment after the recogniser gives up.
-        if (expanded && !voice.listening && voice.error != null) {
-            kotlinx.coroutines.delay(1800)
+    LaunchedEffect(voice.error) {
+        if (voice.error != null && !voice.listening) {
+            kotlinx.coroutines.delay(1600)
             expanded = false
             voice.cancel()
         }
     }
 
-    Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l).padding(bottom = XpSpace.s, top = XpSpace.xs)) {
-        AnimatedVisibility(visible = expanded, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-            Column(
-                Modifier.fillMaxWidth().padding(bottom = XpSpace.s)
-                    .clip(RoundedCornerShape(XpRadius.l))
-                    .background(XpColors.Card)
-                    .padding(XpSpace.l),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.m)) {
-                    VoiceWave(active = voice.listening || voice.partial.isNotEmpty())
-                    Text(
-                        voice.error ?: voice.partial.ifBlank { if (voice.listening) "我在听…" else "松手结束" },
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (voice.error != null) XpColors.Negative else XpColors.Ink,
-                        maxLines = 2,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Row(Modifier.fillMaxWidth().padding(top = XpSpace.s), horizontalArrangement = Arrangement.End) {
-                    XpButton("取消", { voice.cancel(); expanded = false }, style = XpButtonStyle.Plain, size = XpButtonSize.Small)
-                }
-            }
-        }
-        if (denied) {
-            Text(
-                "没有麦克风权限，长按不会开始录音",
-                style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary,
-                modifier = Modifier.padding(bottom = XpSpace.xs),
-            )
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
+        if (expandFraction > 0.01f) {
             Row(
-                Modifier.fillMaxWidth().height(48.dp)
+                Modifier.weight(expandFraction).height(56.dp).padding(end = XpSpace.s)
                     .clip(RoundedCornerShape(XpRadius.pill))
-                    .background(XpColors.Fill)
-                    .pointerInput(record, expanded) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            val long = awaitLongPressOrCancellation(down.id)
-                            if (long == null) {
-                                haptics.select()
-                                record.openManual()
-                            } else {
-                                haptics.thud()
-                                if (voice.hasPermission) {
-                                    expanded = true
-                                    voice.start()
-                                } else {
-                                    permission.launch(android.Manifest.permission.RECORD_AUDIO)
-                                }
-                                waitForUpOrCancellation()
-                                if (expanded) voice.stop()
-                            }
-                        }
-                    }
+                    .background(XpColors.Primary)
                     .padding(horizontal = XpSpace.l),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("记一笔", style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink, maxLines = 1, modifier = Modifier.weight(1f))
-                Icon(Icons.Outlined.Mic, contentDescription = "长按说一句", tint = XpColors.InkTertiary, modifier = Modifier.size(20.dp))
+                VoiceWave(active = voice.listening || voice.partial.isNotEmpty(), level = voice.rms, onPrimary = true)
+                Spacer(Modifier.width(XpSpace.m))
+                Text(
+                    voice.error ?: voice.partial.ifBlank { if (voice.listening) "听你说…" else "松手记账" },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = XpColors.OnPrimary,
+                    maxLines = 2,
+                    modifier = Modifier.weight(1f),
+                )
+                Text("上滑取消", style = MaterialTheme.typography.labelSmall, color = XpColors.OnPrimary.copy(alpha = 0.6f))
             }
         }
-    }
-}
-
-/**
- * The printer itself (拟物): a stub of paper with a torn edge coming out of a dark machine bar.
- * The dark bar is the tap target — the object carries the action, not a text link.
- */
-@Composable
-private fun PrintButton(label: String, subtitle: String, onClick: () -> Unit) {
-    val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val haptics = rememberXpHaptics()
-    val scale by animateFloatAsState(if (pressed) 0.985f else 1f, tween(120, easing = XpEase.out), label = "printPress")
-    Box(
-        Modifier.fillMaxWidth().height(56.dp).graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(RoundedCornerShape(XpRadius.l))
-            .background(XpColors.PrinterBody)
-            .clickable(source, null) { haptics.confirm(); onClick() },
-        contentAlignment = Alignment.Center,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-            Icon(Icons.Outlined.Print, contentDescription = null, tint = XpColors.OnPrimary, modifier = Modifier.size(20.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, color = XpColors.OnPrimary)
+        Box(
+            Modifier.size(56.dp).clip(CircleShape).background(XpColors.Primary)
+                .pointerInput(record) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val long = awaitLongPressOrCancellation(down.id)
+                        if (long == null) {
+                            haptics.select()
+                            record.openManual()
+                            return@awaitEachGesture
+                        }
+                        haptics.thud()
+                        if (!voice.hasPermission) {
+                            denied = true
+                            permission.launch(android.Manifest.permission.RECORD_AUDIO)
+                            return@awaitEachGesture
+                        }
+                        expanded = true
+                        voice.start()
+                        var cancelled = false
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (down.position.y - change.position.y > 60.dp.toPx()) {
+                                cancelled = true
+                                change.consume()
+                                break
+                            }
+                            if (!change.pressed) break
+                        }
+                        if (cancelled) {
+                            haptics.reject()
+                            voice.cancel()
+                            expanded = false
+                        } else {
+                            voice.stop()
+                        }
+                    }
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Outlined.Mic,
+                contentDescription = if (expanded) "结束并记账" else "记一笔 · 长按说一句",
+                tint = XpColors.OnPrimary,
+                modifier = Modifier.size(24.dp),
+            )
         }
     }
 }
 
-/** Five bars breathing while the phone listens; a quiet static line otherwise. */
+/** Five bars driven by the live mic level so the user sees that the phone hears them. */
 @Composable
-private fun VoiceWave(active: Boolean) {
-    val transition = rememberInfiniteTransition(label = "wave")
+private fun VoiceWave(active: Boolean, level: Float, onPrimary: Boolean = false) {
+    val voiceLevel = level
+    val bars = remember { floatArrayOf(0.55f, 1f, 0.75f, 0.9f, 0.6f) }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        repeat(5) { i ->
-            val phase by transition.animateFloat(
-                initialValue = 0.35f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 520 + i * 90, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-                label = "bar$i",
-            )
+        bars.forEachIndexed { i, factor ->
+            val h = if (active) (8f + 22f * factor * voiceLevel.coerceIn(0.1f, 1f)) else 8f
             Box(
-                Modifier.width(3.dp).height(if (active) 22.dp * phase else 8.dp)
+                Modifier.width(3.dp).height(h.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(if (active) XpColors.Primary else XpColors.InkTertiary),
+                    .background(if (onPrimary) XpColors.OnPrimary else XpColors.Primary),
             )
         }
     }
