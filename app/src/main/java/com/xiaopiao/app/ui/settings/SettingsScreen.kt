@@ -29,6 +29,9 @@ import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.theme.ThemeMode
 import com.xiaopiao.app.ui.theme.DesignStyle
 import com.xiaopiao.app.ui.theme.ThemePrefs
+import com.xiaopiao.app.ui.record.RecordMethod
+import com.xiaopiao.app.ui.record.RecordMethodPrefs
+import com.xiaopiao.app.ui.record.recordMethodStore
 import com.xiaopiao.app.ui.today.ReceiptSoundPrefs
 import kotlinx.coroutines.launch
 
@@ -50,6 +53,8 @@ fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}, onB
     val designStyle by themePrefs.observeStyle().collectAsState(initial = DesignStyle.Apple)
     val soundPrefs = remember(context) { ReceiptSoundPrefs(context.applicationContext) }
     val soundOn by soundPrefs.observeEnabled().collectAsState(initial = true)
+    val methodPrefs = remember(context) { RecordMethodPrefs(context.recordMethodStore) }
+    val recordMethod by methodPrefs.observe().collectAsState(initial = RecordMethod.Manual)
 
     // The user comes back from system settings: re-check both permissions.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -72,6 +77,7 @@ fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}, onB
     NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             AppearanceSection(mode, designStyle, { scope.launch { themePrefs.setMode(it) } }, { scope.launch { themePrefs.setStyle(it) } })
+            RecordMethodSection(recordMethod) { scope.launch { methodPrefs.set(it) } }
             ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }
             CaptureSection(
                 listenerEnabled = listenerOn, postGranted = postGranted,

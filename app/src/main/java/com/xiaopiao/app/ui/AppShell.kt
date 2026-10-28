@@ -71,7 +71,10 @@ import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.insights.InsightsScreen
 import com.xiaopiao.app.ui.ledger.LedgerScreen
 import com.xiaopiao.app.ui.merchant.MerchantShell
+import com.xiaopiao.app.ui.record.RecordMethod
+import com.xiaopiao.app.ui.record.RecordMethodPrefs
 import com.xiaopiao.app.ui.record.RecordSheetHost
+import com.xiaopiao.app.ui.record.recordMethodStore
 import com.xiaopiao.app.ui.record.rememberRecordSheetState
 import com.xiaopiao.app.ui.settings.SettingsScreen
 import com.xiaopiao.app.ui.theme.XpColors
@@ -116,6 +119,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     val onboarding = remember { com.xiaopiao.app.ui.onboarding.OnboardingPrefs(context.applicationContext) }
     val onboarded by onboarding.observeDone().collectAsState(initial = null)
     val shellScope = rememberCoroutineScope()
+    val recordMethod by remember(context) { RecordMethodPrefs(context.recordMethodStore).observe() }
+        .collectAsState(initial = RecordMethod.Manual)
     if (onboarded == false) {
         com.xiaopiao.app.ui.onboarding.OnboardingHost { shellScope.launch { onboarding.setDone() } }
         return
@@ -150,7 +155,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
             if (current != "print" && current != "settings") XpTabBar(
                 current = current,
                 onSelect = { go(it) },
-                onRecord = { record.openManual() },
+                onRecord = { record.openDefault(recordMethod) },
                 onVoice = { voiceHost.request() },
                 onGames = { gamesRequest++; if (current != Tab.Circle.route) go(Tab.Circle) },
             )
@@ -213,7 +218,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                     TodayScreen(container, record, printSignal, printOnly = true, onDone = { nav.popBackStack() }, onVoiceStart = { voiceHost.request() })
                 }
                 composable(Tab.Chat.route) {
-                    ChatScreen(container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openManual() })
+                    ChatScreen(container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openDefault(recordMethod) })
                 }
                 composable(Tab.Circle.route) { CircleHome(container, onOpenSettings = { nav.navigate("settings") }, openGames = gamesRequest) }
 

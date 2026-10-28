@@ -28,6 +28,7 @@ import com.xiaopiao.app.ui.components.XpSwitch
 import androidx.compose.material.icons.outlined.Lightbulb
 import com.xiaopiao.app.ui.theme.DesignStyle
 import com.xiaopiao.app.ui.theme.ThemeMode
+import com.xiaopiao.app.ui.record.RecordMethod
 import com.xiaopiao.app.ui.theme.XpSpace
 
 private val IconInset = 58.dp
@@ -58,6 +59,17 @@ fun ReceiptSection(soundOn: Boolean, onSound: (Boolean) -> Unit) {
                 trailing = { XpSwitch(soundOn, onSound) },
                 onClick = { onSound(!soundOn) },
             )
+        }
+    }
+}
+
+@Composable
+fun RecordMethodSection(method: RecordMethod, onMethod: (RecordMethod) -> Unit) {
+    GroupedSection(header = "记一笔") {
+        item {
+            Box(Modifier.fillMaxWidth().padding(XpSpace.m)) {
+                Segmented(RecordMethod.entries.map { it.label }, method.ordinal, { onMethod(RecordMethod.entries[it]) })
+            }
         }
     }
 }
