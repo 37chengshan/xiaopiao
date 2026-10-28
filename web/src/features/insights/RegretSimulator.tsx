@@ -1,13 +1,13 @@
+import * as SliderPrimitive from "@radix-ui/react-slider";
+import { Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Slider } from "@/components/ui/slider";
-import { cn } from "@/lib/utils";
+import { Chip, Footnote, Group, Money, Row, SectionHeader, Segmented } from "@/components/app/kit";
+import { EmptyState } from "@/components/app/States";
 import { CATEGORIES, type Txn, yuan } from "../../domain/types";
 import { type RegretTarget, type WindowMonths, listTargets, simulateRegret } from "../../logic/regret";
 
-function targetLabel(t: RegretTarget): string {
-  return t.kind === "category" ? `${CATEGORIES[t.category].emoji} ${CATEGORIES[t.category].label}` : t.merchant;
-}
-const same = (a: RegretTarget, b: RegretTarget) => targetLabel(a) === targetLabel(b);
+const targetLabel = (t: RegretTarget): string => (t.kind === "category" ? CATEGORIES[t.category].label : t.merchant);
+const targetKey = (t: RegretTarget): string => `${t.kind}:${targetLabel(t)}`;
 
 export function RegretSimulator({
   txns,
@@ -34,77 +34,72 @@ export function RegretSimulator({
   );
 
   if (!target || !result) {
-    return (
-      <div className="rounded-2xl bg-card p-5 text-center">
-        <div className="text-4xl" aria-hidden>
-          🔮
-        </div>
-        <p className="mt-2 font-semibold text-ink">先记几笔，再来模拟</p>
-        <p className="mt-1 text-sm text-ink-2">有了真实花费，才能算「如果少花一点」会怎样～</p>
-      </div>
-    );
+    return <EmptyState icon={Sparkles} title="先记几笔，再来模拟" hint="有了真实花费，才能算「如果少花一点」会怎样" />;
   }
 
   return (
-    <div className="rounded-2xl bg-card p-4">
-      <h3 className="text-base font-extrabold text-ink">后悔模拟器 🔮</h3>
-      <p className="text-[13px] text-ink-2">选一个想少花的，拖一拖看看能省多少</p>
+    <div>
+      <p className="px-8 pt-5 text-[13px] leading-[18px] text-ink-2">选一个想少花的，拖一拖看看能省多少</p>
 
-      <div className="hide-scrollbar -mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-1" role="radiogroup" aria-label="模拟对象">
+      <div className="hide-scrollbar mt-3 flex gap-2 overflow-x-auto px-4 pb-1" role="radiogroup" aria-label="模拟对象">
         {targets.map((t) => (
-          <button
-            key={targetLabel(t)}
-            role="radio"
-            aria-checked={same(t, target)}
-            onClick={() => setPicked(t)}
-            className={cn("shrink-0 rounded-full px-3 py-1.5 text-[13px] font-semibold transition", same(t, target) ? "bg-coral text-white" : "bg-secondary text-ink-2")}
-          >
-            {targetLabel(t)}
-          </button>
+          <Chip key={targetKey(t)} role="radio" aria-checked={targetKey(t) === targetKey(target)} selected={targetKey(t) === targetKey(target)} onClick={() => setPicked(t)} className="max-w-[12rem]">
+            <span className="truncate">{targetLabel(t)}</span>
+          </Chip>
         ))}
       </div>
 
-      <div className="mt-4">
-        <div className="flex items-baseline justify-between text-sm">
-          <label htmlFor="regret-pct" className="font-semibold text-ink">
-            少花 {pct}%
+      <div className="mx-4 mt-3 rounded-[14px] bg-surface p-4">
+        <div className="flex items-baseline justify-between">
+          <label htmlFor="regret-pct" className="text-[16px] font-medium text-ink">
+            少花 <span className="num">{pct}</span>%
           </label>
-          <span className="text-[12px] text-ink-2">{pct === 100 ? "彻底戒掉" : pct === 0 ? "维持现状" : "拖动调整"}</span>
+          <span className="text-[13px] text-ink-2">{pct === 100 ? "彻底戒掉" : pct === 0 ? "维持现状" : "拖动调整"}</span>
         </div>
-        <Slider id="regret-pct" aria-label="减少比例" min={0} max={100} step={5} value={[pct]} onValueChange={(v) => setPct(v[0])} className="mt-3" />
-      </div>
-
-      <div className="mt-4 flex rounded-full bg-secondary p-0.5" role="radiogroup" aria-label="时间窗口">
-        {([1, 3, 6] as const).map((m) => (
-          <button key={m} role="radio" aria-checked={months === m} onClick={() => setMonths(m)} className={cn("flex-1 rounded-full py-1.5 text-sm font-semibold transition", months === m ? "bg-card text-ink shadow-sm" : "text-ink-2")}>
-            {m} 个月
-          </button>
-        ))}
+        <SliderPrimitive.Root id="regret-pct" aria-label="减少比例" min={0} max={100} step={5} value={[pct]} onValueChange={(v) => setPct(v[0])} className="relative mt-3 flex h-11 w-full touch-none select-none items-center">
+          <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-fill">
+            <SliderPrimitive.Range className="absolute h-full bg-clay" />
+          </SliderPrimitive.Track>
+          <SliderPrimitive.Thumb className="block size-7 rounded-full bg-white shadow-[0_1px_4px_oklch(0_0_0/28%)] ring-1 ring-hairline transition-transform duration-100 active:scale-[1.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay" />
+        </SliderPrimitive.Root>
+        <Segmented
+          className="mt-2"
+          value={String(months) as "1" | "3" | "6"}
+          onChange={(v) => setMonths(Number(v) as WindowMonths)}
+          options={[
+            { value: "1", label: "1 个月" },
+            { value: "3", label: "3 个月" },
+            { value: "6", label: "6 个月" },
+          ]}
+        />
       </div>
 
       {result.enoughData ? (
-        <div className="mt-4 rounded-2xl bg-coral-soft p-4 text-center" aria-live="polite">
-          <p className="text-[13px] text-ink-2">{months} 个月能省下</p>
-          <p className="thermal text-[40px] font-extrabold leading-tight text-coral">¥{yuan(result.savedCents)}</p>
+        <div aria-live="polite">
+          <div className="px-8 pt-6">
+            <p className="text-[13px] leading-[18px] text-ink-2">{months} 个月能省下</p>
+            <Money cents={result.savedCents} className="mt-1 block text-[48px] font-semibold leading-[52px] tracking-[-0.03em] text-ink" />
+          </div>
           {result.equivalents.length > 0 && (
-            <div className="mt-2 flex flex-wrap justify-center gap-2">
-              {result.equivalents.map((e) => (
-                <span key={e.label} className="rounded-full bg-card px-3 py-1 text-[13px] font-semibold text-ink">
-                  {e.emoji} ≈ {e.count} {e.label}
-                </span>
-              ))}
-            </div>
+            <>
+              <SectionHeader>大约相当于</SectionHeader>
+              <Group>
+                {result.equivalents.map((e) => (
+                  <Row key={e.label} title={`≈ ${e.count} ${e.label}`} className="min-h-[44px]" />
+                ))}
+              </Group>
+            </>
           )}
-          <p className="mt-3 text-[12px] text-ink-2">
-            按你这 {result.observedDays} 天的真实花费（¥{yuan(result.observedCents)}），每月约 ¥{yuan(result.monthlyCents)}
-          </p>
+          <Footnote>
+            按你这 {result.observedDays} 天的真实花费（¥{yuan(result.observedCents)}），每月约 ¥{yuan(result.monthlyCents)}。
+          </Footnote>
         </div>
       ) : (
-        <p className="mt-4 rounded-2xl bg-secondary p-4 text-center text-sm text-ink-2">这一项还没有花费记录，换一个看看～</p>
+        <p className="mx-4 mt-4 rounded-[14px] bg-surface p-4 text-center text-[14px] text-ink-2">这一项还没有花费记录，换一个看看～</p>
       )}
-      <p className="mt-3 text-[11px] leading-relaxed text-ink-2">
+      <Footnote className="pt-4 text-[12px] leading-[18px]">
         仅为纯算术估算：把过去的花费按同样节奏往后推，不含任何投资收益，也不构成理财建议。怎么花，永远由你决定。
-      </p>
+      </Footnote>
     </div>
   );
 }
