@@ -272,7 +272,7 @@ private fun NewChatRow(onNewChat: () -> Unit) {
         Icon(Icons.Outlined.Add, contentDescription = null, tint = XpColors.Ink, modifier = Modifier.size(20.dp))
         Text(
             "新对话",
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp),
             color = XpColors.Ink,
             modifier = Modifier.padding(start = XpSpace.s),
         )
@@ -303,7 +303,7 @@ private fun SessionRow(
             Column(Modifier.weight(1f)) {
                 Text(
                     session.title,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp),
                     color = XpColors.Ink,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

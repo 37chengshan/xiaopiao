@@ -281,7 +281,7 @@ fun DonutChart(
     val measurer = rememberTextMeasurer()
     val labelStyle = remember { TextStyle(fontFamily = XpFonts.sans, fontSize = 12.sp) }
     val centerStyle = remember {
-        TextStyle(fontFamily = XpFonts.sans, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum")
+        TextStyle(fontFamily = XpFonts.sans, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum")
     }
     val unitStyle = remember { TextStyle(fontFamily = XpFonts.sans, fontSize = 11.sp) }
     val slices = entries.take(5)

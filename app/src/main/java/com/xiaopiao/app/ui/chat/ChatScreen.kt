@@ -602,7 +602,7 @@ private fun ChatEmptyState(
         Text(
             hint,
             modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
             color = XpColors.InkSecondary,
             textAlign = TextAlign.Center,
             maxLines = 2,

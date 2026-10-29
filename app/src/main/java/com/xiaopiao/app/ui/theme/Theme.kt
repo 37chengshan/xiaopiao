@@ -40,18 +40,18 @@ private fun colorScheme(p: XpPalette) = if (p.dark) {
 
 /** SF-like Inter, tight tracking, no serif. */
 private val AppTypography = Typography(
-    displayLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 48.sp, lineHeight = 52.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.4).sp, fontFeatureSettings = "tnum"),
-    displayMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 40.sp, lineHeight = 46.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.1).sp, fontFeatureSettings = "tnum"),
-    headlineLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.5).sp),
-    headlineMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.4).sp),
-    titleLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.3).sp),
-    titleMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
-    titleSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
-    bodyLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 24.sp, letterSpacing = (-0.2).sp),
-    bodyMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 21.sp, letterSpacing = (-0.1).sp),
-    bodySmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 13.sp, lineHeight = 18.sp),
-    labelLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
-    labelMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
+    displayLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.4).sp, fontFeatureSettings = "tnum"),
+    displayMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.1).sp, fontFeatureSettings = "tnum"),
+    headlineLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.5).sp),
+    headlineMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 24.sp, lineHeight = 30.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.4).sp),
+    titleLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.3).sp),
+    titleMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
+    titleSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 14.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium),
+    bodyLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 22.sp, letterSpacing = (-0.2).sp),
+    bodyMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = (-0.1).sp),
+    bodySmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 12.sp, lineHeight = 17.sp),
+    labelLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold),
+    labelMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium),
     labelSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.2.sp),
 )
 

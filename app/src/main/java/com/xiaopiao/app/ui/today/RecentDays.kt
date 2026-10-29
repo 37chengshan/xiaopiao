@@ -68,7 +68,7 @@ private fun MiniReceipt(d: DaySummary, selected: Boolean, isToday: Boolean, tilt
     ) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(label, style = ReceiptRow.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold))
-            Text(if (empty) "💤" else d.topEmoji ?: "🧾", fontSize = 20.sp, modifier = Modifier.padding(top = 4.dp))
+            Text(if (empty) "💤" else d.topEmoji ?: "🧾", fontSize = 18.sp, modifier = Modifier.padding(top = 4.dp))
         }
         Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(

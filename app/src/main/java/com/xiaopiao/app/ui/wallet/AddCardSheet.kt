@@ -252,7 +252,7 @@ private fun Field(
             onValueChange = onValueChange,
             singleLine = true,
             textStyle = TextStyle(
-                fontFamily = XpFonts.sans, fontSize = 16.sp,
+                fontFamily = XpFonts.sans, fontSize = 15.sp,
                 letterSpacing = if (mono) 1.2.sp else 0.sp,
                 fontFeatureSettings = if (mono) "tnum" else "",
                 color = XpColors.Ink,
@@ -281,7 +281,7 @@ private fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
     ) {
         Text(
             text,
-            style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
             color = if (selected) XpColors.Accent else XpColors.Ink,
             maxLines = 1,
         )

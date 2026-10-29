@@ -197,7 +197,7 @@ private fun Field(
         modifier = modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focused = it.isFocused },
-        textStyle = MaterialTheme.typography.bodyLarge.copy(color = XpColors.Ink, fontSize = 17.sp, lineHeight = 24.sp),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(color = XpColors.Ink, fontSize = 15.sp, lineHeight = 24.sp),
         cursorBrush = SolidColor(XpColors.Accent),
         // Six lines, then the field scrolls inside the card (never grows taller than that).
         minLines = 1,
@@ -210,7 +210,7 @@ private fun Field(
                 if (value.isEmpty() && !focused) {
                     Text(
                         "问问你的账本…",
-                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, lineHeight = 24.sp),
+                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 24.sp),
                         color = XpColors.InkTertiary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

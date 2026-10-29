@@ -72,7 +72,7 @@ internal fun ConfirmEntries(
                         Modifier.size(38.dp).clip(RoundedCornerShape(XpRadius.s)).background(XpColors.Fill),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(draft.entry.category.emoji, fontSize = 19.sp)
+                        Text(draft.entry.category.emoji, fontSize = 17.sp)
                     }
                     Column(Modifier.weight(1f)) {
                         Text(

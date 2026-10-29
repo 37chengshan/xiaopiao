@@ -40,7 +40,7 @@ fun EmptyState(
     ) {
         Icon(icon, contentDescription = null, tint = XpColors.InkTertiary, modifier = Modifier.size(48.dp))
         Text(
-            title, style = MaterialTheme.typography.headlineMedium.copy(fontSize = 20.sp, lineHeight = 26.sp),
+            title, style = MaterialTheme.typography.headlineMedium.copy(fontSize = 18.sp, lineHeight = 26.sp),
             color = XpColors.Ink, textAlign = TextAlign.Center, modifier = Modifier.padding(top = XpSpace.xs),
         )
         Text(body, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary, textAlign = TextAlign.Center)

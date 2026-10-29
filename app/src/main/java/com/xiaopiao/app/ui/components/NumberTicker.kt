@@ -35,7 +35,7 @@ fun zeroedDigits(text: String): String = text.map { if (it.isDigit()) '0' else i
 fun NumberTicker(
     text: String,
     modifier: Modifier = Modifier,
-    style: TextStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 28.sp, fontWeight = FontWeight.Bold),
+    style: TextStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 26.sp, fontWeight = FontWeight.Bold),
     color: Color = XpColors.Ink,
     rollFromZero: Boolean = true,
     staggerMs: Long = 70,

@@ -7,6 +7,14 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.shadow.Shadow
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ScrollState
@@ -74,8 +82,7 @@ private val BarHeight = 44.dp
 
 /**
  * Apple-style navigation chrome. Content is laid out full-bleed and receives the height it must reserve
- * on top ([content]'s `top`); put a [LargeTitle] as its first child. As the content scrolls, a compact
- * translucent bar fades in with a centred small title and a hairline. [trailing] actions stay put in both states.
+ * on top ([content]'s `top`). There is no bar: the title sits on a soft edge fade and [leading] / [trailing] / back float as glass capsules.
  */
 @Composable
 fun NavScaffold(
@@ -96,87 +103,107 @@ fun NavScaffold(
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     // Liquid-glass top bar: the page is recorded here and the bar (a sibling above it) samples what scrolls under.
     val glass = rememberLayerBackdrop()
-    val film = XpColors.Material.copy(alpha = 0.55f)
-    val hairline = XpColors.Hairline
     Box(modifier.fillMaxSize()) {
         Box(Modifier.matchParentSize().layerBackdrop(glass).background(XpColors.CanvasGrouped)) {
             if (glassGround) GlassGround(Modifier.matchParentSize()) { Box(Modifier.fillMaxSize()) { content(topInset + BarHeight) } }
             else content(topInset + BarHeight)
         }
+        // No bar: a soft edge fade keeps the title legible, and each group of controls floats in its own glass capsule.
+        val edge = XpColors.CanvasGrouped
+        Box(
+            Modifier.fillMaxWidth().height(topInset + BarHeight + EdgeFade)
+                .background(Brush.verticalGradient(0f to edge.copy(alpha = 0.92f), 0.6f to edge.copy(alpha = 0.7f), 1f to edge.copy(alpha = 0f))),
+        )
         Box(
             Modifier.fillMaxWidth()
-                .drawBackdrop(
-                    backdrop = glass,
-                    shape = { BarShape },
-                    effects = {
-                        vibrancy()
-                        blur(14.dp.toPx())
-                        lens(10.dp.toPx(), 14.dp.toPx())
-                    },
-                    highlight = null,
-                    shadow = null,
-                    onDrawSurface = { drawRect(film) },
-                    onDrawFront = {
-                        drawRect(
-                            hairline,
-                            topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - 0.5.dp.toPx()),
-                            size = androidx.compose.ui.geometry.Size(size.width, 0.5.dp.toPx()),
-                        )
-                    },
-                )
                 .statusBarsPadding()
                 .height(BarHeight)
                 .padding(horizontal = XpSpace.m),
         ) {
             Text(
-                title, Modifier.align(Alignment.Center).padding(horizontal = 96.dp)
-                    .graphicsLayer { alpha = 1f },
+                title, Modifier.align(Alignment.Center).padding(horizontal = 112.dp),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = XpColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             if (onBack != null) {
-                Row(
-                    Modifier.align(Alignment.CenterStart).pressableClick(onClick = onBack).padding(vertical = XpSpace.s, horizontal = XpSpace.xs),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Icon(Icons.Outlined.ArrowBackIosNew, contentDescription = "返回", tint = XpColors.Ink, modifier = Modifier.size(16.dp))
-                    Text(backLabel, style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink)
+                GlassCapsule(glass, Modifier.align(Alignment.CenterStart)) {
+                    Row(
+                        Modifier.fillMaxHeight().pressableClick(onClick = onBack).padding(start = 10.dp, end = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Icon(Icons.Outlined.ArrowBackIosNew, contentDescription = "返回", tint = XpColors.Ink, modifier = Modifier.size(16.dp))
+                        Text(backLabel, style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink)
+                    }
                 }
             }
             if (leading != null && onBack == null) {
-                Row(
-                    Modifier.align(Alignment.CenterStart).padding(start = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
-                    content = leading,
-                )
+                GlassCapsule(glass, Modifier.align(Alignment.CenterStart), content = leading)
             }
-            Row(
-                Modifier.align(Alignment.CenterEnd),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
-            ) {
-                trailing()
-            }
+            GlassCapsule(glass, Modifier.align(Alignment.CenterEnd), content = trailing)
         }
     }
 }
 
-/** 34dp round raised button with a line icon, for nav bar actions. */
+/** Whether a [NavIconButton] sits inside a [GlassCapsule]: the capsule is the surface, so the button drops its own disc. */
+private val LocalInCapsule = staticCompositionLocalOf { false }
+
+/**
+ * One floating liquid-glass pill for a group of top controls, same recipe as the tab bar's capsules
+ * (vibrancy, light scatter, edge lens, ~40% film, soft drop shadow). Renders nothing when the group is empty.
+ */
+@Composable
+private fun GlassCapsule(backdrop: LayerBackdrop, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    val dark = XpColors.isDark
+    val film = if (dark) Color(0xFF1C1C1E).copy(alpha = 0.42f) else Color.White.copy(alpha = 0.42f)
+    val drop = Color.Black.copy(alpha = if (dark) 0.32f else 0.10f)
+    CompositionLocalProvider(LocalInCapsule provides true) {
+        Layout(
+            content = {
+                Row(
+                    Modifier.padding(horizontal = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    content = content,
+                )
+            },
+            modifier = modifier.height(BarHeight).drawBackdrop(
+                backdrop = backdrop,
+                shape = { CapsuleShape },
+                effects = {
+                    vibrancy()
+                    blur(4.dp.toPx())
+                    lens(10.dp.toPx(), 14.dp.toPx())
+                },
+                shadow = { Shadow(radius = 16.dp, color = drop) },
+                onDrawSurface = { drawRect(film) },
+            ),
+        ) { measurables, constraints ->
+            val row = measurables.first().measure(constraints.copy(minWidth = 0, minHeight = 0))
+            // An empty group (e.g. a page with no trailing actions) gets no capsule at all.
+            if (row.width <= 4.dp.roundToPx()) return@Layout layout(0, 0) {}
+            layout(row.width, constraints.maxHeight) { row.place(0, (constraints.maxHeight - row.height) / 2) }
+        }
+    }
+}
+
+/** Round line-icon button for nav actions: a 34dp raised disc on its own, a bare 40dp slot inside a [GlassCapsule]. */
 @Composable
 fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val source = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val haptics = rememberXpHaptics()
+    val inCapsule = LocalInCapsule.current
     Box(
-        modifier.size(34.dp).clip(CircleShape).pressableScale(source)
+        modifier.size(if (inCapsule) 40.dp else 34.dp).clip(CircleShape).pressableScale(source)
             .graphicsLayer { alpha = if (pressed) 0.8f else 1f }
-            .background(XpColors.Ink.copy(alpha = 0.07f))
+            .then(if (inCapsule) Modifier else Modifier.background(XpColors.Ink.copy(alpha = 0.07f)))
             .clickable(source, null) { haptics.select(); onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = description, tint = XpColors.Ink, modifier = Modifier.size(18.dp))
+        Icon(icon, contentDescription = description, tint = XpColors.Ink, modifier = Modifier.size(if (inCapsule) 20.dp else 18.dp))
     }
 }
 
-/** A zero-radius rounded rect: the lens needs a corner-based shape to build its edge field. */
-private val BarShape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
+private val CapsuleShape = androidx.compose.foundation.shape.RoundedCornerShape(50)
+
+/** How far the edge fade reaches below the controls. */
+private val EdgeFade = 18.dp

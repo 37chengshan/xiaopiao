@@ -70,12 +70,12 @@ private val CardShape = RoundedCornerShape(XpRadius.contentCard)
 private val PillShape = RoundedCornerShape(XpRadius.pill)
 
 private val BigNumber = TextStyle(
-    fontFamily = XpFonts.sans, fontSize = 26.sp, lineHeight = 32.sp,
+    fontFamily = XpFonts.sans, fontSize = 24.sp, lineHeight = 32.sp,
     fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum",
 )
 
 private val Money = TextStyle(
-    fontFamily = XpFonts.sans, fontSize = 15.sp, fontFeatureSettings = "tnum",
+    fontFamily = XpFonts.sans, fontSize = 14.sp, fontFeatureSettings = "tnum",
 )
 
 /**
@@ -355,7 +355,7 @@ private fun BudgetEditSheet(
                 Text(
                     RecordAmount.display(text),
                     style = TextStyle(
-                        fontFamily = XpFonts.sans, fontSize = 34.sp, lineHeight = 40.sp,
+                        fontFamily = XpFonts.sans, fontSize = 30.sp, lineHeight = 40.sp,
                         fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum",
                     ),
                     color = XpColors.Ink,
@@ -418,7 +418,7 @@ private fun BudgetKeypad(modifier: Modifier = Modifier, onKey: (String) -> Unit)
                     ) {
                         Text(
                             key,
-                            style = TextStyle(fontFamily = XpFonts.sans, fontSize = 24.sp, fontWeight = FontWeight.Medium),
+                            style = TextStyle(fontFamily = XpFonts.sans, fontSize = 22.sp, fontWeight = FontWeight.Medium),
                             color = XpColors.Ink,
                         )
                     }

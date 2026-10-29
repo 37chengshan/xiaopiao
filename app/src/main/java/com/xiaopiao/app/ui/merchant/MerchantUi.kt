@@ -90,7 +90,7 @@ fun DateTile(dayStart: Long, modifier: Modifier = Modifier, dimmed: Boolean = fa
     ) {
         Text(
             "${c.get(Calendar.DAY_OF_MONTH)}",
-            fontSize = 16.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold,
             color = if (dimmed) XpColors.InkSecondary else XpColors.Ink,
         )
         Text(

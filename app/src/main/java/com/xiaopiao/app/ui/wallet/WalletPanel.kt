@@ -189,7 +189,7 @@ fun WalletPanel(
                 }
                 Text(
                     if (hidden) "¥ ···" else "¥ ${(cardSpend.cents + memberSpend).yuan()}",
-                    style = TextStyle(fontFamily = XpFonts.sans, fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp, fontFeatureSettings = "tnum"),
+                    style = TextStyle(fontFamily = XpFonts.sans, fontSize = 28.sp, lineHeight = 36.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.6).sp, fontFeatureSettings = "tnum"),
                     color = XpColors.Ink,
                 )
                 Spacer(Modifier.height(XpSpace.m))
@@ -484,7 +484,7 @@ private fun DetailRow(label: String, value: String, copyable: Boolean = false, o
         Text(label, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary, modifier = Modifier.width(112.dp))
         Text(
             value,
-            style = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, fontFeatureSettings = "tnum"),
+            style = TextStyle(fontFamily = XpFonts.sans, fontSize = 14.sp, fontFeatureSettings = "tnum"),
             color = XpColors.Ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -526,7 +526,7 @@ private fun RecentRows(recent: List<Txn>) {
             }
             Text(
                 "${if (txn.direction == com.xiaopiao.app.domain.Direction.OUT) "-" else "+"}${txn.amountCents.yuan()}",
-                style = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+                style = TextStyle(fontFamily = XpFonts.sans, fontSize = 14.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
                 color = if (txn.direction == com.xiaopiao.app.domain.Direction.IN) XpColors.Positive else XpColors.Ink,
             )
         }

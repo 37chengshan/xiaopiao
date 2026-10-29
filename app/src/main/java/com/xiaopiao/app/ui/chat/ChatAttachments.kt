@@ -78,7 +78,7 @@ private fun AttachmentRow(icon: ImageVector, title: String, subtitle: String, on
             contentAlignment = Alignment.Center,
         ) { Icon(icon, contentDescription = null, tint = XpColors.Ink, modifier = Modifier.size(20.dp)) }
         Column(Modifier.padding(start = XpSpace.m)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp), color = XpColors.Ink)
+            Text(title, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp), color = XpColors.Ink)
             Text(subtitle, style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary)
         }
     }

@@ -68,7 +68,7 @@ internal object LedgerHighlight {
 /** 30sp/600 tabular — the one big number of the ledger (reference `041428`, 30sp). */
 private val HeroNumber = TextStyle(
     fontFamily = XpFonts.sans,
-    fontSize = 30.sp,
+    fontSize = 28.sp,
     lineHeight = 36.sp,
     fontWeight = FontWeight.SemiBold,
     letterSpacing = (-0.6).sp,
@@ -78,7 +78,7 @@ private val HeroNumber = TextStyle(
 /** 22sp/600 tabular — the month's two columns. */
 private val ColumnNumber = TextStyle(
     fontFamily = XpFonts.sans,
-    fontSize = 22.sp,
+    fontSize = 20.sp,
     lineHeight = 27.sp,
     fontWeight = FontWeight.SemiBold,
     fontFeatureSettings = "tnum",

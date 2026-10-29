@@ -55,7 +55,7 @@ fun GameResultScreen(outcome: GameOutcome, recordedExperiment: Boolean, onAgain:
             verticalArrangement = Arrangement.spacedBy(XpSpace.m),
         ) {
             Text("本局结果", Modifier.padding(top = XpSpace.l), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
-            Text(outcome.persona.emoji, Modifier.scale(pop.value), style = MaterialTheme.typography.displayLarge.copy(fontSize = 72.sp))
+            Text(outcome.persona.emoji, Modifier.scale(pop.value), style = MaterialTheme.typography.displayLarge.copy(fontSize = 60.sp))
             Text("你是『${outcome.persona.name}』！", Modifier.scale(0.8f + 0.2f * pop.value).alpha(pop.value.coerceIn(0f, 1f)), style = MaterialTheme.typography.headlineLarge, color = XpColors.Ink, textAlign = TextAlign.Center)
             Text(outcome.persona.blurb, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary, textAlign = TextAlign.Center)
             Reveal(2) { BadgeTicket(outcome) }

@@ -100,7 +100,7 @@ fun RevenueEntrySheet(
                 )
                 Text(
                     RecordAmount.display(amountText),
-                    style = MaterialTheme.typography.headlineLarge.copy(fontSize = 40.sp, fontFeatureSettings = "tnum"),
+                    style = MaterialTheme.typography.headlineLarge.copy(fontSize = 34.sp, fontFeatureSettings = "tnum"),
                     color = if (amountText.isEmpty()) XpColors.InkTertiary else XpColors.Ink,
                     maxLines = 1,
                 )
@@ -212,7 +212,7 @@ private fun RevenueKeypad(modifier: Modifier = Modifier, onKey: (String) -> Unit
                             Text(
                                 key, color = XpColors.Ink,
                                 style = MaterialTheme.typography.titleLarge.copy(
-                                    fontSize = 24.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum",
+                                    fontSize = 22.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum",
                                 ),
                             )
                         }

@@ -185,7 +185,7 @@ private fun Keypad(onKey: (String) -> Unit) {
                         } else {
                             Text(
                                 key, color = XpColors.Ink,
-                                style = MaterialTheme.typography.titleLarge.copy(fontSize = 24.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+                                style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
                             )
                         }
                     }

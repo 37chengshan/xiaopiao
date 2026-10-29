@@ -347,7 +347,7 @@ private fun DayStrip(all: List<Txn>, today: Long, selected: Long, onSelect: (Lon
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(Weekdays[cal.get(Calendar.DAY_OF_WEEK) - 1], fontSize = 10.sp, color = if (on) XpColors.OnPrimary.copy(alpha = 0.7f) else XpColors.InkSecondary)
-                    Text("${cal.get(Calendar.DAY_OF_MONTH)}", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (on) XpColors.OnPrimary else XpColors.Ink)
+                    Text("${cal.get(Calendar.DAY_OF_MONTH)}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (on) XpColors.OnPrimary else XpColors.Ink)
                     Box(Modifier.padding(top = 3.dp).size(4.dp).clip(CircleShape).background(if (d in withData) (if (on) XpColors.OnPrimary else XpColors.Accent) else Color.Transparent))
                 }
             }

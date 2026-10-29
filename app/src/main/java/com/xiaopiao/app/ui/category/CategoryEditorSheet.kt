@@ -99,7 +99,7 @@ internal fun CategoryEditorSheet(
                 Column(Modifier.weight(1f)) {
                     Text(
                         if (initial == null) "新建分类" else "编辑分类",
-                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
                         color = XpColors.Ink,
                         maxLines = 1,
                     )
@@ -118,14 +118,14 @@ internal fun CategoryEditorSheet(
                 onValueChange = { label = it.take(CategoryDefaults.MAX_LABEL) },
                 modifier = Modifier.fillMaxWidth().height(42.dp).clip(RoundedCornerShape(XpRadius.m))
                     .background(XpColors.Fill).padding(horizontal = XpSpace.m),
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = XpColors.Ink, fontSize = 16.sp),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = XpColors.Ink, fontSize = 15.sp),
                 cursorBrush = SolidColor(XpColors.Accent),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (label.isEmpty()) {
-                            Text("分类名称", style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp), color = XpColors.InkTertiary)
+                            Text("分类名称", style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp), color = XpColors.InkTertiary)
                         }
                         inner()
                     }

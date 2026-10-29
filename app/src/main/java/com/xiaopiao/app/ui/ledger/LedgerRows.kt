@@ -79,7 +79,7 @@ private val TabularSmall: TextStyle
 
 /** 17sp/600 tabular — the row amount (reference `041428`: 17sp). */
 private val RowAmount = TextStyle(
-    fontSize = 17.sp,
+    fontSize = 15.sp,
     lineHeight = 22.sp,
     fontWeight = FontWeight.SemiBold,
     fontFeatureSettings = "tnum",

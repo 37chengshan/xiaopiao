@@ -126,7 +126,7 @@ fun LedgerChip(text: String, selected: Boolean, modifier: Modifier = Modifier, o
         Text(
             text,
             style = MaterialTheme.typography.labelLarge.copy(
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
             ),
             color = if (selected) XpColors.Accent else XpColors.Ink,

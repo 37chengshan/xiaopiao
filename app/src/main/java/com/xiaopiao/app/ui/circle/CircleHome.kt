@@ -363,7 +363,7 @@ private fun CircleComposer(
                 value = draft,
                 onValueChange = { onDraftChange(it.take(140)) },
                 modifier = Modifier.weight(1f).padding(horizontal = XpSpace.s),
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = XpColors.Ink, fontSize = 17.sp, lineHeight = 24.sp),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = XpColors.Ink, fontSize = 15.sp, lineHeight = 24.sp),
                 cursorBrush = SolidColor(XpColors.Accent),
                 maxLines = 4,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -373,7 +373,7 @@ private fun CircleComposer(
                         if (draft.isEmpty()) {
                             Text(
                                 stringResource(R.string.circle_home_composer),
-                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
+                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
                                 color = XpColors.InkSecondary,
                                 maxLines = 1,
                             )

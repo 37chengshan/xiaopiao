@@ -108,7 +108,7 @@ fun CategoryManagerScreen(categories: CategoryRepository, onDismiss: () -> Unit)
                 }
                 Text(
                     "分类",
-                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
                     color = XpColors.Ink,
                     modifier = Modifier.padding(start = XpSpace.xs),
                     maxLines = 1,

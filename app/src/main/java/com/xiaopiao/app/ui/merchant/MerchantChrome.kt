@@ -102,7 +102,7 @@ fun StatCell(label: String, value: String, modifier: Modifier = Modifier, valueC
             label, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
-        FitText(value, Modifier.padding(top = 2.dp), MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp, lineHeight = 26.sp), valueColor, minSize = 10.sp)
+        FitText(value, Modifier.padding(top = 2.dp), MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, lineHeight = 26.sp), valueColor, minSize = 10.sp)
     }
 }
 
@@ -189,7 +189,7 @@ fun HeroPill(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector
 /** 30sp tabular hero figure, the same size as the 账单总览卡's. */
 val MerchantHeroNumber = TextStyle(
     fontFamily = com.xiaopiao.app.ui.theme.XpFonts.sans,
-    fontSize = 32.sp, lineHeight = 38.sp,
+    fontSize = 28.sp, lineHeight = 38.sp,
     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
     letterSpacing = (-0.6).sp, fontFeatureSettings = "tnum",
 )

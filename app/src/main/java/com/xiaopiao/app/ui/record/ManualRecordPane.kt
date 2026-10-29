@@ -300,12 +300,12 @@ private fun AmountRow(draft: RecordDraft, cents: Long) {
         Modifier.fillMaxWidth().height(64.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("¥", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = XpColors.Ink)
+        Text("¥", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = XpColors.Ink)
         Text(
             // Reference: an untouched amount is just ¥ and the caret, no grey 0.
             if (draft.isEmpty) "" else draft.expression,
             modifier = Modifier.padding(start = 6.dp),
-            fontSize = 30.sp,
+            fontSize = 28.sp,
             fontWeight = FontWeight.SemiBold,
             color = if (cents == 0L) XpColors.InkTertiary else XpColors.Ink,
             style = TextStyle(fontFeatureSettings = "tnum"),
@@ -480,7 +480,7 @@ private fun Keypad(
                 ) {
                     Text(
                         if (editing) "删除" else "再记一笔",
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         color = when {
                             editing -> XpColors.Negative
                             canSave -> XpColors.InkSecondary
@@ -543,7 +543,7 @@ private fun SaveButton(enabled: Boolean, onSave: () -> Unit) {
             .pressableClick(enabled = enabled, scaleDown = 0.95f, haptic = true) { onSave() },
         contentAlignment = Alignment.Center,
     ) {
-        Text("保存", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1)
+        Text("保存", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1)
     }
 }
 
