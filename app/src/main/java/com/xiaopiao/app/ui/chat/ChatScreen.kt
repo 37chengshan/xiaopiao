@@ -1,5 +1,9 @@
 package com.xiaopiao.app.ui.chat
 
+import com.xiaopiao.app.ui.components.AppTopActions
+import com.xiaopiao.app.ui.components.NavIconButton
+import com.xiaopiao.app.ui.components.NavScaffold
+import com.xiaopiao.app.ui.components.NavScrollNone
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -89,7 +93,6 @@ import com.xiaopiao.app.ui.motion.MotionMath
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
-import com.xiaopiao.app.ui.today.ReceiptStrip
 import com.xiaopiao.app.ui.today.TodayGreeting
 import java.util.Calendar
 import kotlinx.coroutines.Job
@@ -437,11 +440,15 @@ fun ChatScreen(
     }
 
     Box(Modifier.fillMaxSize().background(chatBackdrop())) {
-        Column(
-            Modifier.fillMaxSize().imePadding()
-                .graphicsLayer { translationX = DrawerPagePush.toPx() * drawer.value },
-        ) {
-            ChatTopBar(onMenu = { drawerOpen = true }, onOpenSettings = onOpenSettings)
+        // Same glass top bar as 记账 (docs/DESIGN.md §4.1): ☰ on the left, 小票 + 设置 on the right.
+        NavScaffold(
+            "AI",
+            NavScrollNone,
+            modifier = Modifier.graphicsLayer { translationX = DrawerPagePush.toPx() * drawer.value },
+            leading = { NavIconButton(Icons.Outlined.Menu, "会话", onClick = { drawerOpen = true }) },
+            trailing = { AppTopActions() },
+        ) { top ->
+        Column(Modifier.fillMaxSize().background(chatBackdrop()).padding(top = top).imePadding()) {
             Box(Modifier.weight(1f)) {
                 when {
                     conversation.isEmpty() -> ChatEmptyState(
@@ -487,6 +494,7 @@ fun ChatScreen(
                 onRemoveAttachment = { attachments.remove(it) },
                 focusRequester = focusRequester,
             )
+        }
         }
 
         if (attachSheetOpen) {
@@ -552,42 +560,6 @@ private fun chatBackdrop(): Brush = Brush.verticalGradient(
         XpColors.CanvasGrouped.copy(alpha = if (XpColors.isDark) 1f else 0.9f),
     ),
 )
-
-/** ☰ · AI · 小票 · 设置 — the receipt strip and the gear sit top-right on every first-level page (tt). */
-@Composable
-private fun ChatTopBar(onMenu: () -> Unit, onOpenSettings: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().statusBarsPadding().height(60.dp).padding(horizontal = XpSpace.l),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        BarCircle(onMenu, Icons.Outlined.Menu, "会话")
-        Text(
-            "AI",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = XpColors.Ink,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            modifier = Modifier.weight(1f),
-        )
-        ReceiptStrip()
-        Spacer(Modifier.width(XpSpace.s))
-        BarCircle(onOpenSettings, Icons.Outlined.Settings, "设置")
-    }
-}
-
-/** 44dp white circle with a soft shadow: the reference's round buttons, our neutral surface. */
-@Composable
-private fun BarCircle(onClick: () -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector, description: String) {
-    Box(
-        Modifier.size(44.dp)
-            .shadow(6.dp, CircleShape, clip = false, ambientColor = Color(0x0F000000), spotColor = Color(0x14000000))
-            .clip(CircleShape).background(XpColors.Card)
-            .pressableClick(scaleDown = 0.94f, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, contentDescription = description, tint = XpColors.Ink, modifier = Modifier.size(20.dp))
-    }
-}
 
 /**
  * One quiet line for the empty state (docs/APP-DESIGN.md §3.4): what the assistant is and what it can see,

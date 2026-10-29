@@ -25,11 +25,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.ReceiptLong
-import com.xiaopiao.app.ui.today.ReceiptStrip
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -47,9 +43,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.domain.CategoryDef
@@ -69,7 +62,9 @@ import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberUndoToastState
 import com.xiaopiao.app.ui.components.rememberXpHaptics
-import com.xiaopiao.app.ui.wallet.WalletPanel
+import com.xiaopiao.app.ui.components.AppTopActions
+import com.xiaopiao.app.ui.components.LedgerSideLeading
+import com.xiaopiao.app.ui.components.LocalTopBarHost
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -88,8 +83,10 @@ private val CardGap = XpSpace.cardGap
 fun LedgerScreen(
     container: AppContainer,
     @Suppress("UNUSED_PARAMETER") onVoiceStart: () -> Unit = {},
-    onOpenSettings: () -> Unit = {},
+    searchRequested: Boolean = false,
+    onSearchConsumed: () -> Unit = {},
 ) {
+    val onOpenSettings = LocalTopBarHost.current.openSettings
     // 「设置预算」 pulls up the budget drawer over the ledger (tt: a drawer, not a page).
     var budgetOpen by rememberSaveable { mutableStateOf(false) }
     if (budgetOpen) {
@@ -117,7 +114,8 @@ fun LedgerScreen(
     var addOpen by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Txn?>(null) }
     var selection by remember { mutableStateOf<Set<Long>?>(null) }
-    var walletOpen by remember { mutableStateOf(false) }
+    // 搜索 in the top-left (here or from 小票 / 统计) arrives as a request from the shell.
+    LaunchedEffect(searchRequested) { if (searchRequested) { searching = true; onSearchConsumed() } }
 
     val toast = rememberUndoToastState()
     val listState = rememberLazyListState()
@@ -197,13 +195,7 @@ fun LedgerScreen(
         scroll = if (searching) NavScrollNone else rememberNavScroll(listState),
         onBack = if (searching) ({ exitSearch() }) else null,
         backLabel = "取消",
-        leading = if (!searching && selection == null) {
-            ({
-                NavIconButton(Icons.Outlined.CreditCard, "卡包", onClick = { walletOpen = true })
-                // Search sits left of the title so the right side keeps three items at 360dp × 1.3.
-                NavIconButton(Icons.Outlined.Search, "搜索", onClick = { searching = true })
-            })
-        } else null,
+        leading = if (!searching && selection == null) ({ LedgerSideLeading() }) else null,
         trailing = {
             when {
                 searching -> NavIconButton(Icons.Outlined.Tune, if (filter.activeCount > 0) "筛选 ${filter.activeCount}" else "筛选", onClick = { filterOpen = true })
@@ -228,12 +220,7 @@ fun LedgerScreen(
                             .padding(horizontal = XpSpace.s, vertical = XpSpace.xs),
                     )
                 }
-                else -> {
-                    // Reference `041428` puts 按天跳转 (calendar) in the top bar; we keep the receipt
-                    // strip and the gear to its right (tt 要求设置在右上角).
-                    ReceiptStrip()
-                    NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings)
-                }
+                else -> AppTopActions()
             }
         },
     ) { top ->
@@ -311,24 +298,6 @@ fun LedgerScreen(
             onPick = { jumpToDay(it) },
             onDismiss = { calendarOpen = false },
         )
-    }
-    // 卡包是全屏面板：用 Dialog 铺满整屏（含底部导航），面板自带 FLAG_SECURE 与下滑关闭。
-    if (walletOpen) {
-        Dialog(
-            onDismissRequest = { walletOpen = false },
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                decorFitsSystemWindows = false,
-                // 卡号与会员码只在这块面板上，窗口级禁截屏（Dialog 有独立 window）。
-                securePolicy = SecureFlagPolicy.SecureOn,
-            ),
-        ) {
-            WalletPanel(
-                container = container,
-                now = System.currentTimeMillis(),
-                onDismiss = { walletOpen = false },
-            )
-        }
     }
 
     if (addOpen) {

@@ -83,6 +83,8 @@ import com.xiaopiao.app.ui.today.ReceiptHostOverlay
 import com.xiaopiao.app.ui.today.ReceiptPage
 import com.xiaopiao.app.ui.today.rememberReceiptHost
 import androidx.compose.runtime.CompositionLocalProvider
+import com.xiaopiao.app.ui.components.LocalTopBarHost
+import com.xiaopiao.app.ui.components.TopBarHost
 import com.xiaopiao.app.work.ReminderIntents
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -133,6 +135,10 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     var lastLedger by rememberSaveable { mutableStateOf(NavTab.Ledger) }
     // The AI page raises this while its session drawer is open, so the bar steps out of the way.
     var navBarHidden by remember { mutableStateOf(false) }
+    // 卡包 opens from the top-left of every ledger-side page, so it lives here, not inside 记账.
+    var walletOpen by remember { mutableStateOf(false) }
+    // 搜索 from 小票 / 统计 = jump to 记账, which enters search and clears this.
+    var ledgerSearch by remember { mutableStateOf(false) }
     LaunchedEffect(launchSide) { if (startRoute == null) launchSide?.let { startRoute = NavModel.startRoute(it) } }
     if (onboarded == false) {
         com.xiaopiao.app.ui.onboarding.OnboardingHost { shellScope.launch { onboarding.setDone() } }
@@ -173,6 +179,13 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
 
     // The resident receipt: pages place a ReceiptStrip, the ceremony itself lives here, above the navigation.
     val receiptHost = rememberReceiptHost(container) { go(NavTab.Receipt) }
+    val topBarHost = remember(nav) {
+        TopBarHost(
+            openSettings = { nav.navigate("settings") },
+            openWallet = { walletOpen = true },
+            openSearch = { ledgerSearch = true; go(NavTab.Ledger) },
+        )
+    }
 
     LaunchedEffect(open) {
         when (open?.target) {
@@ -194,7 +207,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         // The AI session drawer covers the whole screen, including where the (hidden) bar sat.
         (navBarHidden && current == NavTab.Chat.route)
 
-    CompositionLocalProvider(LocalReceiptHost provides receiptHost) {
+    CompositionLocalProvider(LocalReceiptHost provides receiptHost, LocalTopBarHost provides topBarHost) {
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = XpColors.CanvasGrouped,
@@ -237,7 +250,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 composable(NavTab.Ledger.route) {
                     LedgerScreen(
                         container,
-                        onOpenSettings = { nav.navigate("settings") },
+                        searchRequested = ledgerSearch,
+                        onSearchConsumed = { ledgerSearch = false },
                     )
                 }
                 composable(NavTab.Insights.route) {
@@ -267,7 +281,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                     )
                 }
                 composable(NavTab.Receipt.route) {
-                    ReceiptPage(container, receiptHost, onOpenSettings = { nav.navigate("settings") })
+                    ReceiptPage(container, receiptHost)
                 }
                 composable(NavTab.Chat.route) {
                     ChatScreen(
@@ -292,5 +306,23 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     }
     RecordSheetHost(record, container)
     ReceiptHostOverlay(receiptHost)
+    // 卡包是全屏面板：用 Dialog 铺满整屏（含底部导航），面板自带 FLAG_SECURE 与下滑关闭。
+    if (walletOpen) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { walletOpen = false },
+            properties = androidx.compose.ui.window.DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false,
+                // 卡号与会员码只在这块面板上，窗口级禁截屏（Dialog 有独立 window）。
+                securePolicy = androidx.compose.ui.window.SecureFlagPolicy.SecureOn,
+            ),
+        ) {
+            com.xiaopiao.app.ui.wallet.WalletPanel(
+                container = container,
+                now = System.currentTimeMillis(),
+                onDismiss = { walletOpen = false },
+            )
+        }
+    }
     }
 }

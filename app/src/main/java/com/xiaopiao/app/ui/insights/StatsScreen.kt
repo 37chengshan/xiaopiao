@@ -1,5 +1,7 @@
 package com.xiaopiao.app.ui.insights
 
+import com.xiaopiao.app.ui.components.LedgerSideLeading
+import com.xiaopiao.app.ui.components.AppTopActions
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -24,7 +26,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -69,9 +70,7 @@ import com.xiaopiao.app.ui.components.GroupedRow
 import com.xiaopiao.app.ui.components.GroupedSection
 import com.xiaopiao.app.ui.components.IconTile
 import com.xiaopiao.app.ui.components.LineTrend
-import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
-import com.xiaopiao.app.ui.today.ReceiptStrip
 import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.components.icon
 import com.xiaopiao.app.ui.components.pressableClick
@@ -109,7 +108,6 @@ fun StatsScreen(
     onOpenSubscriptions: () -> Unit,
     onOpenRegret: () -> Unit,
     onPrint: (() -> Unit)? = null,
-    onOpenSettings: () -> Unit = {},
 ) {
     val txns by container.ledger.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -145,10 +143,8 @@ fun StatsScreen(
     NavScaffold(
         "统计",
         NavScrollNone,
-        trailing = {
-            ReceiptStrip()
-            NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings)
-        },
+        leading = { LedgerSideLeading() },
+        trailing = { AppTopActions() },
     ) { top ->
         Column(
             Modifier.fillMaxSize().padding(top = top)
