@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.games
 
+import com.xiaopiao.app.ui.components.LocalTabBarInset
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -82,8 +83,7 @@ fun GamesHub(onBack: () -> Unit, onOpenSettings: (() -> Unit)? = null) {
         NavScaffold(
             title = stringResource(R.string.games_title),
             scroll = NavScrollNone,
-            onBack = onBack,
-            backLabel = stringResource(R.string.games_back),
+            // 游戏 is a tab (DESIGN §4.1): no back on the left; system back still returns to 圈子.
             trailing = { AppTopActions() },
         ) { top ->
             LazyVerticalGrid(
@@ -93,7 +93,7 @@ fun GamesHub(onBack: () -> Unit, onOpenSettings: (() -> Unit)? = null) {
                     start = XpSpace.l,
                     end = XpSpace.l,
                     top = top + XpSpace.s,
-                    bottom = 104.dp,
+                    bottom = LocalTabBarInset.current + XpSpace.l,
                 ),
                 horizontalArrangement = Arrangement.spacedBy(XpSpace.m),
                 verticalArrangement = Arrangement.spacedBy(XpSpace.m),
