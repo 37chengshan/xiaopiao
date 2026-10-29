@@ -1,0 +1,78 @@
+/*
+ * Landing-only styles (docs/WEB-SPEC.md §L). Deliberately kept out of src/styles.css so the
+ * shared token file stays untouched by parallel features.
+ */
+
+/* L.1 — the landing hides the system pointer while the halo is mounted; inputs keep theirs. */
+.landing-halo-on,
+.landing-halo-on * {
+  cursor: none;
+}
+.landing-halo-on input,
+.landing-halo-on textarea,
+.landing-halo-on select,
+.landing-halo-on [contenteditable="true"] {
+  cursor: text;
+}
+/* Keyboard users always keep a visible focus ring, halo or not. */
+.landing-root :focus-visible {
+  outline: 2px solid var(--d-accent);
+  outline-offset: 2px;
+}
+
+/* L1 — hero sheet is drawn in a container query so the receipt scales with the printer art. */
+.receipt-hero {
+  container-type: inline-size;
+}
+.receipt-hero .receipt-sheet {
+  font-size: 5.4cqw;
+}
+
+/* L5 — scroll-linked inversion. `--inv` is written by the section every frame (0 → 1). */
+.landing-inv {
+  --inv: 0;
+}
+.landing-inv-bg {
+  background-color: color-mix(in oklab, var(--d-ink) calc(var(--inv) * 100%), var(--d-canvas));
+}
+.landing-inv-text {
+  color: color-mix(in oklab, var(--d-canvas) calc(var(--inv) * 100%), var(--d-ink));
+}
+.landing-inv-muted {
+  color: color-mix(in oklab, var(--d-canvas) calc(var(--inv) * 58%), var(--d-ink-2));
+}
+.landing-inv-card {
+  border-color: color-mix(in oklab, var(--d-canvas) calc(var(--inv) * 16%), var(--d-hairline));
+  background-color: color-mix(in oklab, var(--d-canvas) calc(var(--inv) * 6%), transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-inv {
+    transition: background-color 240ms var(--ease-out);
+  }
+}
+
+/* Illustrations: printer status light. */
+@keyframes landing-led {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.landing-led {
+  animation: landing-led 2.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-led {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Collapsed accordion cards print their title sideways. */
+.landing-vertical-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
