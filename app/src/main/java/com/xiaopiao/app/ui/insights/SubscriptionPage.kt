@@ -56,7 +56,7 @@ import kotlinx.coroutines.launch
 
 /** 订阅侦探: finds quiet auto-renewals, shows the yearly bill, guides cancelling (never cancels itself). */
 @Composable
-fun SubscriptionPage(input: InsightsInput) {
+fun SubscriptionPage(input: InsightsInput, topPad: androidx.compose.ui.unit.Dp = 0.dp) {
     val context = LocalContext.current
     val prefs = remember { InsightsPrefs(context) }
     val scope = rememberCoroutineScope()
@@ -75,7 +75,7 @@ fun SubscriptionPage(input: InsightsInput) {
         } else scope.launch { prefs.setCancelled(merchant, value) }
     }
 
-    InsightsPage("揪出悄悄扣钱的自动续费") {
+    InsightsPage("揪出悄悄扣钱的自动续费", topPad = topPad) {
         if (all.isEmpty()) {
             InsightsEmpty(Icons.Outlined.Search, "暂时没抓到自动续费", "账本里还没有规律重复的扣款。多记几个月，侦探会自己出动～")
             return@InsightsPage

@@ -120,7 +120,8 @@ fun NavScaffold(
                 .height(BarHeight)
                 .padding(horizontal = XpSpace.m),
         ) {
-            Text(
+            // A page with nothing to name (引导页) still gets the same bar and capsules, just no centre text.
+            if (title.isNotEmpty()) Text(
                 title, Modifier.align(Alignment.Center).padding(horizontal = 112.dp),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = XpColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -200,6 +201,34 @@ fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, m
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = description, tint = XpColors.Ink, modifier = Modifier.size(if (inCapsule) 20.dp else 18.dp))
+    }
+}
+
+/**
+ * Text action for a nav capsule (「＋ 新建」, 「跳过」): the same 40dp slot as [NavIconButton], so a text
+ * action and an icon action sit in one pill without either one growing its own background.
+ */
+@Composable
+fun NavTextAction(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    tint: Color = XpColors.Accent,
+) {
+    val source = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val haptics = rememberXpHaptics()
+    Box(
+        modifier.height(40.dp).clip(CapsuleShape)
+            .graphicsLayer { alpha = if (pressed) 0.7f else 1f }
+            .clickable(source, null) { haptics.select(); onClick() }
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+            color = tint, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

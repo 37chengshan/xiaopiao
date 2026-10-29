@@ -72,9 +72,11 @@ fun Modifier.bounceClick(enabled: Boolean = true, onClick: () -> Unit): Modifier
 @Composable
 fun InsightsPage(
     subtitle: String? = null,
+    /** Height the outer bar reserves: scrolls with the content, so the page runs under the capsules. */
+    topPad: androidx.compose.ui.unit.Dp = 0.dp,
     content: @Composable () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 120.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = topPad, bottom = 120.dp)) {
         Column(
             Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s),
             verticalArrangement = Arrangement.spacedBy(XpSpace.m),

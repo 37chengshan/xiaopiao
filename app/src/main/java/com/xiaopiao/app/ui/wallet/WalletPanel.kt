@@ -3,6 +3,7 @@ package com.xiaopiao.app.ui.wallet
 import android.app.Activity
 import android.view.WindowManager
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -18,7 +19,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -46,26 +49,32 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.ui.components.EmptyState
+import com.xiaopiao.app.ui.components.Grabber
 import com.xiaopiao.app.ui.components.Segmented
 import com.xiaopiao.app.ui.components.XpButton
+import com.xiaopiao.app.ui.components.glassRim
 import com.xiaopiao.app.ui.components.pressableClick
-import com.xiaopiao.app.ui.motion.rememberDtProgress
+import com.xiaopiao.app.ui.components.rememberWindowBlurBehind
 import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.XpColors
+import com.xiaopiao.app.ui.theme.XpMotion
 import com.xiaopiao.app.ui.theme.XpFonts
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -78,12 +87,13 @@ import com.xiaopiao.app.wallet.RevealWindow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** 静默常量：面板上滑 280ms（§5.5 要求 250–300ms 强 ease-out）。 */
-private const val PANEL_MS = 280
+/** 收起的卡片留下的页面高度：底部的导航胶囊仍然看得见（tt：卡包不要铺满）。 */
+private val PagePeek = 96.dp
 
 /**
- * 卡包全屏面板（docs/APP-DESIGN.md §5.5）：层叠卡片 + 卡详情 + 添加卡。
- * 面板自带 FLAG_SECURE（禁截屏/最近任务快照）与下滑关闭；卡面颜色是全局唯一的大面积色块。
+ * 卡包浮层（docs/APP-DESIGN.md §5.5）：层叠卡片 + 卡详情 + 添加卡。
+ * 不再铺满：左右留边的浮层卡片，从左上角卡包按钮处展开，底部露出页面，背后是系统模糊；
+ * 点外面或向下拖关闭。面板自带 FLAG_SECURE（禁截屏/最近任务快照）；卡面颜色是全局唯一的大面积色块。
  */
 @Composable
 fun WalletPanel(
@@ -129,8 +139,24 @@ fun WalletPanel(
         onDispose { if (memberFront) window?.attributes = window?.attributes?.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE } }
     }
 
-    val progress = rememberDtProgress(key = Unit, durationMs = PANEL_MS)
+    // 0 = 一颗按钮那么大，1 = 卡片落定。从左上角卡包按钮的位置长出来（弹簧，可被打断）。
+    val progress = remember { Animatable(0f) }
     val dragY = remember { Animatable(0f) }
+    var closing by remember { mutableStateOf(false) }
+    val close: () -> Unit = {
+        if (!closing) {
+            closing = true
+            scope.launch {
+                progress.animateTo(0f, spring(dampingRatio = 0.9f, stiffness = 420f))
+                onDismiss()
+            }
+        }
+    }
+    LaunchedEffect(Unit) { progress.animateTo(1f, XpMotion.bouncy()) }
+    // 浮层卡片背后的页面交给系统模糊（跨窗口 blur），近几年的机器都能看到；看不到就退回不透明卡片。
+    val blurred = rememberWindowBlurBehind()
+    val shape = remember { RoundedCornerShape(XpRadius.xl) }
+    val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     val banks = wallet.banks
     val members = wallet.members
@@ -138,36 +164,66 @@ fun WalletPanel(
     val memberSpend = remember(txns, members, now / 60_000) { members.sumOf { CardLedger.monthSpendAt(txns, now, it.storeName).cents } }
 
     Box(Modifier.fillMaxSize()) {
+        // 卡片自己在下面留出页面：关掉 Dialog 自带的那层暗色，只留我们自己画的一层浅遮罩。
+        (LocalView.current.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
+        // 点卡片外面收起。遮罩很浅：卡片下面的页面本来就要露出来。
+        Box(
+            Modifier.matchParentSize()
+                .background(XpColors.Scrim.copy(alpha = XpColors.Scrim.alpha * 0.55f * progress.value))
+                .pressableClick(haptic = false, onClick = close),
+        )
         Column(
             Modifier.fillMaxSize()
+                // 不铺满：左右留边、底部留一截页面 + 导航胶囊。
+                .padding(start = XpSpace.m, end = XpSpace.m, top = topInset + XpSpace.xs, bottom = PagePeek)
                 .graphicsLayer {
-                    translationY = (1f - progress) * size.height + dragY.value
+                    val p = progress.value
+                    val s = 0.12f + 0.88f * p
+                    transformOrigin = TransformOrigin(0f, 0f)
+                    scaleX = s
+                    scaleY = s
+                    translationY = dragY.value
+                    alpha = (p * 2.4f).coerceIn(0f, 1f)
                 }
-                .pointerInput(Unit) {
+                .clip(shape)
+                .background(
+                    if (blurred) XpColors.CanvasGrouped.copy(alpha = 0.86f) else XpColors.CanvasGrouped,
+                    shape,
+                )
+                .then(if (blurred) Modifier.glassRim(shape) else Modifier),
+        ) {
+            // ── 顶部：拖动手柄 / 标题 + × ────────────────────────────────────────────────
+            Column(
+                Modifier.fillMaxWidth().pointerInput(Unit) {
                     detectVerticalDragGestures(
                         onDragEnd = {
-                            if (dragY.value > 120.dp.toPx()) onDismiss()
+                            if (dragY.value > 96.dp.toPx()) close()
                             else scope.launch { dragY.animateTo(0f, tween(180)) }
                         },
                         onDragCancel = { scope.launch { dragY.animateTo(0f, tween(180)) } },
                     ) { _, dy ->
                         scope.launch { dragY.snapTo((dragY.value + dy).coerceAtLeast(0f)) }
                     }
-                }
-                .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                .background(XpColors.CanvasGrouped)
-                .statusBarsPadding(),
-        ) {
-            // ── 顶部：× + 本月卡上支出 ────────────────────────────────────────────────────
-            Row(
-                Modifier.fillMaxWidth().padding(start = XpSpace.s, top = XpSpace.s, end = XpSpace.l),
-                verticalAlignment = Alignment.CenterVertically,
+                },
             ) {
-                Box(
-                    Modifier.size(44.dp).clip(CircleShape).pressableClick { onDismiss() },
-                    contentAlignment = Alignment.Center,
+                Grabber()
+                Row(
+                    Modifier.fillMaxWidth().padding(start = XpSpace.l, end = XpSpace.s, bottom = XpSpace.xs),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Outlined.Close, contentDescription = "关闭卡包", tint = XpColors.Ink, modifier = Modifier.size(22.dp))
+                    Text(
+                        "卡包",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = XpColors.Ink,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                    )
+                    Box(
+                        Modifier.size(40.dp).clip(CircleShape).pressableClick(onClick = close),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Outlined.Close, contentDescription = "关闭卡包", tint = XpColors.Ink, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
             Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.page)) {

@@ -39,10 +39,12 @@ import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlin.math.roundToInt
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 
 /** 后悔模拟器: pure arithmetic "what if I had spent X% less" — no returns, no advice. */
 @Composable
-fun RegretPage(input: InsightsInput) {
+fun RegretPage(input: InsightsInput, topPad: Dp = 0.dp) {
     var window by rememberSaveable { mutableIntStateOf(3) }
     var reduction by rememberSaveable { mutableFloatStateOf(50f) }
     var targetKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -52,7 +54,7 @@ fun RegretPage(input: InsightsInput) {
     val target = targets.firstOrNull { it.label == targetKey } ?: targets.firstOrNull()
     val hasData = input.history.any { it.direction == Direction.OUT }
 
-    InsightsPage("如果当初少花一点……") {
+    InsightsPage("如果当初少花一点……", topPad = topPad) {
         if (!hasData || target == null) {
             InsightsEmpty(Icons.Outlined.Timeline, "还没有可以模拟的账目", "记下一些支出后，这里可以算算「少花一点」能攒下多少。")
             return@InsightsPage

@@ -2,9 +2,7 @@ package com.xiaopiao.app.ui.insights
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -15,7 +13,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.OpenRequest
 import com.xiaopiao.app.data.DemoSeed
@@ -83,15 +80,20 @@ fun InsightsScreen(
         NavScrollNone,
         onBack = { route = null },
     ) { top ->
-        Column(Modifier.fillMaxSize().padding(top = top)) {
-            // Keep the page viewport clear of the floating tab bar so charts and the last row are never cut.
-            Box(Modifier.padding(bottom = 88.dp)) {
-                when (page) {
-                    InsightsRoute.BUDGET -> BudgetPage(container, onBack = { route = null }, onOpenSettings = onOpenSettings)
-                    InsightsRoute.AWARDS -> AwardsPage(input)
-                    InsightsRoute.SUBSCRIPTIONS -> SubscriptionPage(input)
-                    InsightsRoute.REGRET -> RegretPage(input)
-                }
+        // One bar only: the sub-pages draw their own scrolling content, the reserved height travels into their
+        // scroll padding so the page runs under the capsules (统计 → 预算 used to stack a second bar).
+        Box(Modifier.fillMaxSize()) {
+            when (page) {
+                InsightsRoute.BUDGET -> BudgetPage(
+                    container,
+                    onBack = { route = null },
+                    onOpenSettings = onOpenSettings,
+                    embedded = true,
+                    topPad = top,
+                )
+                InsightsRoute.AWARDS -> AwardsPage(input, topPad = top)
+                InsightsRoute.SUBSCRIPTIONS -> SubscriptionPage(input, topPad = top)
+                InsightsRoute.REGRET -> RegretPage(input, topPad = top)
             }
         }
     }

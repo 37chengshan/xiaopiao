@@ -325,7 +325,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     }
     RecordSheetHost(record, container)
     ReceiptHostOverlay(receiptHost)
-    // 卡包是全屏面板：用 Dialog 铺满整屏（含底部导航），面板自带 FLAG_SECURE 与下滑关闭。
+    // 卡包是浮层卡片（不铺满，底部露出页面）：Dialog 只提供一块可以禁截屏（FLAG_SECURE）、
+    // 能吃到跨窗口模糊的独立窗口，卡片本身由 WalletPanel 画在中间。
     if (walletOpen) {
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { walletOpen = false },

@@ -14,20 +14,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,12 +44,14 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import com.xiaopiao.app.domain.CategoryDef
 import com.xiaopiao.app.domain.CategoryRepository
+import com.xiaopiao.app.ui.components.NavScaffold
+import com.xiaopiao.app.ui.components.NavScrollNone
+import com.xiaopiao.app.ui.components.NavTextAction
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.XpColors
@@ -88,105 +87,73 @@ fun CategoryManagerScreen(categories: CategoryRepository, onDismiss: () -> Unit)
         }
     }
 
-    Surface(Modifier.fillMaxSize(), color = XpColors.CanvasGrouped) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            Row(
-                Modifier.fillMaxWidth().height(52.dp).padding(horizontal = XpSpace.s),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    Modifier.size(40.dp).clip(RoundedCornerShape(XpRadius.pill))
-                        .pressableClick(haptic = false, onClick = onDismiss),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
-                        contentDescription = "返回",
-                        tint = XpColors.Ink,
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-                Text(
-                    "分类",
-                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
-                    color = XpColors.Ink,
-                    modifier = Modifier.padding(start = XpSpace.xs),
-                    maxLines = 1,
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "＋ 新建",
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                    color = XpColors.Accent,
-                    maxLines = 1,
-                    modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill))
-                        .pressableClick(haptic = false) { editor = CategoryEditorTarget(null) }
-                        .padding(horizontal = XpSpace.s, vertical = XpSpace.xs),
+    NavScaffold(
+        title = "分类",
+        scroll = NavScrollNone,
+        onBack = onDismiss,
+        trailing = { NavTextAction("＋ 新建", onClick = { editor = CategoryEditorTarget(null) }) },
+    ) { top ->
+        LazyColumn(
+            Modifier.fillMaxSize().navigationBarsPadding(),
+            contentPadding = PaddingValues(
+                start = XpSpace.page, end = XpSpace.page, top = top + XpSpace.xs, bottom = XpSpace.xxl,
+            ),
+            verticalArrangement = Arrangement.spacedBy(XpSpace.s),
+        ) {
+            itemsIndexed(local, key = { _, def -> def.id }) { _, def ->
+                val isDragging = draggingId == def.id
+                CategoryRow(
+                    def = def,
+                    dragging = isDragging,
+                    onHide = {
+                        haptics.tick()
+                        scope.launch { categories.setHidden(def.id, !def.hidden) }
+                    },
+                    onEdit = { editor = CategoryEditorTarget(def) },
+                    dragModifier = Modifier
+                        .zIndex(if (isDragging) 1f else 0f)
+                        .graphicsLayer { translationY = if (isDragging) dragOffset else 0f }
+                        .pointerInput(def.id, local.size) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    haptics.thud()
+                                    draggingId = def.id
+                                    dragOffset = 0f
+                                },
+                                onDrag = { change, drag ->
+                                    change.consume()
+                                    dragOffset += drag.y
+                                    val steps = (dragOffset / rowPx).roundToInt()
+                                    if (steps != 0) {
+                                        val from = local.indexOfFirst { it.id == def.id }
+                                        val to = (from + steps).coerceIn(0, local.lastIndex)
+                                        if (from >= 0 && to != from) {
+                                            local.removeAt(from)
+                                            local.add(to, def)
+                                            dragOffset -= steps * rowPx
+                                        }
+                                    }
+                                },
+                                onDragEnd = {
+                                    draggingId = null
+                                    dragOffset = 0f
+                                    scope.launch { categories.reorder(local.map { it.id }) }
+                                },
+                                onDragCancel = {
+                                    draggingId = null
+                                    dragOffset = 0f
+                                },
+                            )
+                        },
                 )
             }
-
-            LazyColumn(
-                Modifier.fillMaxSize().navigationBarsPadding(),
-                contentPadding = PaddingValues(
-                    start = XpSpace.page, end = XpSpace.page, top = XpSpace.xs, bottom = XpSpace.xxl,
-                ),
-                verticalArrangement = Arrangement.spacedBy(XpSpace.s),
-            ) {
-                itemsIndexed(local, key = { _, def -> def.id }) { _, def ->
-                    val isDragging = draggingId == def.id
-                    CategoryRow(
-                        def = def,
-                        dragging = isDragging,
-                        onHide = {
-                            haptics.tick()
-                            scope.launch { categories.setHidden(def.id, !def.hidden) }
-                        },
-                        onEdit = { editor = CategoryEditorTarget(def) },
-                        dragModifier = Modifier
-                            .zIndex(if (isDragging) 1f else 0f)
-                            .graphicsLayer { translationY = if (isDragging) dragOffset else 0f }
-                            .pointerInput(def.id, local.size) {
-                                detectDragGesturesAfterLongPress(
-                                    onDragStart = {
-                                        haptics.thud()
-                                        draggingId = def.id
-                                        dragOffset = 0f
-                                    },
-                                    onDrag = { change, drag ->
-                                        change.consume()
-                                        dragOffset += drag.y
-                                        val steps = (dragOffset / rowPx).roundToInt()
-                                        if (steps != 0) {
-                                            val from = local.indexOfFirst { it.id == def.id }
-                                            val to = (from + steps).coerceIn(0, local.lastIndex)
-                                            if (from >= 0 && to != from) {
-                                                local.removeAt(from)
-                                                local.add(to, def)
-                                                dragOffset -= steps * rowPx
-                                            }
-                                        }
-                                    },
-                                    onDragEnd = {
-                                        draggingId = null
-                                        dragOffset = 0f
-                                        scope.launch { categories.reorder(local.map { it.id }) }
-                                    },
-                                    onDragCancel = {
-                                        draggingId = null
-                                        dragOffset = 0f
-                                    },
-                                )
-                            },
-                    )
-                }
-                item {
-                    Text(
-                        "长按拖动排序 · 眼睛隐藏内置分类",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = XpColors.InkTertiary,
-                        modifier = Modifier.padding(top = XpSpace.s, start = XpSpace.xs),
-                    )
-                }
+            item {
+                Text(
+                    "长按拖动排序 · 眼睛隐藏内置分类",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = XpColors.InkTertiary,
+                    modifier = Modifier.padding(top = XpSpace.s, start = XpSpace.xs),
+                )
             }
         }
     }

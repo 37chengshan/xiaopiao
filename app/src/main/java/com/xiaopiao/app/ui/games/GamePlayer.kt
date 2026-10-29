@@ -73,6 +73,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.R
 import com.xiaopiao.app.domain.games.ChoiceLayout
@@ -192,10 +193,12 @@ fun GamePlayer(game: GameDefinition, onExit: () -> Unit) {
         onBack = onExit,
         backLabel = stringResource(R.string.games_back),
     ) { top ->
-        Box(Modifier.fillMaxSize().padding(top = top)) {
+        // The bar floats: its height is handed to each stage as scroll padding, so a page can run under the glass.
+        Box(Modifier.fillMaxSize()) {
             when (stage) {
                 GameStage.Intro -> IntroView(
                     game = game,
+                    topPad = top,
                     skin = skin,
                     onStart = {
                         haptics.confirm()
@@ -204,6 +207,7 @@ fun GamePlayer(game: GameDefinition, onExit: () -> Unit) {
                     onExit = onExit,
                 )
                 GameStage.Play -> PlayView(
+                    topPad = top,
                     deck = deck,
                     index = index,
                     skin = skin,
@@ -219,6 +223,7 @@ fun GamePlayer(game: GameDefinition, onExit: () -> Unit) {
                 )
                 GameStage.Result -> ResultView(
                     game = game,
+                    topPad = top,
                     deck = deck,
                     answers = answers,
                     outcome = GameScoring.outcome(game, deck, answers),
@@ -243,11 +248,17 @@ fun GamePlayer(game: GameDefinition, onExit: () -> Unit) {
  * hidden on the result.
  */
 @Composable
-private fun IntroView(game: GameDefinition, skin: GameSkin, onStart: () -> Unit, onExit: () -> Unit) {
+private fun IntroView(
+    game: GameDefinition,
+    skin: GameSkin,
+    onStart: () -> Unit,
+    onExit: () -> Unit,
+    topPad: Dp = 0.dp,
+) {
     val accent = skin.accentColor()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val headerHeight = (maxHeight * 0.56f).coerceIn(240.dp, 420.dp)
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = topPad)) {
             Box(
                 Modifier.fillMaxWidth()
                     .height(headerHeight)
@@ -337,6 +348,7 @@ private fun gameModeLabel(mode: GameMode): String = stringResource(
 
 @Composable
 private fun PlayView(
+    topPad: Dp = 0.dp,
     deck: List<GameQuestion>,
     index: Int,
     skin: GameSkin,
@@ -355,6 +367,7 @@ private fun PlayView(
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) { i ->
             QuestionView(
+                topPad = topPad,
                 question = deck[i],
                 index = i,
                 total = deck.size,
@@ -422,6 +435,7 @@ private fun GameProgress(index: Int, total: Int, skin: GameSkin, reduced: Boolea
 
 @Composable
 private fun QuestionView(
+    topPad: Dp = 0.dp,
     question: GameQuestion,
     index: Int,
     total: Int,
@@ -448,8 +462,9 @@ private fun QuestionView(
                 Modifier.widthIn(max = 560.dp)
                     .fillMaxWidth()
                     .verticalScroll(scroll)
-                    // The glass tab bar floats over the page; keep the last control above it.
-                    .padding(start = XpSpace.page, end = XpSpace.page, top = XpSpace.l, bottom = 104.dp),
+                    // The glass tab bar floats over the page; keep the last control above it. The top gap is
+                    // scroll padding, so a long question can slide under the bar.
+                    .padding(start = XpSpace.page, end = XpSpace.page, top = topPad + XpSpace.l, bottom = 104.dp),
             ) {
                 Text(
                     question.prompt,
@@ -1004,6 +1019,7 @@ private fun toneForeground(tone: AnswerTone, skin: GameSkin): Color = when (tone
 @Composable
 private fun ResultView(
     game: GameDefinition,
+    topPad: Dp = 0.dp,
     deck: List<GameQuestion>,
     answers: List<GameAnswer>,
     outcome: GameOutcome,
@@ -1021,7 +1037,7 @@ private fun ResultView(
     Column(
         Modifier.fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = XpSpace.page, end = XpSpace.page, bottom = 104.dp),
+            .padding(start = XpSpace.page, end = XpSpace.page, top = topPad, bottom = 104.dp),
     ) {
         Spacer(Modifier.height(XpSpace.m))
         ResultHero(outcome = outcome, skin = skin, figure = figure, showBody = persona)
