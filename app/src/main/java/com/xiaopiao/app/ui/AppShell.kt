@@ -117,6 +117,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     val current = backStack?.destination?.route
     var merchantMode by rememberSaveable { mutableStateOf(false) }
     var merchantSettings by rememberSaveable { mutableStateOf(false) }
+    val merchantState = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     val record = rememberRecordSheetState()
     val voiceHost = com.xiaopiao.app.ui.record.rememberVoiceHost()
     val gamesRequest = remember { GamesRequest() }
@@ -138,7 +139,10 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
             BackHandler { merchantSettings = false }
             SettingsScreen(container, onOpenMerchant = { merchantSettings = false }, onBack = { merchantSettings = false })
         } else {
-            MerchantShell(container, onExit = { merchantMode = false }, onOpenSettings = { merchantSettings = true })
+            // SaveableStateProvider keeps the shop's tab / sub-page while the settings page replaces it.
+            merchantState.SaveableStateProvider("merchant") {
+                MerchantShell(container, onExit = { merchantMode = false }, onOpenSettings = { merchantSettings = true })
+            }
         }
         return
     }
@@ -231,7 +235,10 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                     ReceiptPage(container, receiptHost, onOpenSettings = { nav.navigate("settings") })
                 }
                 composable(NavTab.Chat.route) {
-                    ChatScreen(container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openDefault(recordMethod) })
+                    ChatScreen(
+                        container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openDefault(recordMethod) },
+                        onOpenSettings = { nav.navigate("settings") },
+                    )
                 }
                 composable(NavTab.Circle.route) { CircleHome(container, onOpenSettings = { nav.navigate("settings") }, openGames = gamesRequest.pending, onGamesConsumed = { gamesRequest.consume() }) }
 
