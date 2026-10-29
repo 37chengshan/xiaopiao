@@ -103,7 +103,7 @@ export const s = defineStrings(
     "paper.folded": "… {} more categories",
     "paper.hidden": "… {} more",
     "paper.count": "{} entries",
-    "paper.delta.flat": "flat vs yesterday",
+    "paper.delta.flat": "Same as yesterday",
     "paper.delta.unknown": "vs yesterday —",
     "paper.delta.noYesterday": "nothing spent yesterday",
     "paper.delta.up": "+{}% vs yesterday",

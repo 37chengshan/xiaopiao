@@ -20,10 +20,7 @@ export function Footer() {
             {s("footer.privacy")}
           </a>
           <span className="text-[var(--lp-ink-3)]">{s("outro.credit")}</span>
-          <span className="ml-auto flex items-center gap-3 text-[var(--lp-ink-3)]">
-            <span>{s("footer.rights")}</span>
-            <span className="rounded-full border border-[var(--lp-line)] px-2 py-[1px] text-[10px] tracking-[0.06em]">build i18n-2</span>
-          </span>
+          <span className="ml-auto text-[var(--lp-ink-3)]">{s("footer.rights")}</span>
         </div>
       </div>
     </footer>

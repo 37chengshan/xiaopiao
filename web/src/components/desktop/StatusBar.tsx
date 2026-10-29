@@ -59,10 +59,7 @@ export function StatusBar() {
           <span className="tabular-nums">{fill(s("status.lastWrite"), hhmm(lastWrite))}</span>
         </>
       )}
-      <span className="ml-auto hidden items-center gap-3 md:flex">
-        <span className="rounded-full border border-d-hairline px-1.5 text-[10px] tracking-[0.04em]">build i18n-2</span>
-        <span>{s("status.search")}</span>
-      </span>
+      <span className="ml-auto hidden md:inline">{s("status.search")}</span>
     </footer>
   );
 }
