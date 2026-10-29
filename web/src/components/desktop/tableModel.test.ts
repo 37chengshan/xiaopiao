@@ -6,6 +6,9 @@ import {
   filterTxns,
   isAllSelected,
   nextSort,
+  orderCentsRange,
+  orderDayRange,
+  parseCentsInput,
   retainVisible,
   segments,
   sortTxns,
@@ -220,5 +223,45 @@ describe("activeFilterCount", () => {
     expect(activeFilterCount(EMPTY_FILTERS)).toBe(0);
     expect(activeFilterCount(f({ direction: "OUT", categories: ["MEAL", "DRINK"], minCents: 100, maxCents: 200 }))).toBe(3);
     expect(activeFilterCount(f({ from: T0, sources: ["CSV"] }))).toBe(2);
+  });
+});
+
+describe("parseCentsInput", () => {
+  it("reads yuan as integer cents", () => {
+    expect(parseCentsInput("12")).toBe(1200);
+    expect(parseCentsInput("12.5")).toBe(1250);
+    expect(parseCentsInput("12.50")).toBe(1250);
+    expect(parseCentsInput(" 1,234.05 ")).toBe(123405);
+    expect(parseCentsInput("0.07")).toBe(7);
+  });
+
+  it("reads junk as no bound instead of NaN", () => {
+    for (const junk of ["", "  ", "1.2.3", "12a", "-5", "12.345", "abc"]) expect(parseCentsInput(junk)).toBeNull();
+  });
+});
+
+describe("orderCentsRange", () => {
+  it("swaps a range typed the wrong way round", () => {
+    expect(orderCentsRange(500, 100)).toEqual({ min: 100, max: 500 });
+    expect(orderCentsRange(null, 100)).toEqual({ min: null, max: 100 });
+    expect(orderCentsRange(100, null)).toEqual({ min: 100, max: null });
+    expect(orderCentsRange(100, 500)).toEqual({ min: 100, max: 500 });
+    expect(orderCentsRange(null, null)).toEqual({ min: null, max: null });
+  });
+});
+
+describe("orderDayRange", () => {
+  it("swaps two days, keeping both ends of an exclusive range", () => {
+    const from = new Date(2026, 9, 24).getTime();
+    const to = new Date(2026, 9, 21).getTime();
+    expect(orderDayRange(from, to)).toEqual({ from: new Date(2026, 9, 20).getTime(), to: new Date(2026, 9, 25).getTime() });
+  });
+
+  it("leaves an already ordered or half-open range alone", () => {
+    const a = new Date(2026, 9, 20).getTime();
+    const b = new Date(2026, 9, 24).getTime();
+    expect(orderDayRange(a, b)).toEqual({ from: a, to: b });
+    expect(orderDayRange(a, null)).toEqual({ from: a, to: null });
+    expect(orderDayRange(null, b)).toEqual({ from: null, to: b });
   });
 });

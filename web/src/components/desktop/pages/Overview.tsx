@@ -173,6 +173,7 @@ export function OverviewPage() {
       key: "time",
       header: s("ledger.colTime"),
       width: "150px",
+      phoneHidden: true,
       cell: (t) => (
         <span className="text-[12px] text-d-ink-3">
           {relativeDay(startOfDay(t.occurredAt), now)} {hhmm(t.occurredAt)}

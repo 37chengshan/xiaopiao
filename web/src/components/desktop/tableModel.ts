@@ -1,6 +1,7 @@
 import { getLocale } from "@/lib/strings";
-import { CATEGORIES, type Category, type Source, type Txn } from "@/domain/types";
-import { categoryLabel, sourceLabel, SOURCE_LABEL_ZH } from "./labels";
+import { addDays } from "@/logic/time";
+import { CATEGORIES, type Category, type Source, type Txn, startOfDay } from "@/domain/types";
+import { categoryLabel, sourceLabel } from "./labels";
 
 /**
  * Pure logic behind the desktop DataTable (docs/WEB-SPEC.md §A.2): filtering, sorting, selection,
@@ -42,9 +43,6 @@ export const EMPTY_FILTERS: Filters = {
   sources: [],
 };
 
-/** Chinese labels stay for CSV round-trip (the importer reads these columns). */
-export const SOURCE_LABEL = SOURCE_LABEL_ZH;
-
 /** Free text hits the merchant, the note and the category label; `12.5` also finds a ¥12.50 row. */
 function matchesQuery(t: Txn, q: string): boolean {
   if (!q) return true;
@@ -68,6 +66,30 @@ export function filterTxns(rows: readonly Txn[], f: Filters): Txn[] {
     if (f.maxCents !== null && t.amountCents > f.maxCents) return false;
     return matchesQuery(t, q);
   });
+}
+
+/* -------------------------------------------------------------- inputs */
+
+/**
+ * Amount filter input → cents. Empty, `1.2.3`, `12a`, `-5` and anything past two decimals read as
+ * "no bound" instead of a NaN that would empty the table.
+ */
+export function parseCentsInput(raw: string): number | null {
+  const text = raw.trim().replace(/[,¥￥\s]/g, "");
+  if (!/^\d+(?:\.\d{0,2})?$/.test(text)) return null;
+  const cents = Math.round(Number(text) * 100);
+  return Number.isFinite(cents) ? cents : null;
+}
+
+/** A range typed the wrong way round reads as the same range, just swapped. */
+export function orderCentsRange(min: number | null, max: number | null): { min: number | null; max: number | null } {
+  return min !== null && max !== null && min > max ? { min: max, max: min } : { min, max };
+}
+
+/** `to` is exclusive (next-day midnight); typed backwards it swaps, keeping both days. */
+export function orderDayRange(from: number | null, to: number | null): { from: number | null; to: number | null } {
+  if (from === null || to === null || from < to) return { from, to };
+  return { from: startOfDay(to - 1), to: addDays(startOfDay(from), 1) };
 }
 
 function sortValue(t: Txn, key: SortKey): number | string {

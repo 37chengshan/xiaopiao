@@ -46,33 +46,38 @@ export function StatsPage() {
   }, [period, anchor, custom, compare, txns]);
 
   const today = startOfDay(now);
-  const nextAnchor = shiftAnchor(period, anchor, 1, custom);
-  const nextWindow = windowOf(period, nextAnchor, custom);
-  const canNext = nextWindow.start <= today;
+  // A custom range is fixed by its two dates, so stepping it is meaningless (and `windowOf` ignores the anchor).
+  const steppable = period !== "custom";
+  const nextAnchor = steppable ? shiftAnchor(period, anchor, 1, custom) : anchor;
+  const canNext = steppable && windowOf(period, nextAnchor, custom).start <= today;
 
   return (
     <div className="grid grid-cols-12 gap-5">
       <div className="col-span-12 flex flex-wrap items-center gap-2">
         <Segmented value={period} onChange={setPeriod} label={s("stats.trend")} options={PERIODS.map((p) => ({ value: p.value, label: p.label() }))} />
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            aria-label={s("stats.prevPeriod")}
-            onClick={() => setAnchor(shiftAnchor(period, anchor, -1, custom))}
-            className="d-press grid size-7 place-items-center rounded-md text-d-ink-2 hover:bg-d-fill hover:text-d-ink"
-          >
-            <ChevronLeft className="size-4" strokeWidth={2} aria-hidden />
-          </button>
+          {steppable && (
+            <button
+              type="button"
+              aria-label={s("stats.prevPeriod")}
+              onClick={() => setAnchor(shiftAnchor(period, anchor, -1, custom))}
+              className="d-press grid size-7 place-items-center rounded-md text-d-ink-2 hover:bg-d-fill hover:text-d-ink"
+            >
+              <ChevronLeft className="size-4" strokeWidth={2} aria-hidden />
+            </button>
+          )}
           <span className="min-w-[164px] text-center text-[12.5px] font-medium text-d-ink">{view.label}</span>
-          <button
-            type="button"
-            aria-label={s("stats.nextPeriod")}
-            disabled={!canNext}
-            onClick={() => canNext && setAnchor(nextAnchor)}
-            className="d-press grid size-7 place-items-center rounded-md text-d-ink-2 hover:bg-d-fill hover:text-d-ink disabled:opacity-30"
-          >
-            <ChevronRight className="size-4" strokeWidth={2} aria-hidden />
-          </button>
+          {steppable && (
+            <button
+              type="button"
+              aria-label={s("stats.nextPeriod")}
+              disabled={!canNext}
+              onClick={() => canNext && setAnchor(nextAnchor)}
+              className="d-press grid size-7 place-items-center rounded-md text-d-ink-2 hover:bg-d-fill hover:text-d-ink disabled:opacity-30"
+            >
+              <ChevronRight className="size-4" strokeWidth={2} aria-hidden />
+            </button>
+          )}
         </div>
 
         {period === "custom" && (
@@ -81,6 +86,7 @@ export function StatsPage() {
               type="date"
               aria-label={s("stats.from")}
               value={dateKey(custom.from)}
+              max={dateKey(today)}
               onChange={(e) => setCustom((c) => ({ ...c, from: new Date(`${e.target.value}T00:00:00`).getTime() }))}
               className="h-7 rounded-md bg-d-fill px-2 text-[12px] text-d-ink outline-none"
             />
@@ -89,6 +95,7 @@ export function StatsPage() {
               type="date"
               aria-label={s("stats.to")}
               value={dateKey(custom.to)}
+              max={dateKey(today)}
               onChange={(e) => setCustom((c) => ({ ...c, to: new Date(`${e.target.value}T00:00:00`).getTime() }))}
               className="h-7 rounded-md bg-d-fill px-2 text-[12px] text-d-ink outline-none"
             />

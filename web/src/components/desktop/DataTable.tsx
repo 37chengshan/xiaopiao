@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronUp, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { nextSort, stepIndex, toggleAll, toggleSelected, virtualWindow, type Sort, type SortKey } from "./tableModel";
@@ -13,6 +13,8 @@ export interface Column<T> {
   align?: "left" | "right";
   /** presence of `sortKey` makes the header clickable */
   sortKey?: SortKey;
+  /** drop this column under 640px so the phone keeps the two that matter (merchant + amount) */
+  phoneHidden?: boolean;
   cell: (row: T, ctx: { query: string }) => ReactNode;
 }
 
@@ -66,6 +68,9 @@ export function DataTable<T>({
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportH, setViewportH] = useState(480);
   const selectable = Boolean(selected && onSelected);
+  // With a delete handler the table grows one trailing cell: a per-row delete that hover reveals.
+  const actionable = Boolean(onDelete);
+  const colCount = columns.length + (selectable ? 1 : 0) + (actionable ? 1 : 0);
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -166,12 +171,13 @@ export function DataTable<T>({
         maxHeight && "min-h-0",
       )}
     >
-      <table className="w-full min-w-[540px] border-collapse text-left text-[13px] sm:min-w-0">
+      <table className="w-full min-w-[320px] border-collapse text-left text-[13px] sm:min-w-0">
         <colgroup>
           {selectable && <col style={{ width: 36 }} />}
           {columns.map((c) => (
             <col key={c.key} style={c.width ? { width: c.width } : undefined} />
           ))}
+          {actionable && <col style={{ width: 44 }} />}
         </colgroup>
         <thead>
           <tr className="sticky top-0 z-10 bg-d-surface">
@@ -196,6 +202,7 @@ export function DataTable<T>({
                   className={cn(
                     "h-[34px] whitespace-nowrap border-b border-d-hairline px-3 text-[12px] font-medium text-d-ink-2",
                     c.align === "right" && "text-right",
+                    c.phoneHidden && "hidden sm:table-cell",
                   )}
                 >
                   {c.sortKey && onSort ? (
@@ -218,12 +225,17 @@ export function DataTable<T>({
                 </th>
               );
             })}
+            {actionable && (
+              <th scope="col" className="h-[34px] border-b border-d-hairline px-2">
+                <span className="sr-only">{s("common.delete")}</span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
           {win.padTop > 0 && (
             <tr aria-hidden style={{ height: win.padTop }}>
-              <td colSpan={columns.length + (selectable ? 1 : 0)} />
+              <td colSpan={colCount} />
             </tr>
           )}
           <AnimatePresence initial={false}>
@@ -241,7 +253,11 @@ export function DataTable<T>({
                 transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 aria-selected={selectable ? isSelected : undefined}
                 onMouseDown={() => onActive?.(id)}
-                onDoubleClick={() => onActivate?.(row)}
+                onClick={(event) => {
+                  // The checkbox and the row actions keep their own behaviour.
+                  if ((event.target as HTMLElement).closest("button, input, a, label")) return;
+                  onActivate?.(row);
+                }}
                 className={cn(
                   "group align-middle",
                   isSelected ? "bg-d-accent/[0.08]" : isActive ? "bg-d-fill/70" : "hover:bg-d-fill/40",
@@ -250,7 +266,7 @@ export function DataTable<T>({
                 )}
               >
                 {selectable && (
-                  <td className="pl-3 pr-0">
+                  <td className="pl-3 pr-0" onClick={(event) => event.stopPropagation()}>
                     <input
                       type="checkbox"
                       aria-label={id}
@@ -263,23 +279,39 @@ export function DataTable<T>({
                 {columns.map((c) => (
                   <td
                     key={c.key}
-                    className={cn("truncate px-3 py-0 text-d-ink", c.align === "right" && "text-right tabular-nums")}
+                    className={cn("truncate px-3 py-0 text-d-ink", c.align === "right" && "text-right tabular-nums", c.phoneHidden && "hidden sm:table-cell")}
                   >
                     {c.cell(row, { query })}
                   </td>
                 ))}
+                {actionable && (
+                  <td className="px-2 text-right">
+                    <button
+                      type="button"
+                      aria-label={s("common.delete")}
+                      title={s("common.delete")}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDelete?.([row]);
+                      }}
+                      className="d-press grid size-6 place-items-center rounded-md text-d-ink-3 hover:bg-d-ink/10 hover:text-d-negative focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                    >
+                      <Trash2 className="size-3.5" strokeWidth={2} aria-hidden />
+                    </button>
+                  </td>
+                )}
               </motion.tr>
             );
           })}
           </AnimatePresence>
           {win.padBottom > 0 && (
             <tr aria-hidden style={{ height: win.padBottom }}>
-              <td colSpan={columns.length + (selectable ? 1 : 0)} />
+              <td colSpan={colCount} />
             </tr>
           )}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={columns.length + (selectable ? 1 : 0)}>{empty}</td>
+              <td colSpan={colCount}>{empty}</td>
             </tr>
           )}
         </tbody>
