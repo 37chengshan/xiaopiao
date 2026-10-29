@@ -3,6 +3,7 @@ import { startOfDay, type Txn } from "../domain/types";
 import { buildDemoTxns } from "../services/demoData";
 import { createMemoryLedger } from "../services/demoLedger";
 import { BADGE_RULES, computeBadges } from "./badges";
+import { categorize } from "./categorize";
 import { dailyComment, weeklyComment } from "./comments";
 import { parseBillCsv, tokenizeCsv } from "./csv";
 import { buildDailyReceipt } from "./dailyReceipt";
@@ -63,6 +64,41 @@ describe("intents", () => {
   it("parses the regret question", () => {
     const i = detectIntent("如果少喝一半奶茶", NOW);
     expect(i).toMatchObject({ kind: "REGRET", reductionPct: 50, target: { kind: "category", category: "DRINK" } });
+  });
+  it("answers the same questions in English", () => {
+    expect(detectIntent("How much did I spend today?", NOW).kind).toBe("TODAY_SPEND");
+    expect(detectIntent("Where did this month's money go?", NOW).kind).toBe("MONTH_SPEND");
+    expect(detectIntent("Print my receipt", NOW).kind).toBe("RECEIPT");
+    expect(detectIntent("How many entries this week?", NOW).kind).toBe("WEEKLY");
+    expect(detectIntent("Do I have any subscriptions?", NOW).kind).toBe("SUBSCRIPTIONS");
+    expect(detectIntent("Import a statement", NOW).kind).toBe("IMPORT");
+    expect(detectIntent("blah", NOW).kind).toBe("UNKNOWN");
+  });
+  it("routes the month starter chip", () => {
+    expect(detectIntent("这个月钱花在哪儿了？", NOW).kind).toBe("MONTH_SPEND");
+  });
+  it("parses English quick-add with English merchants", () => {
+    const i = detectIntent("lunch 32, coffee 15", NOW);
+    expect(i.kind).toBe("ADD");
+    expect(i.kind === "ADD" && i.drafts.map((d) => [d.merchant, d.category, d.amountCents])).toEqual([
+      ["lunch", "MEAL", 3200],
+      ["coffee", "DRINK", 1500],
+    ]);
+  });
+  it("parses an English regret question", () => {
+    const i = detectIntent("What if I cut coffee in half?", NOW);
+    expect(i).toMatchObject({ kind: "REGRET", reductionPct: 50, target: { kind: "category", category: "DRINK" } });
+  });
+});
+
+describe("categorize", () => {
+  it("reads English merchant names", () => {
+    expect(categorize("Starbucks coffee")).toBe("DRINK");
+    expect(categorize("Netflix subscription")).toBe("SUBSCRIPTION");
+    expect(categorize("Uber ride home")).toBe("TRANSPORT");
+    expect(categorize("lunch at the deli")).toBe("MEAL");
+    expect(categorize("groceries")).toBe("GROCERY");
+    expect(categorize("")).toBe("OTHER");
   });
 });
 

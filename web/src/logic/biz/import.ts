@@ -28,12 +28,15 @@ export type ConflictPolicy = "replace" | "keep";
 /** new = day unknown to the book; same = identical numbers; differ = the book has other numbers. */
 export type RowStatus = "new" | "same" | "differ" | "duplicate" | "error";
 
+/** What one line does to the book: add the day, overwrite the day, or leave the day alone. */
+export type RowOutcome = "add" | "overwrite" | "skip";
+
 export interface PreviewRow extends ParsedRow {
   status: RowStatus;
   /** what the book holds for that day today */
   existing: RevenueEntry | null;
-  /** what this row would write, when it writes at all */
-  outcome: "add" | "overwrite" | "skip";
+  /** what this row would write, when it writes at all; the preview lets the owner change it per day */
+  outcome: RowOutcome;
 }
 
 export interface ImportPreview {
@@ -139,7 +142,11 @@ export function classifyRows(rows: readonly ParsedRow[], book: readonly RevenueE
       return { ...row, status: "duplicate" as const, existing, outcome: "skip" as const };
     }
     seen.add(row.day);
-    if (!existing) return { ...row, status: "new" as const, existing: null, outcome: "add" as const };
+    // A SEED row is the initial book, not a number the owner ever entered, so importing it is
+    // 新增 — telling them they would "overwrite 40 days" on a fresh book was a lie.
+    if (!existing || existing.source === "SEED") {
+      return { ...row, status: "new" as const, existing, outcome: "add" as const };
+    }
     const identical =
       existing.revenueCents === row.revenueCents && existing.orders === row.orders && existing.note === row.note;
     if (identical) return { ...row, status: "same" as const, existing, outcome: "skip" as const };
@@ -170,7 +177,27 @@ export function buildPreview(
   policy: ConflictPolicy,
   fileName = "",
 ): ImportPreview {
-  const rows = classifyRows(parsed, book, policy);
+  return summarize(classifyRows(parsed, book, policy), fileName);
+}
+
+/**
+ * Re-decides one line, for the per-day 新增 / 覆盖 / 跳过 control in the preview. Only a day that
+ * can write at all (`new`/`differ`) accepts a choice; the counts and changes are rebuilt after.
+ */
+export function decideRow(preview: ImportPreview, line: number, outcome: RowOutcome): ImportPreview {
+  const rows = preview.rows.map((row) => {
+    if (row.line !== line) return row;
+    if (row.status === "new") return { ...row, outcome: outcome === "skip" ? ("skip" as const) : ("add" as const) };
+    if (row.status === "differ") {
+      return { ...row, outcome: outcome === "skip" ? ("skip" as const) : ("overwrite" as const) };
+    }
+    return row;
+  });
+  return summarize(rows, preview.fileName);
+}
+
+/** Counts and the day rows the import would write. Every preview rebuild goes through here. */
+function summarize(rows: PreviewRow[], fileName: string): ImportPreview {
   const counts = { add: 0, overwrite: 0, skip: 0, error: 0 };
   const changes: RevenueEntry[] = [];
   for (const row of rows) {

@@ -3,6 +3,7 @@ import { computeResults, type Experiment } from "@/features/merchant/logic/exper
 import type { Insights } from "@/features/merchant/logic/aggregator";
 import { cn } from "@/lib/utils";
 import { WEEKDAY_KEYS, useBizStrings } from "../strings";
+import { experimentCopy } from "../templates";
 import { fill } from "../text";
 import { Button, Card, Chip } from "./primitives";
 
@@ -38,7 +39,8 @@ export function DecideBoard({
   }
 
   const results = computeResults(experiment);
-  const lead = results.leader ? experiment.options.find((o) => o.id === results.leader) : null;
+  const copy = experimentCopy(t, experiment);
+  const lead = results.leader ? copy.options.find((o) => o.id === results.leader) : null;
   const peak = insights.peak
     ? fill(t("insights.peakName"), t(WEEKDAY_KEYS[insights.peak.weekday]), t(SLOT_KEYS[insights.peak.slot]))
     : t("insights.peak");

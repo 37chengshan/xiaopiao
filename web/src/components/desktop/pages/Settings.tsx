@@ -1,13 +1,14 @@
-import { Command, Download, Eraser, Info, Languages, LogIn, Palette, ShieldCheck } from "lucide-react";
+import { Command, Download, Eraser, Info, Languages, LogIn, Palette, ShieldCheck, Volume2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useLedger } from "@/services/LedgerProvider";
 import { useTheme, type ThemePref } from "@/lib/theme";
 import { useLocale } from "@/lib/strings";
+import { useReceiptSound } from "@/features/receipt/soundPref";
 import { downloadCsv } from "../csvExport";
 import { Modal } from "../dialogs";
 import { setLocalePref } from "../localePref";
-import { Button, Card, Hint, Kbd, Segmented } from "../ui";
+import { Button, Card, Hint, Kbd, Segmented, Toggle } from "../ui";
 import { s } from "../strings";
 import pkg from "../../../../package.json";
 
@@ -32,6 +33,7 @@ function KeyboardGlyph({ keys }: { keys: string }) {
 export function SettingsPage() {
   const { txns, reset } = useLedger();
   const { pref, setPref } = useTheme();
+  const [sound, setSound] = useReceiptSound();
   const locale = useLocale();
   const [confirming, setConfirming] = useState(false);
 
@@ -76,7 +78,9 @@ export function SettingsPage() {
             ]}
           />
         </Row>
-
+        <Row icon={<Volume2 className="size-3.5" strokeWidth={1.8} aria-hidden />} label={s("st.sound")} hint={s("st.soundBody")}>
+          <Toggle checked={sound} onChange={setSound} label={s("st.sound")} />
+        </Row>
       </Card>
 
       <Card

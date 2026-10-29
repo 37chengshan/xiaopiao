@@ -1,20 +1,17 @@
 import { CATEGORIES, type Txn } from "@/domain/types";
+import { APP_CSV_HEADER, csvSourceLabel } from "@/logic/csv";
 import { dateKey, hhmm } from "@/logic/time";
-import { SOURCE_LABEL } from "./tableModel";
-
-/** CSV out (docs/WEB-SPEC.md §A.3): the same columns the import accepts, so an export re-imports cleanly. */
-const HEADER = ["日期", "时间", "商家", "分类", "方向", "金额(元)", "备注", "来源"];
 
 function cell(value: string): string {
   return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
 export function txnsToCsv(rows: readonly Txn[]): string {
-  const lines = [HEADER.join(",")];
+  const lines = [APP_CSV_HEADER.join(",")];
   for (const t of [...rows].sort((a, b) => a.occurredAt - b.occurredAt)) {
     const amount = (Math.abs(t.amountCents) / 100).toFixed(2);
     lines.push(
-      [dateKey(t.occurredAt), hhmm(t.occurredAt), t.merchant, CATEGORIES[t.category].label, t.direction === "OUT" ? "支出" : "收入", amount, t.note ?? "", SOURCE_LABEL[t.source]]
+      [dateKey(t.occurredAt), hhmm(t.occurredAt), t.merchant, CATEGORIES[t.category].label, t.direction === "OUT" ? "支出" : "收入", amount, t.note ?? "", csvSourceLabel(t.source)]
         .map(cell)
         .join(","),
     );

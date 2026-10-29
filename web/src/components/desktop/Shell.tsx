@@ -1,7 +1,7 @@
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Download } from "lucide-react";
 import { startOfDay, type Txn } from "@/domain/types";
@@ -15,6 +15,7 @@ import { CommandPalette } from "./palette";
 import { EntryDialog, PrintDialog } from "./dialogs";
 import { useFlag, useHotkeys, useMediaQuery, dismissNotice, useNoticeDismissed } from "./hooks";
 import { titleOf } from "./nav";
+import { EASE_OUT } from "./motion";
 import { useDayDoc } from "./receiptDoc";
 import { Sidebar } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
@@ -50,6 +51,7 @@ export function Shell() {
   const title = titleOf(pathname);
   const todayDoc = useDayDoc(startOfDay(now));
   const noticeGone = useNoticeDismissed();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const [collapsedPref, setCollapsedPref] = useFlag("xiaopiao.d.sidebar-collapsed");
   const narrow = useMediaQuery("(max-width: 1023px)");
@@ -91,6 +93,11 @@ export function Shell() {
   // Leaving the drawer open across a navigation would cover the page it just opened.
   useEffect(() => setDrawer(false), [pathname]);
 
+  // The scroll container outlives a navigation now, so each page starts at its top (before paint).
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [pathname]);
+
   const soon = () => toast(s("soon.title"), { description: s("soon.body") });
   const chrome = 52 + (noticeGone ? 0 : 36);
 
@@ -105,8 +112,6 @@ export function Shell() {
             onSearch={() => setPalette(true)}
             onPrint={() => setPrint({ doc: todayDoc, origin: document.querySelector("[data-receipt-widget]")?.getBoundingClientRect() ?? null })}
             onOpenSidebar={phone ? () => setDrawer(true) : undefined}
-            onToggleSidebar={() => setCollapsedPref(!collapsedPref)}
-            sidebarCollapsed={collapsed}
             onMessages={() => {
               setMessages(true);
               setUnread(false);
@@ -134,10 +139,24 @@ export function Shell() {
           )}
 
           <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden" style={{ ["--d-chrome" as string]: `${chrome}px` }}>
-            <div key={pathname} className="hide-scrollbar min-h-0 flex-1 overflow-y-auto">
-              <div className="mx-auto w-full max-w-[1200px] px-4 py-5 lg:px-8 lg:py-6">
-                <Outlet />
-              </div>
+            {/*
+              One scroll container for the shell. Switching pages unmounts the old one at once, so the incoming
+              page must be *legible on its first painted frame*: it settles in from 60% over a 4px rise instead
+              of fading from 0. The old version started at opacity 0, which painted a fully blank frame on every
+              navigation — the flash — and left the page invisible whenever no animation frame arrived. A
+              cross-fade of two layers was worse: both at 50% composites to a wash-out.
+            */}
+            <div ref={scrollRef} className="hide-scrollbar d-scroll relative min-h-0 flex-1 overflow-y-auto">
+              <motion.div
+                key={pathname}
+                initial={reduce ? false : { opacity: 0.6, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.16, ease: EASE_OUT }}
+              >
+                <div className="mx-auto w-full max-w-[1200px] px-4 py-5 lg:px-8 lg:py-6">
+                  <Outlet />
+                </div>
+              </motion.div>
             </div>
           </main>
           <StatusBar />

@@ -88,7 +88,7 @@ export function Kpi({
   hint?: string;
   suffix?: string;
 }) {
-  const rolled = useCountUp(cents ?? 0);
+  const rolled = useCountUp(cents ?? 0, 600, label);
   const shown = cents === undefined ? value : money(rolled);
   return (
     <div className="flex min-w-0 flex-col gap-1.5 rounded-xl bg-d-surface p-5">

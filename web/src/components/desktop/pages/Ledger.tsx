@@ -17,9 +17,11 @@ import { Loadable } from "../motion";
 import { Modal } from "../dialogs";
 import {
   EMPTY_FILTERS,
-  SOURCE_LABEL,
   activeFilterCount,
   filterTxns,
+  orderCentsRange,
+  orderDayRange,
+  parseCentsInput,
   retainVisible,
   segments,
   sortTxns,
@@ -31,10 +33,13 @@ import {
 import { categoryLabel, sourceLabel } from "../labels";
 import { Button, Card, Chip, EmptyState, Skeleton, TextInput, Segmented, SearchInput } from "../ui";
 import { s } from "../strings";
+import { fill, s as copy } from "./copy/ledger";
 import { useShell } from "../Shell";
 
 const POPOVER = "z-50 w-[380px] max-w-[calc(100vw-32px)] rounded-xl bg-d-surface p-4 shadow-[0_18px_50px_-12px_oklch(0_0_0/30%)] outline-none";
 const SOURCES: Source[] = ["MANUAL", "QUICK_ADD", "VOICE", "CSV", "DEMO"];
+/** Import preview lists the head of the file; the rest stays one click away. */
+const PREVIEW_ROWS = 8;
 
 type TimePreset = "all" | "today" | "week" | "month" | "days30" | "custom";
 
@@ -69,11 +74,15 @@ export function LedgerPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [preview, setPreview] = useState<{ rows: Txn[]; failed: number; duplicates: number } | null>(null);
+  const [preview, setPreview] = useState<{ rows: Txn[]; failed: number; failures: string[]; duplicates: number } | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  // Only text that does not parse yet lives here; a valid amount goes straight into `filters`.
+  const [amountDraft, setAmountDraft] = useState<Record<"minCents" | "maxCents", string | null>>({ minCents: null, maxCents: null });
   const fileRef = useRef<HTMLInputElement>(null);
 
   const rows = useMemo(() => sortTxns(filterTxns(txns, { ...filters, query: debounced }), sort), [txns, filters, debounced, sort]);
   const filterCount = activeFilterCount(filters);
+  const filtering = debounced.trim() !== "" || filterCount > 0;
   const selectedRows = useMemo(() => rows.filter((r) => selected.has(r.id)), [rows, selected]);
 
   // Selection never keeps rows that a filter just hid.
@@ -88,12 +97,12 @@ export function LedgerPage() {
         const known = new Set(txns.map((t) => t.dedupeKey ?? t.id));
         const duplicates = parsed.txns.filter((t) => known.has(t.dedupeKey ?? t.id)).length;
         if (parsed.txns.length === 0) {
-          toast(s("ledger.importEmpty"));
+          toast(parsed.failures[0] ?? copy("import.readFail"));
           return;
         }
-        setPreview({ rows: parsed.txns, failed: parsed.failed, duplicates });
+        setPreview({ rows: parsed.txns, failed: parsed.failed, failures: parsed.failures, duplicates });
       } catch {
-        toast.error(s("ledger.importEmpty"));
+        toast.error(copy("import.readFail"));
       }
     },
     [txns],
@@ -135,9 +144,10 @@ export function LedgerPage() {
     };
   }, [readFile]);
 
+  const today = startOfDay(now);
+
   const timePreset = (): TimePreset => {
     if (filters.from === null && filters.to === null) return "all";
-    const today = startOfDay(now);
     if (filters.from === today && filters.to === addDays(today, 1)) return "today";
     if (filters.from === weekStartOf(now) && filters.to === addDays(today, 1)) return "week";
     if (filters.from !== null && filters.from === new Date(new Date(now).getFullYear(), new Date(now).getMonth(), 1).getTime() && filters.to === addDays(today, 1)) return "month";
@@ -145,19 +155,53 @@ export function LedgerPage() {
     return "custom";
   };
 
-  const applyTime = (preset: TimePreset) => {
-    const today = startOfDay(now);
+  /** `custom` is offered only while it is the current state; the date inputs own that range. */
+  const preset = timePreset();
+
+  const applyTime = (next: TimePreset) => {
     const set = (from: number | null, to: number | null) => setFilters((f) => ({ ...f, from, to }));
-    if (preset === "all") set(null, null);
-    else if (preset === "today") set(today, addDays(today, 1));
-    else if (preset === "week") set(weekStartOf(now), addDays(today, 1));
-    else if (preset === "month") set(new Date(new Date(now).getFullYear(), new Date(now).getMonth(), 1).getTime(), addDays(today, 1));
-    else if (preset === "days30") set(addDays(today, -29), addDays(today, 1));
+    if (next === "all") set(null, null);
+    else if (next === "today") set(today, addDays(today, 1));
+    else if (next === "week") set(weekStartOf(now), addDays(today, 1));
+    else if (next === "month") set(new Date(new Date(now).getFullYear(), new Date(now).getMonth(), 1).getTime(), addDays(today, 1));
+    else if (next === "days30") set(addDays(today, -29), addDays(today, 1));
+  };
+
+  const setDay = (side: "from" | "to", raw: string) => {
+    if (raw === "") {
+      setFilters((f) => (side === "from" ? { ...f, from: null } : { ...f, to: null }));
+      return;
+    }
+    const day = Math.min(new Date(`${raw}T00:00:00`).getTime(), today);
+    setFilters((f) => (side === "from" ? { ...f, from: day } : { ...f, to: addDays(day, 1) }));
+  };
+
+  /** Two dates typed the wrong way round swap instead of leaving an empty table. */
+  const settleDayRange = () => setFilters((f) => ({ ...f, ...orderDayRange(f.from, f.to) }));
+
+  const setAmount = (side: "minCents" | "maxCents", raw: string) => {
+    setAmountDraft((d) => (side === "minCents" ? { ...d, minCents: raw } : { ...d, maxCents: raw }));
+    const cents = parseCentsInput(raw);
+    setFilters((f) => (side === "minCents" ? { ...f, minCents: cents } : { ...f, maxCents: cents }));
+  };
+
+  /** Blur drops the draft, so "12." reads back as ¥12, and a reversed range settles. */
+  const settleAmount = (side: "minCents" | "maxCents") => {
+    setAmountDraft((d) => (side === "minCents" ? { ...d, minCents: null } : { ...d, maxCents: null }));
+    setFilters((f) => ({ ...f, ...orderCentsRange(f.minCents, f.maxCents) }));
+  };
+
+  const amountText = (side: "minCents" | "maxCents") => amountDraft[side] ?? (filters[side] === null ? "" : String(filters[side] / 100));
+
+  const clearFilters = () => {
+    setFilters(EMPTY_FILTERS);
+    setAmountDraft({ minCents: null, maxCents: null });
   };
 
   const deleteRows = async (targets: Txn[]) => {
     if (targets.length === 0) return;
-    setSelected(new Set());
+    const gone = new Set(targets.map((t) => t.id));
+    setSelected((prev) => new Set([...prev].filter((id) => !gone.has(id))));
     await Promise.all(targets.map((t) => remove(t.id)));
     notifyUndo(`${s("ledger.deleted")} ${targets.length} ${s("ledger.itemUnit")}`, () => void Promise.all(targets.map(restore)));
   };
@@ -171,12 +215,19 @@ export function LedgerPage() {
     notifyUndo(s("ledger.reclassified"), () => void Promise.all(before.map((t) => update(t))));
   };
 
+  const exportRows = (list: readonly Txn[], message: string) => {
+    downloadCsv(`xiaopiao-${dateKey(now)}.csv`, list);
+    setExportOpen(false);
+    toast(message);
+  };
+
   const columns: Column<Txn>[] = [
     {
       key: "occurredAt",
       header: s("ledger.colTime"),
       sortKey: "occurredAt",
       width: "132px",
+      phoneHidden: true,
       cell: (t) => (
         <span className="num text-[12px] text-d-ink-3">
           {dateKey(t.occurredAt).slice(5)} {hhmm(t.occurredAt)}
@@ -202,6 +253,7 @@ export function LedgerPage() {
       header: s("ledger.colCategory"),
       sortKey: "category",
       width: "128px",
+      phoneHidden: true,
       cell: (t) => <span className="text-[12px] text-d-ink-2">{categoryLabel(t.category)}</span>,
     },
     {
@@ -209,6 +261,7 @@ export function LedgerPage() {
       header: s("ledger.colSource"),
       sortKey: "source",
       width: "84px",
+      phoneHidden: true,
       cell: (t) => <span className="text-[12px] text-d-ink-3">{sourceLabel(t.source)}</span>,
     },
     {
@@ -253,7 +306,7 @@ export function LedgerPage() {
               <div className="space-y-3.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] font-semibold text-d-ink">{s("ledger.filters")}</span>
-                  <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="d-press text-[12px] text-d-accent-ink">
+                  <button type="button" onClick={clearFilters} className="d-press text-[12px] text-d-accent-ink">
                     {s("ledger.clearFilters")}
                   </button>
                 </div>
@@ -276,16 +329,18 @@ export function LedgerPage() {
                 <div className="space-y-1.5">
                   <p className="text-[11.5px] text-d-ink-3">{s("ledger.time")}</p>
                   <Segmented
-                    value={timePreset()}
+                    value={preset}
                     onChange={applyTime}
                     label={s("ledger.time")}
                     size="sm"
+                    className="max-w-full flex-wrap"
                     options={[
                       { value: "all", label: s("common.all") },
                       { value: "today", label: s("common.today") },
                       { value: "week", label: s("stats.week") },
                       { value: "month", label: s("stats.month") },
                       { value: "days30", label: s("ledger.days30") },
+                      ...(preset === "custom" ? [{ value: "custom" as const, label: copy("time.custom") }] : []),
                     ]}
                   />
                   <div className="flex items-center gap-2 pt-1">
@@ -293,7 +348,9 @@ export function LedgerPage() {
                       type="date"
                       aria-label={s("stats.from")}
                       value={filters.from ? dateKey(filters.from) : ""}
-                      onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value ? new Date(`${e.target.value}T00:00:00`).getTime() : null }))}
+                      max={dateKey(filters.to !== null ? Math.min(today, filters.to - 1) : today)}
+                      onChange={(e) => setDay("from", e.target.value)}
+                      onBlur={settleDayRange}
                       className="h-7 min-w-0 flex-1 rounded-md bg-d-fill px-2 text-[12px] text-d-ink outline-none"
                     />
                     <span className="text-d-ink-3">–</span>
@@ -301,7 +358,10 @@ export function LedgerPage() {
                       type="date"
                       aria-label={s("stats.to")}
                       value={filters.to ? dateKey(addDays(filters.to, -1)) : ""}
-                      onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value ? addDays(new Date(`${e.target.value}T00:00:00`).getTime(), 1) : null }))}
+                      min={filters.from !== null ? dateKey(filters.from) : undefined}
+                      max={dateKey(today)}
+                      onChange={(e) => setDay("to", e.target.value)}
+                      onBlur={settleDayRange}
                       className="h-7 min-w-0 flex-1 rounded-md bg-d-fill px-2 text-[12px] text-d-ink outline-none"
                     />
                   </div>
@@ -334,16 +394,18 @@ export function LedgerPage() {
                       inputMode="decimal"
                       placeholder={s("ledger.min")}
                       aria-label={`${s("ledger.amount")} ${s("ledger.min")}`}
-                      value={filters.minCents === null ? "" : String(filters.minCents / 100)}
-                      onChange={(e) => setFilters((f) => ({ ...f, minCents: e.target.value === "" ? null : Math.round(Number(e.target.value) * 100) }))}
+                      value={amountText("minCents")}
+                      onChange={(e) => setAmount("minCents", e.target.value)}
+                      onBlur={() => settleAmount("minCents")}
                       className="h-7 text-[12px]"
                     />
                     <TextInput
                       inputMode="decimal"
                       placeholder={s("ledger.max")}
                       aria-label={`${s("ledger.amount")} ${s("ledger.max")}`}
-                      value={filters.maxCents === null ? "" : String(filters.maxCents / 100)}
-                      onChange={(e) => setFilters((f) => ({ ...f, maxCents: e.target.value === "" ? null : Math.round(Number(e.target.value) * 100) }))}
+                      value={amountText("maxCents")}
+                      onChange={(e) => setAmount("maxCents", e.target.value)}
+                      onBlur={() => settleAmount("maxCents")}
                       className="h-7 text-[12px]"
                     />
                   </div>
@@ -390,7 +452,12 @@ export function LedgerPage() {
               </Chip>
             ))}
             {(filters.minCents !== null || filters.maxCents !== null) && (
-              <Chip onRemove={() => setFilters((f) => ({ ...f, minCents: null, maxCents: null }))}>
+              <Chip
+                onRemove={() => {
+                  setFilters((f) => ({ ...f, minCents: null, maxCents: null }));
+                  setAmountDraft({ minCents: null, maxCents: null });
+                }}
+              >
                 {filters.minCents !== null ? money(filters.minCents) : "…"}
                 {filters.maxCents !== null ? ` – ${money(filters.maxCents)}` : ""}
               </Chip>
@@ -419,15 +486,36 @@ export function LedgerPage() {
         <Button icon={Upload} onClick={() => fileRef.current?.click()}>
           {s("ledger.import")}
         </Button>
-        <Button
-          icon={Download}
-          onClick={() => {
-            downloadCsv(`xiaopiao-${dateKey(now)}.csv`, rows);
-            toast(s("st.exported"));
-          }}
-        >
-          {s("ledger.export")}
-        </Button>
+        {filtering ? (
+          <PopoverPrimitive.Root open={exportOpen} onOpenChange={setExportOpen}>
+            <PopoverPrimitive.Trigger asChild>
+              <Button icon={Download}>{s("ledger.export")}</Button>
+            </PopoverPrimitive.Trigger>
+            <PopoverPrimitive.Portal>
+              <PopoverPrimitive.Content align="end" sideOffset={6} aria-label={copy("export.scope")} className={cn(POPOVER, "w-[248px] p-1.5")}>
+                <button
+                  type="button"
+                  disabled={rows.length === 0}
+                  onClick={() => exportRows(rows, fill(copy("export.doneShown"), rows.length))}
+                  className="d-press block w-full rounded-lg px-2.5 py-1.5 text-left text-[12.5px] text-d-ink hover:bg-d-fill disabled:opacity-40"
+                >
+                  {fill(copy("export.shown"), rows.length)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => exportRows(txns, fill(copy("export.doneAll"), txns.length))}
+                  className="d-press block w-full rounded-lg px-2.5 py-1.5 text-left text-[12.5px] text-d-ink-2 hover:bg-d-fill hover:text-d-ink"
+                >
+                  {fill(copy("export.all"), txns.length)}
+                </button>
+              </PopoverPrimitive.Content>
+            </PopoverPrimitive.Portal>
+          </PopoverPrimitive.Root>
+        ) : (
+          <Button icon={Download} onClick={() => exportRows(txns, fill(copy("export.doneAll"), txns.length))}>
+            {s("ledger.export")}
+          </Button>
+        )}
       </div>
 
       {isError ? (
@@ -475,7 +563,7 @@ export function LedgerPage() {
                         variant="quiet"
                         onClick={() => {
                           setQuery("");
-                          setFilters(EMPTY_FILTERS);
+                          clearFilters();
                         }}
                       >
                         {s("ledger.clearFilters")}
@@ -490,7 +578,7 @@ export function LedgerPage() {
             <span>
               {rows.length} {s("ledger.itemUnit")}
             </span>
-            <span>{s("ledger.editHint")}</span>
+            <span>{copy("hint.edit")}</span>
           </div>
 
           {selected.size > 0 && (
@@ -555,15 +643,34 @@ export function LedgerPage() {
               </div>
             </div>
             <div className="mt-3 max-h-[220px] overflow-y-auto rounded-lg bg-d-fill/50">
-              {preview.rows.slice(0, 8).map((t) => (
+              {preview.rows.slice(0, PREVIEW_ROWS).map((t) => (
                 <div key={t.id} className="flex items-center gap-2 border-b border-d-hairline px-3 py-1.5 text-[12px] last:border-b-0">
                   <span className="num w-[86px] shrink-0 text-d-ink-3">{dateKey(t.occurredAt).slice(5)}</span>
                   <span className="min-w-0 flex-1 truncate text-d-ink">{t.merchant}</span>
                   <span className="shrink-0 text-d-ink-3">{categoryLabel(t.category)}</span>
-                  <span className="num w-[76px] shrink-0 text-right text-d-ink">{money(t.amountCents)}</span>
+                  <span className={cn("num w-[84px] shrink-0 text-right", t.direction === "IN" ? "text-d-positive" : "text-d-ink")}>
+                    {t.direction === "IN" ? "+" : "−"}
+                    {money(t.amountCents)}
+                  </span>
                 </div>
               ))}
             </div>
+            {preview.rows.length > PREVIEW_ROWS && (
+              <p className="mt-1.5 text-[11.5px] text-d-ink-3">{fill(copy("import.ofTotal"), PREVIEW_ROWS, preview.rows.length)}</p>
+            )}
+            {preview.failures.length > 0 && (
+              <details className="mt-2 rounded-lg bg-d-fill/50 px-3 py-2">
+                <summary className="cursor-pointer text-[12px] text-d-ink-2">{fill(copy("import.skipped"), preview.failed)}</summary>
+                <ul className="mt-1.5 space-y-0.5 text-[11.5px] text-d-ink-3">
+                  {preview.failures.map((f) => (
+                    <li key={f}>· {f}</li>
+                  ))}
+                </ul>
+                {preview.failed > preview.failures.length && (
+                  <p className="mt-1 text-[11.5px] text-d-ink-3">{fill(copy("import.skippedRest"), preview.failed - preview.failures.length)}</p>
+                )}
+              </details>
+            )}
             <div className="mt-4 flex justify-end gap-2">
               <Button onClick={() => setPreview(null)}>{s("common.cancel")}</Button>
               <Button

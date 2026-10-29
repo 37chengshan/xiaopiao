@@ -108,33 +108,67 @@ function createCloudOnlyLedger(): LedgerService {
 /**
  * Cloud ledger. Anonymous visitors also get `seed` (the in-memory starter ledger) merged in:
  * seed rows stay in the browser, everything the visitor records goes to QMuse 云服务.
+ *
+ * When the cloud is unreachable — offline, a preview without a bound app, a first run before import —
+ * the starter ledger takes over completely instead of leaving every page in an error state: the toolbar
+ * already tells this visitor 仅本机, so a local-only ledger is the truthful behaviour. Signed-in users
+ * get no seed and keep their error states.
  */
 export function createCloudLedger(seed: LedgerService | null): LedgerService {
   const cloud = createCloudOnlyLedger();
   if (!seed) return cloud;
   const isSeed = (t: Pick<Txn, "source">) => t.source === "DEMO";
+  /** Flipped by the first failed cloud call; from then on this visitor's ledger is the browser's own. */
+  let local = false;
+
   return {
     mode: "demo",
     async list() {
-      const [a, b] = await Promise.all([seed.list(), cloud.list()]);
-      return [...a, ...b].sort((x, y) => x.occurredAt - y.occurredAt);
+      if (!local) {
+        try {
+          const [a, b] = await Promise.all([seed.list(), cloud.list()]);
+          return [...a, ...b].sort((x, y) => x.occurredAt - y.occurredAt);
+        } catch {
+          local = true;
+        }
+      }
+      return [...(await seed.list())].sort((x, y) => x.occurredAt - y.occurredAt);
     },
     async add(txns) {
-      const [a, b]: AddResult[] = await Promise.all([
-        seed.add(txns.filter(isSeed)),
-        cloud.add(txns.filter((t) => !isSeed(t))),
-      ]);
-      return { added: a.added + b.added, duplicates: a.duplicates + b.duplicates };
+      if (local) return seed.add(txns);
+      try {
+        const [a, b]: AddResult[] = await Promise.all([
+          seed.add(txns.filter(isSeed)),
+          cloud.add(txns.filter((t) => !isSeed(t))),
+        ]);
+        return { added: a.added + b.added, duplicates: a.duplicates + b.duplicates };
+      } catch {
+        local = true;
+        return seed.add(txns);
+      }
     },
     async update(txn) {
-      await (isSeed(txn) ? seed : cloud).update(txn);
+      if (local) return seed.update(txn);
+      await (isSeed(txn) ? seed : cloud).update(txn).catch(() => {
+        local = true;
+        return seed.update(txn);
+      });
     },
     async remove(id) {
+      if (local) return seed.remove(id);
       const seedIds = new Set((await seed.list()).map((t) => t.id));
-      await (seedIds.has(id) ? seed : cloud).remove(id);
+      if (seedIds.has(id)) return seed.remove(id);
+      // A cloud-only row that cannot be deleted here means the cloud just went away: stay local from now on.
+      await cloud.remove(id).catch(() => {
+        local = true;
+      });
     },
     async reset() {
-      await Promise.all([seed.reset(), cloud.reset()]);
+      if (local) return seed.reset();
+      await Promise.all([seed.reset(), cloud.reset()]).catch(() => {
+        local = true;
+        return seed.reset();
+      });
     },
   };
 }

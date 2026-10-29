@@ -5,7 +5,7 @@ import { SPRING_THUMB } from "@/lib/motion";
 import { SPRING_SLIDE } from "./motion";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "@/components/brand/BrandMark";
-import { PERSONAL_NAV, SETTINGS_ITEM, SHOP_NAV, go, isActive, segmentOf, type NavItem, type Segment } from "./nav";
+import { PERSONAL_NAV, SETTINGS_ITEM, SHOP_NAV, go, hrefOf, isActive, isModifiedClick, segmentOf, type NavItem, type NavPath, type Segment } from "./nav";
 import { s } from "./strings";
 import { IconButton } from "./ui";
 
@@ -13,8 +13,9 @@ function NavRow({ item, active, collapsed }: { item: NavItem; active: boolean; c
   const Icon = item.icon;
   return (
     <a
-      href={`#${item.to}`}
+      href={hrefOf(item.to)}
       onClick={(e) => {
+        if (isModifiedClick(e)) return;
         e.preventDefault();
         go(item.to);
       }}
@@ -42,7 +43,7 @@ function NavRow({ item, active, collapsed }: { item: NavItem; active: boolean; c
 }
 
 function SegmentSwitch({ segment, collapsed }: { segment: Segment; collapsed: boolean }) {
-  const options: { value: Segment; label: string; icon: typeof Users; to: string }[] = [
+  const options: { value: Segment; label: string; icon: typeof Users; to: NavPath }[] = [
     { value: "personal", label: s("seg.personal"), icon: Users, to: "/app" },
     { value: "shop", label: s("seg.shop"), icon: Store, to: "/app/biz" },
   ];
@@ -102,8 +103,9 @@ export function Sidebar({ collapsed, pathname, onToggle, toggleLabel }: { collap
     >
       <div className={cn("flex h-14 shrink-0 items-center", collapsed ? "justify-center" : "gap-2.5 px-4")}>
         <a
-          href="#/app"
+          href={hrefOf("/app")}
           onClick={(e) => {
+            if (isModifiedClick(e)) return;
             e.preventDefault();
             go("/app");
           }}
