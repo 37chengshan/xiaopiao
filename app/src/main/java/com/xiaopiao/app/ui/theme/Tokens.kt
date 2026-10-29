@@ -45,6 +45,9 @@ data class XpPalette(
     val infoSoft: Color,
     val positiveSoft: Color,
     val warningSoft: Color,
+    /** Warm yellow for emphasis surfaces (e.g. the ledger's summary card). */
+    val highlight: Color,
+    val highlightSoft: Color,
 )
 
 // Apple — values from the Apple DESIGN.md analysis: system grays, one Action Blue, SF-like type.
@@ -60,8 +63,8 @@ val AppleLightPalette = XpPalette(
     ink2 = Color(0xFF6E6E73),
     ink3 = Color(0xFFA1A1A6),
     hairline = Color(0xFFE0E0E0),
-    accent = Color(0xFF0066CC),
-    accentSoft = Color(0xFFE9F1FB),
+    accent = Color(0xFF0071E3),
+    accentSoft = Color(0xFFDBEBFB),
     onAccent = Color(0xFFFFFFFF),
     primary = Color(0xFF1D1D1F),
     onPrimary = Color(0xFFFFFFFF),
@@ -81,6 +84,8 @@ val AppleLightPalette = XpPalette(
     infoSoft = Color(0xFFE9F1FB),
     positiveSoft = Color(0xFFE7F6EC),
     warningSoft = Color(0xFFFFF4E5),
+    highlight = Color(0xFFFFC93C),
+    highlightSoft = Color(0xFFFFF6D6),
 )
 
 val AppleDarkPalette = XpPalette(
@@ -96,8 +101,8 @@ val AppleDarkPalette = XpPalette(
     ink3 = Color(0xFF6E6E73),
     hairline = Color(0xFF38383A),
     accent = Color(0xFF2997FF),
-    accentSoft = Color(0xFF12263D),
-    onAccent = Color(0xFFFFFFFF),
+    accentSoft = Color(0xFF1F3A54),
+    onAccent = Color(0xFF1D1D1F),
     primary = Color(0xFFF5F5F7),
     onPrimary = Color(0xFF1D1D1F),
     positive = Color(0xFF30D158),
@@ -116,6 +121,8 @@ val AppleDarkPalette = XpPalette(
     infoSoft = Color(0xFF0E2A3A),
     positiveSoft = Color(0xFF0F2A1A),
     warningSoft = Color(0xFF33260C),
+    highlight = Color(0xFFFFD60A),
+    highlightSoft = Color(0xFF3A3110),
 )
 
 // Claude — the warm-canvas editorial system: cream surfaces, coral CTA, serif display.
@@ -152,6 +159,8 @@ val ClaudeLightPalette = XpPalette(
     infoSoft = Color(0xFFE6EEF6),
     positiveSoft = Color(0xFFE5F0E8),
     warningSoft = Color(0xFFF8EEDC),
+    highlight = Color(0xFFFFC93C),
+    highlightSoft = Color(0xFFFFF6D6),
 )
 
 val ClaudeDarkPalette = XpPalette(
@@ -187,6 +196,8 @@ val ClaudeDarkPalette = XpPalette(
     infoSoft = Color(0xFF1F2A37),
     positiveSoft = Color(0xFF1F2E24),
     warningSoft = Color(0xFF33291A),
+    highlight = Color(0xFFFFD60A),
+    highlightSoft = Color(0xFF3A3110),
 )
 
 /** Current palette, swapped by [XiaopiaoTheme]. Snapshot state, so composition and draw scopes that read it update. */
@@ -209,7 +220,7 @@ fun merchantPalette(base: XpPalette): XpPalette {
     val green = if (base.dark) Color(0xFF4FBF8B) else Color(0xFF2F6B57)
     val greenSoft = if (base.dark) Color(0xFF14301F) else Color(0xFFE4F1EA)
     return base.copy(
-        accent = green, accentSoft = greenSoft, primary = green, onPrimary = Color(0xFFFFFFFF),
+        accent = green, accentSoft = greenSoft, onAccent = Contrast.onAccent(green), primary = green, onPrimary = Color(0xFFFFFFFF),
         info = green, infoSoft = greenSoft,
         canvas = if (base.dark) Color(0xFF141815) else Color(0xFFF6F7F5),
         canvasGrouped = if (base.dark) Color(0xFF1A1F1C) else Color(0xFFEFF1EE),
@@ -249,7 +260,7 @@ object XpColors {
     val InkSecondary get() = p.ink2
     val InkTertiary get() = p.ink3
     val Hairline get() = p.hairline
-    /** The one interactive colour: Action Blue (Apple) or coral (Claude). */
+    /** The one interactive colour: the user's accent (Apple, blue by default) or terracotta (Claude). */
     val Accent get() = p.accent
     val AccentSoft get() = p.accentSoft
     val OnAccent get() = p.onAccent
@@ -265,6 +276,8 @@ object XpColors {
     val InfoSoft get() = p.infoSoft
     val PositiveSoft get() = p.positiveSoft
     val WarningSoft get() = p.warningSoft
+    val Highlight get() = p.highlight
+    val HighlightSoft get() = p.highlightSoft
     /** Translucent bar background for nav / tab bars. */
     val Material get() = p.material
 

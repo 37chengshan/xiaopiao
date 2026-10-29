@@ -98,12 +98,13 @@ fun XiaopiaoTheme(content: @Composable () -> Unit) {
     val prefs = remember(context) { ThemePrefs(context.applicationContext) }
     val mode by prefs.observeMode().collectAsState(initial = ThemeMode.System)
     val style by prefs.observeStyle().collectAsState(initial = DesignStyle.Apple)
+    val accent by prefs.observeAccent().collectAsState(initial = AccentChoice.Default)
     val dark = when (mode) {
         ThemeMode.System -> isSystemInDarkTheme()
         ThemeMode.Light -> false
         ThemeMode.Dark -> true
     }
-    val target = paletteFor(style, dark)
+    val target = resolvePalette(style, dark, accent)
     // Ease the two backgrounds so a theme switch never flashes (docs/DESIGN.md §6).
     val canvas by animateColorAsState(target.canvas, tween(200), label = "canvas")
     val ink by animateColorAsState(target.ink, tween(200), label = "ink")
