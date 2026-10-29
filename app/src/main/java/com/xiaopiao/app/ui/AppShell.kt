@@ -78,10 +78,7 @@ import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.insights.InsightsScreen
 import com.xiaopiao.app.ui.ledger.LedgerScreen
 import com.xiaopiao.app.ui.merchant.MerchantShell
-import com.xiaopiao.app.ui.record.RecordMethod
-import com.xiaopiao.app.ui.record.RecordMethodPrefs
 import com.xiaopiao.app.ui.record.RecordSheetHost
-import com.xiaopiao.app.ui.record.recordMethodStore
 import com.xiaopiao.app.ui.record.rememberRecordSheetState
 import com.xiaopiao.app.ui.settings.SettingsScreen
 import com.xiaopiao.app.ui.theme.XpColors
@@ -142,8 +139,6 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     // The AI page raises this while its session drawer is open, so the bar steps out of the way.
     var navBarHidden by remember { mutableStateOf(false) }
     LaunchedEffect(launchSide) { if (startRoute == null) launchSide?.let { startRoute = NavModel.startRoute(it) } }
-    val recordMethod by remember(context) { RecordMethodPrefs(context.recordMethodStore).observe() }
-        .collectAsState(initial = RecordMethod.Manual)
     if (onboarded == false) {
         com.xiaopiao.app.ui.onboarding.OnboardingHost { shellScope.launch { onboarding.setDone() } }
         return
@@ -154,7 +149,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         if (merchantSettings) {
             // The same 设置 page, reached from the gear on every 小店 page; back returns to where the shop was.
             BackHandler { merchantSettings = false }
-            SettingsScreen(container, onOpenMerchant = { merchantSettings = false }, onBack = { merchantSettings = false })
+            // Same page, but its edition row now leads back to the personal edition.
+            SettingsScreen(container, inMerchant = true, onSwitchEdition = { merchantSettings = false; merchantMode = false }, onBack = { merchantSettings = false })
         } else {
             // SaveableStateProvider keeps the shop's tab / sub-page while the settings page replaces it.
             merchantState.SaveableStateProvider("merchant") {
@@ -214,7 +210,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 selectedId = NavModel.selected(current)?.route,
                 onSelect = { id -> NavTab.entries.firstOrNull { it.route == id }?.let(::go) },
                 onFold = { go(NavModel.destination(NavSlot.Fold, lastLedger) ?: NavTab.Ledger) },
-                onPlus = { record.openDefault(recordMethod) },
+                onPlus = { record.openManual() },
                 onPlusLongPress = { voiceHost.request() },
                 hidden = navBarHidden && current == NavTab.Chat.route,
                 backdrop = glass,
@@ -268,7 +264,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 ) {
                     SettingsScreen(
                         container,
-                        onOpenMerchant = { merchantMode = true },
+                        onSwitchEdition = { merchantMode = true },
                         onBack = { nav.popBackStack() },
                     )
                 }
@@ -277,8 +273,10 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 }
                 composable(NavTab.Chat.route) {
                     ChatScreen(
-                        container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openDefault(recordMethod) },
+                        container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openManual() },
                         onOpenSettings = { nav.navigate("settings") },
+                        // The session drawer covers the page; the tab bar steps aside while it is open.
+                        onDrawerOpenChange = { navBarHidden = it },
                     )
                 }
                 composable(NavTab.Circle.route) { CircleHome(container, onOpenSettings = { nav.navigate("settings") }, onOpenGames = { go(NavTab.Games) }) }

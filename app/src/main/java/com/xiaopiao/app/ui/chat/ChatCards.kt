@@ -179,8 +179,8 @@ private fun ShareRow(share: CategoryShare) {
 }
 
 /**
- * Confirm card for a locally parsed sentence. The preview is not in the ledger yet, so it carries a 演示
- * mark — the row only becomes real data after 确认 (then 今日小票 above updates from the repository).
+ * Confirm card for a locally parsed sentence. The preview is not in the ledger yet — the row only becomes
+ * real data after 确认 (then 今日小票 above updates from the repository).
  */
 @Composable
 fun ConfirmCard(item: ChatItem.Confirm, onConfirm: () -> Unit, onEdit: () -> Unit) {
@@ -272,6 +272,66 @@ internal fun WeekBars(dayTotals: List<Long>) {
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
+        }
+    }
+}
+
+/** CSV attachment card: what was parsed, before anything is written to the ledger. */
+@Composable
+fun CsvPreviewCard(
+    item: ChatItem.CsvAttachment,
+    onImport: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val preview = item.preview
+    XpCard(Modifier.padding(horizontal = XpSpace.l)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(preview.label, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary, maxLines = 1)
+            Spacer(Modifier.weight(1f))
+            Text("${preview.rows} 笔", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+        }
+        MoneyText(
+            preview.totalCents,
+            prefix = "支出合计 ",
+            modifier = Modifier.padding(top = XpSpace.xs),
+            style = MaterialTheme.typography.titleLarge,
+        )
+        val tail = buildString {
+            if (preview.skipped > 0) append("跳过 ${preview.skipped} 行（非支出/已失效）")
+            if (preview.failed > 0) {
+                if (isNotEmpty()) append(" · ")
+                append("${preview.failed} 行没读懂")
+            }
+        }
+        if (tail.isNotEmpty()) {
+            Text(tail, Modifier.padding(top = 2.dp), style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary)
+        }
+        when (item.state) {
+            CsvAttachmentState.Pending, CsvAttachmentState.Importing -> Row(
+                Modifier.padding(top = XpSpace.m),
+                horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+            ) {
+                XpButton(
+                    "导入",
+                    onImport,
+                    style = XpButtonStyle.Primary,
+                    size = XpButtonSize.Small,
+                    enabled = item.state == CsvAttachmentState.Pending,
+                )
+                XpButton("先不导入", onCancel, style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
+            }
+
+            CsvAttachmentState.Imported -> Row(Modifier.padding(top = XpSpace.m), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = XpColors.Positive, modifier = Modifier.size(16.dp))
+                Text("已导入账本", Modifier.padding(start = XpSpace.xs), style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+            }
+
+            CsvAttachmentState.Cancelled -> Text(
+                "没有导入这份文件。",
+                Modifier.padding(top = XpSpace.m),
+                style = MaterialTheme.typography.bodySmall,
+                color = XpColors.InkSecondary,
+            )
         }
     }
 }

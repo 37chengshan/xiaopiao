@@ -33,7 +33,7 @@ import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 
 /**
- * Exactly **two** button levels, following the Apple / Claude grammar (references/design-systems/):
+ * Exactly **two** button levels, following the Apple grammar (references/design-systems/):
  * - [Primary] one filled capsule per screen — the thing the user came to do.
  * - [Secondary] the system fill capsule — every other action. No border, no tint, no shadow.
  * - [Plain] is a text link, not a level: use it inside dense rows and for 「了解更多」-style escapes.

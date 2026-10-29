@@ -42,6 +42,7 @@ import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -69,19 +70,25 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
+import com.xiaopiao.app.capture.MerchantCategorizer
+import com.xiaopiao.app.domain.ai.ReceiptParser
 import com.xiaopiao.app.domain.startOfDay
+import com.xiaopiao.app.domain.yuan
+import java.io.File
 import com.xiaopiao.app.ui.components.ShimmerBlock
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.motion.MotionMath
-import com.xiaopiao.app.ui.motion.rememberSkeletonVisible
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
-import com.xiaopiao.app.ui.today.ReceiptLayout
 import com.xiaopiao.app.ui.today.ReceiptStrip
 import com.xiaopiao.app.ui.today.TodayGreeting
 import java.util.Calendar
@@ -96,16 +103,20 @@ private const val StreamCharsPerSecond = 78f
 private val DrawerPagePush = 24.dp
 
 /**
- * AI page (v6, docs/APP-DESIGN.md §3.4). Top bar: ☰ · segment · receipt strip · new chat. Body: one soft
- * gradient, no cards until you ask something. Bottom: one white input card that grows when you type.
- * Everything is local: the same ledger, the same templates, no network.
+ * AI page (v7, docs/APP-DESIGN.md §3.4). Top bar: ☰ · segment · receipt strip · new chat. Body: one soft
+ * gradient, no cards until you ask something. Bottom: one white input card with a single round button
+ * (voice → send → stop) and a ＋ that stages images / CSV files. Everything stays on this device: OCR and
+ * CSV parsing happen locally, the ledger only receives the rows the user confirms.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     container: AppContainer,
     onRecordVoice: () -> Unit = {},
     onRecordManual: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    /** Told whenever the session drawer opens/closes so the shell can hide its tab bar. */
+    onDrawerOpenChange: (Boolean) -> Unit = {},
 ) {
     // Remembers what the last question was about so 「那上周呢」 works without repeating the topic.
     val turn = remember { ChatTurn() }
@@ -122,7 +133,6 @@ fun ChatScreen(
     val reminder = snapshot?.second
 
     val hello = remember { TodayGreeting.hello(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) }
-    val dayLabel = remember { ReceiptLayout.dayLabel(startOfDay(System.currentTimeMillis())) }
 
     val conversation = remember { androidx.compose.runtime.mutableStateListOf<ChatItem>() }
     var seq by remember { mutableIntStateOf(0) }
@@ -130,10 +140,13 @@ fun ChatScreen(
 
     var input by rememberSaveable { mutableStateOf("") }
     var scrollSignal by remember { mutableIntStateOf(0) }
-    var segment by rememberSaveable { mutableStateOf(ChatSegment.Chat) }
     var drawerOpen by remember { mutableStateOf(false) }
     var streaming by remember { mutableStateOf(false) }
     var streamJob by remember { mutableStateOf<Job?>(null) }
+    val attachments = remember { androidx.compose.runtime.mutableStateListOf<ChatAttachment>() }
+    var attachSheetOpen by remember { mutableStateOf(false) }
+    var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val context = LocalContext.current
 
     val sessions = remember { androidx.compose.runtime.mutableStateListOf<ChatSession>() }
     var sessionSeq by remember { mutableIntStateOf(0) }
@@ -242,6 +255,107 @@ fun ChatScreen(
         }
     }
 
+    /** Appends a plain assistant line and scrolls to it. */
+    fun assistant(text: String) {
+        conversation.add(ChatItem.Assistant(newId(), text))
+        scrollSignal++
+    }
+
+    /**
+     * Sends staged attachments (tt#71). Images are OCR'd **on this device** and turned into confirm cards;
+     * a CSV is parsed into a preview that only imports after 确认. Neither the picture nor the file is
+     * copied into the ledger — only the structured rows the user accepts.
+     */
+    fun sendWithAttachments(text: String, items: List<ChatAttachment>) {
+        if (items.isEmpty()) {
+            send(text)
+            return
+        }
+        val images = items.count { it.isImage }
+        val files = items.size - images
+        val summary = buildString {
+            if (text.isNotBlank()) append(text.trim()).append("  ")
+            if (images > 0) append("[$images 张图片]")
+            if (files > 0) {
+                if (images > 0) append(" ")
+                append("[$files 个文件]")
+            }
+        }
+        conversation.add(ChatItem.User(newId(), summary.trim()))
+        haptics.select()
+        streaming = true
+        streamJob = scope.launch {
+            try {
+                if (images > 0) {
+                    val toolId = newId()
+                    conversation.add(ChatItem.Tool(toolId, "在本机识别图片", running = true))
+                    scrollSignal++
+                    val found = mutableListOf<ReceiptParser.Candidate>()
+                    items.filter { it.isImage }.forEach { attachment ->
+                        val raw = recognizeReceiptText(context, android.net.Uri.parse(attachment.uriString))
+                        if (raw != null) found += ReceiptParser.parse(raw, System.currentTimeMillis())
+                    }
+                    val i = conversation.indexOfFirst { it.id == toolId }
+                    if (i >= 0) {
+                        conversation[i] = ChatItem.Tool(
+                            toolId, "在本机识别图片",
+                            if (found.isEmpty()) "没读到金额" else "读到 ${found.size} 笔",
+                            running = false,
+                        )
+                    }
+                    if (found.isEmpty()) {
+                        assistant("这几张图我没认出账单金额。原图只在这台手机上看了，没有存下来。")
+                    } else {
+                        assistant("识别到 ${found.size} 笔，确认记入？")
+                        found.forEach { candidate ->
+                            conversation.add(ChatItem.Confirm(newId(), candidate.toDraft()))
+                        }
+                    }
+                    scrollSignal++
+                }
+                items.filter { !it.isImage }.forEach { attachment ->
+                    val label = attachment.name ?: "CSV 账单"
+                    val raw = readCsvText(context, android.net.Uri.parse(attachment.uriString))
+                    val preview = raw?.let { ChatCsvPreview.from(label, it) }
+                    if (preview == null) {
+                        assistant("「$label」我没读懂。现在只支持图片和支付宝/微信导出的 CSV 账单。")
+                    } else {
+                        assistant("读到 ${preview.rows} 笔，确认导入？")
+                        conversation.add(ChatItem.CsvAttachment(newId(), preview))
+                    }
+                    scrollSignal++
+                }
+            } finally {
+                streaming = false
+            }
+        }
+    }
+
+    fun importCsv(item: ChatItem.CsvAttachment) {
+        if (item.state != CsvAttachmentState.Pending) return
+        val index = conversation.indexOfFirst { it.id == item.id }
+        if (index >= 0) conversation[index] = item.copy(state = CsvAttachmentState.Importing)
+        scope.launch {
+            val summary = container.csvImporter.importText(item.preview.rawText)
+            val i = conversation.indexOfFirst { it.id == item.id }
+            if (i >= 0) conversation[i] = item.copy(state = CsvAttachmentState.Imported)
+            haptics.confirm()
+            conversation.add(
+                ChatItem.Assistant(
+                    newId(),
+                    if (summary.error != null) "导入没成功：${summary.error}"
+                    else "导入了 ${summary.imported} 笔，跳过重复 ${summary.duplicates} 笔。",
+                ),
+            )
+            scrollSignal++
+        }
+    }
+
+    fun cancelCsv(item: ChatItem.CsvAttachment) {
+        val index = conversation.indexOfFirst { it.id == item.id }
+        if (index >= 0) conversation[index] = item.copy(state = CsvAttachmentState.Cancelled)
+    }
+
     fun confirm(card: ChatItem.Confirm) {
         if (card.state != ConfirmState.Pending) return
         conversation.indexOfFirst { it.id == card.id }.takeIf { it >= 0 }?.let {
@@ -284,8 +398,38 @@ fun ChatScreen(
         }
     }
 
-    // Skeletons stay up for at least 200ms, so a cache hit never flashes a placeholder.
-    val skeletonVisible = rememberSkeletonVisible(stats == null)
+
+    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val uri = cameraUri
+        if (ok && uri != null) attachments.add(ChatAttachment(uri.toString(), ChatAttachmentKind.Image, name = "相机照片"))
+        cameraUri = null
+    }
+    val pickImages = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(ChatInput.MAX_IMAGES),
+    ) { uris ->
+        val staged = uris.map { uri ->
+            ChatAttachment(uri.toString(), ChatAttachmentKind.Image, name = uri.lastPathSegment)
+        }
+        attachments.clear()
+        attachments.addAll(ChatInput.stage(attachments.toList(), staged))
+    }
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val mime = context.contentResolver.getType(uri)
+            val name = uri.lastPathSegment?.substringAfterLast('/')
+            val kind = if (mime?.startsWith("image/") == true) ChatAttachmentKind.Image else ChatAttachmentKind.File
+            val attachment = ChatAttachment(uri.toString(), kind, name = name, mime = mime)
+            if (!attachment.isImage && !attachment.isCsv) {
+                attachSheetOpen = false
+                conversation.add(ChatItem.Assistant(newId(), "暂只支持图片和 CSV。这个文件我先不动。"))
+                scrollSignal++
+            } else {
+                attachments.add(attachment)
+            }
+        }
+    }
+
+    LaunchedEffect(drawerOpen) { onDrawerOpenChange(drawerOpen) }
 
     val drawer = remember { Animatable(if (drawerOpen) 1f else 0f) }
     LaunchedEffect(drawerOpen) {
@@ -297,31 +441,13 @@ fun ChatScreen(
             Modifier.fillMaxSize().imePadding()
                 .graphicsLayer { translationX = DrawerPagePush.toPx() * drawer.value },
         ) {
-            ChatTopBar(
-                segment = segment,
-                onSegment = { segment = it },
-                onMenu = { drawerOpen = true },
-                onNewChat = {
-                    archiveCurrent()
-                    conversation.clear()
-                    input = ""
-                    activeSession = ++sessionSeq
-                    scrollSignal++
-                },
-            )
+            ChatTopBar(onMenu = { drawerOpen = true }, onOpenSettings = onOpenSettings)
             Box(Modifier.weight(1f)) {
                 when {
-                    segment == ChatSegment.Ledger -> LedgerPanel(
-                        stats = stats,
-                        dayLabel = dayLabel,
-                        skeletonVisible = skeletonVisible,
-                        onAsk = { question -> segment = ChatSegment.Chat; send(question) },
-                        modifier = Modifier.fillMaxSize(),
-                    )
-
                     conversation.isEmpty() -> ChatEmptyState(
                         hint = emptyHint(stats, hello),
                         onSuggestion = { question -> send(question) },
+                        onManual = onRecordManual,
                         modifier = Modifier.fillMaxSize(),
                     )
 
@@ -332,6 +458,8 @@ fun ChatScreen(
                         reduced = reduced,
                         onConfirm = ::confirm,
                         onEdit = ::edit,
+                        onImportCsv = ::importCsv,
+                        onCancelCsv = ::cancelCsv,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -340,16 +468,40 @@ fun ChatScreen(
                 value = input,
                 onValueChange = { input = it },
                 onSend = {
-                    if (ChatInput.canSend(input, streaming)) {
-                        send(input)
+                    if (ChatInput.canSend(input, streaming, attachments.size)) {
+                        val text = input
                         input = ""
+                        if (attachments.isEmpty()) {
+                            send(text)
+                        } else {
+                            sendWithAttachments(text, attachments.toList())
+                            attachments.clear()
+                        }
                     }
                 },
                 onVoice = onRecordVoice,
                 onStop = ::stopStreaming,
-                onPlus = onRecordManual,
+                onPlus = { attachSheetOpen = true },
                 streaming = streaming,
+                attachments = attachments,
+                onRemoveAttachment = { attachments.remove(it) },
                 focusRequester = focusRequester,
+            )
+        }
+
+        if (attachSheetOpen) {
+            AttachmentSheet(
+                onDismiss = { attachSheetOpen = false },
+                onCamera = {
+                    val file = File(File(context.cacheDir, "chat").apply { mkdirs() }, "shot-${System.currentTimeMillis()}.jpg")
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    cameraUri = uri
+                    takePicture.launch(uri)
+                },
+                onGallery = {
+                    pickImages.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                },
+                onFile = { pickFile.launch(arrayOf("text/*", "text/csv", "application/csv", "application/vnd.ms-excel", "image/*")) },
             )
         }
 
@@ -401,24 +553,25 @@ private fun chatBackdrop(): Brush = Brush.verticalGradient(
     ),
 )
 
+/** ☰ · AI · 小票 · 设置 — the receipt strip and the gear sit top-right on every first-level page (tt). */
 @Composable
-private fun ChatTopBar(
-    segment: ChatSegment,
-    onSegment: (ChatSegment) -> Unit,
-    onMenu: () -> Unit,
-    onNewChat: () -> Unit,
-) {
+private fun ChatTopBar(onMenu: () -> Unit, onOpenSettings: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().statusBarsPadding().height(60.dp).padding(horizontal = XpSpace.l),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         BarCircle(onMenu, Icons.Outlined.Menu, "会话")
-        Spacer(Modifier.width(XpSpace.s))
-        ChatSegmentPill(segment, onSegment, Modifier.weight(1f))
-        Spacer(Modifier.width(XpSpace.s))
+        Text(
+            "AI",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = XpColors.Ink,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
         ReceiptStrip()
         Spacer(Modifier.width(XpSpace.s))
-        BarCircle(onNewChat, Icons.Outlined.Add, "新对话")
+        BarCircle(onOpenSettings, Icons.Outlined.Settings, "设置")
     }
 }
 
@@ -436,32 +589,6 @@ private fun BarCircle(onClick: () -> Unit, icon: androidx.compose.ui.graphics.ve
     }
 }
 
-/** Two-segment pill: selected segment is a white thumb inside the fill track. */
-@Composable
-private fun ChatSegmentPill(segment: ChatSegment, onSelect: (ChatSegment) -> Unit, modifier: Modifier = Modifier) {
-    Row(
-        modifier.height(44.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill).padding(3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ChatSegment.entries.forEach { option ->
-            val selected = option == segment
-            val bg by animateColorAsState(if (selected) XpColors.Card else Color.Transparent, tween(160), label = "segmentBg")
-            val fg by animateColorAsState(if (selected) XpColors.Ink else XpColors.InkSecondary, tween(160), label = "segmentFg")
-            Box(
-                Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(XpRadius.pill)).background(bg)
-                    .pressableClick(scaleDown = 0.98f) { if (!selected) onSelect(option) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    option.label,
-                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
-                    color = fg,
-                )
-            }
-        }
-    }
-}
-
 /**
  * One quiet line for the empty state (docs/APP-DESIGN.md §3.4): what the assistant is and what it can see,
  * never a paragraph. The rest of the screen stays blank on purpose.
@@ -474,7 +601,12 @@ private fun emptyHint(stats: ChatStats?, hello: String): String = when {
 
 /** Empty state: one quiet line and three grey question chips. No illustration. */
 @Composable
-private fun ChatEmptyState(hint: String, onSuggestion: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun ChatEmptyState(
+    hint: String,
+    onSuggestion: (String) -> Unit,
+    onManual: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier.padding(horizontal = XpSpace.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -501,45 +633,15 @@ private fun ChatEmptyState(hint: String, onSuggestion: (String) -> Unit, modifie
                     Text(text, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp), color = XpColors.Ink, maxLines = 1)
                 }
             }
-        }
-    }
-}
-
-/** The 账本 segment: today + this week, plus the questions people actually ask about it. */
-@Composable
-private fun LedgerPanel(
-    stats: ChatStats?,
-    dayLabel: String,
-    skeletonVisible: Boolean,
-    onAsk: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier.verticalScroll(rememberScrollState()).padding(horizontal = XpSpace.l, vertical = XpSpace.s),
-        verticalArrangement = Arrangement.spacedBy(XpSpace.m),
-    ) {
-        when {
-            stats == null -> if (skeletonVisible) {
-                ShimmerBlock(Modifier.fillMaxWidth().height(120.dp), RoundedCornerShape(XpRadius.m))
-                ShimmerBlock(Modifier.fillMaxWidth().height(120.dp), RoundedCornerShape(XpRadius.m))
-            }
-
-            else -> {
-                TodayReceiptCard(stats, dayLabel)
-                WeekReportCard(stats)
-                Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                    listOf("这周哪天花得最多", "今天花了几笔", "家里人这周花了多少").forEach { question ->
-                        Box(
-                            Modifier.height(36.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill)
-                                .pressableClick(scaleDown = 0.97f) { onAsk(question) }
-                                .padding(horizontal = XpSpace.l),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(question, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp), color = XpColors.Ink)
-                        }
-                    }
-                }
-            }
+            Text(
+                "或者手动记一笔",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                color = XpColors.Accent,
+                modifier = Modifier.padding(top = XpSpace.xs)
+                    .clip(RoundedCornerShape(XpRadius.pill))
+                    .pressableClick(scaleDown = 0.97f, onClick = onManual)
+                    .padding(horizontal = XpSpace.m, vertical = XpSpace.xs),
+            )
         }
     }
 }
@@ -552,6 +654,8 @@ private fun ConversationList(
     reduced: Boolean,
     onConfirm: (ChatItem.Confirm) -> Unit,
     onEdit: (ChatItem.Confirm) -> Unit,
+    onImportCsv: (ChatItem.CsvAttachment) -> Unit,
+    onCancelCsv: (ChatItem.CsvAttachment) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -578,6 +682,11 @@ private fun ConversationList(
                     is ChatItem.Tool -> ToolRow(item)
                     is ChatItem.Chart -> ChartCard(item)
                     is ChatItem.Confirm -> ConfirmCard(item, onConfirm = { onConfirm(item) }, onEdit = { onEdit(item) })
+                    is ChatItem.CsvAttachment -> CsvPreviewCard(
+                        item,
+                        onImport = { onImportCsv(item) },
+                        onCancel = { onCancelCsv(item) },
+                    )
                 }
             }
         }
@@ -724,3 +833,13 @@ private fun ChartCard(item: ChatItem.Chart) {
         }
     }
 }
+
+/** A receipt candidate becomes the same confirm card a typed sentence gets; the user can still edit it. */
+private fun ReceiptParser.Candidate.toDraft(): ExpenseDraft = ExpenseDraft(
+    merchant = merchant,
+    category = MerchantCategorizer.categorize(merchant),
+    amountCents = amountCents,
+    // 「改一下」 puts this back into the input field, so it must read like something the user typed.
+    sourceText = "$merchant ${amountCents.yuan()}",
+    occurredAt = occurredAt,
+)

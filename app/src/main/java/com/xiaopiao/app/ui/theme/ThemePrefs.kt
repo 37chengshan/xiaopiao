@@ -15,8 +15,7 @@ private val Context.themeStore by preferencesDataStore(name = "theme_prefs")
 /** Persists the user's appearance choice (docs/APP-DESIGN.md §1). */
 class ThemePrefs(private val context: Context) {
     private val modeKey = stringPreferencesKey("theme_mode")
-    private val styleKey = stringPreferencesKey("design_style")
-    private val accentKey = stringPreferencesKey("accent")
+    private val themeKey = stringPreferencesKey("color_theme")
 
     fun observeMode(): Flow<ThemeMode> = context.themeStore.data.map { prefs ->
         ThemeMode.entries.firstOrNull { it.name == prefs[modeKey] } ?: ThemeMode.System
@@ -26,17 +25,9 @@ class ThemePrefs(private val context: Context) {
         context.themeStore.edit { it[modeKey] = mode.name }
     }
 
-    fun observeStyle(): Flow<DesignStyle> = context.themeStore.data.map { prefs ->
-        DesignStyle.entries.firstOrNull { it.name == prefs[styleKey] } ?: DesignStyle.Apple
-    }
+    fun observeTheme(): Flow<ColorTheme> = context.themeStore.data.map { prefs -> ColorTheme.fromId(prefs[themeKey]) }
 
-    suspend fun setStyle(style: DesignStyle) {
-        context.themeStore.edit { it[styleKey] = style.name }
-    }
-
-    fun observeAccent(): Flow<AccentChoice> = context.themeStore.data.map { prefs -> AccentChoice.fromId(prefs[accentKey]) }
-
-    suspend fun setAccent(accent: AccentChoice) {
-        context.themeStore.edit { it[accentKey] = accent.id }
+    suspend fun setTheme(theme: ColorTheme) {
+        context.themeStore.edit { it[themeKey] = theme.id }
     }
 }

@@ -7,12 +7,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-/** The two visual systems we ship (docs/APP-DESIGN.md §1). Switchable in 我的 → 外观. */
-enum class DesignStyle(val label: String) { Apple("Apple"), Claude("Claude") }
-
 /** One complete set of colors. See docs/APP-DESIGN.md §1 — names mirror the web tokens. */
 data class XpPalette(
-    val style: DesignStyle,
     val dark: Boolean,
     val canvas: Color,
     val canvasGrouped: Color,
@@ -26,7 +22,7 @@ data class XpPalette(
     val accent: Color,
     val accentSoft: Color,
     val onAccent: Color,
-    /** Filled button colour. Apple = Action Blue; Claude = warm coral. */
+    /** Filled button colour (ink; the accent is reserved for the one primary action). */
     val primary: Color,
     val onPrimary: Color,
     val positive: Color,
@@ -50,9 +46,8 @@ data class XpPalette(
     val highlightSoft: Color,
 )
 
-// Apple — values from the Apple DESIGN.md analysis: system grays, one Action Blue, SF-like type.
-val AppleLightPalette = XpPalette(
-    style = DesignStyle.Apple,
+// One visual system (Apple-derived: system grays, SF-like type); colour themes in Accent.kt layer on top.
+val LightPalette = XpPalette(
     dark = false,
     canvas = Color(0xFFFFFFFF),
     canvasGrouped = Color(0xFFF5F5F7),
@@ -88,8 +83,7 @@ val AppleLightPalette = XpPalette(
     highlightSoft = Color(0xFFFFF6D6),
 )
 
-val AppleDarkPalette = XpPalette(
-    style = DesignStyle.Apple,
+val DarkPalette = XpPalette(
     dark = true,
     canvas = Color(0xFF000000),
     canvasGrouped = Color(0xFF1C1C1E),
@@ -125,86 +119,10 @@ val AppleDarkPalette = XpPalette(
     highlightSoft = Color(0xFF3A3110),
 )
 
-// Claude — the warm-canvas editorial system: cream surfaces, coral CTA, serif display.
-val ClaudeLightPalette = XpPalette(
-    style = DesignStyle.Claude,
-    dark = false,
-    canvas = Color(0xFFFAF9F5),
-    canvasGrouped = Color(0xFFF5F0E8),
-    card = Color(0xFFFFFFFF),
-    surface2 = Color(0xFFF5F0E8),
-    fill = Color(0xFFE8E0D2),
-    ink = Color(0xFF141413),
-    ink2 = Color(0xFF6C6A64),
-    ink3 = Color(0xFF8E8B82),
-    hairline = Color(0xFFE6DFD8),
-    accent = Color(0xFFCC785C),
-    accentSoft = Color(0xFFF7EAE3),
-    onAccent = Color(0xFFFFFFFF),
-    primary = Color(0xFF141413),
-    onPrimary = Color(0xFFFAF9F5),
-    positive = Color(0xFF5DB872),
-    negative = Color(0xFFC64545),
-    warning = Color(0xFFD4A017),
-    stamp = Color(0xFFC64545),
-    paper = Color(0xFFFBFAF6),
-    paperShade = Color(0xFFEFEADF),
-    paperInk = Color(0xFF2A2724),
-    scrim = Color(0x52141413),
-    material = Color(0xC7FAF9F5),
-    printerBody = Color(0xFF1F1E1C),
-    printerHighlight = Color(0xFF3A3935),
-    printerSlit = Color(0xFF0A0A09),
-    info = Color(0xFF3A6EA5),
-    infoSoft = Color(0xFFE6EEF6),
-    positiveSoft = Color(0xFFE5F0E8),
-    warningSoft = Color(0xFFF8EEDC),
-    highlight = Color(0xFFFFC93C),
-    highlightSoft = Color(0xFFFFF6D6),
-)
-
-val ClaudeDarkPalette = XpPalette(
-    style = DesignStyle.Claude,
-    dark = true,
-    canvas = Color(0xFF181715),
-    canvasGrouped = Color(0xFF1F1E1B),
-    card = Color(0xFF252320),
-    surface2 = Color(0xFF2C2A26),
-    fill = Color(0xFF35322D),
-    ink = Color(0xFFFAF9F5),
-    ink2 = Color(0xFFA09D96),
-    ink3 = Color(0xFF6C6A64),
-    hairline = Color(0xFF33302B),
-    accent = Color(0xFFD97757),
-    accentSoft = Color(0xFF33241E),
-    onAccent = Color(0xFF181715),
-    primary = Color(0xFFFAF9F5),
-    onPrimary = Color(0xFF181715),
-    positive = Color(0xFF7DB38A),
-    negative = Color(0xFFE0705C),
-    warning = Color(0xFFE0A84E),
-    stamp = Color(0xFFD96156),
-    paper = Color(0xFFE9E6DD),
-    paperShade = Color(0xFFDAD5C8),
-    paperInk = Color(0xFF24211E),
-    scrim = Color(0x8C000000),
-    material = Color(0xB81F1E1B),
-    printerBody = Color(0xFF0E0E0D),
-    printerHighlight = Color(0xFF2A2926),
-    printerSlit = Color(0xFF000000),
-    info = Color(0xFF7FA8D6),
-    infoSoft = Color(0xFF1F2A37),
-    positiveSoft = Color(0xFF1F2E24),
-    warningSoft = Color(0xFF33291A),
-    highlight = Color(0xFFFFD60A),
-    highlightSoft = Color(0xFF3A3110),
-)
-
 /** Current palette, swapped by [XiaopiaoTheme]. Snapshot state, so composition and draw scopes that read it update. */
 internal object XpPaletteState {
-    var base by mutableStateOf(AppleLightPalette)
-    var current by mutableStateOf(AppleLightPalette)
-    var style by mutableStateOf(DesignStyle.Apple)
+    var base by mutableStateOf(LightPalette)
+    var current by mutableStateOf(LightPalette)
     /** Non-null while a sub-product (小店版) is open: overrides the user's palette wholesale. */
     var override by mutableStateOf<XpPalette?>(null)
 
@@ -237,19 +155,15 @@ fun XpPaletteOverride(palette: XpPalette, content: @Composable () -> Unit) {
     content()
 }
 
-fun paletteFor(style: DesignStyle, dark: Boolean): XpPalette = when (style) {
-    DesignStyle.Apple -> if (dark) AppleDarkPalette else AppleLightPalette
-    DesignStyle.Claude -> if (dark) ClaudeDarkPalette else ClaudeLightPalette
-}
+fun paletteFor(dark: Boolean): XpPalette = if (dark) DarkPalette else LightPalette
 
 /**
  * Design tokens (docs/APP-DESIGN.md). Screens must use these instead of raw colors.
- * Every value follows the active light/dark palette and design style.
+ * Every value follows the active light/dark palette and colour theme.
  */
 object XpColors {
     private val p get() = XpPaletteState.current
 
-    val style get() = p.style
     val isDark get() = p.dark
     val Canvas get() = p.canvas
     val CanvasGrouped get() = p.canvasGrouped
@@ -260,7 +174,7 @@ object XpColors {
     val InkSecondary get() = p.ink2
     val InkTertiary get() = p.ink3
     val Hairline get() = p.hairline
-    /** The one interactive colour: the user's accent (Apple, blue by default) or terracotta (Claude). */
+    /** The one interactive colour: the user's colour theme accent (blue by default). */
     val Accent get() = p.accent
     val AccentSoft get() = p.accentSoft
     val OnAccent get() = p.onAccent
@@ -309,13 +223,12 @@ object XpSpace {
     val xxl = 32.dp
 }
 
-/** Corner radii follow the active style: Apple 8/11/18, Claude 10/14/20. */
+/** Corner radii: 8/11/18. */
 object XpRadius {
-    private val apple get() = XpColors.style == DesignStyle.Apple
-    val s get() = if (apple) 8.dp else 10.dp
-    val m get() = if (apple) 11.dp else 14.dp
-    val l get() = if (apple) 18.dp else 20.dp
-    /** List cards (§3.7): 10dp in both styles — the ledger's day cards. */
+    val s = 8.dp
+    val m = 11.dp
+    val l = 18.dp
+    /** List cards (§3.7): 10dp — the ledger's day cards. */
     val listCard = 10.dp
     /** Content cards sitting on the page (§3.7): summary, filter blocks. */
     val contentCard = 14.dp
@@ -347,6 +260,4 @@ object XpFonts {
         androidx.compose.ui.text.font.Font(com.xiaopiao.app.R.font.inter_medium, androidx.compose.ui.text.font.FontWeight.Medium),
         androidx.compose.ui.text.font.Font(com.xiaopiao.app.R.font.inter_semibold, androidx.compose.ui.text.font.FontWeight.SemiBold),
     )
-    /** Serif display — Claude style only. */
-    val serif = androidx.compose.ui.text.font.FontFamily.Serif
 }

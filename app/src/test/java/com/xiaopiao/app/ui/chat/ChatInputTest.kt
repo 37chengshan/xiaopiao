@@ -10,13 +10,15 @@ import org.junit.Test
 class ChatInputTest {
 
     @Test
-    fun modeFollowsTextAndStreaming() {
+    fun modeFollowsTextAttachmentsAndStreaming() {
         assertEquals(ChatInputMode.Idle, ChatInput.mode("", streaming = false))
         assertEquals(ChatInputMode.Idle, ChatInput.mode("   ", streaming = false))
         assertEquals(ChatInputMode.Composing, ChatInput.mode("午饭", streaming = false))
+        // An attachment alone is enough to leave the idle (voice) state.
+        assertEquals(ChatInputMode.Composing, ChatInput.mode("", streaming = false, attachments = 1))
         // A streaming reply owns the button, even if the user already typed the next question.
         assertEquals(ChatInputMode.Streaming, ChatInput.mode("午饭", streaming = true))
-        assertEquals(ChatInputMode.Streaming, ChatInput.mode("", streaming = true))
+        assertEquals(ChatInputMode.Streaming, ChatInput.mode("", streaming = true, attachments = 2))
     }
 
     @Test
@@ -32,13 +34,60 @@ class ChatInputTest {
         assertFalse(ChatInput.canSend("  \n ", streaming = false))
         assertTrue(ChatInput.canSend("记一笔 28", streaming = false))
         assertFalse(ChatInput.canSend("记一笔 28", streaming = true))
+        // Text is not required when something is attached.
+        assertTrue(ChatInput.canSend("", streaming = false, attachments = 1))
+        assertFalse(ChatInput.canSend("", streaming = true, attachments = 1))
     }
 
     @Test
-    fun cardOnlyExpandsOnceThereIsText() {
+    fun cardOpensForTextOrAttachmentsOnly() {
         assertFalse(ChatInput.isExpanded(ChatInputMode.Idle))
         assertTrue(ChatInput.isExpanded(ChatInputMode.Composing))
         assertTrue(ChatInput.isExpanded(ChatInputMode.Streaming))
+    }
+
+    @Test
+    fun planKeepsTheFieldAtSixLinesForEveryState() {
+        val idle = ChatInput.plan("", streaming = false)
+        assertEquals(ChatInputMode.Idle, idle.mode)
+        assertEquals(ChatPrimaryAction.Voice, idle.primary)
+        assertFalse(idle.expanded)
+
+        val typing = ChatInput.plan("hello", streaming = false)
+        assertEquals(ChatPrimaryAction.Send, typing.primary)
+        assertTrue(typing.expanded)
+
+        val withImage = ChatInput.plan("", streaming = false, attachments = 1)
+        assertEquals(ChatPrimaryAction.Send, withImage.primary)
+        assertTrue(withImage.expanded)
+
+        val streaming = ChatInput.plan("next", streaming = true, attachments = 1)
+        assertEquals(ChatPrimaryAction.Stop, streaming.primary)
+
+        // The growth cap is one number the composer reads, not a scattered constant.
+        listOf(idle, typing, withImage, streaming).forEach { assertEquals(6, it.maxLines) }
+        assertEquals(ChatInput.MAX_LINES, typing.maxLines)
+    }
+
+    @Test
+    fun stagingKeepsOnlyTheLastFourAttachments() {
+        fun image(id: Int) = ChatAttachment("content://image/$id", ChatAttachmentKind.Image)
+        val four = ChatInput.stage(emptyList(), (1..3).map(::image))
+        assertEquals(3, four.size)
+        val six = ChatInput.stage(four, (4..6).map(::image))
+        assertEquals(ChatInput.MAX_IMAGES, six.size)
+        // Oldest drop out, newest survive, order is preserved.
+        assertEquals(listOf("content://image/3", "content://image/4", "content://image/5", "content://image/6"), six.map { it.uriString })
+        assertEquals(four, ChatInput.stage(four, emptyList()))
+    }
+
+    @Test
+    fun attachmentsKnowWhetherTheyAreCsv() {
+        assertTrue(ChatAttachment("u", ChatAttachmentKind.File, name = "bill.csv").isCsv)
+        assertTrue(ChatAttachment("u", ChatAttachmentKind.File, mime = "text/comma-separated-values").isCsv)
+        assertTrue(ChatAttachment("u", ChatAttachmentKind.File, mime = "application/vnd.ms-excel", name = "账单").isCsv)
+        assertFalse(ChatAttachment("u", ChatAttachmentKind.File, name = "note.txt", mime = "text/plain").isCsv)
+        assertFalse(ChatAttachment("u", ChatAttachmentKind.Image, name = "bill.csv").isCsv)
     }
 }
 
@@ -68,18 +117,17 @@ class SessionGroupsTest {
     @Test
     fun groupsKeepDisplayOrderAndDropEmptyBuckets() {
         val sessions = listOf(
-            session(1, now - 8 * 3600_000L),           // today morning
-            session(2, now - 2 * DAY_MS),              // within 7 days
-            session(3, now - DAY_MS),                  // yesterday
-            session(4, now - 30 * DAY_MS),             // earlier
-            session(5, now - 60_000L),                 // today, newest
+            session(1, now - 8 * 3600_000L),
+            session(2, now - 2 * DAY_MS),
+            session(3, now - DAY_MS),
+            session(4, now - 30 * DAY_MS),
+            session(5, now - 60_000L),
         )
         val groups = SessionGroups.group(sessions, now)
         assertEquals(
             listOf(SessionBucket.Today, SessionBucket.Yesterday, SessionBucket.LastWeek, SessionBucket.Earlier),
             groups.map { it.first },
         )
-        // Newest first inside a bucket.
         assertEquals(listOf(5, 1), groups.first().second.map { it.id })
         assertEquals(listOf(3), groups[1].second.map { it.id })
         assertEquals(listOf(2), groups[2].second.map { it.id })

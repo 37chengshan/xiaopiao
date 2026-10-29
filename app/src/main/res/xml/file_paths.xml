@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="shared_receipts" path="shared/" />
+    <!-- AI page: a photo taken for local OCR, deleted with the app cache. -->
+    <cache-path name="chat_attachments" path="chat/" />
 </paths>
