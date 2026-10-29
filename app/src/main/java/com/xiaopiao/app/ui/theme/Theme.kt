@@ -38,45 +38,24 @@ private fun colorScheme(p: XpPalette) = if (p.dark) {
     )
 }
 
-/** Apple: SF-like Inter, tight tracking, no serif. Claude: serif display over a humanist body. */
-private fun typographyFor(style: DesignStyle): Typography = when (style) {
-    DesignStyle.Apple -> Typography(
-        displayLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 48.sp, lineHeight = 52.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.4).sp, fontFeatureSettings = "tnum"),
-        displayMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 40.sp, lineHeight = 46.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.1).sp, fontFeatureSettings = "tnum"),
-        headlineLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.5).sp),
-        headlineMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.4).sp),
-        titleLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.3).sp),
-        titleMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
-        titleSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
-        bodyLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 24.sp, letterSpacing = (-0.2).sp),
-        bodyMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 21.sp, letterSpacing = (-0.1).sp),
-        bodySmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 13.sp, lineHeight = 18.sp),
-        labelLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
-        labelMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
-        labelSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.2.sp),
-    )
-    DesignStyle.Claude -> Typography(
-        displayLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 48.sp, lineHeight = 52.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.4).sp, fontFeatureSettings = "tnum"),
-        displayMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 40.sp, lineHeight = 46.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.1).sp, fontFeatureSettings = "tnum"),
-        headlineLarge = TextStyle(fontFamily = FontFamily.Serif, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Normal, letterSpacing = (-0.5).sp),
-        headlineMedium = TextStyle(fontFamily = FontFamily.Serif, fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Normal, letterSpacing = (-0.3).sp),
-        titleLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 22.sp, lineHeight = 29.sp, fontWeight = FontWeight.Medium),
-        titleMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium),
-        titleSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.Medium),
-        bodyLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 16.sp, lineHeight = 25.sp),
-        bodyMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 23.sp),
-        bodySmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 13.sp, lineHeight = 20.sp),
-        labelLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, fontWeight = FontWeight.Medium),
-        labelMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 13.sp, fontWeight = FontWeight.Medium),
-        labelSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 11.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.3.sp),
-    )
-}
+/** SF-like Inter, tight tracking, no serif. */
+private val AppTypography = Typography(
+    displayLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 48.sp, lineHeight = 52.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.4).sp, fontFeatureSettings = "tnum"),
+    displayMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 40.sp, lineHeight = 46.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-1.1).sp, fontFeatureSettings = "tnum"),
+    headlineLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.5).sp),
+    headlineMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.4).sp),
+    titleLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.3).sp),
+    titleMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.2).sp),
+    titleSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
+    bodyLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 24.sp, letterSpacing = (-0.2).sp),
+    bodyMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, lineHeight = 21.sp, letterSpacing = (-0.1).sp),
+    bodySmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 13.sp, lineHeight = 18.sp),
+    labelLarge = TextStyle(fontFamily = XpFonts.sans, fontSize = 17.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
+    labelMedium = TextStyle(fontFamily = XpFonts.sans, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium),
+    labelSmall = TextStyle(fontFamily = XpFonts.sans, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.2.sp),
+)
 
-private fun shapesFor(style: DesignStyle) = if (style == DesignStyle.Apple) {
-    Shapes(small = RoundedCornerShape(8.dp), medium = RoundedCornerShape(11.dp), large = RoundedCornerShape(18.dp))
-} else {
-    Shapes(small = RoundedCornerShape(10.dp), medium = RoundedCornerShape(14.dp), large = RoundedCornerShape(20.dp))
-}
+private val AppShapes = Shapes(small = RoundedCornerShape(8.dp), medium = RoundedCornerShape(11.dp), large = RoundedCornerShape(18.dp))
 
 /** Monospace style for anything printed on a receipt. */
 val ReceiptText get() = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp, color = XpColors.PaperInk)
@@ -97,21 +76,19 @@ fun XiaopiaoTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val prefs = remember(context) { ThemePrefs(context.applicationContext) }
     val mode by prefs.observeMode().collectAsState(initial = ThemeMode.System)
-    val style by prefs.observeStyle().collectAsState(initial = DesignStyle.Apple)
-    val accent by prefs.observeAccent().collectAsState(initial = AccentChoice.Default)
+    val theme by prefs.observeTheme().collectAsState(initial = ColorTheme.Default)
     val dark = when (mode) {
         ThemeMode.System -> isSystemInDarkTheme()
         ThemeMode.Light -> false
         ThemeMode.Dark -> true
     }
-    val target = resolvePalette(style, dark, accent)
+    val target = resolvePalette(dark, theme)
     // Ease the two backgrounds so a theme switch never flashes (docs/DESIGN.md §6).
     val canvas by animateColorAsState(target.canvas, tween(200), label = "canvas")
     val ink by animateColorAsState(target.ink, tween(200), label = "ink")
     val live = target.copy(canvas = canvas, ink = ink)
     // Written before `content` composes, so every screen reads the new palette in the same pass.
     XpPaletteState.applyBase(live)
-    if (XpPaletteState.style != style) XpPaletteState.style = style
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -123,5 +100,5 @@ fun XiaopiaoTheme(content: @Composable () -> Unit) {
             }
         }
     }
-    MaterialTheme(colorScheme = colorScheme(target), typography = remember(style) { typographyFor(style) }, shapes = remember(style) { shapesFor(style) }, content = content)
+    MaterialTheme(colorScheme = colorScheme(target), typography = AppTypography, shapes = AppShapes, content = content)
 }

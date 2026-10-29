@@ -9,6 +9,13 @@
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- Android 11+ package visibility: without this SpeechRecognizer cannot see (or bind) the system speech service. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:name=".XiaopiaoApp"
         android:allowBackup="false"

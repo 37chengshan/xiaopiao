@@ -119,7 +119,7 @@ private val MerchantNavSpec = NavBarSpec(
  */
 @Composable
 fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: () -> Unit = {}) {
-    val palette = remember(XpColors.style, XpColors.isDark) { merchantPalette(paletteFor(XpColors.style, XpColors.isDark)) }
+    val palette = remember(XpColors.isDark) { merchantPalette(paletteFor(XpColors.isDark)) }
     XpPaletteOverride(palette) {
         val store = remember { MerchantStore.get(container.appContext) }
         val state by store.state.collectAsState()

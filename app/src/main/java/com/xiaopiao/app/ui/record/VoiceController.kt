@@ -35,19 +35,22 @@ class VoiceController(private val context: Context) {
         private set
 
     private var recognizer: SpeechRecognizer? = null
+    /** Whether [recognizer] is the on-device one; some phones advertise it but cannot dictate Chinese with it. */
+    private var onDevice = false
+    private var onDeviceFailed = false
 
     val hasPermission: Boolean
         get() = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     private fun ensureRecognizer(): SpeechRecognizer? {
         recognizer?.let { return it }
+        val useOnDevice = !onDeviceFailed &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        if (!useOnDevice && !SpeechRecognizer.isRecognitionAvailable(context)) return null
         val r = runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
-                SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-            } else {
-                SpeechRecognizer.createSpeechRecognizer(context)
-            }
+            if (useOnDevice) SpeechRecognizer.createOnDeviceSpeechRecognizer(context) else SpeechRecognizer.createSpeechRecognizer(context)
         }.getOrNull() ?: return null
+        onDevice = useOnDevice
         r.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: android.os.Bundle?) { listening = true }
             override fun onBeginningOfSpeech() { listening = true }
@@ -60,10 +63,19 @@ class VoiceController(private val context: Context) {
             override fun onEndOfSpeech() { listening = false }
             override fun onError(error: Int) {
                 listening = false
+                // The on-device engine can refuse the language or fail to bind; fall back to the system service once.
+                if (onDevice && error in ServiceErrors) {
+                    onDeviceFailed = true
+                    runCatching { recognizer?.destroy() }
+                    recognizer = null
+                    start()
+                    return
+                }
                 this@VoiceController.error = when (error) {
                     SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "没听清，再说一次"
                     SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "没有麦克风权限"
                     SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "识别服务连不上，先手打吧"
+                    in ServiceErrors -> NoServiceHint
                     else -> "语音没成功，再试一次"
                 }
             }
@@ -87,7 +99,7 @@ class VoiceController(private val context: Context) {
         partial = ""
         transcript = null
         if (!hasPermission) { error = "没有麦克风权限"; return }
-        val r = ensureRecognizer() ?: run { error = "这台设备没有语音识别"; return }
+        val r = ensureRecognizer() ?: run { error = NoServiceHint; return }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
@@ -132,3 +144,15 @@ fun rememberVoiceController(): VoiceController {
     DisposableEffect(controller) { onDispose { controller.release() } }
     return controller
 }
+
+/** Errors that mean "this speech service cannot serve us", as opposed to "it did not hear you". */
+private val ServiceErrors = setOf(
+    SpeechRecognizer.ERROR_CLIENT,
+    SpeechRecognizer.ERROR_SERVER,
+    SpeechRecognizer.ERROR_SERVER_DISCONNECTED,
+    SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED,
+    SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE,
+)
+
+/** When no usable service exists, point at the keyboard's own mic — every Chinese IME has one (tt#47). */
+private const val NoServiceHint = "这台手机的语音服务用不了，点输入法上的麦克风说一句"

@@ -23,8 +23,7 @@ import com.xiaopiao.app.ui.components.IconTile
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.motion.XpReveal
-import com.xiaopiao.app.ui.theme.AccentChoice
-import com.xiaopiao.app.ui.theme.DesignStyle
+import com.xiaopiao.app.ui.theme.ColorTheme
 import com.xiaopiao.app.ui.theme.ThemeMode
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -41,7 +40,7 @@ fun AppearanceNavSection(value: String, onOpen: () -> Unit) {
         item {
             GroupedRow(
                 title = "主题与配色",
-                subtitle = "跟随系统、浅色、深色；Apple 或 Claude 两套语言",
+                subtitle = "跟随系统、浅色、深色；五套主题配色",
                 value = value,
                 leading = { IconTile(Icons.Outlined.Palette, tint = XpColors.Info, background = XpColors.InfoSoft) },
                 chevron = true,
@@ -85,22 +84,19 @@ fun AboutNavSection(onOpen: () -> Unit) {
 @Composable
 fun AppearancePage(
     mode: ThemeMode,
-    style: DesignStyle,
     onMode: (ThemeMode) -> Unit,
-    onStyle: (DesignStyle) -> Unit,
-    accent: AccentChoice,
-    onAccent: (AccentChoice) -> Unit,
+    theme: ColorTheme,
+    onTheme: (ColorTheme) -> Unit,
     onBack: () -> Unit,
 ) {
     val scroll = rememberScrollState()
     NavScaffold("外观", rememberNavScroll(scroll), onBack = onBack) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
-            XpReveal(index = 0) { AppearanceSection(mode, style, onMode, onStyle) }
-            // Accent is an Apple-skin choice; Claude keeps its terracotta.
-            if (style == DesignStyle.Apple) XpReveal(index = 1) { AccentSection(accent, onAccent) }
+            XpReveal(index = 0) { AppearanceSection(mode, onMode) }
+            XpReveal(index = 1) { ColorThemeSection(theme, onTheme) }
             XpReveal(index = 2) {
                 Text(
-                    "切换只换颜色与字体，不改布局。深色跟随系统时可以手动覆盖。",
+                    "主题只换颜色，不改布局。深色跟随系统时可以手动覆盖。",
                     style = MaterialTheme.typography.labelMedium,
                     color = XpColors.InkSecondary,
                     modifier = Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.xs),

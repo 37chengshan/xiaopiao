@@ -37,6 +37,13 @@ sealed interface ChatItem {
     /** Rich answer: the same numbers as a chart, so the reply is not only prose. */
     data class Chart(override val id: Long, val title: String, val days: List<Long>, val caption: String?) : ChatItem
 
+    /** A CSV bill the user attached: parsed locally, imported only after 确认. */
+    data class CsvAttachment(
+        override val id: Long,
+        val preview: ChatCsvPreview,
+        val state: CsvAttachmentState = CsvAttachmentState.Pending,
+    ) : ChatItem
+
     /** A visible tool step: the assistant says what it is reading before it answers. */
     data class Tool(
         override val id: Long,
@@ -48,6 +55,8 @@ sealed interface ChatItem {
 
 enum class ConfirmState { Pending, Saving, Saved, Duplicate }
 
+enum class CsvAttachmentState { Pending, Importing, Imported, Cancelled }
+
 /** A locally parsed expense, shown on the confirm card until the user accepts it. */
 data class ExpenseDraft(
     val merchant: String,
@@ -55,12 +64,14 @@ data class ExpenseDraft(
     val amountCents: Cents,
     /** The original sentence, so 「改一下」 can put it back into the input field. */
     val sourceText: String,
+    /** Set when a receipt screenshot carried its own timestamp; null means "now". */
+    val occurredAt: Long? = null,
 ) {
     fun toTxn(at: Long): Txn = Txn(
         amountCents = amountCents,
         merchant = merchant,
         category = category,
-        occurredAt = at,
+        occurredAt = occurredAt ?: at,
         source = Source.MANUAL,
     )
 }

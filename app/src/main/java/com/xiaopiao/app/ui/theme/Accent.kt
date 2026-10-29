@@ -4,24 +4,29 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import kotlin.math.pow
 
-/**
- * The user-pickable accent (设置 → 外观 → 强调色, modelled on ChatGPT's 个性化 → 强调色). Apple skin only:
- * Claude keeps its terracotta. Every preset has a light and a dark value; [Blue] (Apple's action blue) is the default; [Orange] stays on the palette.
- */
-enum class AccentChoice(val id: String, val label: String, val light: Long, val dark: Long) {
-    Orange("orange", "橙", 0xFFFF8A00, 0xFFFF9F0A),
-    Yellow("yellow", "黄", 0xFFFFC400, 0xFFFFD60A),
-    Green("green", "绿", 0xFF34C759, 0xFF30D158),
-    Blue("blue", "蓝", 0xFF0071E3, 0xFF2997FF),
-    Pink("pink", "粉", 0xFFFF375F, 0xFFFF375F),
-    Purple("purple", "紫", 0xFFAF52DE, 0xFFBF5AF2),
-    Ink("ink", "墨黑", 0xFF1D1D1F, 0xFFF5F5F7);
-
+/** One colour of a theme, with its light and dark value. */
+data class ThemeTone(val light: Long, val dark: Long) {
     fun color(dark: Boolean): Color = Color(if (dark) this.dark else light)
+}
+
+/**
+ * 主题配色 (设置 → 外观): five hand-paired themes, each three colours — [accent] (the one interactive colour),
+ * [highlight] (warm emphasis surfaces such as the ledger's summary card) and [tint] (icon blocks and secondary charts).
+ * tt: 「每种应该是 2–3 个色彩然后你搭配 5 种用户选择」; the default is blue with a little yellow (tt#72).
+ */
+enum class ColorTheme(val id: String, val label: String, val accent: ThemeTone, val highlight: ThemeTone, val tint: ThemeTone) {
+    Sky("sky", "晴空", ThemeTone(0xFF0071E3, 0xFF2997FF), ThemeTone(0xFFFFC93C, 0xFFFFD60A), ThemeTone(0xFF5AC8FA, 0xFF64D2FF)),
+    Sunset("sunset", "暖阳", ThemeTone(0xFFF27A1A, 0xFFFF9F0A), ThemeTone(0xFFFFD166, 0xFFFFD60A), ThemeTone(0xFFFF6B5B, 0xFFFF7A6B)),
+    Mint("mint", "薄荷", ThemeTone(0xFF12A07A, 0xFF30D19A), ThemeTone(0xFFF2D45C, 0xFFFFE066), ThemeTone(0xFF3FB8C4, 0xFF5AD1DB)),
+    Berry("berry", "莓果", ThemeTone(0xFFE0457B, 0xFFFF5C8D), ThemeTone(0xFFFFB86B, 0xFFFFC27A), ThemeTone(0xFFA78BFA, 0xFFB9A3FF)),
+    Ink("ink", "夜墨", ThemeTone(0xFF1D1D1F, 0xFFF5F5F7), ThemeTone(0xFFD9A441, 0xFFE8B85A), ThemeTone(0xFF6B7A90, 0xFF8E9BB0));
+
+    /** The three swatches, in the order the picker shows them. */
+    fun swatches(dark: Boolean): List<Color> = listOf(accent.color(dark), highlight.color(dark), tint.color(dark))
 
     companion object {
-        val Default = Blue
-        fun fromId(id: String?): AccentChoice = entries.firstOrNull { it.id == id } ?: Default
+        val Default = Sky
+        fun fromId(id: String?): ColorTheme = entries.firstOrNull { it.id == id } ?: Default
     }
 }
 
@@ -49,19 +54,22 @@ object Contrast {
         Candidates.firstOrNull { ratio(it, accent) >= MIN_TEXT } ?: Candidates.maxBy { ratio(it, accent) }
 }
 
-/** Accent, its soft tint and the text colour that sits on it — the only fields an accent choice changes. */
-fun XpPalette.withAccent(choice: AccentChoice): XpPalette {
-    val accent = choice.color(dark)
+/** The fields a theme changes: accent, highlight and tint, each with its soft wash, plus the text that sits on the accent. */
+fun XpPalette.withTheme(theme: ColorTheme): XpPalette {
     val base = if (dark) Color(0xFF1C1C1E) else Color.White
+    val accent = theme.accent.color(dark)
+    val highlight = theme.highlight.color(dark)
+    val tint = theme.tint.color(dark)
     return copy(
         accent = accent,
         accentSoft = lerp(base, accent, if (dark) 0.24f else 0.14f),
         onAccent = Contrast.onAccent(accent),
+        highlight = highlight,
+        highlightSoft = lerp(base, highlight, 0.2f),
+        info = tint,
+        infoSoft = lerp(base, tint, if (dark) 0.2f else 0.1f),
     )
 }
 
-/** The palette the app wears: the skin's own, plus the user's accent when the skin is Apple. */
-fun resolvePalette(style: DesignStyle, dark: Boolean, accent: AccentChoice): XpPalette {
-    val base = paletteFor(style, dark)
-    return if (style == DesignStyle.Apple) base.withAccent(accent) else base
-}
+/** The palette the app wears: the light or dark base plus the user's theme. */
+fun resolvePalette(dark: Boolean, theme: ColorTheme): XpPalette = paletteFor(dark).withTheme(theme)
