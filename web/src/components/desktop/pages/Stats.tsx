@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { CATEGORIES, startOfDay } from "@/domain/types";
 import { dateKey } from "@/logic/time";
@@ -6,6 +7,7 @@ import { useLedger } from "@/services/LedgerProvider";
 import { AreaTrend, BarTrend, Donut, Legend, type Slice } from "../charts";
 import { delta, money } from "../format";
 import { useFirstPaint } from "../hooks";
+import { Stagger } from "../motion";
 import { previousWindow, seriesOf, shiftAnchor, summarize, windowLabel, windowOf, type CustomRange, type Period } from "../statsModel";
 import { Button, Card, EmptyState, Kpi, Segmented, Skeleton, Toggle } from "../ui";
 import { s } from "../strings";
@@ -52,7 +54,7 @@ export function StatsPage() {
             type="button"
             aria-label={s("stats.prevPeriod")}
             onClick={() => setAnchor(shiftAnchor(period, anchor, -1, custom))}
-            className="press grid size-7 place-items-center rounded-md text-d-ink-2 hover:bg-d-fill hover:text-d-ink"
+            className="d-press grid size-7 place-items-center rounded-md text-d-ink-2 hover:bg-d-fill hover:text-d-ink"
           >
             <ChevronLeft className="size-4" strokeWidth={2} aria-hidden />
           </button>
@@ -62,7 +64,7 @@ export function StatsPage() {
             aria-label={s("stats.nextPeriod")}
             disabled={!canNext}
             onClick={() => canNext && setAnchor(nextAnchor)}
-            className="press grid size-7 place-items-center rounded-md text-d-ink-2 hover:bg-d-fill hover:text-d-ink disabled:opacity-30"
+            className="d-press grid size-7 place-items-center rounded-md text-d-ink-2 hover:bg-d-fill hover:text-d-ink disabled:opacity-30"
           >
             <ChevronRight className="size-4" strokeWidth={2} aria-hidden />
           </button>
@@ -111,24 +113,39 @@ export function StatsPage() {
         </Card>
       ) : (
         <>
-          <Card className="col-span-12 xl:col-span-8" title={s("stats.trend")} action={compare ? <span className="text-[11px] text-d-ink-3">{s("stats.previous")}</span> : null}>
-            {view.summary.totalCents === 0 && view.summary.count === 0 ? (
-              <EmptyState icon={ChevronRight} title={s("stats.empty")} className="py-10" />
-            ) : period === "week" ? (
-              <BarTrend points={view.points} valueName={s("stats.period")} compareName={s("stats.previous")} height={248} />
-            ) : (
-              <AreaTrend points={view.points} valueName={s("stats.period")} compareName={s("stats.previous")} height={248} />
-            )}
-          </Card>
+          <Stagger index={0} className="col-span-12 xl:col-span-8">
+            <Card className="h-full" title={s("stats.trend")} action={compare ? <span className="text-[11px] text-d-ink-3">{s("stats.previous")}</span> : null}>
+              {view.summary.totalCents === 0 && view.summary.count === 0 ? (
+                <EmptyState icon={ChevronRight} title={s("stats.empty")} className="py-10" />
+              ) : (
+                <motion.div key={`${period}-${view.label}-${compare}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }}>
+                  {period === "week" ? (
+                    <BarTrend points={view.points} valueName={s("stats.period")} compareName={s("stats.previous")} height={248} />
+                  ) : (
+                    <AreaTrend points={view.points} valueName={s("stats.period")} compareName={s("stats.previous")} height={248} />
+                  )}
+                </motion.div>
+              )}
+            </Card>
+          </Stagger>
 
           <div className="col-span-12 grid grid-cols-2 gap-5 xl:col-span-4">
-            <Kpi label={s("stats.total")} value={money(view.summary.totalCents)} delta={view.prevSummary ? delta(view.summary.totalCents, view.prevSummary.totalCents) : undefined} vs={view.prevSummary ? s("stats.previous") : undefined} />
-            <Kpi label={s("stats.avg")} value={money(view.summary.avgPerDayCents)} hint={`${view.summary.activeDays} ${s("ov.dayUnit")}`} />
-            <Kpi label={s("stats.count")} value={`${view.summary.count}`} hint={s("ledger.itemUnit")} />
-            <Kpi label={s("stats.top")} value={money(view.summary.peak?.amountCents ?? 0)} hint={view.summary.peak?.merchant} />
+            <Stagger index={1}>
+              <Kpi label={s("stats.total")} cents={view.summary.totalCents} delta={view.prevSummary ? delta(view.summary.totalCents, view.prevSummary.totalCents) : undefined} vs={view.prevSummary ? s("stats.previous") : undefined} />
+            </Stagger>
+            <Stagger index={2}>
+              <Kpi label={s("stats.avg")} cents={view.summary.avgPerDayCents} hint={`${view.summary.activeDays} ${s("ov.dayUnit")}`} />
+            </Stagger>
+            <Stagger index={3}>
+              <Kpi label={s("stats.count")} value={`${view.summary.count}`} hint={s("ledger.itemUnit")} />
+            </Stagger>
+            <Stagger index={4}>
+              <Kpi label={s("stats.top")} cents={view.summary.peak?.amountCents ?? 0} hint={view.summary.peak?.merchant} />
+            </Stagger>
           </div>
 
-          <Card className="col-span-12 xl:col-span-4" title={s("stats.mix")}>
+          <Stagger index={5} className="col-span-12 xl:col-span-4">
+          <Card className="h-full" title={s("stats.mix")}>
             {view.summary.totalCents === 0 ? (
               <p className="py-8 text-center text-[13px] text-d-ink-3">{s("stats.empty")}</p>
             ) : (
@@ -138,8 +155,10 @@ export function StatsPage() {
               </div>
             )}
           </Card>
+          </Stagger>
 
-          <Card className="col-span-12 xl:col-span-8" title={s("stats.ranking")}>
+          <Stagger index={6} className="col-span-12 xl:col-span-8">
+          <Card className="h-full" title={s("stats.ranking")}>
             {view.summary.byCategory.length === 0 ? (
               <p className="py-8 text-center text-[13px] text-d-ink-3">{s("stats.empty")}</p>
             ) : (
@@ -160,6 +179,7 @@ export function StatsPage() {
               </ul>
             )}
           </Card>
+          </Stagger>
         </>
       )}
     </div>

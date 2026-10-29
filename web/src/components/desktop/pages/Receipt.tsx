@@ -69,7 +69,7 @@ export function ReceiptPage() {
               type="button"
               aria-label={s("rc.prevDay")}
               onClick={() => setDay((d) => addDays(d, -1))}
-              className="press grid size-7 place-items-center rounded-md text-d-ink-2 hover:bg-d-fill hover:text-d-ink"
+              className="d-press grid size-7 place-items-center rounded-md text-d-ink-2 hover:bg-d-fill hover:text-d-ink"
             >
               <ChevronLeft className="size-4" strokeWidth={2} aria-hidden />
             </button>
@@ -79,7 +79,7 @@ export function ReceiptPage() {
               aria-label={s("rc.nextDay")}
               disabled={day >= today}
               onClick={() => setDay((d) => Math.min(today, addDays(d, 1)))}
-              className="press grid size-7 place-items-center rounded-md text-d-ink-2 hover:bg-d-fill hover:text-d-ink disabled:opacity-30"
+              className="d-press grid size-7 place-items-center rounded-md text-d-ink-2 hover:bg-d-fill hover:text-d-ink disabled:opacity-30"
             >
               <ChevronRight className="size-4" strokeWidth={2} aria-hidden />
             </button>
@@ -114,7 +114,7 @@ export function ReceiptPage() {
                 aria-pressed={theme === g.id}
                 onClick={() => setTheme(g.id)}
                 className={cn(
-                  "press grid size-9 place-items-center rounded-lg ring-offset-2 ring-offset-d-surface",
+                  "d-press grid size-9 place-items-center rounded-lg ring-offset-2 ring-offset-d-surface",
                   theme === g.id && "ring-2 ring-d-accent",
                 )}
                 style={{ background: cssGradient(g) }}

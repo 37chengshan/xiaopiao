@@ -48,7 +48,7 @@ export function CirclePage() {
                 onClick={() => setCircleId(c.id)}
                 aria-current={on ? "true" : undefined}
                 className={cn(
-                  "press flex h-8 w-full items-center gap-2 rounded-lg px-2 text-[13px] transition-colors",
+                  "d-press flex h-8 w-full items-center gap-2 rounded-lg px-2 text-[13px] transition-colors",
                   on ? "bg-d-fill text-d-ink" : "text-d-ink-2 hover:bg-d-fill/50 hover:text-d-ink",
                 )}
               >
@@ -67,7 +67,7 @@ export function CirclePage() {
             <Users className="size-3.5" strokeWidth={1.9} aria-hidden />
             {circle.emoji} {circle.name}
           </h2>
-          <button type="button" onClick={shareWeek} className="press flex h-7 items-center gap-1 rounded-md bg-d-fill px-2 text-[12px] text-d-ink-2 hover:text-d-ink">
+          <button type="button" onClick={shareWeek} className="d-press flex h-7 items-center gap-1 rounded-md bg-d-fill px-2 text-[12px] text-d-ink-2 hover:text-d-ink">
             <Share2 className="size-3.5" strokeWidth={1.8} aria-hidden />
             {s("ci.shareWeek")}
           </button>
@@ -126,7 +126,7 @@ export function CirclePage() {
             type="submit"
             disabled={!draft.trim()}
             aria-label={s("ci.send")}
-            className="press grid size-9 shrink-0 place-items-center rounded-lg bg-d-ink text-d-canvas disabled:bg-d-fill disabled:text-d-ink-3"
+            className="d-press grid size-9 shrink-0 place-items-center rounded-lg bg-d-ink text-d-canvas disabled:bg-d-fill disabled:text-d-ink-3"
           >
             <ArrowUp className="size-4" strokeWidth={2.2} aria-hidden />
           </button>

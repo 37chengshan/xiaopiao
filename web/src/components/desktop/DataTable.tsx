@@ -1,5 +1,6 @@
+import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { nextSort, stepIndex, toggleAll, toggleSelected, virtualWindow, type Sort, type SortKey } from "./tableModel";
 import { s } from "./strings";
@@ -76,7 +77,21 @@ export function DataTable<T>({
     return () => ro.disconnect();
   }, []);
 
-  const ids = rows.map(rowKey);
+  const ids = useMemo(() => rows.map(rowKey), [rows, rowKey]);
+
+  // Rows that just appeared flash accent-8% once (§A.4). Tracked by id so sorting never re-flashes.
+  const idKey = ids.join("|");
+  const seen = useRef<Set<string>>(new Set());
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const list = idKey === "" ? [] : idKey.split("|");
+    const added = list.filter((id) => !seen.current.has(id));
+    added.forEach((id) => seen.current.add(id));
+    if (added.length === 0) return;
+    setFresh(new Set(added));
+    const timer = window.setTimeout(() => setFresh(new Set()), 600);
+    return () => window.clearTimeout(timer);
+  }, [idKey]);
   const virtual = rows.length > virtualizeAfter;
   const win = virtual ? virtualWindow({ scrollTop, viewportHeight: viewportH, rowHeight, count: rows.length }) : { start: 0, end: rows.length, padTop: 0, padBottom: 0 };
   const visible = rows.slice(win.start, win.end);
@@ -176,7 +191,7 @@ export function DataTable<T>({
                       onClick={() => onSort(nextSort(sort ?? { key: c.sortKey!, dir: "desc" }, c.sortKey!))}
                       title={s("ledger.sortHint")}
                       className={cn(
-                        "press -mx-1 inline-flex items-center gap-0.5 rounded px-1 hover:text-d-ink",
+                        "d-press -mx-1 inline-flex items-center gap-0.5 rounded px-1 hover:text-d-ink",
                         active && "text-d-ink",
                         c.align === "right" && "flex-row-reverse",
                       )}
@@ -198,21 +213,27 @@ export function DataTable<T>({
               <td colSpan={columns.length + (selectable ? 1 : 0)} />
             </tr>
           )}
+          <AnimatePresence initial={false}>
           {visible.map((row) => {
             const id = rowKey(row);
             const isActive = id === activeId;
             const isSelected = selected?.has(id) ?? false;
             return (
-              <tr
+              <motion.tr
                 key={id}
-                style={{ height: rowHeight }}
+                layout="position"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: rowHeight }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 aria-selected={selectable ? isSelected : undefined}
                 onMouseDown={() => onActive?.(id)}
                 onDoubleClick={() => onActivate?.(row)}
                 className={cn(
-                  "group align-middle transition-colors",
+                  "group align-middle",
                   isSelected ? "bg-d-accent/[0.08]" : isActive ? "bg-d-fill/70" : "hover:bg-d-fill/40",
                   "border-b border-d-hairline last:border-b-0",
+                  fresh.has(id) && "d-row-flash",
                 )}
               >
                 {selectable && (
@@ -234,9 +255,10 @@ export function DataTable<T>({
                     {c.cell(row, { query })}
                   </td>
                 ))}
-              </tr>
+              </motion.tr>
             );
           })}
+          </AnimatePresence>
           {win.padBottom > 0 && (
             <tr aria-hidden style={{ height: win.padBottom }}>
               <td colSpan={columns.length + (selectable ? 1 : 0)} />

@@ -116,7 +116,7 @@ export function SettingsPage() {
         <div className="mt-4 flex justify-end gap-2">
           <Button onClick={() => setConfirming(false)}>{s("common.cancel")}</Button>
           <Button
-            variant="primary"
+            variant="danger"
             onClick={() => {
               void reset().then(() => {
                 setConfirming(false);
@@ -124,7 +124,7 @@ export function SettingsPage() {
               });
             }}
           >
-            {s("common.confirm")}
+            {s("common.delete")}
           </Button>
         </div>
       </Modal>

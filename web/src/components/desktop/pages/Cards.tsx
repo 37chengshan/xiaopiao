@@ -62,7 +62,7 @@ export function CardsPage() {
                   onClick={() => setActiveId(card.id)}
                   aria-label={`${card.bank} ${s("cd.tail")} ${card.tail}`}
                   title={`${card.bank} · •••• ${card.tail}`}
-                  className={cn("press h-2.5 rounded-full bg-d-ink-3 transition-opacity hover:opacity-100", i === 0 ? "opacity-55" : "opacity-30")}
+                  className={cn("d-press h-2.5 rounded-full bg-d-ink-3 transition-opacity hover:opacity-100", i === 0 ? "opacity-55" : "opacity-30")}
                   style={{ width: 296 - i * 22 }}
                 />
               ))}

@@ -2,6 +2,7 @@ import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Download, Filter, Plus, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { notifyUndo } from "../toast";
 import { CATEGORIES, type Category, type Source, type Txn, startOfDay } from "@/domain/types";
 import { addDays, dateKey, hhmm, weekStartOf } from "@/logic/time";
 import { decodeBillBytes, parseBillCsv } from "@/logic/csv";
@@ -11,6 +12,7 @@ import { DataTable, type Column } from "../DataTable";
 import { downloadCsv } from "../csvExport";
 import { money } from "../format";
 import { useDebounced, useFirstPaint } from "../hooks";
+import { Loadable } from "../motion";
 import { Modal } from "../dialogs";
 import {
   EMPTY_FILTERS,
@@ -152,20 +154,18 @@ export function LedgerPage() {
 
   const deleteRows = async (targets: Txn[]) => {
     if (targets.length === 0) return;
-    await Promise.all(targets.map((t) => remove(t.id)));
     setSelected(new Set());
-    toast(`${s("ledger.deleted")} ${targets.length}`, {
-      duration: 5000,
-      action: { label: s("common.undo"), onClick: () => void Promise.all(targets.map(restore)) },
-    });
+    await Promise.all(targets.map((t) => remove(t.id)));
+    notifyUndo(`${s("ledger.deleted")} ${targets.length} ${s("ledger.itemUnit")}`, () => void Promise.all(targets.map(restore)));
   };
 
   const reclassify = async (category: Category) => {
     setBulkOpen(false);
     if (selectedRows.length === 0) return;
+    const before = selectedRows.map((t) => ({ ...t }));
     await Promise.all(selectedRows.map((t) => update({ ...t, category })));
-    toast(s("ledger.reclassified"));
     setSelected(new Set());
+    notifyUndo(s("ledger.reclassified"), () => void Promise.all(before.map((t) => update(t))));
   };
 
   const columns: Column<Txn>[] = [
@@ -250,7 +250,7 @@ export function LedgerPage() {
               <div className="space-y-3.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] font-semibold text-d-ink">{s("ledger.filters")}</span>
-                  <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="press text-[12px] text-d-accent">
+                  <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="d-press text-[12px] text-d-accent">
                     {s("ledger.clearFilters")}
                   </button>
                 </div>
@@ -315,7 +315,7 @@ export function LedgerPage() {
                           type="button"
                           aria-pressed={on}
                           onClick={() => setFilters((f) => ({ ...f, categories: on ? f.categories.filter((c) => c !== key) : [...f.categories, key] }))}
-                          className={cn("press h-6 rounded-md px-2 text-[12px]", on ? "bg-d-accent/10 text-d-accent" : "bg-d-fill text-d-ink-2 hover:text-d-ink")}
+                          className={cn("d-press h-6 rounded-md px-2 text-[12px]", on ? "bg-d-accent/10 text-d-accent" : "bg-d-fill text-d-ink-2 hover:text-d-ink")}
                         >
                           {CATEGORIES[key].label}
                         </button>
@@ -357,7 +357,7 @@ export function LedgerPage() {
                           type="button"
                           aria-pressed={on}
                           onClick={() => setFilters((f) => ({ ...f, sources: on ? f.sources.filter((c) => c !== key) : [...f.sources, key] }))}
-                          className={cn("press h-6 rounded-md px-2 text-[12px]", on ? "bg-d-accent/10 text-d-accent" : "bg-d-fill text-d-ink-2 hover:text-d-ink")}
+                          className={cn("d-press h-6 rounded-md px-2 text-[12px]", on ? "bg-d-accent/10 text-d-accent" : "bg-d-fill text-d-ink-2 hover:text-d-ink")}
                         >
                           {SOURCE_LABEL[key]}
                         </button>
@@ -427,13 +427,12 @@ export function LedgerPage() {
         </Button>
       </div>
 
-      {skeleton ? (
-        <Skeleton rows={8} />
-      ) : isError ? (
+      {isError ? (
         <Card padded={false}>
           <EmptyState icon={Upload} title={s("common.error")} action={<Button variant="primary" onClick={refetch}>{s("common.retry")}</Button>} />
         </Card>
       ) : (
+        <Loadable loading={skeleton} skeleton={<Skeleton rows={8} />}>
         <>
           <DataTable
             rows={rows}
@@ -494,7 +493,7 @@ export function LedgerPage() {
               </span>
               <PopoverPrimitive.Root open={bulkOpen} onOpenChange={setBulkOpen}>
                 <PopoverPrimitive.Trigger asChild>
-                  <button type="button" className="press h-7 rounded-md bg-d-canvas/15 px-2.5 text-[12px] font-medium">
+                  <button type="button" className="d-press h-7 rounded-md bg-d-canvas/15 px-2.5 text-[12px] font-medium">
                     {s("ledger.changeCategory")}
                   </button>
                 </PopoverPrimitive.Trigger>
@@ -506,7 +505,7 @@ export function LedgerPage() {
                           key={key}
                           type="button"
                           onClick={() => void reclassify(key)}
-                          className="press h-6 rounded-md bg-d-fill px-2 text-[12px] text-d-ink-2 hover:text-d-ink"
+                          className="d-press h-6 rounded-md bg-d-fill px-2 text-[12px] text-d-ink-2 hover:text-d-ink"
                         >
                           {CATEGORIES[key].label}
                         </button>
@@ -515,18 +514,19 @@ export function LedgerPage() {
                   </PopoverPrimitive.Content>
                 </PopoverPrimitive.Portal>
               </PopoverPrimitive.Root>
-              <button type="button" onClick={() => void deleteRows(selectedRows)} className="press h-7 rounded-md bg-d-canvas/15 px-2.5 text-[12px] font-medium">
+              <button type="button" onClick={() => void deleteRows(selectedRows)} className="d-press h-7 rounded-md bg-d-canvas/15 px-2.5 text-[12px] font-medium">
                 {s("common.delete")}
               </button>
-              <button type="button" onClick={() => setSelected(toggleAll(selected, rows.map((r) => r.id)))} className="press h-7 rounded-md px-2 text-[12px] text-d-canvas/70">
+              <button type="button" onClick={() => setSelected(toggleAll(selected, rows.map((r) => r.id)))} className="d-press h-7 rounded-md px-2 text-[12px] text-d-canvas/70">
                 {s("common.all")}
               </button>
-              <button type="button" onClick={() => setSelected(new Set())} aria-label={s("ledger.clearSelection")} className="press grid size-6 place-items-center rounded-md text-d-canvas/70">
+              <button type="button" onClick={() => setSelected(new Set())} aria-label={s("ledger.clearSelection")} className="d-press grid size-6 place-items-center rounded-md text-d-canvas/70">
                 <X className="size-3.5" strokeWidth={2} aria-hidden />
               </button>
             </div>
           )}
         </>
+        </Loadable>
       )}
 
       <Modal open={preview !== null} onOpenChange={(open: boolean) => !open && setPreview(null)} label={s("ledger.importTitle")} width={520}>

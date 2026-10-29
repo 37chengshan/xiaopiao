@@ -67,3 +67,142 @@
   outline: 2px dashed var(--d-accent);
   outline-offset: -10px;
 }
+
+/* ---------------------------------------------------------------- motion (§A.4) */
+
+/* Press: 0.98 + 4% dim on pointerdown, spring back on release. */
+.d-press {
+  transition:
+    transform 240ms var(--ease-spring),
+    background-color 120ms var(--ease-out),
+    color 120ms var(--ease-out),
+    opacity 240ms var(--ease-spring);
+}
+.d-press:active {
+  transform: scale(0.98);
+  opacity: 0.96;
+  transition:
+    transform 80ms var(--ease-out),
+    opacity 80ms var(--ease-out);
+}
+
+/* Card hover: a 1px lift, no big shadow. */
+.d-lift {
+  transition:
+    transform 120ms var(--ease-out),
+    background-color 120ms var(--ease-out);
+}
+.d-lift:hover {
+  transform: translateY(-1px);
+}
+
+/* Chart bars grow from the baseline (per-bar delay comes from an inline animation-delay). */
+@keyframes d-bar-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Skeleton shimmer at 1.2s (§A.4), slightly faster than the phone's 1.6s. */
+.d-shimmer {
+  background-image: linear-gradient(90deg, var(--d-fill) 0%, var(--d-hairline) 50%, var(--d-fill) 100%);
+  background-size: 200% 100%;
+  animation: d-shimmer 1.2s linear infinite;
+}
+@keyframes d-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* AI streaming cursor: 2px block, 1s blink. */
+.d-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background: var(--d-ink);
+  animation: d-blink 1s steps(2, start) infinite;
+}
+@keyframes d-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* Undo snackbar countdown: a hairline that empties over the 5s window. */
+.d-countdown {
+  animation: d-countdown 5s linear forwards;
+  transform-origin: left;
+}
+@keyframes d-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Toasts (§7.7): enter y 16 → 0 + fade 200ms, exit fade 160ms; the pill is ink on canvas. */
+html [data-sonner-toast] {
+  --toast-pad: 0;
+  border-radius: 999px !important;
+  padding: 10px 16px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  transition:
+    transform 200ms var(--ease-out),
+    opacity 160ms var(--ease-out) !important;
+}
+html [data-sonner-toast][data-mounted="false"] {
+  transform: translateY(16px);
+  opacity: 0;
+}
+html [data-sonner-toast] [data-icon] {
+  margin-right: 6px;
+}
+
+/* Reduced motion: fades only, ≤120ms. */
+@media (prefers-reduced-motion: reduce) {
+  .d-press,
+  .d-press:active,
+  .d-lift,
+  .d-lift:hover {
+    transform: none;
+    transition: opacity 120ms linear;
+  }
+  .d-cursor {
+    animation: none;
+    opacity: 0.6;
+  }
+  .d-shimmer {
+    animation: none;
+  }
+}
+
+/* Bars need a fill-box origin so scaleY grows from the axis, not the SVG corner. */
+.recharts-bar-rectangle rect {
+  transform-box: fill-box;
+  transform-origin: bottom;
+}
+
+/* New table row: one accent-8% flash, then the normal row background takes over. */
+.d-row-flash {
+  animation: d-row-flash 600ms var(--ease-out);
+}
+@keyframes d-row-flash {
+  from {
+    background-color: color-mix(in oklab, var(--d-accent) 8%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}

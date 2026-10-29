@@ -2,11 +2,15 @@ import { Outlet, useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
+import { Download } from "lucide-react";
 import { startOfDay, type Txn } from "@/domain/types";
 import { getLocale, setLocale, useLocale } from "@/lib/strings";
 import { useLedger } from "@/services/LedgerProvider";
 import "./desktop.css";
+import { Banner } from "./Banner";
+import { MessageCenter } from "./MessageCenter";
+import { DesktopToaster } from "./toast";
 import { CommandPalette } from "./palette";
 import { EntryDialog, PrintDialog } from "./dialogs";
 import { useFlag, useHotkeys, useMediaQuery, dismissNotice, useNoticeDismissed } from "./hooks";
@@ -52,14 +56,21 @@ export function Shell() {
   const collapsed = collapsedPref || narrow;
 
   const [drawer, setDrawer] = useState(false);
+  const [messages, setMessages] = useState(false);
+  const [unread, setUnread] = useState(true);
   const [palette, setPalette] = useState(false);
   const [entry, setEntry] = useState<{ txn: Txn | null } | null>(null);
-  const [print, setPrint] = useState<{ doc: ReceiptDoc } | null>(null);
+  const [print, setPrint] = useState<{ doc: ReceiptDoc; origin: DOMRect | null } | null>(null);
 
   const actions = useMemo<ShellActions>(
     () => ({
       openEntry: (txn) => setEntry({ txn: txn ?? null }),
-      openPrint: (doc) => setPrint({ doc: doc ?? todayDoc }),
+      openPrint: (doc) =>
+        setPrint({
+          doc: doc ?? todayDoc,
+          // The sheet grows out of the toolbar receipt control (§A.4 shared element), measured before the dialog mounts.
+          origin: document.querySelector("[data-receipt-widget]")?.getBoundingClientRect() ?? null,
+        }),
     }),
     [todayDoc],
   );
@@ -68,7 +79,7 @@ export function Shell() {
     onRecord: () => setEntry({ txn: null }),
     onSearch: () => setPalette(true),
     onPalette: () => setPalette(true),
-    onPrint: () => setPrint({ doc: todayDoc }),
+    onPrint: () => setPrint({ doc: todayDoc, origin: document.querySelector("[data-receipt-widget]")?.getBoundingClientRect() ?? null }),
     onToggleSidebar: () => (phone ? setDrawer((v) => !v) : setCollapsedPref(!collapsed)),
   });
 
@@ -91,23 +102,32 @@ export function Shell() {
           <Toolbar
             title={title}
             onSearch={() => setPalette(true)}
-            onPrint={() => setPrint({ doc: todayDoc })}
+            onPrint={() => setPrint({ doc: todayDoc, origin: document.querySelector("[data-receipt-widget]")?.getBoundingClientRect() ?? null })}
             onOpenSidebar={phone ? () => setDrawer(true) : undefined}
+            onMessages={() => {
+              setMessages(true);
+              setUnread(false);
+            }}
+            unread={unread}
           />
 
           {!noticeGone && (
-            <div role="status" className="flex h-9 shrink-0 items-center gap-3 bg-d-fill px-4 text-[12px] text-d-ink-2 lg:px-6">
-              <span className="min-w-0 truncate">{s("notice.body")}</span>
-              <div className="ml-auto flex shrink-0 items-center gap-1.5">
-                <Button size="sm" variant="primary" onClick={soon}>
-                  {s("notice.download")}
-                </Button>
-                <Button size="sm" variant="quiet" className="bg-d-surface" onClick={soon}>
-                  {s("notice.login")}
-                </Button>
-                <IconButton icon={X} label={s("notice.dismiss")} onClick={dismissNotice} className="size-7" />
-              </div>
-            </div>
+            <Banner
+              icon={Download}
+              onDismiss={dismissNotice}
+              action={
+                <>
+                  <Button size="sm" variant="primary" onClick={soon}>
+                    {s("notice.download")}
+                  </Button>
+                  <Button size="sm" variant="quiet" className="bg-d-surface" onClick={soon}>
+                    {s("notice.login")}
+                  </Button>
+                </>
+              }
+            >
+              {s("notice.body")}
+            </Banner>
           )}
 
           <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden" style={{ ["--d-chrome" as string]: `${chrome}px` }}>
@@ -147,20 +167,15 @@ export function Shell() {
         open={palette}
         onOpenChange={setPalette}
         onRecord={() => setEntry({ txn: null })}
-        onPrint={() => setPrint({ doc: todayDoc })}
+        onPrint={() => setPrint({ doc: todayDoc, origin: document.querySelector("[data-receipt-widget]")?.getBoundingClientRect() ?? null })}
         onLocale={() => setLocale(getLocale() === "zh" ? "en" : "zh")}
       />
 
       <EntryDialog open={entry !== null} onOpenChange={(open) => !open && setEntry(null)} initial={entry?.txn ?? null} />
-      {print && <PrintDialog open onOpenChange={(open) => !open && setPrint(null)} doc={print.doc} />}
+      {print && <PrintDialog open onOpenChange={(open) => !open && setPrint(null)} doc={print.doc} origin={print.origin} />}
 
-      <Toaster
-        position="bottom-right"
-        toastOptions={{
-          classNames: { toast: "!rounded-xl !px-4 !py-2.5 !text-[13px]", description: "!text-[12px] !opacity-70" },
-        }}
-        style={{ "--normal-bg": "var(--d-ink)", "--normal-text": "var(--d-canvas)", "--border-radius": "12px" } as React.CSSProperties}
-      />
+      <MessageCenter open={messages} onClose={() => setMessages(false)} />
+      <DesktopToaster />
     </ShellContext.Provider>
   );
 }

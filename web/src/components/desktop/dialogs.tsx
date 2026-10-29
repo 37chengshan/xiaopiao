@@ -1,7 +1,8 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { motion, useAnimationControls } from "framer-motion";
 import { createPortal } from "react-dom";
 import { Printer } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { ReceiptPaper } from "@/features/receipt/ReceiptPaper";
 import { type ReceiptDoc } from "@/features/receipt/receiptModel";
@@ -11,13 +12,14 @@ import { useLedger } from "@/services/LedgerProvider";
 import { at } from "@/logic/time";
 import { parseDateKey, dateKey } from "@/logic/time";
 import { cn } from "@/lib/utils";
+import { SPRING_SHEET } from "./motion";
 import { s } from "./strings";
 import { Button, Field, Segmented, TextInput, inputClass } from "./ui";
 
 const OVERLAY =
-  "fixed inset-0 z-50 bg-black/25 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0";
+  "fixed inset-0 z-50 bg-black/25 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-[180ms] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-[140ms]";
 const CONTENT =
-  "fixed left-1/2 top-1/2 z-50 max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[14px] bg-d-surface p-5 shadow-[0_24px_70px_-16px_oklch(0_0_0/35%)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95";
+  "fixed left-1/2 top-1/2 z-50 max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[14px] bg-d-surface p-5 shadow-[0_24px_70px_-16px_oklch(0_0_0/35%)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.96] data-[state=open]:duration-[180ms] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[0.96] data-[state=closed]:duration-[140ms]";
 
 export function Modal({ open, onOpenChange, label, width = 480, children }: { open: boolean; onOpenChange: (v: boolean) => void; label: string; width?: number; children: ReactNode }) {
   return (
@@ -41,9 +43,42 @@ const MM_TO_PX = 96 / 25.4;
 export const PAPER_MM = { "58": 58, "80": 80 } as const;
 export type PaperWidth = keyof typeof PAPER_MM;
 
-export function PrintDialog({ open, onOpenChange, doc }: { open: boolean; onOpenChange: (v: boolean) => void; doc: ReceiptDoc }) {
+export function PrintDialog({
+  open,
+  onOpenChange,
+  doc,
+  origin,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  doc: ReceiptDoc;
+  /** rect of the toolbar receipt control, so the sheet appears to grow out of it */
+  origin?: DOMRect | null;
+}) {
   const [width, setWidth] = useState<PaperWidth>("80");
   const paperRef = useRef<HTMLDivElement>(null);
+  const paperBox = useRef<HTMLDivElement>(null);
+  const sheet = useAnimationControls();
+
+  // Grow from the widget's rect on open (a plain transform, no cross-tree layout animation).
+  useLayoutEffect(() => {
+    const box = paperBox.current;
+    if (!box) return;
+    if (!origin) {
+      sheet.set({ opacity: 0, scale: 0.97 });
+      void sheet.start({ opacity: 1, scale: 1, transition: { duration: 0.18, ease: [0.23, 1, 0.32, 1] } });
+      return;
+    }
+    const target = box.getBoundingClientRect();
+    const scale = Math.max(0.06, origin.width / target.width);
+    sheet.set({
+      opacity: 0.4,
+      scale,
+      x: origin.left + origin.width / 2 - (target.left + target.width / 2),
+      y: origin.top + origin.height / 2 - (target.top + target.height / 2),
+    });
+    void sheet.start({ opacity: 1, scale: 1, x: 0, y: 0, transition: SPRING_SHEET });
+  }, [origin, sheet]);
 
   const start = () => {
     const mm = PAPER_MM[width];
@@ -69,9 +104,11 @@ export function PrintDialog({ open, onOpenChange, doc }: { open: boolean; onOpen
       <Modal open={open} onOpenChange={onOpenChange} label={s("pr.title")} width={440}>
         <h2 className="text-[15px] font-semibold text-d-ink">{s("pr.title")}</h2>
         <div className="mt-3 flex justify-center rounded-xl bg-d-fill/60 px-4 py-5">
-          <div ref={paperRef} className="shadow-[0_6px_18px_oklch(0_0_0/12%)]">
-            <ReceiptPaper doc={doc} stamp="shown" />
-          </div>
+          <motion.div ref={paperBox} animate={sheet} className="shadow-[0_6px_18px_oklch(0_0_0/12%)]">
+            <div ref={paperRef}>
+              <ReceiptPaper doc={doc} stamp="shown" />
+            </div>
+          </motion.div>
         </div>
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -222,7 +259,7 @@ export function EntryDialog({ open, onOpenChange, initial }: { open: boolean; on
                   aria-checked={on}
                   onClick={() => setCategory(key)}
                   className={cn(
-                    "press flex h-7 items-center gap-1 truncate rounded-lg px-2 text-[12px] transition-colors",
+                    "d-press flex h-7 items-center gap-1 truncate rounded-lg px-2 text-[12px] transition-colors",
                     on ? "bg-d-accent/10 text-d-accent" : "bg-d-fill text-d-ink-2 hover:text-d-ink",
                   )}
                 >

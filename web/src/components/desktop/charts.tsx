@@ -1,8 +1,52 @@
 import { useEffect, useState } from "react";
+import { useReducedMotion } from "framer-motion";
 import { useTheme } from "@/lib/theme";
 import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis, type TooltipProps } from "recharts";
 import { cn } from "@/lib/utils";
 import { money, moneyShort } from "./format";
+
+/**
+ * Growth on first paint, with a safety net: if the window is throttled (background tab, screen capture)
+ * recharts' rAF never advances and the series stays clipped at zero width, so after 900ms we drop the
+ * animation and let the final state paint.
+ */
+function useChartAnimation(): boolean {
+  const reduce = useReducedMotion() ?? false;
+  const [animate, setAnimate] = useState(!reduce);
+  useEffect(() => {
+    if (reduce) {
+      setAnimate(false);
+      return;
+    }
+    const id = window.setTimeout(() => setAnimate(false), 900);
+    return () => window.clearTimeout(id);
+  }, [reduce]);
+  return animate;
+}
+
+interface GrowBarProps {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  fill?: string;
+  index?: number;
+}
+
+/** Bars grow from the baseline, 30ms apart (recharts has no per-bar delay of its own). */
+function GrowBar({ x = 0, y = 0, width = 0, height = 0, fill, index = 0 }: GrowBarProps) {
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      fill={fill}
+      rx={3}
+      style={{ transformBox: "fill-box", transformOrigin: "bottom", animation: `d-bar-grow 400ms ${index * 30}ms both var(--ease-out)` }}
+    />
+  );
+}
 
 /**
  * One chart style for the whole shell (docs/WEB-SPEC.md §A.2): no vertical grid, horizontal hairline
@@ -61,6 +105,7 @@ function chartFrame(height: number) {
 }
 
 export function AreaTrend({ points, height = 220, compareName, valueName, interval }: { points: Point[]; height?: number; compareName: string; valueName: string; interval?: number }) {
+  const animate = useChartAnimation();
   const c = useChartColors();
   const axis = { fontSize: 11, fill: c.ink3 };
   const hasCompare = points.some((p) => p.compare !== undefined);
@@ -77,8 +122,8 @@ export function AreaTrend({ points, height = 220, compareName, valueName, interv
           <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={false} interval={interval ?? "preserveStartEnd"} minTickGap={24} dy={4} />
           <YAxis tick={axis} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => moneyShort(v)} />
           <RechartsTooltip content={<TipBox accent={c.accent} />} cursor={{ stroke: c.hairline }} />
-          {hasCompare && <Area type="monotone" dataKey="compare" name={compareName} stroke={c.ink3} strokeOpacity={0.3} strokeWidth={1.25} fill="transparent" strokeDasharray="3 3" dot={false} isAnimationActive={false} />}
-          <Area type="monotone" dataKey="value" name={valueName} stroke={c.accent} strokeWidth={1.75} fill="url(#d-area-fill)" dot={false} activeDot={{ r: 3, strokeWidth: 0 }} isAnimationActive={false} />
+          {hasCompare && <Area type="monotone" dataKey="compare" name={compareName} stroke={c.ink3} strokeOpacity={0.3} strokeWidth={1.25} fill="transparent" strokeDasharray="3 3" dot={false} isAnimationActive={animate} animationDuration={500} />}
+          <Area type="monotone" dataKey="value" name={valueName} stroke={c.accent} strokeWidth={1.75} fill="url(#d-area-fill)" dot={false} activeDot={{ r: 3, strokeWidth: 0 }} isAnimationActive={animate} animationDuration={500} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -86,6 +131,7 @@ export function AreaTrend({ points, height = 220, compareName, valueName, interv
 }
 
 export function BarTrend({ points, height = 220, compareName, valueName }: { points: Point[]; height?: number; compareName: string; valueName: string }) {
+  const animate = useChartAnimation();
   const c = useChartColors();
   const axis = { fontSize: 11, fill: c.ink3 };
   const hasCompare = points.some((p) => p.compare !== undefined);
@@ -96,8 +142,8 @@ export function BarTrend({ points, height = 220, compareName, valueName }: { poi
           <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={false} dy={4} />
           <YAxis tick={axis} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => moneyShort(v)} />
           <RechartsTooltip content={<TipBox accent={c.accent} />} cursor={{ fill: c.fill, fillOpacity: 0.5 }} />
-          {hasCompare && <Bar dataKey="compare" name={compareName} fill={c.ink3} fillOpacity={0.3} radius={[3, 3, 0, 0]} isAnimationActive={false} />}
-          <Bar dataKey="value" name={valueName} fill={c.accent} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+          {hasCompare && <Bar dataKey="compare" name={compareName} fill={c.ink3} fillOpacity={0.3} shape={animate ? <GrowBar /> : undefined} isAnimationActive={false} />}
+          <Bar dataKey="value" name={valueName} fill={c.accent} shape={animate ? <GrowBar /> : undefined} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -115,12 +161,13 @@ export interface Slice {
 const SLICE_OPACITY = [1, 0.82, 0.64, 0.46, 0.3];
 
 export function Donut({ slices, size = 180, centerValue, centerLabel }: { slices: Slice[]; size?: number; centerValue?: string; centerLabel?: string }) {
+  const animate = useChartAnimation();
   const c = useChartColors();
   const total = slices.reduce((s, x) => s + x.value, 0);
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <PieChart width={size} height={size}>
-          <Pie data={slices} dataKey="value" nameKey="label" innerRadius="66%" outerRadius="94%" paddingAngle={1.5} stroke="none" isAnimationActive={false}>
+          <Pie data={slices} dataKey="value" nameKey="label" innerRadius="66%" outerRadius="94%" paddingAngle={1.5} stroke="none" isAnimationActive={animate} animationDuration={500}>
             {slices.map((slice, i) => (
               <Cell key={slice.label} fill={slice.color === "muted" ? c.ink3 : c.accent} fillOpacity={slice.color === "muted" ? 1 : (SLICE_OPACITY[i] ?? 0.24)} />
             ))}

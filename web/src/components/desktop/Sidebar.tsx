@@ -2,6 +2,7 @@ import { PanelLeftClose, PanelLeftOpen, ReceiptText, Store, Users } from "lucide
 import { useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { SPRING_THUMB } from "@/lib/motion";
+import { SPRING_SLIDE } from "./motion";
 import { cn } from "@/lib/utils";
 import { PERSONAL_NAV, SETTINGS_ITEM, SHOP_NAV, go, isActive, segmentOf, type NavItem, type Segment } from "./nav";
 import { s } from "./strings";
@@ -19,13 +20,17 @@ function NavRow({ item, active, collapsed }: { item: NavItem; active: boolean; c
       aria-current={active ? "page" : undefined}
       title={collapsed ? item.label() : undefined}
       className={cn(
-        "press relative flex h-[30px] items-center rounded-lg text-[13px] font-medium transition-colors",
+        "d-press relative flex h-[30px] items-center overflow-hidden rounded-lg text-[13px] font-medium transition-colors",
         collapsed ? "mx-auto w-8 justify-center" : "gap-2 px-2.5",
-        active ? "bg-d-fill text-d-ink" : "text-d-ink-2 hover:bg-d-fill/50 hover:text-d-ink",
+        active ? "text-d-ink" : "text-d-ink-2 hover:bg-d-fill/50 hover:text-d-ink",
+        active && collapsed && "bg-d-fill",
       )}
     >
-      <Icon className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
-      {!collapsed && <span className="truncate">{item.label()}</span>}
+      {active && !collapsed && <motion.span aria-hidden layoutId="side-nav-active" transition={SPRING_SLIDE} className="absolute inset-0 rounded-lg bg-d-fill" />}
+      <Icon className="relative size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+      <motion.span animate={{ opacity: collapsed ? 0 : 1 }} transition={{ duration: 0.1 }} className="relative truncate whitespace-nowrap">
+        {item.label()}
+      </motion.span>
     </a>
   );
 }
@@ -48,7 +53,7 @@ function SegmentSwitch({ segment, collapsed }: { segment: Segment; collapsed: bo
               aria-label={o.label}
               title={o.label}
               onClick={() => go(o.to)}
-              className={cn("press grid size-8 place-items-center rounded-lg transition-colors", segment === o.value ? "bg-d-surface text-d-ink shadow-[0_1px_2px_oklch(0_0_0/8%)]" : "text-d-ink-3 hover:text-d-ink")}
+              className={cn("d-press grid size-8 place-items-center rounded-lg transition-colors", segment === o.value ? "bg-d-surface text-d-ink shadow-[0_1px_2px_oklch(0_0_0/8%)]" : "text-d-ink-3 hover:text-d-ink")}
             >
               <Icon className="size-4" strokeWidth={1.75} aria-hidden />
             </button>
@@ -68,7 +73,7 @@ function SegmentSwitch({ segment, collapsed }: { segment: Segment; collapsed: bo
             aria-selected={on}
             type="button"
             onClick={() => go(o.to)}
-            className={cn("press relative h-6 flex-1 rounded-[7px] text-[12px] font-medium", on ? "text-d-ink" : "text-d-ink-2 hover:text-d-ink")}
+            className={cn("d-press relative h-6 flex-1 rounded-[7px] text-[12px] font-medium", on ? "text-d-ink" : "text-d-ink-2 hover:text-d-ink")}
           >
             {on && <motion.span aria-hidden layoutId="side-seg" transition={SPRING_THUMB} className="absolute inset-0 rounded-[7px] bg-d-surface shadow-[0_1px_2px_oklch(0_0_0/8%)]" />}
             <span className="relative">{o.label}</span>
@@ -86,7 +91,7 @@ export function Sidebar({ collapsed, pathname, onToggle, toggleLabel }: { collap
     <motion.aside
       aria-label={s("nav.label")}
       animate={{ width: collapsed ? 64 : 232 }}
-      transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+      transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
       className="relative z-20 flex h-full shrink-0 flex-col border-r border-d-hairline bg-d-canvas/80 backdrop-blur-xl"
     >
       <div className={cn("flex h-[52px] shrink-0 items-center", collapsed ? "justify-center" : "gap-2 px-4")}>
@@ -96,7 +101,7 @@ export function Sidebar({ collapsed, pathname, onToggle, toggleLabel }: { collap
             e.preventDefault();
             go("/app");
           }}
-          className="press flex min-w-0 items-center gap-2 rounded-md text-d-ink"
+          className="d-press flex min-w-0 items-center gap-2 rounded-md text-d-ink"
           title={s("brand")}
         >
           <span className="grid size-6 shrink-0 place-items-center rounded-md bg-d-ink text-d-canvas">
@@ -122,7 +127,7 @@ export function Sidebar({ collapsed, pathname, onToggle, toggleLabel }: { collap
           <button
             type="button"
             onClick={onToggle}
-            className="press mt-1 flex h-[30px] w-full items-center gap-2 rounded-lg px-2.5 text-[12px] text-d-ink-3 transition-colors hover:bg-d-fill/50 hover:text-d-ink"
+            className="d-press mt-1 flex h-[30px] w-full items-center gap-2 rounded-lg px-2.5 text-[12px] text-d-ink-3 transition-colors hover:bg-d-fill/50 hover:text-d-ink"
           >
             <PanelLeftClose className="size-4" strokeWidth={1.75} aria-hidden />
             {toggleLabel ?? s("nav.collapse")}

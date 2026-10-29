@@ -4,7 +4,8 @@ import { ArrowDownRight, ArrowUpRight, Search, type LucideIcon } from "lucide-re
 import { useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import { SPRING_THUMB } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import { type Delta } from "./format";
+import { money, type Delta } from "./format";
+import { useCountUp } from "./motion";
 import { s } from "./strings";
 
 /* ---------------------------------------------------------------- surfaces */
@@ -27,7 +28,7 @@ export function Card({
   fill?: boolean;
 }) {
   return (
-    <section className={cn("flex min-w-0 flex-col rounded-xl bg-d-surface", className)}>
+    <section className={cn("d-lift flex min-w-0 flex-col rounded-xl bg-d-surface", className)}>
       {(title || action) && (
         <header className="flex items-center justify-between gap-3 px-5 pt-4">
           <h2 className="min-w-0 truncate text-[13px] font-semibold text-d-ink-2">{title}</h2>
@@ -69,23 +70,34 @@ export function DeltaText({ d, vs, tone = "spend" }: { d: Delta; vs?: string; to
 export function Kpi({
   label,
   value,
+  cents,
   delta,
   vs,
   tone = "spend",
   hint,
+  suffix,
 }: {
   label: string;
-  value: string;
+  /** already formatted value (counts, days) */
+  value?: string;
+  /** money in cents: the number rolls from 0 on first paint (§A.4) */
+  cents?: number;
   delta?: Delta;
   vs?: string;
   tone?: "spend" | "income";
   hint?: string;
+  suffix?: string;
 }) {
+  const rolled = useCountUp(cents ?? 0);
+  const shown = cents === undefined ? value : money(rolled);
   return (
     <div className="flex min-w-0 flex-col gap-1.5 rounded-xl bg-d-surface p-5">
       <p className="text-[12px] font-medium text-d-ink-2">{label}</p>
-      <p className="num text-[28px] font-semibold leading-[34px] tracking-[-0.01em] text-d-ink">{value}</p>
-      {delta ? <DeltaText d={delta} vs={vs} tone={tone} /> : hint ? <p className="text-[12px] text-d-ink-3">{hint}</p> : null}
+      <p className="num text-[28px] font-semibold leading-[34px] tracking-[-0.01em] text-d-ink">
+        {shown}
+        {suffix && <span className="ml-0.5 text-[15px] font-medium text-d-ink-2">{suffix}</span>}
+      </p>
+      {delta ? <DeltaText d={delta} vs={vs} tone={tone} /> : hint ? <p className="text-[12px] text-d-ink-3">{hint}</p> : <span className="h-[18px]" />}
     </div>
   );
 }
@@ -93,7 +105,7 @@ export function Kpi({
 /* ----------------------------------------------------------------- buttons */
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "quiet" | "ghost";
+  variant?: "primary" | "quiet" | "ghost" | "danger";
   size?: "sm" | "md";
   icon?: LucideIcon;
 };
@@ -102,6 +114,7 @@ const BUTTON_FILL = {
   primary: "bg-d-ink text-d-canvas hover:bg-d-ink/90",
   quiet: "bg-d-fill text-d-ink hover:bg-d-hairline",
   ghost: "text-d-accent hover:bg-d-fill/70",
+  danger: "bg-d-negative text-white hover:opacity-90",
 } as const;
 
 export function Button({ variant = "quiet", size = "md", icon: Icon, className, children, ...rest }: ButtonProps) {
@@ -110,7 +123,7 @@ export function Button({ variant = "quiet", size = "md", icon: Icon, className, 
       type="button"
       {...rest}
       className={cn(
-        "press inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg font-medium transition-colors",
+        "d-press inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg font-medium transition-colors",
         size === "sm" ? "h-8 px-3 text-[12.5px]" : "h-9 px-3.5 text-[13px]",
         BUTTON_FILL[variant],
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-d-accent disabled:opacity-40",
@@ -137,7 +150,7 @@ export function IconButton({
       title={label}
       {...rest}
       className={cn(
-        "press grid size-8 shrink-0 place-items-center rounded-lg text-d-ink-2 transition-colors hover:bg-d-fill hover:text-d-ink",
+        "d-press grid size-8 shrink-0 place-items-center rounded-lg text-d-ink-2 transition-colors hover:bg-d-fill hover:text-d-ink",
         active && "bg-d-fill text-d-ink",
         "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent",
         className,
@@ -178,7 +191,7 @@ export function Segmented<T extends string>({
             type="button"
             onClick={() => onChange(o.value)}
             className={cn(
-              "press relative rounded-[7px] font-medium transition-colors",
+              "d-press relative rounded-[7px] font-medium transition-colors",
               size === "sm" ? "h-6 px-2.5 text-[12px]" : "h-7 px-3 text-[12.5px]",
               on ? "text-d-ink" : "text-d-ink-2 hover:text-d-ink",
             )}
@@ -246,7 +259,7 @@ export function Chip({ children, onRemove, onClick, active }: { children: ReactN
   );
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={cn(base, "press hover:text-d-ink")}>
+      <button type="button" onClick={onClick} className={cn(base, "d-press hover:text-d-ink")}>
         {children}
       </button>
     );
@@ -255,7 +268,7 @@ export function Chip({ children, onRemove, onClick, active }: { children: ReactN
     <span className={base}>
       {children}
       {onRemove && (
-        <button type="button" onClick={onRemove} aria-label={s("ledger.clearFilters")} className="press -mr-0.5 grid size-4 place-items-center rounded text-d-ink-3 hover:text-d-ink">
+        <button type="button" onClick={onRemove} aria-label={s("ledger.clearFilters")} className="d-press -mr-0.5 grid size-4 place-items-center rounded text-d-ink-3 hover:text-d-ink">
           ×
         </button>
       )}
@@ -284,12 +297,12 @@ export function Skeleton({ rows = 5, className }: { rows?: number; className?: s
     <div className={cn("space-y-px", className)} role="status" aria-label={s("common.loading")}>
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className="flex items-center gap-3 rounded-lg bg-d-surface px-4 py-2.5">
-          <div className="shimmer size-7 shrink-0 rounded-md" />
+          <div className="d-shimmer size-7 shrink-0 rounded-md" />
           <div className="min-w-0 flex-1 space-y-1.5">
-            <div className="shimmer h-2.5 w-1/3 rounded" />
-            <div className="shimmer h-2 w-1/5 rounded" />
+            <div className="d-shimmer h-2.5 w-1/3 rounded" />
+            <div className="d-shimmer h-2 w-1/5 rounded" />
           </div>
-          <div className="shimmer h-2.5 w-14 rounded" />
+          <div className="d-shimmer h-2.5 w-14 rounded" />
         </div>
       ))}
     </div>

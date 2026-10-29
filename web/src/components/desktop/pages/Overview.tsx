@@ -1,19 +1,57 @@
 import { useMemo } from "react";
 import { AlertTriangle, Plus } from "lucide-react";
-import { motion } from "framer-motion";
-import { CATEGORIES, startOfDay } from "@/domain/types";
+import { AnimatePresence, motion } from "framer-motion";
+import { CATEGORIES, startOfDay, type Txn } from "@/domain/types";
 import { addDays, hhmm } from "@/logic/time";
 import { useLedger } from "@/services/LedgerProvider";
 import { AreaTrend, Donut, Legend, type Slice } from "../charts";
 import { DataTable, type Column } from "../DataTable";
 import { dayLabel, delta, money, relativeDay } from "../format";
 import { useFirstPaint } from "../hooks";
+import { Loadable, Stagger } from "../motion";
 import { go } from "../nav";
 import { monthStartOf, peakDayOf, seriesOf, sumOut } from "../statsModel";
 import { Button, Card, EmptyState, Hint, Kpi, Skeleton } from "../ui";
 import { s } from "../strings";
 import { useShell } from "../Shell";
-import type { Txn } from "@/domain/types";
+
+/** 近 30 天 / 本月的事实小结：只陈述，不评判，不给建议。 */
+function SummaryFacts({ facts }: { facts: { top: string | null; topCents: number; share: number; vsPrevPct: number | null; vsPrevDir: "up" | "down" | "flat"; prevCents: number; peakDay: number | null; peakCents: number } }) {
+  return (
+    <motion.dl
+      key={`${facts.top}-${facts.vsPrevPct}-${facts.peakDay}`}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+      className="space-y-3"
+    >
+      <div>
+        <dt className="text-[11.5px] text-d-ink-3">{s("ov.topCategory")}</dt>
+        <dd className="mt-0.5 flex items-baseline gap-2">
+          <span className="text-[13px] font-medium text-d-ink">{facts.top ?? s("common.none")}</span>
+          <span className="num text-[12px] text-d-ink-2">
+            {money(facts.topCents)} · {facts.share}%
+          </span>
+        </dd>
+      </div>
+      <div>
+        <dt className="text-[11.5px] text-d-ink-3">{s("ov.vsLastMonth")}</dt>
+        <dd className="mt-0.5 text-[13px] font-medium text-d-ink">
+          {facts.vsPrevPct === null ? s("ov.flat") : `${facts.vsPrevDir === "up" ? "▲" : "▼"} ${Math.abs(facts.vsPrevPct)}%`}
+          <span className="ml-1.5 font-normal text-d-ink-3">{money(facts.prevCents)}</span>
+        </dd>
+      </div>
+      <div>
+        <dt className="text-[11.5px] text-d-ink-3">{s("ov.peakDay")}</dt>
+        <dd className="mt-0.5 text-[13px] font-medium text-d-ink">
+          {facts.peakDay ? dayLabel(facts.peakDay) : s("common.none")}
+          {facts.peakDay && <span className="num ml-1.5 font-normal text-d-ink-3">{money(facts.peakCents)}</span>}
+        </dd>
+      </div>
+    </motion.dl>
+  );
+}
 
 export function OverviewPage() {
   const { txns, now, isLoading, isError, refetch } = useLedger();
@@ -39,7 +77,6 @@ export function OverviewPage() {
     const monthDays = new Set(txns.filter((t) => t.occurredAt >= monthStart && t.occurredAt < monthEnd).map((t) => startOfDay(t.occurredAt)));
     const trend30 = seriesOf("custom", { start: addDays(today, -29), end: addDays(today, 1) }, txns, null);
 
-    // Category mix for the month, top five plus one folded slice.
     const byCat = new Map<string, number>();
     for (const t of txns) {
       if (t.direction !== "OUT" || t.occurredAt < monthStart || t.occurredAt >= monthEnd) continue;
@@ -55,18 +92,8 @@ export function OverviewPage() {
     const peak = peakDayOf(txns, { start: addDays(today, -29), end: addDays(today, 1) });
     const topCategory = sorted[0];
 
-    return { today, todayOut, yestOut, monthOut, prevMonthOut, monthIn, prevMonthIn, monthDays, trend30, mix: top, mixTotal, recent, peak, topCategory };
+    return { todayOut, yestOut, monthOut, prevMonthOut, monthIn, prevMonthIn, monthDays, trend30, mix: top, mixTotal, recent, peak, topCategory };
   }, [txns, now]);
-
-  if (isError) {
-    return (
-      <Card padded={false}>
-        <EmptyState icon={AlertTriangle} title={s("common.error")} action={<Button variant="primary" onClick={refetch}>{s("common.retry")}</Button>} />
-      </Card>
-    );
-  }
-
-  const monthShare = data.mixTotal > 0 ? Math.round(((data.mix[0]?.value ?? 0) / data.mixTotal) * 100) : 0;
 
   const columns: Column<Txn>[] = [
     {
@@ -74,7 +101,9 @@ export function OverviewPage() {
       header: s("ledger.colMerchant"),
       cell: (t) => (
         <div className="flex min-w-0 items-center gap-2">
-          <span aria-hidden className="grid size-5 shrink-0 place-items-center rounded bg-d-fill text-[11px]">{CATEGORIES[t.category].emoji}</span>
+          <span aria-hidden className="grid size-5 shrink-0 place-items-center rounded bg-d-fill text-[11px]">
+            {CATEGORIES[t.category].emoji}
+          </span>
           <span className="truncate text-d-ink">{t.merchant}</span>
         </div>
       ),
@@ -102,37 +131,75 @@ export function OverviewPage() {
     },
   ];
 
-  return (
-    <div className="grid grid-cols-12 gap-5">
-      {skeleton ? (
-        <>
-          <div className="col-span-12 grid grid-cols-2 gap-5 xl:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="h-[104px] rounded-xl bg-d-surface" />
-            ))}
-          </div>
-          <div className="col-span-12 xl:col-span-8">
-            <Skeleton rows={6} />
-          </div>
-          <div className="col-span-12 xl:col-span-4">
-            <Skeleton rows={4} />
-          </div>
-        </>
-      ) : (
-        <>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="col-span-12 grid grid-cols-2 gap-5 xl:grid-cols-4">
-            <Kpi label={s("ov.todayOut")} value={money(data.todayOut)} delta={delta(data.todayOut, data.yestOut)} vs={s("ov.vsYesterday")} />
-            <Kpi label={s("ov.monthOut")} value={money(data.monthOut)} delta={delta(data.monthOut, data.prevMonthOut)} vs={s("ov.vsLastMonth")} />
-            <Kpi label={s("ov.monthIn")} value={money(data.monthIn)} delta={delta(data.monthIn, data.prevMonthIn)} tone="income" vs={s("ov.vsLastMonth")} />
-            <Kpi label={s("ov.days")} value={`${data.monthDays.size}`} hint={`${s("stats.avg")} ${money(data.monthDays.size > 0 ? Math.round(data.monthOut / data.monthDays.size) : 0)}`} />
-          </motion.div>
+  if (isError) {
+    return (
+      <Card padded={false}>
+        <EmptyState icon={AlertTriangle} title={s("common.error")} action={<Button variant="primary" onClick={refetch}>{s("common.retry")}</Button>} />
+      </Card>
+    );
+  }
 
-          <Card className="col-span-12 xl:col-span-8" title={s("ov.trend")} action={<Hint>{s("ov.trendHint")}</Hint>}>
+  const vsPrev = delta(data.monthOut, data.prevMonthOut);
+  const share = data.mixTotal > 0 ? Math.round(((data.mix[0]?.value ?? 0) / data.mixTotal) * 100) : 0;
+  const facts = {
+    top: data.topCategory ? CATEGORIES[data.topCategory[0] as keyof typeof CATEGORIES].label : null,
+    topCents: data.mix[0]?.value ?? 0,
+    share,
+    vsPrevPct: vsPrev.pct,
+    vsPrevDir: vsPrev.dir,
+    prevCents: data.prevMonthOut,
+    peakDay: data.peak?.dayStart ?? null,
+    peakCents: data.peak?.cents ?? 0,
+  };
+
+  const skeletonGrid = (
+    <div className="grid grid-cols-12 gap-5">
+      <div className="col-span-12 grid grid-cols-2 gap-5 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-[104px] rounded-xl bg-d-surface" />
+        ))}
+      </div>
+      <div className="col-span-12 xl:col-span-8">
+        <Skeleton rows={6} />
+      </div>
+      <div className="col-span-12 xl:col-span-4">
+        <Skeleton rows={4} />
+      </div>
+    </div>
+  );
+
+  return (
+    <Loadable loading={skeleton} skeleton={skeletonGrid}>
+      <div className="grid grid-cols-12 gap-5">
+        <div className="col-span-12 grid grid-cols-2 gap-5 xl:grid-cols-4">
+          <Stagger index={0}>
+            <Kpi label={s("ov.todayOut")} cents={data.todayOut} delta={delta(data.todayOut, data.yestOut)} vs={s("ov.vsYesterday")} />
+          </Stagger>
+          <Stagger index={1}>
+            <Kpi label={s("ov.monthOut")} cents={data.monthOut} delta={delta(data.monthOut, data.prevMonthOut)} vs={s("ov.vsLastMonth")} />
+          </Stagger>
+          <Stagger index={2}>
+            <Kpi label={s("ov.monthIn")} cents={data.monthIn} delta={delta(data.monthIn, data.prevMonthIn)} tone="income" vs={s("ov.vsLastMonth")} />
+          </Stagger>
+          <Stagger index={3}>
+            <Kpi
+              label={s("ov.days")}
+              value={`${data.monthDays.size}`}
+              suffix={s("ov.dayUnit")}
+              hint={`${s("stats.avg")} ${money(data.monthDays.size > 0 ? Math.round(data.monthOut / data.monthDays.size) : 0)}`}
+            />
+          </Stagger>
+        </div>
+
+        <Stagger index={4} className="col-span-12 xl:col-span-8">
+          <Card className="h-full" title={s("ov.trend")} action={<Hint>{s("ov.trendHint")}</Hint>}>
             <AreaTrend points={data.trend30} compareName={s("stats.previous")} valueName={s("ov.trend")} height={236} interval={4} />
           </Card>
+        </Stagger>
 
+        <Stagger index={5} className="col-span-12 xl:col-span-4">
           <Card
-            className="col-span-12 xl:col-span-4"
+            className="h-full"
             title={s("ov.summary")}
             action={
               <Button size="sm" variant="ghost" icon={Plus} onClick={() => shell.openEntry()}>
@@ -140,41 +207,34 @@ export function OverviewPage() {
               </Button>
             }
           >
-            {data.mixTotal === 0 ? (
-              <p className="text-[13px] leading-[20px] text-d-ink-2">{s("ov.summaryEmpty")}</p>
-            ) : (
-              <dl className="space-y-3">
-                <div>
-                  <dt className="text-[11.5px] text-d-ink-3">{s("ov.topCategory")}</dt>
-                  <dd className="mt-0.5 flex items-baseline gap-2">
-                    <span className="text-[13px] font-medium text-d-ink">{data.topCategory ? CATEGORIES[data.topCategory[0] as keyof typeof CATEGORIES].label : s("common.none")}</span>
-                    <span className="num text-[12px] text-d-ink-2">{money(data.mix[0]?.value ?? 0)} · {monthShare}%</span>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-[11.5px] text-d-ink-3">{s("ov.vsLastMonth")}</dt>
-                  <dd className="mt-0.5 text-[13px] font-medium text-d-ink">
-                    {delta(data.monthOut, data.prevMonthOut).pct === null
-                      ? s("ov.flat")
-                      : `${delta(data.monthOut, data.prevMonthOut).dir === "up" ? "▲" : "▼"} ${Math.abs(delta(data.monthOut, data.prevMonthOut).pct ?? 0)}%`}
-                    <span className="ml-1.5 font-normal text-d-ink-3">{money(data.prevMonthOut)}</span>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-[11.5px] text-d-ink-3">{s("ov.peakDay")}</dt>
-                  <dd className="mt-0.5 text-[13px] font-medium text-d-ink">
-                    {data.peak ? dayLabel(data.peak.dayStart) : s("common.none")}
-                    {data.peak && <span className="num ml-1.5 font-normal text-d-ink-3">{money(data.peak.cents)}</span>}
-                  </dd>
-                </div>
-              </dl>
-            )}
+            <div className="min-h-[132px]">
+              <AnimatePresence mode="popLayout" initial={false}>
+                {data.mixTotal === 0 ? (
+                  <p key="empty" className="text-[13px] leading-[20px] text-d-ink-2">
+                    {s("ov.summaryEmpty")}
+                  </p>
+                ) : (
+                  <SummaryFacts key="facts" facts={facts} />
+                )}
+              </AnimatePresence>
+            </div>
             <p className="mt-4 text-[11px] text-d-ink-3">
               {s("ov.updated")} {hhmm(now)}
             </p>
           </Card>
+        </Stagger>
 
-          <Card className="col-span-12 xl:col-span-7" padded={false} title={s("ov.recent")} action={<Button size="sm" variant="ghost" onClick={() => go("/app/ledger")}>{s("ov.viewAll")}</Button>}>
+        <Stagger index={6} className="col-span-12 xl:col-span-7">
+          <Card
+            className="h-full"
+            padded={false}
+            title={s("ov.recent")}
+            action={
+              <Button size="sm" variant="ghost" onClick={() => go("/app/ledger")}>
+                {s("ov.viewAll")}
+              </Button>
+            }
+          >
             <DataTable
               rows={data.recent}
               columns={columns}
@@ -183,11 +243,24 @@ export function OverviewPage() {
               onActivate={(t) => shell.openEntry(t)}
               query=""
               maxHeight="360px"
-              empty={<EmptyState icon={Plus} title={s("ledger.empty")} hint={s("ledger.emptyHint")} action={<Button variant="primary" icon={Plus} onClick={() => shell.openEntry()}>{s("cm.record")}</Button>} />}
+              empty={
+                <EmptyState
+                  icon={Plus}
+                  title={s("ledger.empty")}
+                  hint={s("ledger.emptyHint")}
+                  action={
+                    <Button variant="primary" icon={Plus} onClick={() => shell.openEntry()}>
+                      {s("cm.record")}
+                    </Button>
+                  }
+                />
+              }
             />
           </Card>
+        </Stagger>
 
-          <Card className="col-span-12 xl:col-span-5" title={s("ov.mix")}>
+        <Stagger index={7} className="col-span-12 xl:col-span-5">
+          <Card className="h-full" title={s("ov.mix")}>
             {data.mixTotal === 0 ? (
               <p className="py-6 text-center text-[13px] text-d-ink-3">{s("ov.mixEmpty")}</p>
             ) : (
@@ -197,8 +270,8 @@ export function OverviewPage() {
               </div>
             )}
           </Card>
-        </>
-      )}
-    </div>
+        </Stagger>
+      </div>
+    </Loadable>
   );
 }
