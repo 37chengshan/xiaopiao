@@ -101,7 +101,7 @@ push 进入：左 = 返回（`onBack`），右 = 最多一个与本页相关的�
 
 - 唯一实现：`ui/record/ManualRecordPane.kt`（1:1 参考 041431）。新建和编辑都用它：`mode = New | Edit(txn)`。
 - Edit 模式：预填金额 / 分类 / 时间 / 备注；底部「再记一笔」换成「删除」，「保存」= 保存改动；标题区不变。
-- `ledger/AddSheet.kt`（旧编辑 UI）**待删除**；账单行点击、AI 确认卡「改一下」都改为打开同一个面板。
+- `ledger/AddSheet.kt` 已删除；账单行点击打开同一个面板（`RecordSheetState.openEdit(txn, onDelete)`，删除交回调用方出可撤销 toast）。AI 确认卡「改一下」针对未入账草稿，暂仍退回输入框。
 
 ## 8. 共用组件清单
 
@@ -155,7 +155,7 @@ push 进入：左 = 返回（`onBack`），右 = 最多一个与本页相关的�
 | # | 问题 | 归属 |
 |---|---|---|
 | 1 | ~~小票、统计页顶栏左侧缺卡包 + 搜索，右侧缺小票；三页不一致~~ 记账 / 小票 / 统计 / AI 已换 `components/TopActions.kt`（2026-10-29）；圈子 / 游戏 / 小店待 worker 交付后替换 | Claude |
-| 2 | 编辑账单用旧 `AddSheet`，和记一笔不同 | Claude（§7） |
+| 2 | ~~编辑账单用旧 `AddSheet`，和记一笔不同~~ 已改为 `RecordSheetState.openEdit` + `ManualRecordPane(editing)`，`AddSheet.kt` 已删（2026-10-29）；AI 确认卡「改一下」仍是退回输入框（未入账草稿，另议） | Claude（§7） |
 | 3 | 统计页文字重叠 | Claude（§10） |
 | 4 | 小票页：打印机在上、出纸口朝下，**吐出来的纸就是设置面板**（tt） | Claude |
 | 5 | 圈子 / 游戏页没有玻璃感（内容不过顶栏 / 底栏）、功能缺失、游戏简陋、分享改成选择圈子 | omp（`ui/circle-v8`） |

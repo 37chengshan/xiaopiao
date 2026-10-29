@@ -127,4 +127,15 @@ class RecordDraftTest {
             (24 * 3600_000.0)
         org.junit.Assert.assertTrue("expected 1–3 days back, was $distanceDays", distanceDays in 1.0..3.0)
     }
+
+    @Test
+    fun editPrefillRoundTripsTheAmount() {
+        assertEquals("30", draftAmountOf(3000))
+        assertEquals("12.5", draftAmountOf(1250))
+        assertEquals("12.05", draftAmountOf(1205))
+        assertEquals("0.99", draftAmountOf(99))
+        listOf(3000L, 1250L, 1205L, 99L).forEach {
+            assertEquals(it, RecordDraftMath.cents(RecordDraft(amount = draftAmountOf(it))))
+        }
+    }
 }
