@@ -57,6 +57,7 @@ import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.insights.StatsAggregator
 import com.xiaopiao.app.insights.StatsChart
+import com.xiaopiao.app.insights.StatsBucket
 import com.xiaopiao.app.insights.StatsEntry
 import com.xiaopiao.app.insights.StatsGrouping
 import com.xiaopiao.app.insights.StatsNarrative
@@ -67,6 +68,8 @@ import com.xiaopiao.app.ui.components.BarTrend
 import com.xiaopiao.app.ui.components.DonutChart
 import com.xiaopiao.app.ui.components.GroupedRow
 import com.xiaopiao.app.ui.components.GroupedSection
+import com.xiaopiao.app.ui.ledger.LedgerFilter
+import com.xiaopiao.app.ui.ledger.LedgerRange
 import com.xiaopiao.app.ui.components.IconTile
 import com.xiaopiao.app.ui.components.LedgerSideLeading
 import com.xiaopiao.app.ui.components.AppTopActions
@@ -157,6 +160,8 @@ fun StatsScreen(
     onOpenSubscriptions: () -> Unit,
     onOpenRegret: () -> Unit,
     onPrint: (() -> Unit)? = null,
+    /** Chart taps land in 账单, filtered to the tapped category and this period (tt: app 所有东西都需要联动). */
+    onOpenLedger: (LedgerFilter) -> Unit = {},
 ) {
     val txns by container.ledger.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -170,6 +175,8 @@ fun StatsScreen(
     }
 
     var range by rememberSaveable { mutableStateOf(StatsRange.Week) }
+    // 「更多」 is the fifth tab: 预算 / 每周小票 / 订阅侦探 / 后悔模拟 (tt 2026-10-29).
+    var more by rememberSaveable { mutableStateOf(false) }
     var anchor by rememberSaveable { mutableLongStateOf(now) }
     var direction by rememberSaveable { mutableStateOf(Direction.OUT) }
     var grouping by rememberSaveable { mutableStateOf(StatsGrouping.Primary) }
@@ -200,12 +207,13 @@ fun StatsScreen(
         leading = { LedgerSideLeading() },
         trailing = { AppTopActions() },
     ) { top ->
-        BoxWithConstraints(Modifier.fillMaxSize().padding(top = top)) {
+        // The top inset is scroll content, not a frame: cards slide up under the glass capsules.
+        BoxWithConstraints(Modifier.fillMaxSize()) {
             val pageWidth = constraints.maxWidth.toFloat().coerceAtLeast(1f)
             val density = LocalDensity.current
             val commitPx = with(density) { maxOf(44.dp.toPx(), pageWidth * 0.14f) }
             // 自定义 has no neighbours in the swipe cycle; swiping is off while it is showing.
-            val swipeable = range != StatsRange.Custom
+            val swipeable = range != StatsRange.Custom && !more
 
             Box(
                 Modifier.fillMaxSize().clipToBounds()
@@ -304,10 +312,22 @@ fun StatsScreen(
                         }
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = XpSpace.page)
-                        .padding(top = XpSpace.xs, bottom = 128.dp),
+                        .padding(top = top + XpSpace.xs, bottom = 128.dp),
                     verticalArrangement = Arrangement.spacedBy(XpSpace.m),
                 ) {
-                    RangeSegments(range) { range = it }
+                    RangeSegments(range, more, onSelect = { range = it; more = false }, onMore = { more = true })
+                    if (more) {
+                        MoreSection(onOpenBudget, onOpenAwards, onOpenSubscriptions, onOpenRegret)
+                        return@Column
+                    }
+                    val openEntry: (StatsEntry) -> Unit = { entry ->
+                        onOpenLedger(
+                            LedgerFilter(
+                                direction = snapshot.direction, range = LedgerRange.Custom, categories = setOf(entry.category),
+                                customFrom = snapshot.from, customTo = snapshot.to - DAY,
+                            ),
+                        )
+                    }
                     PeriodRow(
                         snapshot = snapshot,
                         range = range,
@@ -327,17 +347,20 @@ fun StatsScreen(
                         )
                     }
                     KpiCard(snapshot, Modifier.enterOnChange(snapshot.hashCode(), 1, reduceMotion))
-                    TrendCard(snapshot, Modifier.enterOnChange(snapshot.hashCode(), 2, reduceMotion))
+                    TrendCard(
+                        snapshot, Modifier.enterOnChange(snapshot.hashCode(), 2, reduceMotion),
+                        onPickBucket = { b -> anchor = b.start },
+                    )
                     if (snapshot.entries.isNotEmpty()) {
                         CompositionCard(
                             snapshot = snapshot,
                             grouping = grouping,
                             onGrouping = { grouping = it },
+                            onOpen = openEntry,
                             modifier = Modifier.enterOnChange("${snapshot.hashCode()}-$grouping", 3, reduceMotion),
                         )
-                        RankingCard(snapshot, Modifier.enterOnChange("${snapshot.hashCode()}-$grouping", 4, reduceMotion))
+                        RankingCard(snapshot, Modifier.enterOnChange("${snapshot.hashCode()}-$grouping", 4, reduceMotion), onOpen = openEntry)
                     }
-                    MoreSection(onOpenBudget, onOpenAwards, onOpenSubscriptions, onOpenRegret)
                 }
             }
         }
@@ -373,21 +396,21 @@ fun StatsScreen(
 
 // ── segments ──────────────────────────────────────────────────────────────────────────────────
 
-/** 周报 / 月报 / 年报 / 自定义: 14sp labels, 2dp accent underline as wide as the selected text. */
+/** 周报 / 月报 / 年报 / 自定义 / 更多: 14sp labels, 2dp accent underline as wide as the selected text. */
 @Composable
-private fun RangeSegments(selected: StatsRange, onSelect: (StatsRange) -> Unit) {
+private fun RangeSegments(selected: StatsRange, more: Boolean, onSelect: (StatsRange) -> Unit, onMore: () -> Unit) {
     val density = LocalDensity.current
     Row(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp)) {
-        StatsRange.entries.forEach { range ->
-            val on = range == selected
+        (StatsRange.entries.map { it.label to it } + ("更多" to null)).forEach { (label, range) ->
+            val on = if (range == null) more else !more && range == selected
             var textWidth by remember { mutableStateOf(24.dp) }
             val underline by animateDpAsState(if (on) textWidth else 0.dp, tween(180, easing = XpEase.out), label = "underline")
             Column(
-                Modifier.weight(1f).pressableClick(haptic = false) { onSelect(range) }.padding(vertical = 4.dp),
+                Modifier.weight(1f).pressableClick(haptic = false) { if (range == null) onMore() else onSelect(range) }.padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    range.label,
+                    label,
                     style = SegmentLabel.copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal),
                     color = if (on) XpColors.Ink else XpColors.InkTertiary,
                     maxLines = 1,
@@ -579,7 +602,7 @@ private fun KpiCellView(cell: KpiCell, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun TrendCard(snapshot: StatsSnapshot, modifier: Modifier = Modifier) {
+private fun TrendCard(snapshot: StatsSnapshot, modifier: Modifier = Modifier, onPickBucket: (StatsBucket) -> Unit = {}) {
     val noun = if (snapshot.direction == Direction.OUT) "支出" else "收入"
     val title = when (snapshot.range) {
         StatsRange.Week -> "近 5 周$noun"
@@ -594,7 +617,12 @@ private fun TrendCard(snapshot: StatsSnapshot, modifier: Modifier = Modifier) {
         Text(title, style = SectionTitle, color = XpColors.Ink)
         Spacer(Modifier.height(XpSpace.s))
         when (snapshot.chart) {
-            StatsChart.Bars -> BarTrend(snapshot.buckets)
+            // Tap a bar to move the whole page to that period.
+            StatsChart.Bars -> BarTrend(
+                snapshot.buckets,
+                selected = snapshot.buckets.indexOfFirst { it.start == snapshot.from },
+                onSelect = { i -> onPickBucket(snapshot.buckets[i]) },
+            )
             StatsChart.Line -> LineTrend(
                 snapshot.buckets,
                 tickEvery = snapshot.xTickEvery,
@@ -610,6 +638,7 @@ private fun CompositionCard(
     snapshot: StatsSnapshot,
     grouping: StatsGrouping,
     onGrouping: (StatsGrouping) -> Unit,
+    onOpen: (StatsEntry) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var selected by remember(snapshot.entries, grouping) { mutableStateOf(0) }
@@ -640,13 +669,16 @@ private fun CompositionCard(
             }
         }
         Spacer(Modifier.height(XpSpace.xs))
-        DonutChart(entries = snapshot.entries, selected = selected, onSelect = { selected = it })
+        DonutChart(
+            entries = snapshot.entries, selected = selected, onSelect = { selected = it },
+            onOpen = { i -> snapshot.entries.getOrNull(i)?.let(onOpen) },
+        )
     }
 }
 
 /** Ranking rows: faint rank, 32dp tile, name over a 2dp share bar, 「N 笔 · 商户」, amount right. */
 @Composable
-private fun RankingCard(snapshot: StatsSnapshot, modifier: Modifier = Modifier) {
+private fun RankingCard(snapshot: StatsSnapshot, modifier: Modifier = Modifier, onOpen: (StatsEntry) -> Unit = {}) {
     var expanded by remember(snapshot.hashCode()) { mutableStateOf(false) }
     val rows = if (expanded) snapshot.entries else snapshot.entries.take(8)
     val maxCents = snapshot.entries.firstOrNull()?.cents ?: 1L
@@ -659,7 +691,7 @@ private fun RankingCard(snapshot: StatsSnapshot, modifier: Modifier = Modifier) 
         )
         rows.forEachIndexed { index, entry ->
             if (index > 0) Box(Modifier.fillMaxWidth().padding(start = 50.dp).height(0.5.dp).background(XpColors.Hairline))
-            RankRow(index + 1, entry, maxCents)
+            RankRow(index + 1, entry, maxCents) { onOpen(entry) }
         }
         if (snapshot.entries.size > 8) {
             Text(
@@ -674,9 +706,9 @@ private fun RankingCard(snapshot: StatsSnapshot, modifier: Modifier = Modifier) 
 }
 
 @Composable
-private fun RankRow(rank: Int, entry: StatsEntry, maxCents: Long) {
+private fun RankRow(rank: Int, entry: StatsEntry, maxCents: Long, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = 7.dp),
+        Modifier.fillMaxWidth().pressableClick(haptic = true, onClick = onClick).padding(horizontal = XpSpace.l, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -715,7 +747,7 @@ private fun RankRow(rank: Int, entry: StatsEntry, maxCents: Long) {
     }
 }
 
-/** The old pages survive as three rows instead of a segmented tab (§3.3 keeps them reachable). */
+/** The 「更多」 tab: the four pages that used to own the whole 统计 tab (§3.3 keeps them reachable). */
 @Composable
 private fun MoreSection(
     onBudget: () -> Unit,
@@ -723,7 +755,7 @@ private fun MoreSection(
     onSubscriptions: () -> Unit,
     onRegret: () -> Unit,
 ) {
-    GroupedSection(header = "更多", dividerInset = 20.dp, margin = 0.dp) {
+    GroupedSection(dividerInset = 20.dp, margin = 0.dp) {
         item("budget") {
             GroupedRow("预算", subtitle = "每日 / 每周 / 每月额度与提醒", chevron = true, onClick = onBudget)
         }

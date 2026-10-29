@@ -4,6 +4,11 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -54,9 +59,14 @@ fun BarTrend(
     modifier: Modifier = Modifier,
     barWidth: Dp = 20.dp,
     emptyText: String = "这段时间还没有账单",
+    /** The bar drawn as the choice; -1 falls back to each bucket's own [StatsBucket.isCurrent]. */
+    selected: Int = -1,
+    /** Tap a bar (tt: 图表点击都应该可以互动); null keeps the chart read-only. */
+    onSelect: ((Int) -> Unit)? = null,
 ) {
     if (buckets.isEmpty()) return
     val reduceMotion = rememberReducedMotion()
+    val haptics = rememberXpHaptics()
     val progress = remember(buckets) { Animatable(if (reduceMotion) 1f else 0f) }
     LaunchedEffect(buckets) {
         if (reduceMotion) progress.snapTo(1f) else {
@@ -71,7 +81,14 @@ fun BarTrend(
     }
     val labelStyle = remember { TextStyle(fontFamily = XpFonts.sans, fontSize = 11.sp) }
 
-    Canvas(modifier.fillMaxWidth().height(190.dp)) {
+    val tap = if (onSelect == null) Modifier else Modifier.pointerInput(buckets) {
+        detectTapGestures { o ->
+            val i = (o.x / (size.width.toFloat() / buckets.size)).toInt().coerceIn(0, buckets.lastIndex)
+            haptics.select()
+            onSelect(i)
+        }
+    }
+    Canvas(modifier.fillMaxWidth().height(190.dp).then(tap)) {
         val w = size.width
         val topPad = 22.dp.toPx()
         // Room for the two-line period label at whatever font scale is active (docs/DESIGN.md §10).
@@ -117,13 +134,14 @@ fun BarTrend(
                     ),
                 )
             }
-            val color = if (bucket.isCurrent) XpColors.Accent else XpColors.Accent.copy(alpha = 0.3f)
+            val hot = if (selected in buckets.indices) i == selected else bucket.isCurrent
+            val color = if (hot) XpColors.Accent else XpColors.Accent.copy(alpha = 0.3f)
             drawPath(path, color)
 
             if (local > 0.6f) {
                 val value = measurer.fit(
                     StatsAggregator.grouped(bucket.cents),
-                    valueStyle.copy(color = if (bucket.isCurrent) XpColors.Accent else XpColors.InkSecondary),
+                    valueStyle.copy(color = if (hot) XpColors.Accent else XpColors.InkSecondary),
                     fitW,
                 )
                 drawText(value, topLeft = Offset(cx - value.size.width / 2f, top - value.size.height - 4.dp.toPx()))
@@ -131,14 +149,14 @@ fun BarTrend(
 
             val topLabel = measurer.fit(
                 bucket.top,
-                labelStyle.copy(color = if (bucket.isCurrent) XpColors.Accent else XpColors.InkTertiary),
+                labelStyle.copy(color = if (hot) XpColors.Accent else XpColors.InkTertiary),
                 fitW,
             )
             drawText(topLabel, topLeft = Offset(cx - topLabel.size.width / 2f, baseline + 8.dp.toPx()))
             if (bucket.bottom.isNotEmpty()) {
                 val bottomLabel = measurer.fit(
                     bucket.bottom,
-                    labelStyle.copy(color = if (bucket.isCurrent) XpColors.Accent else XpColors.InkTertiary),
+                    labelStyle.copy(color = if (hot) XpColors.Accent else XpColors.InkTertiary),
                     fitW,
                 )
                 drawText(bottomLabel, topLeft = Offset(cx - bottomLabel.size.width / 2f, baseline + 8.dp.toPx() + labelLine + 2.dp.toPx()))
@@ -161,17 +179,40 @@ fun LineTrend(
 ) {
     if (buckets.isEmpty()) return
     val measurer = rememberTextMeasurer()
+    val haptics = rememberXpHaptics()
+    // Tap a point, or long-press and slide, to move the tooltip (tt: 图表点击都应该可以互动).
+    var picked by remember(buckets) { mutableIntStateOf(-1) }
     val axisStyle = remember { TextStyle(fontFamily = XpFonts.sans, fontSize = 11.sp) }
     val bubbleStyle = remember {
         TextStyle(fontFamily = XpFonts.sans, fontSize = 11.sp, fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum", color = Color.White)
     }
     val highlight = when {
+        picked in buckets.indices -> picked
         highlightIndex in buckets.indices -> highlightIndex
         else -> buckets.indexOfLast { it.cents > 0 }.coerceAtLeast(0)
     }
 
     // 46dp tooltip band + 88dp plot + 22dp labels (§3.7).
-    Canvas(modifier.fillMaxWidth().height(156.dp)) {
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
+    fun nearest(x: Float, width: Float): Int {
+        val inset = 8.dp.value * density
+        val step = if (buckets.size > 1) (width - inset * 2) / (buckets.size - 1) else 1f
+        return ((x - inset) / step).roundToInt().coerceIn(0, buckets.lastIndex)
+    }
+    Canvas(
+        modifier.fillMaxWidth().height(156.dp)
+            .pointerInput(buckets) {
+                detectTapGestures { o -> picked = nearest(o.x, size.width.toFloat()); haptics.select() }
+            }
+            .pointerInput(buckets) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { o -> picked = nearest(o.x, size.width.toFloat()); haptics.thud() },
+                ) { change, _ ->
+                    val i = nearest(change.position.x, size.width.toFloat())
+                    if (i != picked) { picked = i; haptics.tick() }
+                }
+            },
+    ) {
         val w = size.width
         val bubbleBlock = 46.dp.toPx()
         val labelBlock = 22.dp.toPx()
@@ -277,8 +318,11 @@ fun DonutChart(
     selected: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    /** Tapping the chosen slice again, or the centre, opens it (the 账单 filtered to it); null = select only. */
+    onOpen: ((Int) -> Unit)? = null,
 ) {
     val measurer = rememberTextMeasurer()
+    val haptics = rememberXpHaptics()
     val labelStyle = remember { TextStyle(fontFamily = XpFonts.sans, fontSize = 12.sp) }
     val centerStyle = remember {
         TextStyle(fontFamily = XpFonts.sans, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum")
@@ -296,13 +340,21 @@ fun DonutChart(
                 val dx = offset.x - cx
                 val dy = offset.y - cy
                 val dist = kotlin.math.sqrt(dx * dx + dy * dy)
-                if (dist < r * 0.45f || dist > r * 1.45f || total <= 0) return@detectTapGestures
+                if (total <= 0 || dist > r * 1.45f) return@detectTapGestures
+                if (dist < r * 0.45f) {
+                    onOpen?.let { haptics.select(); it(selected.coerceIn(0, slices.lastIndex)) }
+                    return@detectTapGestures
+                }
                 var angle = Math.toDegrees(atan2(dy, dx).toDouble()) + 90.0   // 0° = 12 o'clock
                 if (angle < 0) angle += 360
                 var acc = 0f
                 slices.forEachIndexed { i, e ->
                     val sweep = (e.cents.toFloat() / total) * 360f
-                    if (angle >= acc && angle < acc + sweep) { onSelect(i); return@detectTapGestures }
+                    if (angle >= acc && angle < acc + sweep) {
+                        haptics.select()
+                        if (i == selected && onOpen != null) onOpen(i) else onSelect(i)
+                        return@detectTapGestures
+                    }
                     acc += sweep
                 }
             }
@@ -330,6 +382,8 @@ fun DonutChart(
         slices.forEachIndexed { i, e ->
             val sweep = (e.cents.toFloat() / total) * 360f
             val color = XpColors.Accent.copy(alpha = 1f - i * 0.18f)
+            // The chosen slice stands 3dp proud of the ring on both sides.
+            val proud = if (i == selected) 6.dp.toPx() else 0f
             drawArc(
                 color = color,
                 startAngle = startAngle,
@@ -337,7 +391,7 @@ fun DonutChart(
                 useCenter = false,
                 topLeft = Offset(cx - r, cy - r),
                 size = Size(r * 2, r * 2),
-                style = Stroke(width = stroke),
+                style = Stroke(width = stroke + proud),
             )
             val mid = Math.toRadians((startAngle + sweep / 2).toDouble())
             labelAnchors += Triple(
@@ -414,6 +468,10 @@ fun DonutChart(
         val unit = measurer.fit(current.label, unitStyle.copy(color = XpColors.InkSecondary), hole)
         drawText(amount, topLeft = Offset(cx - amount.size.width / 2f, cy - amount.size.height / 2f - 6.dp.toPx()))
         drawText(unit, topLeft = Offset(cx - unit.size.width / 2f, cy + amount.size.height / 2f - 4.dp.toPx()))
+        if (onOpen != null) {
+            val go = measurer.fit("看账单 ›", unitStyle.copy(color = XpColors.Accent), hole)
+            drawText(go, topLeft = Offset(cx - go.size.width / 2f, cy + amount.size.height / 2f + unit.size.height - 2.dp.toPx()))
+        }
     }
 }
 

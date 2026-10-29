@@ -41,6 +41,7 @@ fun InsightsScreen(
     @Suppress("UNUSED_PARAMETER") embedded: Boolean = false,
     onOpenSettings: () -> Unit = {},
     onPrint: (() -> Unit)? = null,
+    onOpenLedger: (com.xiaopiao.app.ui.ledger.LedgerFilter) -> Unit = {},
 ) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { ReminderScheduler.ensureScheduled(context) }
@@ -71,6 +72,7 @@ fun InsightsScreen(
             onOpenSubscriptions = { route = InsightsRoute.SUBSCRIPTIONS },
             onOpenRegret = { route = InsightsRoute.REGRET },
             onPrint = onPrint,
+            onOpenLedger = onOpenLedger,
         )
         return
     }

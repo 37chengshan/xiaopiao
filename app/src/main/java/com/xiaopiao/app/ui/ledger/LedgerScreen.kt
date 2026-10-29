@@ -85,6 +85,9 @@ fun LedgerScreen(
     @Suppress("UNUSED_PARAMETER") onVoiceStart: () -> Unit = {},
     searchRequested: Boolean = false,
     onSearchConsumed: () -> Unit = {},
+    /** A filter handed over by another page (统计 chart taps); applied once, then consumed. */
+    filterRequest: LedgerFilter? = null,
+    onFilterConsumed: () -> Unit = {},
     /** 记一笔 and 编辑账单 are one pane owned by the shell (docs/DESIGN.md §7). */
     onRecord: () -> Unit = {},
     onEdit: (txn: Txn, onDelete: (Txn) -> Unit) -> Unit = { _, _ -> },
@@ -117,6 +120,7 @@ fun LedgerScreen(
     var selection by remember { mutableStateOf<Set<Long>?>(null) }
     // 搜索 in the top-left (here or from 小票 / 统计) arrives as a request from the shell.
     LaunchedEffect(searchRequested) { if (searchRequested) { searching = true; onSearchConsumed() } }
+    LaunchedEffect(filterRequest) { filterRequest?.let { filter = it; onFilterConsumed() } }
 
     val toast = rememberUndoToastState()
     val listState = rememberLazyListState()

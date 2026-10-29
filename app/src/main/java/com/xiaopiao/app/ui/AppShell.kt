@@ -139,6 +139,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     var walletOpen by remember { mutableStateOf(false) }
     // 搜索 from 小票 / 统计 = jump to 记账, which enters search and clears this.
     var ledgerSearch by remember { mutableStateOf(false) }
+    var ledgerFilter by remember { mutableStateOf<com.xiaopiao.app.ui.ledger.LedgerFilter?>(null) }
     LaunchedEffect(launchSide) { if (startRoute == null) launchSide?.let { startRoute = NavModel.startRoute(it) } }
     if (onboarded == false) {
         com.xiaopiao.app.ui.onboarding.OnboardingHost { shellScope.launch { onboarding.setDone() } }
@@ -256,6 +257,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         container,
                         searchRequested = ledgerSearch,
                         onSearchConsumed = { ledgerSearch = false },
+                        filterRequest = ledgerFilter,
+                        onFilterConsumed = { ledgerFilter = null },
                         onRecord = { record.openManual() },
                         onEdit = { txn, onDelete -> record.openEdit(txn, onDelete) },
                     )
@@ -266,6 +269,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         open,
                         onOpenConsumed,
                         onOpenSettings = { nav.navigate("settings") },
+                        onOpenLedger = { f -> ledgerFilter = f; go(NavTab.Ledger) },
                     )
                 }
                 composable(
