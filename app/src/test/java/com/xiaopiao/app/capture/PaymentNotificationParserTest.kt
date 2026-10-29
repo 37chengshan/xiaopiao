@@ -192,6 +192,8 @@ class PaymentNotificationParserTest {
         Sample("Alipay", "Get a ¥5.00 coupon today", Expected.Ignored),
         Sample("Alipay", "Payment processing…", Expected.Irrelevant),
         Sample("支付宝", "交易提醒：你有一笔支付，点击查看>", Expected.Unparsed),
+        // 2026-10-29 真机实测文案（金额已脱敏）：标题「交易提醒」，channel ACCOUNT
+        Sample("交易提醒", "你有一笔 45.60 元的支出，点此查看详情。", Expected.Paid(4560)),
     )
 
     private val wechatCorpus = listOf(

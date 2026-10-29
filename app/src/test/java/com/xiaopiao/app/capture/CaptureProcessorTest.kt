@@ -49,6 +49,15 @@ class CaptureProcessorTest {
         assertEquals(listOf("IGNORED", "UNPARSED"), log.entries.map { it.result.substringBefore(':') })
     }
 
+    @Test fun deferredPaymentBecomesNotificationRow() = runBlocking {
+        processor.process(PaymentApps.WECHAT, "微信支付", "先享后付扣款成功 ¥8.80 收款方：青禾便利", t)
+        val txn = ledger.observeAll().first().single()
+        assertEquals(880L, txn.amountCents)
+        assertEquals("青禾便利", txn.merchant)
+        assertEquals(Source.NOTIFICATION, txn.source)
+        assertTrue(log.entries.single().result.startsWith("PARSED:wechat.deferred"))
+    }
+
     @Test fun chatterIsNeitherStoredNorLogged() = runBlocking {
         processor.process(PaymentApps.WECHAT, "张三", "晚上吃啥", t)
         assertTrue(log.entries.isEmpty())
