@@ -128,8 +128,25 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost, onOpenSettings: () -
         trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
     ) { top ->
         Column(Modifier.fillMaxSize().padding(top = top)) {
-            // Upper half: settings.
-            Column(Modifier.weight(1f).verticalScroll(scroll).padding(bottom = XpSpace.l)) {
+            // Pinned on top: the printer, with the receipt rising out of its slot (live preview). Never under the tab bar.
+            CompositionLocalProvider(LocalPaperColors provides colors, LocalReceiptFont provides settings.font) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l).height(PreviewPeek + PrinterHeight - 12.dp), contentAlignment = Alignment.TopCenter) {
+                    Box(Modifier.height(PreviewPeek).clipToBounds().previewFade()) {
+                        val clock = remember(timeline) { PrintClock(timeline, instant = true) { 0L } }
+                        val stamp = remember { StampVisuals({ 1f }, { 1f }, { 0f }) }
+                        ReceiptPaper(lines, clock, stampText, stamp, tornTop = true)
+                    }
+                    ReceiptPrinter(
+                        lcd = ReceiptLayout.dayLabel(selectedDay).substringBefore(' ') + "  ¥" + (dayOut / 100),
+                        printing = host.printing,
+                        onPrint = { from -> host.print(selectedDay, from) },
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        slotAtTop = true,
+                    )
+                }
+            }
+            // Below it, the settings scroll on their own; the bottom pad clears the floating tab bar.
+            Column(Modifier.weight(1f).verticalScroll(scroll).padding(bottom = 120.dp)) {
                 Label("日期", first = true)
                 DayStrip(all, today, selectedDay, onSelect = { selectedDay = it }, onCalendar = { calendarOpen = true })
 
@@ -176,24 +193,6 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost, onOpenSettings: () -
                             )
                         }
                     }
-                }
-            }
-
-            // Lower half: the printer, with the receipt rising out of its slot (live preview).
-            CompositionLocalProvider(LocalPaperColors provides colors, LocalReceiptFont provides settings.font) {
-                Box(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l).height(PreviewPeek + PrinterHeight - 12.dp), contentAlignment = Alignment.TopCenter) {
-                    Box(Modifier.height(PreviewPeek).clipToBounds().previewFade()) {
-                        val clock = remember(timeline) { PrintClock(timeline, instant = true) { 0L } }
-                        val stamp = remember { StampVisuals({ 1f }, { 1f }, { 0f }) }
-                        ReceiptPaper(lines, clock, stampText, stamp, tornTop = true)
-                    }
-                    ReceiptPrinter(
-                        lcd = ReceiptLayout.dayLabel(selectedDay).substringBefore(' ') + "  ¥" + (dayOut / 100),
-                        printing = host.printing,
-                        onPrint = { from -> host.print(selectedDay, from) },
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                        slotAtTop = true,
-                    )
                 }
             }
         }

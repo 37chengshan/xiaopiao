@@ -53,8 +53,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -130,7 +131,8 @@ object NavBarGeometry {
     }
 }
 
-class NavBarItem(val id: String, val label: String, val icon: ImageVector)
+/** A tab: its id, caption and the hand-drawn glyph that animates its own state change. */
+class NavBarItem(val id: String, val label: String, val glyph: NavGlyph)
 
 /** What the bar shows. Left of ⊕ are [a] [b], right of it [c]; [fold] replaces them in the social state. */
 class NavBarSpec(
@@ -321,7 +323,10 @@ private fun NavBarLabel(text: String, color: Color, modifier: Modifier = Modifie
     )
 }
 
-/** Tab item: no pill, no ripple. Selecting recolours to the accent and pops the icon (1 → 1.15 → 1, springy). */
+/**
+ * Tab item: no pill, no ripple. Selecting recolours to the accent, fills the glyph and plays its own motion
+ * (lines written, paper printed, bars grown…) with a slight 1 → 1.08 → 1 lift; tapping it again replays.
+ */
 @Composable
 private fun NavBarTab(item: NavBarItem, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val reduced = rememberReducedMotion()
@@ -329,25 +334,29 @@ private fun NavBarTab(item: NavBarItem, selected: Boolean, enabled: Boolean, onC
     val scope = rememberCoroutineScope()
     val color by animateColorAsState(if (selected) XpColors.Accent else XpColors.InkSecondary, tween(180, easing = XpEase.out), label = "tabColor")
     val scale = remember { Animatable(1f) }
-    suspend fun pop() {
+    var replay by remember { mutableStateOf(0) }
+    suspend fun lift() {
         if (reduced) return
         scale.snapTo(1f)
-        scale.animateTo(1.15f, spring(0.5f, 600f))
-        scale.animateTo(1f, spring(0.5f, 600f))
+        scale.animateTo(1.08f, spring(0.6f, 700f))
+        scale.animateTo(1f, spring(0.5f, 500f))
     }
     var first by remember { mutableStateOf(true) }
     LaunchedEffect(selected) {
-        if (first) first = false else if (selected) pop()
+        if (first) first = false else if (selected) lift()
     }
     Column(
         Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, enabled = enabled) {
             haptics.select()
-            if (selected) scope.launch { pop() }
+            if (selected) { replay++; scope.launch { lift() } }
             onClick()
-        },
+        }.semantics(mergeDescendants = true) { contentDescription = item.label },
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
     ) {
-        Icon(item.icon, contentDescription = item.label, tint = color, modifier = Modifier.size(22.dp).graphicsLayer { scaleX = scale.value; scaleY = scale.value })
+        AnimatedNavGlyph(
+            item.glyph, selected = selected, tint = color, reduced = reduced, replay = replay,
+            modifier = Modifier.size(24.dp).graphicsLayer { scaleX = scale.value; scaleY = scale.value },
+        )
         NavBarLabel(item.label, color)
     }
 }

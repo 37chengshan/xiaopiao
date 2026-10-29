@@ -182,7 +182,7 @@ fun ChatDrawer(
                     contentAlignment = Alignment.Center,
                 ) { Text("票", style = MaterialTheme.typography.titleSmall, color = XpColors.Ink) }
                 Column(Modifier.weight(1f).padding(start = XpSpace.s)) {
-                    Text("本机账本", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
+                    Text("我", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
                     Text("数据只在这台手机", style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary)
                 }
                 Box(

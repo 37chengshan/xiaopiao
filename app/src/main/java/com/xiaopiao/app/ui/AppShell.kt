@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui
 
+import com.xiaopiao.app.ui.components.NavGlyph
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -27,17 +28,11 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.outlined.SportsEsports
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.Groups
-import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.ReceiptLong
-import androidx.compose.material.icons.outlined.ViewList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -106,13 +101,13 @@ import com.xiaopiao.app.ui.theme.XpEase
 
 /** The user edition's bar: 记账 · 小票 · ⊕ · 统计 | 圈子, and 账单 · ⊕ | AI · 圈子 · 游戏 once 圈子 is open. */
 private val UserNavSpec = NavBarSpec(
-    a = NavBarItem(NavTab.Ledger.route, NavTab.Ledger.label, Icons.Outlined.ViewList),
-    b = NavBarItem(NavTab.Receipt.route, NavTab.Receipt.label, Icons.Outlined.ReceiptLong),
-    c = NavBarItem(NavTab.Insights.route, NavTab.Insights.label, Icons.Outlined.Insights),
-    fold = NavBarItem("fold", "账单", Icons.Outlined.ViewList),
-    entry = NavBarItem(NavTab.Circle.route, NavTab.Circle.label, Icons.Outlined.Groups),
-    sa = NavBarItem(NavTab.Chat.route, NavTab.Chat.label, Icons.Outlined.ChatBubbleOutline),
-    sb = NavBarItem(NavTab.Games.route, NavTab.Games.label, Icons.Outlined.SportsEsports),
+    a = NavBarItem(NavTab.Ledger.route, NavTab.Ledger.label, NavGlyph.Ledger),
+    b = NavBarItem(NavTab.Receipt.route, NavTab.Receipt.label, NavGlyph.Receipt),
+    c = NavBarItem(NavTab.Insights.route, NavTab.Insights.label, NavGlyph.Chart),
+    fold = NavBarItem("fold", "账单", NavGlyph.Ledger),
+    entry = NavBarItem(NavTab.Circle.route, NavTab.Circle.label, NavGlyph.People),
+    sa = NavBarItem(NavTab.Chat.route, NavTab.Chat.label, NavGlyph.Chat),
+    sb = NavBarItem(NavTab.Games.route, NavTab.Games.label, NavGlyph.Gamepad),
     plusLabel = "记一笔", plusDescription = "记一笔 · 长按说一句",
 )
 
@@ -195,7 +190,9 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     val glass = rememberLayerBackdrop()
     // Ledger-side tabs pad their own lists past the bar, so they can run underneath it and show through the glass.
     // The rest (circle chat input, games…) still stop above it.
-    val underBar = current == NavTab.Ledger.route || current == NavTab.Receipt.route || current == NavTab.Insights.route
+    val underBar = current == NavTab.Ledger.route || current == NavTab.Receipt.route || current == NavTab.Insights.route ||
+        // The AI session drawer covers the whole screen, including where the (hidden) bar sat.
+        (navBarHidden && current == NavTab.Chat.route)
 
     CompositionLocalProvider(LocalReceiptHost provides receiptHost) {
     Box(Modifier.fillMaxSize()) {
@@ -223,7 +220,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         Box(
             Modifier.fillMaxSize()
                 .layerBackdrop(glass)
-                .background(XpColors.CanvasGrouped)
+                // What shows behind the bar on pages that stop above it: match the page, never a grey band (tt).
+                .background(if (current == NavTab.Circle.route || current == NavTab.Games.route || current == NavTab.Chat.route) XpColors.Card else XpColors.CanvasGrouped)
                 .padding(top = top, bottom = if (underBar) 0.dp else padding.calculateBottomPadding()),
         ) {
             // Tab switches are instant: it is the most frequent navigation in the app (docs/APP-DESIGN.md §7).
