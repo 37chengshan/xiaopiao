@@ -51,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -68,10 +69,12 @@ import com.xiaopiao.app.ui.category.CategoryTile
 import com.xiaopiao.app.ui.components.XpToastHost
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberXpHaptics
+import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberXpToast
 import com.xiaopiao.app.ui.ledger.LedgerCalendarSheet
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpEase
+import com.xiaopiao.app.ui.theme.XpMotion
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import java.util.Calendar
@@ -287,9 +290,17 @@ private fun PillButton(text: String, onClick: () -> Unit) {
 /** ¥ + the running expression + a blinking caret, over a hairline. */
 @Composable
 private fun AmountRow(draft: RecordDraft, cents: Long) {
+    val reduced = rememberReducedMotion()
     val caret = remember { Animatable(1f) }
+    // Every key that lands settles the digits into place (3dp rise + a 3% growth), so the keypad has an answer
+    // on the amount itself, not only on the key that was pressed.
+    val land = remember { Animatable(1f) }
     LaunchedEffect(draft.expression) {
         caret.snapTo(1f)
+        if (!reduced) {
+            land.snapTo(0f)
+            land.animateTo(1f, spring(dampingRatio = 0.62f, stiffness = 900f))
+        }
         while (true) {
             kotlinx.coroutines.delay(520)
             caret.animateTo(0f, tween(160))
@@ -304,7 +315,15 @@ private fun AmountRow(draft: RecordDraft, cents: Long) {
         Text(
             // Reference: an untouched amount is just ¥ and the caret, no grey 0.
             if (draft.isEmpty) "" else draft.expression,
-            modifier = Modifier.padding(start = 6.dp),
+            modifier = Modifier.padding(start = 6.dp).graphicsLayer {
+                val k = land.value
+                if (k < 1f) {
+                    scaleX = 0.97f + 0.03f * k
+                    scaleY = 0.97f + 0.03f * k
+                    translationY = (1f - k) * 3.dp.toPx()
+                    alpha = 0.72f + 0.28f * k
+                }
+            },
             fontSize = 28.sp,
             fontWeight = FontWeight.SemiBold,
             color = if (cents == 0L) XpColors.InkTertiary else XpColors.Ink,
@@ -316,6 +335,25 @@ private fun AmountRow(draft: RecordDraft, cents: Long) {
                 .graphicsLayer { alpha = caret.value }
                 .background(XpColors.Accent),
         )
+    }
+}
+
+/**
+ * A category cell that has just become the pick pops once (0.9 → 1 on the bouncy spring), so the eye follows the
+ * selection: press feedback only shrinks, this is the "you chose this" answer.
+ */
+private fun Modifier.selectionPop(selected: Boolean): Modifier = composed {
+    val reduced = rememberReducedMotion()
+    val pop = remember { Animatable(1f) }
+    LaunchedEffect(selected) {
+        if (selected && !reduced) {
+            pop.snapTo(0.9f)
+            pop.animateTo(1f, XpMotion.bouncy())
+        }
+    }
+    graphicsLayer {
+        scaleX = pop.value
+        scaleY = pop.value
     }
 }
 
@@ -339,6 +377,7 @@ private fun CategoryArea(
         items(offered, key = { it.id }) { def ->
             Column(
                 Modifier.clip(RoundedCornerShape(XpRadius.s))
+                    .selectionPop(def.id == selected)
                     .pressableClick(haptic = false, scaleDown = 0.94f) { onSelect(def.id) }
                     .padding(vertical = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

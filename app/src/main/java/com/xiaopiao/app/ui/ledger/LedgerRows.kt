@@ -3,6 +3,7 @@ package com.xiaopiao.app.ui.ledger
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.components.NumberTicker
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -50,6 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -107,6 +109,8 @@ fun LedgerDayCard(
     onDelete: (Txn) -> Unit,
     modifier: Modifier = Modifier,
     swipeToDelete: Boolean = true,
+    /** Ids that entered the list this session: they play the insert animation once. */
+    fresh: Set<Long> = emptySet(),
 ) {
     // Reference `041428`: the day header sits inside the white card, a hairline above the first row.
     Column(
@@ -134,24 +138,28 @@ fun LedgerDayCard(
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpColors.Hairline))
         Column(Modifier.fillMaxWidth()) {
             group.items.forEachIndexed { index, txn ->
-                if (index > 0) {
-                    Box(Modifier.fillMaxWidth().padding(start = DividerInset).height(0.5.dp).background(XpColors.Hairline))
-                }
-                if (selection != null) {
-                    LedgerRowContent(
-                        txn = txn, defs = defs, hidden = hidden, selected = txn.id in selection,
-                        onToggle = { onToggle(txn) }, onLongPress = { onToggle(txn) }, onClick = { onToggle(txn) },
-                    )
-                } else if (!swipeToDelete) {
-                    LedgerRowContent(
-                        txn = txn, defs = defs, hidden = hidden, selected = null,
-                        onToggle = {}, onLongPress = { onLongPress(txn) }, onClick = { onEdit(txn) },
-                    )
-                } else {
-                    SwipeableRow(
-                        txn = txn, defs = defs, hidden = hidden,
-                        onClick = { onEdit(txn) }, onLongPress = { onLongPress(txn) }, onDelete = { onDelete(txn) },
-                    )
+                // A row that just arrived grows into place instead of appearing at full height
+                // (docs/APP-DESIGN.md §7.5: the list never jumps).
+                Column(Modifier.fillMaxWidth().rowLanding(txn.id in fresh)) {
+                    if (index > 0) {
+                        Box(Modifier.fillMaxWidth().padding(start = DividerInset).height(0.5.dp).background(XpColors.Hairline))
+                    }
+                    if (selection != null) {
+                        LedgerRowContent(
+                            txn = txn, defs = defs, hidden = hidden, selected = txn.id in selection,
+                            onToggle = { onToggle(txn) }, onLongPress = { onToggle(txn) }, onClick = { onToggle(txn) },
+                        )
+                    } else if (!swipeToDelete) {
+                        LedgerRowContent(
+                            txn = txn, defs = defs, hidden = hidden, selected = null,
+                            onToggle = {}, onLongPress = { onLongPress(txn) }, onClick = { onEdit(txn) },
+                        )
+                    } else {
+                        SwipeableRow(
+                            txn = txn, defs = defs, hidden = hidden,
+                            onClick = { onEdit(txn) }, onLongPress = { onLongPress(txn) }, onDelete = { onDelete(txn) },
+                        )
+                    }
                 }
             }
         }
@@ -160,12 +168,26 @@ fun LedgerDayCard(
 
 @Composable
 private fun DayFigure(prefix: String, cents: Long, hidden: Boolean) {
-    Text(
-        "$prefix ${if (hidden) AMOUNT_MASK else cents.yuanGrouped()}",
-        style = TabularSmall,
-        color = XpColors.InkSecondary,
-        maxLines = 1,
-    )
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "$prefix ",
+            style = TabularSmall,
+            color = XpColors.InkSecondary,
+            maxLines = 1,
+        )
+        if (hidden) {
+            Text(AMOUNT_MASK, style = TabularSmall, color = XpColors.InkSecondary, maxLines = 1)
+        } else {
+            // The card header is rewritten whenever a bill is added or deleted; let it count instead of snap.
+            NumberTicker(
+                text = cents.yuanGrouped(),
+                style = TabularSmall,
+                color = XpColors.InkSecondary,
+                rollFromZero = false,
+                staggerMs = 14L,
+            )
+        }
+    }
 }
 
 /** Which row has its delete action open; one at a time, and the list closes it when it scrolls. */
@@ -368,6 +390,36 @@ fun SelectBox(checked: Boolean) {
     ) {
         if (checked) Icon(Icons.Outlined.Check, contentDescription = null, tint = XpColors.OnAccent, modifier = Modifier.size(14.dp))
     }
+}
+
+/**
+ * Insert animation for a row that has just arrived — a new bill saved from 记一笔, or one brought back by
+ * 撤销. The row's own height grows from nothing (so the card below never jumps), it fades in and rises the
+ * last 6dp, and it settles on a slightly damped spring. Reduced motion, or a row that was already there,
+ * renders at rest on the first frame.
+ */
+fun Modifier.rowLanding(animate: Boolean): Modifier = composed {
+    val reduced = rememberReducedMotion()
+    val rise = remember { Animatable(if (animate && !reduced) 0f else 1f) }
+    LaunchedEffect(animate) {
+        if (!animate || reduced) {
+            rise.snapTo(1f)
+        } else {
+            rise.snapTo(0f)
+            rise.animateTo(1f, spring(dampingRatio = 0.9f, stiffness = 420f))
+        }
+    }
+    val progress = rise.value
+    this
+        .layout { measurable, constraints ->
+            val placeable = measurable.measure(constraints)
+            val h = (placeable.height * progress).roundToInt()
+            layout(placeable.width, h) { placeable.place(0, 0) }
+        }
+        .graphicsLayer {
+            alpha = (progress * 1.8f).coerceIn(0f, 1f)
+            translationY = (1f - progress) * -6.dp.toPx()
+        }
 }
 
 /**

@@ -60,6 +60,11 @@ internal object LedgerHighlight {
     val lightDecor = Color(0xFFFFF3D3)
     val darkDecor = Color(0xFF463B12)
 
+    /** The 按天查看 chip tints the card instead of adding white: in dark a 55% white chip washed the warm
+     *  card out to beige and left #98989D text on it at ~1.9:1. */
+    val pill: Color get() = if (XpColors.isDark) Color(0xFF2A2410) else Color(0x8CFFFFFF)
+    val pillInk: Color get() = if (XpColors.isDark) XpColors.Ink else XpColors.InkSecondary
+
     val card: Color get() = if (XpColors.isDark) darkCard else lightCard
     val strip: Color get() = if (XpColors.isDark) darkStrip else lightStrip
     val decor: Color get() = if (XpColors.isDark) darkDecor else lightDecor
@@ -137,14 +142,14 @@ fun LedgerSummaryCard(
                     if (onOpenCalendar != null) {
                         Spacer(Modifier.weight(1f))
                         Row(
-                            Modifier.height(28.dp).clip(RoundedCornerShape(XpRadius.pill)).background(Color.White.copy(alpha = 0.55f))
+                            Modifier.height(28.dp).clip(RoundedCornerShape(XpRadius.pill)).background(LedgerHighlight.pill)
                                 .pressableClick(haptic = false, scaleDown = 0.96f, onClick = onOpenCalendar)
                                 .padding(horizontal = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = XpColors.InkSecondary, modifier = Modifier.size(15.dp))
+                            Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = LedgerHighlight.pillInk, modifier = Modifier.size(15.dp))
                             Text(
-                                "按天查看", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, maxLines = 1,
+                                "按天查看", style = MaterialTheme.typography.labelMedium, color = LedgerHighlight.pillInk, maxLines = 1,
                                 modifier = Modifier.padding(start = 4.dp),
                             )
                         }
@@ -185,12 +190,25 @@ fun LedgerSummaryCard(
 private fun SummaryColumn(label: String, cents: Cents, hidden: Boolean, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
-        Text(
-            if (hidden) AMOUNT_MASK else cents.yuanGrouped(),
-            style = ColumnNumber,
-            color = XpColors.Ink,
-            maxLines = 1,
-        )
+        // Same odometer as the hero number: these two columns change on every new bill, and a hard swap
+        // reads as a redraw rather than as a number that moved.
+        AnimatedContent(
+            targetState = hidden,
+            transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) },
+            label = "columnMask",
+        ) { masked ->
+            if (masked) {
+                Text(AMOUNT_MASK, style = ColumnNumber, color = XpColors.Ink, maxLines = 1)
+            } else {
+                NumberTicker(
+                    text = cents.yuanGrouped(),
+                    style = ColumnNumber,
+                    color = XpColors.Ink,
+                    rollFromZero = false,
+                    staggerMs = 18L,
+                )
+            }
+        }
     }
 }
 
