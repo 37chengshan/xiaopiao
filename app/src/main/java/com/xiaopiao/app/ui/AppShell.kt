@@ -204,8 +204,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     // Ledger-side tabs pad their own lists past the bar, so they can run underneath it and show through the glass.
     // The rest (circle chat input, games…) still stop above it.
     val underBar = current == NavTab.Ledger.route || current == NavTab.Receipt.route || current == NavTab.Insights.route ||
-        // AI floats its input above the bar and lets the conversation scroll under the glass.
-        current == NavTab.Chat.route
+        // AI / 圈子 float their input above the bar; their content, like 游戏's wall, scrolls under the glass.
+        current == NavTab.Chat.route || current == NavTab.Circle.route || current == NavTab.Games.route
 
     CompositionLocalProvider(LocalReceiptHost provides receiptHost, LocalTopBarHost provides topBarHost) {
     Box(Modifier.fillMaxSize()) {
