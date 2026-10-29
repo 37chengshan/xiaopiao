@@ -36,6 +36,11 @@ data class CircleMember(
     val tone: CircleTone,
     val isMe: Boolean = false,
     val shares: Map<CircleShare, Boolean> = CircleShare.defaults(),
+    val role: CircleRole = CircleRole.Member,
+    /** What this member calls themselves inside the circle (≤8 glyphs). */
+    val nickname: String? = null,
+    /** Owner-only annotation; never shown to other members. */
+    val remark: String? = null,
 ) {
     fun shows(item: CircleShare): Boolean = shares[item] == true
 
@@ -207,11 +212,57 @@ object CircleDemo {
     private const val HOUR = 60 * MINUTE
 
     fun members(): List<CircleMember> = listOf(
-        CircleMember(MY_ID, "我", "我", CircleTone.Accent, isMe = true),
-        CircleMember("mom", "妈妈", "妈", CircleTone.Positive),
+        CircleMember(MY_ID, "我", "我", CircleTone.Accent, isMe = true, role = CircleRole.Owner),
+        CircleMember("mom", "妈妈", "妈", CircleTone.Positive, role = CircleRole.Admin, nickname = "老妈"),
         CircleMember("dad", "爸爸", "爸", CircleTone.Info),
         CircleMember("sister", "妹妹", "妹", CircleTone.Warning),
     )
+
+    /** Three circles so switching, inviting and per-circle sharing can be exercised offline. */
+    fun book(now: Long = System.currentTimeMillis()): CircleBook {
+        val home = Circle(
+            id = "home",
+            name = CIRCLE_NAME,
+            ownerId = MY_ID,
+            members = members(),
+            posts = feed(now),
+            invite = newInvite(now - 3 * HOUR, seed = 42L),
+        )
+        val roomies = Circle(
+            id = "roomies",
+            name = "合租三人组",
+            ownerId = "zhe",
+            members = listOf(
+                CircleMember(MY_ID, "我", "我", CircleTone.Accent, isMe = true),
+                CircleMember("zhe", "阿哲", "哲", CircleTone.Info, role = CircleRole.Owner),
+                CircleMember("yu", "小雨", "雨", CircleTone.Warning),
+            ),
+            posts = listOf(
+                ReceiptPost("rr-1", now - 2 * HOUR, "zhe", startOfDay(now), listOf(
+                    CircleItem("菜市场", 4200, Category.GROCERY),
+                    CircleItem("地铁", 500, Category.TRANSPORT),
+                )),
+                TextPost("rt-1", now - 100 * MINUTE, "yu", "这周水电我先垫了，月底一起算"),
+            ).sortedBy { it.at },
+            invite = newInvite(now - 5 * HOUR, seed = 77L),
+        )
+        val partner = Circle(
+            id = "partner",
+            name = "两个人",
+            ownerId = MY_ID,
+            members = listOf(
+                CircleMember(MY_ID, "我", "我", CircleTone.Accent, isMe = true, role = CircleRole.Owner),
+                CircleMember("wei", "阿伟", "伟", CircleTone.Positive),
+            ),
+            posts = listOf(
+                ReceiptPost("pr-1", now - 4 * HOUR, "wei", startOfDay(now), listOf(
+                    CircleItem("盒马", 8900, Category.GROCERY),
+                )),
+            ),
+            invite = newInvite(now - 20 * HOUR, seed = 9L),
+        )
+        return CircleBook(listOf(home, roomies, partner), currentId = home.id)
+    }
 
     /**
      * Three days of family receipts, a few text bubbles and two system messages. Fixed content and
