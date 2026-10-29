@@ -1,6 +1,9 @@
 package com.xiaopiao.app.ui.record
 
 import com.xiaopiao.app.domain.Category
+import com.xiaopiao.app.domain.CategoryDefaults
+import com.xiaopiao.app.domain.CategoryDef
+import com.xiaopiao.app.domain.CHANNEL_MANUAL
 import com.xiaopiao.app.domain.Cents
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Source
@@ -122,6 +125,31 @@ object RecordDraftMath {
 
 /** Turns a draft into a [Txn]; null when there is nothing to save (0 元). */
 object RecordComposer {
+    /**
+     * Data-driven overload (tt#70/71): the row stores the category id so a renamed or recoloured
+     * category keeps resolving, and the merchant falls back to the user's own category name.
+     */
+    fun txn(
+        draft: RecordDraft,
+        direction: Direction,
+        category: CategoryDef,
+        merchant: String,
+        at: Long,
+    ): Txn? {
+        val cents = RecordDraftMath.cents(draft)
+        if (cents <= 0L) return null
+        return Txn(
+            amountCents = cents,
+            direction = direction,
+            merchant = merchant.trim().ifBlank { category.label },
+            category = CategoryDefaults.enumFor(category.id),
+            occurredAt = at,
+            source = Source.MANUAL,
+            categoryId = category.id,
+            channel = CHANNEL_MANUAL,
+        )
+    }
+
     fun txn(
         draft: RecordDraft,
         direction: Direction,

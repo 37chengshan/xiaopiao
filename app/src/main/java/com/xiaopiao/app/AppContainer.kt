@@ -1,11 +1,14 @@
 package com.xiaopiao.app
 
 import android.content.Context
+import androidx.room.withTransaction
 import com.xiaopiao.app.capture.CaptureProcessor
 import com.xiaopiao.app.data.AppDatabase
 import com.xiaopiao.app.data.CaptureLogRepository
 import com.xiaopiao.app.data.DemoSeed
+import com.xiaopiao.app.data.RoomCategoryRepository
 import com.xiaopiao.app.data.RoomLedgerRepository
+import com.xiaopiao.app.domain.CategoryRepository
 import com.xiaopiao.app.domain.LedgerRepository
 import com.xiaopiao.app.importer.CsvImporter
 import com.xiaopiao.app.wallet.AndroidCardCipher
@@ -20,6 +23,12 @@ class AppContainer(context: Context) {
     private val roomLedger: RoomLedgerRepository by lazy { RoomLedgerRepository(database.txnDao()) }
 
     val ledger: LedgerRepository get() = roomLedger
+
+    /** 分类（tt#70/71）：名称、图标、颜色、排序的唯一来源，账单 / 记一笔 / 统计都读它。 */
+    private val roomCategories: RoomCategoryRepository by lazy {
+        RoomCategoryRepository(database.categoryDao()) { block -> database.withTransaction { block() } }
+    }
+    val categories: CategoryRepository get() = roomCategories
     val captureLog: CaptureLogRepository by lazy { CaptureLogRepository(database.captureLogDao()) }
     val captureProcessor: CaptureProcessor by lazy { CaptureProcessor(ledger, captureLog) }
     val csvImporter: CsvImporter by lazy { CsvImporter(appContext.contentResolver, ledger) }

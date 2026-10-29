@@ -1,10 +1,7 @@
 package com.xiaopiao.app.ui.ledger
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -43,16 +41,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.xiaopiao.app.data.DemoSeed
+import androidx.compose.ui.unit.sp
+import com.xiaopiao.app.domain.CategoryDef
 import com.xiaopiao.app.domain.Direction
-import com.xiaopiao.app.domain.Source
 import com.xiaopiao.app.domain.Txn
-import com.xiaopiao.app.domain.yuan
-import com.xiaopiao.app.ui.components.IconTile
-import com.xiaopiao.app.ui.components.MoneyText
-import com.xiaopiao.app.ui.components.icon
+import com.xiaopiao.app.domain.resolve
+import com.xiaopiao.app.domain.sourceChipLabel
+import com.xiaopiao.app.domain.yuanGrouped
+import com.xiaopiao.app.ui.category.CategoryTile
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpEase
@@ -60,21 +59,33 @@ import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.delay
 
-/** Tabular 13sp, the day card's second voice (dates and the 支/收 pair). */
+/** Tabular 13sp, the day card's second voice (dates, the 支/收 pair and the 「时间 | 商户」 line). */
 private val TabularSmall: TextStyle
-    @Composable get() = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum")
+    @Composable get() = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, fontFeatureSettings = "tnum")
 
-/** Hairline inset that lines the divider up with the row text (40dp tile + 12dp gap + 6dp optical). */
-private val DividerInset = 58.dp
+/** 17sp/600 tabular — the row amount (reference `041428`: 17sp). */
+private val RowAmount = TextStyle(
+    fontSize = 17.sp,
+    lineHeight = 22.sp,
+    fontWeight = FontWeight.SemiBold,
+    fontFeatureSettings = "tnum",
+)
+
+/** Card header height, from the reference (44dp, 16dp inset). */
+private val DayHeaderHeight = 44.dp
+
+/** Hairline inset that lines the divider up with the row text (16dp pad + 40dp tile + 12dp gap). */
+private val DividerInset = 68.dp
 
 /**
- * One day: a title line (date left, 支/收 right) above a 10dp card of rows (docs/APP-DESIGN.md §3.7).
- * Zero-spend days still print both numbers — never the word 「零消费」.
+ * One day (reference `041428`): a 44dp header line — 「10月28日 今日」 left, 「支 18.28 收 0.00」 right —
+ * above a 10dp card of 60dp rows. Zero-spend days still print both numbers.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun LedgerDayCard(
     group: DayGroup,
+    defs: List<CategoryDef>,
     hidden: Boolean,
     selection: Set<Long>?,
     onToggle: (Txn) -> Unit,
@@ -84,40 +95,48 @@ fun LedgerDayCard(
     modifier: Modifier = Modifier,
     swipeToDelete: Boolean = true,
 ) {
-    Column(modifier.fillMaxWidth()) {
+    // Reference `041428`: the day header sits inside the white card, a hairline above the first row.
+    Column(
+        modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(XpRadius.listCard))
+            .background(XpColors.Card),
+    ) {
         Row(
-            Modifier.fillMaxWidth().padding(start = XpSpace.xs, end = XpSpace.xs, top = XpSpace.m, bottom = XpSpace.s),
+            Modifier.fillMaxWidth().height(DayHeaderHeight).padding(horizontal = XpSpace.l),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(group.header, style = TabularSmall, color = XpColors.InkSecondary)
+            Text(
+                group.header,
+                style = TabularSmall.copy(fontWeight = FontWeight.Medium),
+                color = XpColors.Ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.m)) {
                 DayFigure("支", group.outCents, hidden)
                 DayFigure("收", group.inCents, hidden)
             }
         }
-        Column(
-            Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(XpRadius.listCard))
-                .background(XpColors.Card),
-        ) {
+        Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpColors.Hairline))
+        Column(Modifier.fillMaxWidth()) {
             group.items.forEachIndexed { index, txn ->
                 if (index > 0) {
                     Box(Modifier.fillMaxWidth().padding(start = DividerInset).height(0.5.dp).background(XpColors.Hairline))
                 }
                 if (selection != null) {
                     LedgerRowContent(
-                        txn = txn, hidden = hidden, selected = txn.id in selection,
+                        txn = txn, defs = defs, hidden = hidden, selected = txn.id in selection,
                         onToggle = { onToggle(txn) }, onLongPress = { onToggle(txn) }, onClick = { onToggle(txn) },
                     )
                 } else if (!swipeToDelete) {
                     LedgerRowContent(
-                        txn = txn, hidden = hidden, selected = null,
+                        txn = txn, defs = defs, hidden = hidden, selected = null,
                         onToggle = {}, onLongPress = { onLongPress(txn) }, onClick = { onEdit(txn) },
                     )
                 } else {
                     SwipeableRow(
-                        txn = txn, hidden = hidden,
+                        txn = txn, defs = defs, hidden = hidden,
                         onClick = { onEdit(txn) }, onLongPress = { onLongPress(txn) }, onDelete = { onDelete(txn) },
                     )
                 }
@@ -129,9 +148,10 @@ fun LedgerDayCard(
 @Composable
 private fun DayFigure(prefix: String, cents: Long, hidden: Boolean) {
     Text(
-        "$prefix ${if (hidden) AMOUNT_MASK else cents.yuan()}",
+        "$prefix ${if (hidden) AMOUNT_MASK else cents.yuanGrouped()}",
         style = TabularSmall,
         color = XpColors.InkSecondary,
+        maxLines = 1,
     )
 }
 
@@ -140,6 +160,7 @@ private fun DayFigure(prefix: String, cents: Long, hidden: Boolean) {
 @Composable
 private fun SwipeableRow(
     txn: Txn,
+    defs: List<CategoryDef>,
     hidden: Boolean,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
@@ -153,43 +174,44 @@ private fun SwipeableRow(
             if (value == SwipeToDismissBoxValue.EndToStart) { haptics.thud(); gone = true; true } else false
         },
     )
-    // Let the row finish collapsing before the data change removes it from the list.
-    LaunchedEffect(gone) { if (gone) { delay(180); onDelete() } }
-    AnimatedVisibility(
-        visible = !gone,
-        exit = shrinkVertically(tween(160, easing = XpEase.out)) + fadeOut(tween(120)),
-    ) {
-        SwipeToDismissBox(
-            state = state,
-            enableDismissFromStartToEnd = false,
-            backgroundContent = {
-                val swiping = state.dismissDirection == SwipeToDismissBoxValue.EndToStart
-                Box(
-                    Modifier.fillMaxWidth().background(if (swiping) XpColors.Negative else XpColors.Card).padding(horizontal = XpSpace.page),
-                    contentAlignment = Alignment.CenterEnd,
-                ) {
-                    if (swiping) {
-                        Icon(Icons.Outlined.DeleteOutline, contentDescription = "删除", tint = XpColors.OnAccent, modifier = Modifier.size(22.dp))
-                    }
-                }
-            },
-        ) {
-            LedgerRowContent(
-                txn = txn, hidden = hidden, selected = null,
-                onToggle = {}, onLongPress = onLongPress, onClick = onClick,
-            )
+    LaunchedEffect(gone) {
+        if (gone) {
+            delay(180)
+            onDelete()
         }
+    }
+    SwipeToDismissBox(
+        state = state,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(
+                Modifier.fillMaxSize().background(XpColors.Negative),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Row(Modifier.padding(end = XpSpace.page), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(XpSpace.xs))
+                    Text("删除", style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                }
+            }
+        },
+    ) {
+        LedgerRowContent(
+            txn = txn, defs = defs, hidden = hidden, selected = null,
+            onToggle = {}, onLongPress = onLongPress, onClick = onClick,
+        )
     }
 }
 
 /**
- * The three-element row: 40dp category tile, merchant (+ source chip) over an optional note, amount right.
- * Single-line rows are 56dp, rows with a note 76dp — both from the same padding, so the tile never jumps.
+ * The row (reference `041428`): 40dp coloured category tile, category name + source chip on line one,
+ * 「18:12 | 商户」 on line two, amount right. 60dp single line, never wraps, never truncates the amount.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LedgerRowContent(
     txn: Txn,
+    defs: List<CategoryDef>,
     hidden: Boolean,
     selected: Boolean?,
     onToggle: () -> Unit,
@@ -198,78 +220,73 @@ fun LedgerRowContent(
 ) {
     val income = txn.direction == Direction.IN
     val multiselect = selected != null
-    val auto = txn.source == Source.NOTIFICATION || txn.source == Source.CSV
-    val note = txn.note.takeIf { it.isNotBlank() && it != DemoSeed.NOTE }
+    val def = defs.resolve(txn)
+    val clock = LedgerGrouping.clock(txn.occurredAt)
+    val merchant = txn.merchant.trim()
+    val secondLine = if (merchant.isEmpty()) clock else "$clock | $merchant"
+    val chip = sourceChipLabel(txn.source, txn.channel)
 
     Row(
         Modifier.fillMaxWidth()
-            .background(if (selected == true) XpColors.AccentSoft.copy(alpha = 0.55f) else Color.Transparent)
+            // The row owns its surface: SwipeToDismissBox paints the red delete fill behind it.
+            .background(if (selected == true) XpColors.AccentSoft.copy(alpha = 0.55f) else XpColors.Card)
             .combinedClickable(
                 onClick = { if (multiselect) onToggle() else onClick() },
                 onLongClick = { if (multiselect) onToggle() else onLongPress() },
             )
-            .heightIn(min = if (note != null) 76.dp else 56.dp)
-            .padding(horizontal = XpSpace.l, vertical = XpSpace.s),
+            .heightIn(min = 60.dp)
+            .padding(horizontal = XpSpace.l, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (multiselect) {
             SelectBox(checked = selected == true)
             Spacer(Modifier.width(XpSpace.m))
         }
-        IconTile(txn.category.icon(), size = 40.dp)
+        CategoryTile(def, size = 40.dp)
         Spacer(Modifier.width(XpSpace.m))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    txn.merchant,
-                    style = MaterialTheme.typography.titleMedium,
+                    def.label,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
                     color = XpColors.Ink,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
                 )
-                if (auto) {
+                // The category name wins the width; the source chip is the one that ellipsizes.
+                if (chip != null) {
                     Spacer(Modifier.width(6.dp))
-                    SourceChip(txn.source.label)
+                    SourceChip(chip, Modifier.weight(1f, fill = false))
                 }
             }
-            if (note != null) {
-                Text(
-                    note,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XpColors.InkSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            Spacer(Modifier.height(3.dp))
+            Text(
+                secondLine,
+                style = TabularSmall,
+                color = XpColors.InkTertiary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         Spacer(Modifier.width(XpSpace.m))
-        if (hidden) {
-            Text(
-                "¥ $AMOUNT_MASK",
-                style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-                color = XpColors.Ink,
-            )
-        } else {
-            MoneyText(
-                txn.amountCents,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (income) XpColors.Positive else XpColors.Ink,
-                prefix = if (income) "+" else "-",
-            )
-        }
+        Text(
+            if (hidden) "¥ $AMOUNT_MASK" else (if (income) "+" else "-") + txn.amountCents.yuanGrouped(),
+            style = RowAmount,
+            color = if (income) XpColors.Accent else XpColors.Ink,
+            maxLines = 1,
+        )
     }
 }
 
-/** 20dp chip: 4dp corners, hairline border, 11sp secondary ink — a label, never a button. */
+/** 18dp outlined pill, 11sp secondary ink — a label, never a button (reference `041428`). */
 @Composable
-fun SourceChip(text: String) {
-    val shape = RoundedCornerShape(4.dp)
+fun SourceChip(text: String, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(6.dp)
     Box(
-        Modifier.height(20.dp).clip(shape).border(1.dp, XpColors.Hairline, shape).padding(horizontal = 6.dp),
+        modifier.heightIn(min = 18.dp).border(0.75.dp, XpColors.InkTertiary.copy(alpha = 0.5f), shape).padding(horizontal = 5.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary, maxLines = 1)
+        Text(text, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = XpColors.InkSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

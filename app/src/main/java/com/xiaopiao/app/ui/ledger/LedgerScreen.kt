@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.ReceiptLong
 import com.xiaopiao.app.ui.today.ReceiptStrip
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.MaterialTheme
@@ -45,10 +46,12 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
+import com.xiaopiao.app.domain.CategoryDef
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.domain.yuan
+import com.xiaopiao.app.ui.category.rememberCategoryDefs
 import com.xiaopiao.app.ui.components.EmptyState
 import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
@@ -79,6 +82,10 @@ fun LedgerScreen(
     container: AppContainer,
     @Suppress("UNUSED_PARAMETER") onVoiceStart: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    /** 已设预算时汇总卡底条改写成「本月预算剩余 ¥x」；null = 还没设，显示设置入口。 */
+    budget: BudgetSummary? = null,
+    /** 预算页由 budget worker 提供；合并时接上。 */
+    onOpenBudget: () -> Unit = {},
 ) {
     val ledger = container.ledger
     val flow = remember(container) { ledger.observeAll() }
@@ -105,6 +112,7 @@ fun LedgerScreen(
     val haptics = rememberXpHaptics()
     val keyboard = LocalSoftwareKeyboardController.current
     val reduceMotion = rememberReducedMotion()
+    val defs = rememberCategoryDefs(container.categories)
 
     val now = System.currentTimeMillis()
     val minute = now / 60_000
@@ -177,7 +185,11 @@ fun LedgerScreen(
         onBack = if (searching) ({ exitSearch() }) else null,
         backLabel = "取消",
         leading = if (!searching && selection == null) {
-            ({ NavIconButton(Icons.Outlined.CreditCard, "卡包", onClick = { walletOpen = true }) })
+            ({
+                NavIconButton(Icons.Outlined.CreditCard, "卡包", onClick = { walletOpen = true })
+                // Search sits left of the title so the right side keeps three items at 360dp × 1.3.
+                NavIconButton(Icons.Outlined.Search, "搜索", onClick = { searching = true })
+            })
         } else null,
         trailing = {
             when {
@@ -204,6 +216,9 @@ fun LedgerScreen(
                     )
                 }
                 else -> {
+                    // Reference `041428` puts 按天跳转 (calendar) in the top bar; we keep the receipt
+                    // strip and the gear to its right (tt 要求设置在右上角).
+                    NavIconButton(Icons.Outlined.CalendarMonth, "按天跳转", onClick = { calendarOpen = true })
                     ReceiptStrip()
                     NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings)
                 }
@@ -214,6 +229,7 @@ fun LedgerScreen(
             txns == null -> LedgerLoading(top)
             searching -> LedgerSearchPage(
                 top = top,
+                defs = defs,
                 query = query,
                 onQuery = { query = it },
                 onSubmit = { scope.launch { prefs.pushRecent(query) } },
@@ -230,14 +246,13 @@ fun LedgerScreen(
             )
             else -> LedgerList(
                 top = top,
+                defs = defs,
                 groups = groups,
                 summary = summary,
+                budget = budget,
+                onOpenBudget = onOpenBudget,
                 hidden = hidden,
                 onToggleHidden = { scope.launch { prefs.setHidden(!hidden) } },
-                filterCount = filter.activeCount,
-                onOpenSearch = { searching = true },
-                onFilter = { filterOpen = true },
-                onCalendar = { calendarOpen = true },
                 selection = selection,
                 onToggleSelect = { txn ->
                     val current = selection.orEmpty()
@@ -314,20 +329,19 @@ fun LedgerScreen(
     }
 }
 
-/** Items above the first day card: summary + search row. */
-private const val HEADER_ITEMS = 2
+/** Items above the first day card: the summary (search lives in the top bar, as in `041428`). */
+private const val HEADER_ITEMS = 1
 
 @Composable
 private fun LedgerList(
     top: androidx.compose.ui.unit.Dp,
+    defs: List<CategoryDef>,
     groups: List<DayGroup>,
     summary: LedgerSummary,
+    budget: BudgetSummary?,
+    onOpenBudget: () -> Unit,
     hidden: Boolean,
     onToggleHidden: () -> Unit,
-    filterCount: Int,
-    onOpenSearch: () -> Unit,
-    onFilter: () -> Unit,
-    onCalendar: () -> Unit,
     selection: Set<Long>?,
     onToggleSelect: (Txn) -> Unit,
     onLongPress: (Txn) -> Unit,
@@ -345,8 +359,7 @@ private fun LedgerList(
         contentPadding = PaddingValues(start = PageInset, end = PageInset, top = XpSpace.m, bottom = 128.dp),
     ) {
         if (selection == null) {
-            item(key = "summary") { LedgerSummaryCard(summary, hidden, onToggleHidden) }
-            item(key = "search") { LedgerSearchRow(filterCount, onOpenSearch, onFilter, onCalendar) }
+            item(key = "summary") { LedgerSummaryCard(summary, hidden, onToggleHidden, budget, onOpenBudget) }
         }
         if (groups.isEmpty()) {
             item(key = "empty") {
@@ -369,6 +382,7 @@ private fun LedgerList(
             Box(Modifier.padding(top = CardGap).staggerIn(if (selection != null) 0 else index, reduceMotion)) {
                 LedgerDayCard(
                     group = group,
+                    defs = defs,
                     hidden = hidden,
                     selection = selection,
                     onToggle = onToggleSelect,
@@ -385,6 +399,7 @@ private fun LedgerList(
 @Composable
 private fun LedgerSearchPage(
     top: androidx.compose.ui.unit.Dp,
+    defs: List<CategoryDef>,
     query: String,
     onQuery: (String) -> Unit,
     onSubmit: () -> Unit,
@@ -432,6 +447,7 @@ private fun LedgerSearchPage(
                 Box(Modifier.padding(top = CardGap)) {
                     LedgerDayCard(
                         group = group,
+                        defs = defs,
                         hidden = hidden,
                         selection = null,
                         onToggle = {},

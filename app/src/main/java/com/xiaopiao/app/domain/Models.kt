@@ -33,6 +33,7 @@ data class Txn(
     val amountCents: Cents,
     val direction: Direction = Direction.OUT,
     val merchant: String,
+    /** Legacy enum; kept for capture / insights. New UI reads [categoryId] (tt#70/71). */
     val category: Category,
     val occurredAt: Long,
     val source: Source,
@@ -41,6 +42,10 @@ data class Txn(
     val cardLast4: String = "",
     /** Stable key used to drop duplicates from repeated notifications / imports. */
     val dedupeKey: String = "",
+    /** Id from `categories` (built-in or `custom:`); blank = derive from [category]. */
+    val categoryId: String = "",
+    /** Payment channel for the source chip: `alipay` / `wechat` / blank (§4.4, tt#70). */
+    val channel: String = "",
 )
 
 data class Badge(
