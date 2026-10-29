@@ -35,6 +35,10 @@ import com.xiaopiao.app.domain.Cents
 import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.Pill
+import androidx.compose.foundation.layout.size
+import com.xiaopiao.app.ui.components.XpButton
+import com.xiaopiao.app.ui.components.XpButtonSize
+import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
@@ -64,12 +68,10 @@ fun Modifier.bounceClick(enabled: Boolean = true, onClick: () -> Unit): Modifier
     }
 }
 
-/** Sub-page frame: scrollable body. */
+/** 子页滚动容器。标题与返回由外层 NavScaffold 负责，这里只画一行说明，避免两处标题打架。 */
 @Composable
 fun InsightsPage(
-    title: String,
-    subtitle: String?,
-    onBack: () -> Unit,
+    subtitle: String? = null,
     content: @Composable () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 120.dp)) {
@@ -77,6 +79,9 @@ fun InsightsPage(
             Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s),
             verticalArrangement = Arrangement.spacedBy(XpSpace.m),
         ) {
+            if (!subtitle.isNullOrBlank()) {
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+            }
             content()
         }
     }
@@ -84,28 +89,30 @@ fun InsightsPage(
 
 /** Designed empty state: big emoji, a playful line, optional action. */
 @Composable
-fun InsightsEmpty(emoji: String, title: String, hint: String, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
+fun InsightsEmpty(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    hint: String,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
     XpCard {
         Column(Modifier.fillMaxWidth().padding(vertical = XpSpace.l), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(emoji, style = MaterialTheme.typography.displayLarge)
+            androidx.compose.material3.Icon(icon, contentDescription = null, tint = XpColors.InkTertiary, modifier = Modifier.size(40.dp))
             Text(title, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.padding(top = XpSpace.s))
             Text(
                 hint, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary,
                 textAlign = TextAlign.Center, modifier = Modifier.padding(top = XpSpace.xs),
             )
             if (actionLabel != null && onAction != null) {
-                PrimaryChip(actionLabel, Modifier.padding(top = XpSpace.m), onAction)
+                XpButton(
+                    actionLabel, onAction,
+                    style = XpButtonStyle.Secondary, size = XpButtonSize.Small,
+                    modifier = Modifier.padding(top = XpSpace.m),
+                )
             }
         }
     }
-}
-
-@Composable
-fun PrimaryChip(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Box(
-        modifier.bounceClick(onClick = onClick).clip(RoundedCornerShape(50)).background(XpColors.Accent)
-            .padding(horizontal = XpSpace.l, vertical = XpSpace.s),
-    ) { Text(text, style = MaterialTheme.typography.labelLarge, color = XpColors.OnAccent) }
 }
 
 /** Selectable chip (filter / segmented option). */

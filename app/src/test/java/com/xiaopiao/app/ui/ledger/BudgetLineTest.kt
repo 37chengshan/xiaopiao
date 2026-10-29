@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.ledger
 
+import com.xiaopiao.app.domain.BudgetSummary
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -13,19 +14,24 @@ class BudgetLineTest {
 
     @Test
     fun `a set budget shows what is left`() {
-        val budget = BudgetSummary(limitCents = 300_000, spentCents = 128_050)
+        val budget = BudgetSummary(monthLimit = 300_000, monthSpent = 128_050, monthRemaining = 171_950)
         assertEquals("本月预算剩余 ¥1,719.50", budgetLineText(budget, hidden = false))
     }
 
     @Test
     fun `an overdrawn budget says by how much`() {
-        val budget = BudgetSummary(limitCents = 50_000, spentCents = 61_200)
+        val budget = BudgetSummary(monthLimit = 50_000, monthSpent = 61_200, monthRemaining = -11_200)
         assertEquals("本月已超预算 ¥112.00", budgetLineText(budget, hidden = false))
     }
 
     @Test
+    fun `a summary without a monthly limit still shows the entry`() {
+        assertEquals("设置预算，合理规划支出", budgetLineText(BudgetSummary(null, 12_000, null), hidden = false))
+    }
+
+    @Test
     fun `masked amounts hide the remaining number too`() {
-        val budget = BudgetSummary(limitCents = 300_000, spentCents = 0)
+        val budget = BudgetSummary(monthLimit = 300_000, monthSpent = 0, monthRemaining = 300_000)
         assertEquals("本月预算剩余 ¥ ···", budgetLineText(budget, hidden = true))
     }
 }

@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.ledger
 
+import com.xiaopiao.app.domain.BudgetSummary
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn

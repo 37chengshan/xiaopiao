@@ -1,5 +1,12 @@
 package com.xiaopiao.app.ui.today
 
+import com.xiaopiao.app.ui.components.XpButton
+import com.xiaopiao.app.ui.theme.XpRadius
+import com.xiaopiao.app.ui.theme.XpEase
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -123,6 +130,10 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost, onOpenSettings: () -
     }
 
     val scroll = rememberScrollState()
+    var categoriesOpen by rememberSaveable { mutableStateOf(false) }
+    // tt: the category picker is a window over a blurred page, not chips in the scroll.
+    val blur by animateDpAsState(if (categoriesOpen) 18.dp else 0.dp, tween(220, easing = XpEase.out), label = "pageBlur")
+    Box(Modifier.fillMaxSize().blur(blur)) {
     NavScaffold(
         "小票", rememberNavScroll(scroll),
         trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
@@ -169,7 +180,21 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost, onOpenSettings: () -
                 }
 
                 Label("打印哪些分类")
-                CategoryChips(settings.excluded) { next -> scope.launch { host.prefs.setExcluded(next) } }
+                GroupedSection {
+                    item(0) {
+                        GroupedRow(
+                            "选择分类",
+                            trailing = {
+                                Text(
+                                    if (settings.excluded.isEmpty()) "全部" else "已选 ${Category.entries.size - settings.excluded.size} 类",
+                                    style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary,
+                                )
+                            },
+                            chevron = true,
+                            onClick = { categoriesOpen = true },
+                        )
+                    }
+                }
 
                 Label("打印内容")
                 Box(Modifier.padding(horizontal = XpSpace.l)) {
@@ -193,6 +218,30 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost, onOpenSettings: () -
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+
+    }
+
+    if (categoriesOpen) {
+        Dialog(onDismissRequest = { categoriesOpen = false }) {
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.xl)).background(XpColors.Card)
+                    .padding(vertical = XpSpace.l),
+            ) {
+                Text(
+                    "打印哪些分类", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink,
+                    modifier = Modifier.padding(horizontal = XpSpace.l + 4.dp),
+                )
+                Text(
+                    "没选中的分类不会印在小票上，账本里照常保留。", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary,
+                    modifier = Modifier.padding(start = XpSpace.l + 4.dp, end = XpSpace.l, top = XpSpace.xs, bottom = XpSpace.l),
+                )
+                CategoryChips(settings.excluded) { next -> scope.launch { host.prefs.setExcluded(next) } }
+                Box(Modifier.fillMaxWidth().padding(top = XpSpace.l, start = XpSpace.l, end = XpSpace.l)) {
+                    XpButton("完成", onClick = { categoriesOpen = false }, modifier = Modifier.fillMaxWidth())
                 }
             }
         }

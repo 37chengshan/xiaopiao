@@ -36,7 +36,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.domain.Badge
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.EmojiEvents
 import com.xiaopiao.app.insights.WeeklyReport
+import androidx.compose.material.icons.outlined.EmojiEvents
 import com.xiaopiao.app.insights.WeeklyReportBuilder
 import com.xiaopiao.app.insights.addDays
 import com.xiaopiao.app.insights.startOfWeek
@@ -53,7 +56,7 @@ private val DAY_NAMES = listOf("一", "二", "三", "四", "五", "六", "日")
 
 /** 周报颁奖典礼: confetti, flipping medals, animated bars, one-line comment. */
 @Composable
-fun AwardsPage(input: InsightsInput, onBack: () -> Unit) {
+fun AwardsPage(input: InsightsInput) {
     var lastWeek by rememberSaveable { mutableStateOf(false) }
     val anchor = if (lastWeek) addDays(startOfWeek(input.now), -7) else input.now
     val report = remember(input, lastWeek) { WeeklyReportBuilder.build(anchor, input.history, input.now) }
@@ -61,10 +64,10 @@ fun AwardsPage(input: InsightsInput, onBack: () -> Unit) {
     val haptic = LocalHapticFeedback.current
 
     Box {
-        InsightsPage("周报颁奖典礼", rangeLabel(report), onBack) {
+        InsightsPage(rangeLabel(report)) {
             Segmented(listOf(true to "上周", false to "本周"), lastWeek) { lastWeek = it; burst++ }
             if (report.isEmpty) {
-                InsightsEmpty("🏆", "这周还没有小票", "记几笔账，周日晚上就有颁奖典礼啦～")
+                InsightsEmpty(Icons.Outlined.EmojiEvents, "这周还没有小票", "记几笔账，周日晚上就有颁奖典礼啦～")
             } else {
                 Text(
                     if (report.isComplete) "本周获奖名单" else "进行中 · 暂定名单",

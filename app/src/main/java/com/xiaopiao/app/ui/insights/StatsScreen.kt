@@ -105,6 +105,7 @@ private val Money17 = TextStyle(
 fun StatsScreen(
     container: AppContainer,
     onOpenAwards: () -> Unit,
+    onOpenBudget: () -> Unit,
     onOpenSubscriptions: () -> Unit,
     onOpenRegret: () -> Unit,
     onPrint: (() -> Unit)? = null,
@@ -186,7 +187,7 @@ fun StatsScreen(
                 )
                 RankingCard(snapshot, Modifier.enterOnChange("${snapshot.hashCode()}-$grouping", 4, reduceMotion))
             }
-            MoreSection(onOpenAwards, onOpenSubscriptions, onOpenRegret)
+            MoreSection(onOpenBudget, onOpenAwards, onOpenSubscriptions, onOpenRegret)
         }
     }
 
@@ -564,8 +565,16 @@ private fun RankRow(rank: Int, entry: StatsEntry, maxCents: Long) {
 
 /** The old pages survive as three rows instead of a segmented tab (§3.3 keeps them reachable). */
 @Composable
-private fun MoreSection(onAwards: () -> Unit, onSubscriptions: () -> Unit, onRegret: () -> Unit) {
+private fun MoreSection(
+    onBudget: () -> Unit,
+    onAwards: () -> Unit,
+    onSubscriptions: () -> Unit,
+    onRegret: () -> Unit,
+) {
     GroupedSection(header = "更多", dividerInset = 20.dp, margin = 0.dp) {
+        item("budget") {
+            GroupedRow("预算", subtitle = "每日 / 每周 / 每月额度与提醒", chevron = true, onClick = onBudget)
+        }
         item("awards") {
             GroupedRow("每周小票", subtitle = "头衔、徽章与周报", chevron = true, onClick = onAwards)
         }
