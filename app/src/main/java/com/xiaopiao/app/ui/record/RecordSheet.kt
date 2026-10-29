@@ -1,5 +1,8 @@
 package com.xiaopiao.app.ui.record
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -13,6 +16,8 @@ import com.xiaopiao.app.domain.Source
 import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.parse.ParsedEntry
 import com.xiaopiao.app.ui.components.XpSheet
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
 enum class RecordMode { Manual, Text, Voice }
@@ -66,13 +71,15 @@ fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
     val mode = state.mode ?: return
     val scope = rememberCoroutineScope()
 
+    val toast = com.xiaopiao.app.ui.components.rememberXpToast()
     XpSheet(onDismiss = state::dismiss) {
+        Box(Modifier.fillMaxWidth()) {
         when (mode) {
             RecordMode.Manual -> ManualRecordPane(
-                onSubmit = { txn ->
+                onSubmit = { txn, keepOpen ->
                     scope.launch {
                         container.ledger.add(txn)
-                        state.dismiss()
+                        if (keepOpen) toast.show("已记 1 笔") else state.dismiss()
                     }
                 },
             )
@@ -85,6 +92,13 @@ fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
                         state.dismiss()
                     }
                 },
+            )
+        }
+            // Inside a sheet the "bottom of the screen" is the keypad, so the toast sits under the grabber
+            // instead of covering the keys (§7.7 position adapted to the sheet, noted in the lane report).
+            com.xiaopiao.app.ui.components.XpToastHost(
+                toast,
+                Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 24.dp),
             )
         }
     }

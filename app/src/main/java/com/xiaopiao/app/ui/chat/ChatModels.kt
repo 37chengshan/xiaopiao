@@ -155,11 +155,6 @@ fun buildReminder(history: List<Txn>, stats: ChatStats, now: Long): ChatReminder
 object ChatCopy {
     val WEEK = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
 
-    fun greeting(stats: ChatStats?, hello: String): String {
-        if (stats == null) return "我在数今天的账，稍等一下…"
-        return "$hello，我是小票机。\n\n${summary(stats)}"
-    }
-
     fun summary(stats: ChatStats): String = when {
         !stats.hasAnyTxn -> "账簿还是空的。说一句「午饭 28」，我就能记下第一笔。"
         stats.todayOutCount == 0 -> buildString {
