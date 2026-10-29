@@ -111,7 +111,7 @@ export function Hero() {
               transition={{ duration: 0.5, delay: 0.32, ease: EASE_OUT }}
               className="mt-9 flex flex-wrap items-center gap-3"
             >
-              <Pill href="/app" cursorLabel={s("hero.cursor")}>
+              <Pill href="#/app" cursorLabel={s("hero.cursor")}>
                 {s("hero.cta")}
               </Pill>
               <Pill href="#download" variant="grey">

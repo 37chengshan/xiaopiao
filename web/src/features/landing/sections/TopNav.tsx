@@ -88,7 +88,7 @@ export function TopNav() {
           >
             {s("nav.login")}
           </Pill>
-          <Pill href="/app" size="sm" cursorLabel={s("hero.cursor")}>
+          <Pill href="#/app" size="sm" cursorLabel={s("hero.cursor")}>
             {s("nav.cta")}
           </Pill>
         </div>

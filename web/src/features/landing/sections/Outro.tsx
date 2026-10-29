@@ -54,7 +54,7 @@ export function Outro() {
           className="mt-12 flex flex-col items-center gap-6"
         >
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <Pill href="/app" cursorLabel={s("hero.cursor")}>
+            <Pill href="#/app" cursorLabel={s("hero.cursor")}>
               {s("outro.cta")}
             </Pill>
             <Pill variant="grey" onClick={() => landingToast(s("soon.download"))}>
