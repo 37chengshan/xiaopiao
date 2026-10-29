@@ -79,13 +79,24 @@ fun CircleAvatar(
  * when the card and the page share a colour (Apple dark). Sits on [XpColors.Card]; content is clipped.
  */
 @Composable
-fun TornReceiptCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+fun TornReceiptCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    /**
+     * 0..1 of the paper: the card "prints out" from the top, its torn bottom edge travelling down with the
+     * reveal. Layout height is unchanged, so a sheet using it never re-measures mid-animation.
+     */
+    reveal: Float = 1f,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(
         modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .drawWithContent {
+                val shown = (size.height * reveal).coerceIn(0f, size.height)
+                if (shown <= 1f) return@drawWithContent
                 val path = tornCardPath(
                     width = size.width,
-                    height = size.height,
+                    height = shown,
                     tooth = TornTooth.toPx(),
                     depth = TornDepth.toPx(),
                     radius = XpRadius.m.toPx(),

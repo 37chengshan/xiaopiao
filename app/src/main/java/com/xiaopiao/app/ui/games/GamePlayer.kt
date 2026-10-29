@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
@@ -14,6 +15,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
@@ -102,6 +104,7 @@ import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.Contrast
 import com.xiaopiao.app.ui.theme.XpColors
+import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.delay
@@ -555,13 +558,17 @@ private fun OptionRow(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val fg = toneForeground(tone, skin)
+    // Answer feedback eases in (docs/APP-DESIGN.md §5.3): wash, edge and ink travel over 170ms instead of
+    // the card flipping between two frames the moment the finger lifts.
+    val fg by animateColorAsState(toneForeground(tone, skin), tween(170, easing = XpEase.out), label = "optFg")
+    val bg by animateColorAsState(toneBackground(tone, skin), tween(170, easing = XpEase.out), label = "optBg")
+    val edge by animateFloatAsState(if (tone.hasEdge) 1f else 0f, tween(170, easing = XpEase.out), label = "optEdge")
     val shape = RoundedCornerShape(XpRadius.l)
     Row(
         Modifier.fillMaxWidth()
             .clip(shape)
-            .background(toneBackground(tone, skin))
-            .then(if (tone.hasEdge) Modifier.border(1.5.dp, fg, shape) else Modifier)
+            .background(bg)
+            .border(1.5.dp, fg.copy(alpha = fg.alpha * edge), shape)
             .pressableClick(enabled = enabled, scaleDown = 0.98f, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -589,20 +596,29 @@ private fun OptionRow(
                 )
             }
         }
-        when (tone) {
-            AnswerTone.Selected, AnswerTone.Correct -> Icon(
-                Icons.Outlined.Check,
-                contentDescription = null,
-                tint = fg,
-                modifier = Modifier.size(18.dp),
-            )
-            AnswerTone.Wrong -> Icon(
-                Icons.Outlined.Close,
-                contentDescription = null,
-                tint = fg,
-                modifier = Modifier.size(18.dp),
-            )
-            else -> Text("›", style = MaterialTheme.typography.titleMedium, color = XpColors.InkTertiary)
+        // The tick draws itself in on a small overshoot: the answer is confirmed, not just recoloured.
+        AnimatedContent(
+            targetState = tone,
+            transitionSpec = {
+                (fadeIn(tween(120)) + scaleIn(tween(240, easing = XpEase.out), initialScale = 0.4f)) togetherWith fadeOut(tween(90))
+            },
+            label = "optMark",
+        ) { animatedTone ->
+            when (animatedTone) {
+                AnswerTone.Selected, AnswerTone.Correct -> Icon(
+                    Icons.Outlined.Check,
+                    contentDescription = null,
+                    tint = fg,
+                    modifier = Modifier.size(18.dp),
+                )
+                AnswerTone.Wrong -> Icon(
+                    Icons.Outlined.Close,
+                    contentDescription = null,
+                    tint = fg,
+                    modifier = Modifier.size(18.dp),
+                )
+                else -> Text("›", style = MaterialTheme.typography.titleMedium, color = XpColors.InkTertiary)
+            }
         }
     }
 }
@@ -616,14 +632,16 @@ private fun DuelCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    val fg = toneForeground(tone, skin)
+    val fg by animateColorAsState(toneForeground(tone, skin), tween(170, easing = XpEase.out), label = "duelFg")
+    val bg by animateColorAsState(toneBackground(tone, skin), tween(170, easing = XpEase.out), label = "duelBg")
+    val edge by animateFloatAsState(if (tone.hasEdge) 1f else 0f, tween(170, easing = XpEase.out), label = "duelEdge")
     val shape = RoundedCornerShape(XpRadius.l)
     Column(
         modifier
             .height(176.dp)
             .clip(shape)
-            .background(toneBackground(tone, skin))
-            .then(if (tone.hasEdge) Modifier.border(1.5.dp, fg, shape) else Modifier)
+            .background(bg)
+            .border(1.5.dp, fg.copy(alpha = fg.alpha * edge), shape)
             .pressableClick(enabled = enabled, scaleDown = 0.96f, onClick = onClick)
             .padding(XpSpace.m),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -746,14 +764,16 @@ private fun GuessChip(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    val fg = toneForeground(tone, skin)
+    val fg by animateColorAsState(toneForeground(tone, skin), tween(170, easing = XpEase.out), label = "guessFg")
+    val bg by animateColorAsState(toneBackground(tone, skin), tween(170, easing = XpEase.out), label = "guessBg")
+    val edge by animateFloatAsState(if (tone.hasEdge) 1f else 0f, tween(170, easing = XpEase.out), label = "guessEdge")
     val shape = RoundedCornerShape(XpRadius.l)
     Box(
         modifier
             .height(52.dp)
             .clip(shape)
-            .background(toneBackground(tone, skin))
-            .then(if (tone.hasEdge) Modifier.border(1.5.dp, fg, shape) else Modifier)
+            .background(bg)
+            .border(1.5.dp, fg.copy(alpha = fg.alpha * edge), shape)
             .pressableClick(enabled = enabled, scaleDown = 0.95f, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

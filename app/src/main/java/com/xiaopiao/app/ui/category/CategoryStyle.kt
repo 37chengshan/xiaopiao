@@ -19,6 +19,7 @@ import com.xiaopiao.app.domain.CategoryDefaults
 import com.xiaopiao.app.domain.CategoryDef
 import com.xiaopiao.app.domain.CategoryHue
 import com.xiaopiao.app.domain.CategoryRepository
+import com.xiaopiao.app.ui.theme.Contrast
 import com.xiaopiao.app.ui.theme.XpColors
 
 /** The category colour for the active light/dark palette (12/13 hues, both ≥3:1 on their own 12% tint). */
@@ -55,7 +56,13 @@ fun CategoryTile(
 ) {
     val hue = categoryColor(def.hue)
     val bg = if (selected) hue else categoryTint(def.hue)
-    val fg = if (selected) Color.White else hue
+    // Dark hues are pastels, so a white glyph on the filled cell was ~1.7:1 and vanished. Pick the ink that
+    // actually reads on that hue; in light the hues are dark enough that white stays the answer.
+    val fg = when {
+        !selected -> hue
+        XpColors.isDark -> Contrast.onAccent(hue)
+        else -> Color.White
+    }
     Box(
         modifier.size(size).clip(RoundedCornerShape(size * 0.28f)).background(bg),
         contentAlignment = Alignment.Center,

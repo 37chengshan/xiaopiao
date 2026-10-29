@@ -7,6 +7,19 @@ import com.xiaopiao.app.ui.budget.BudgetPage
 import com.xiaopiao.app.domain.BudgetSummary
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -66,6 +79,7 @@ import com.xiaopiao.app.ui.components.AppTopActions
 import com.xiaopiao.app.ui.components.LedgerSideLeading
 import com.xiaopiao.app.ui.components.LocalTopBarHost
 import com.xiaopiao.app.ui.theme.XpColors
+import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.launch
@@ -73,6 +87,28 @@ import kotlinx.coroutines.launch
 /** Page margin and the gap between the cards of the ledger (docs/APP-DESIGN.md §3.7 栅格). */
 private val PageInset = XpSpace.page
 private val CardGap = XpSpace.cardGap
+
+/**
+ * Tracks which bills entered the list after the first emission: a new one from 记一笔, or one restored by 撤销.
+ * Those rows get a one-shot insert animation; everything already on screen stays still. The marker is dropped
+ * shortly after, so scrolling the row out and back in does not replay it.
+ */
+private class LandingTracker {
+    private var known: Set<Long>? = null
+    var fresh by androidx.compose.runtime.mutableStateOf<Set<Long>>(emptySet())
+        private set
+
+    fun observe(txns: List<Txn>) {
+        val ids = txns.mapTo(HashSet(txns.size)) { it.id }
+        val before = known
+        known = ids
+        // The first emission (or the first after a reload) is the list as it already was: nothing to announce.
+        if (before == null) return
+        fresh = ids - before
+    }
+
+    fun clear() { fresh = emptySet() }
+}
 
 /**
  * 账单 tab (docs/APP-DESIGN.md §3.2, adopted from the wallet reference per §3.7):
@@ -140,6 +176,17 @@ fun LedgerScreen(
         if (searching) filter.apply(all, now, query) else emptyList()
     }
     val searchGroups = remember(searchHits, minute) { LedgerGrouping.group(searchHits, now) }
+    // A cache hit would otherwise flash the skeleton for two frames (docs/DESIGN.md §9.5: at least 200ms).
+    val showSkeleton = com.xiaopiao.app.ui.motion.rememberSkeletonVisible(txns == null)
+    // New / restored rows: they land with an insert animation (see LandingTracker).
+    val landings = remember { LandingTracker() }
+    LaunchedEffect(visible) { landings.observe(visible) }
+    LaunchedEffect(landings.fresh) {
+        if (landings.fresh.isNotEmpty()) {
+            kotlinx.coroutines.delay(1_200)
+            landings.clear()
+        }
+    }
 
     fun deleteTxn(txn: Txn) {
         scope.launch {
@@ -191,6 +238,13 @@ fun LedgerScreen(
     }
 
     // ── Chrome ────────────────────────────────────────────────────────────────────────────────
+    // 记账 / 搜索 / 多选 are three different top bars in the same slot; cross-fade them so the header
+    // does not teleport when the mode changes (docs/APP-DESIGN.md §7.5).
+    val chromeMode = when {
+        searching -> "search"
+        selection != null -> "select"
+        else -> "normal"
+    }
     NavScaffold(
         title = when {
             searching -> "搜索"
@@ -202,83 +256,110 @@ fun LedgerScreen(
         backLabel = "取消",
         leading = if (!searching && selection == null) ({ LedgerSideLeading() }) else null,
         trailing = {
-            when {
-                searching -> NavIconButton(Icons.Outlined.Tune, if (filter.activeCount > 0) "筛选 ${filter.activeCount}" else "筛选", onClick = { filterOpen = true })
-                selection != null -> {
-                    Text(
-                        if (selection?.size == visible.size && visible.isNotEmpty()) "取消全选" else "全选",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = XpColors.Accent,
-                        modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill))
-                            .pressableClick(haptic = false) {
-                                val ids = visible.map { it.id }.toSet()
-                                selection = if (selection == ids) emptySet() else ids
-                            }
-                            .padding(horizontal = XpSpace.s, vertical = XpSpace.xs),
-                    )
-                    Text(
-                        "取消",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                        color = XpColors.Accent,
-                        modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill))
-                            .pressableClick(haptic = false) { selection = null }
-                            .padding(horizontal = XpSpace.s, vertical = XpSpace.xs),
-                    )
+            AnimatedContent(
+                targetState = chromeMode,
+                transitionSpec = {
+                    (fadeIn(tween(160, easing = XpEase.out)) + scaleIn(tween(200, easing = XpEase.out), initialScale = 0.94f)) togetherWith fadeOut(tween(100))
+                },
+                label = "ledgerChrome",
+            ) { mode ->
+                when (mode) {
+                    "search" -> NavIconButton(Icons.Outlined.Tune, if (filter.activeCount > 0) "筛选 ${filter.activeCount}" else "筛选", onClick = { filterOpen = true })
+                    "select" -> {
+                        Text(
+                            if (selection?.size == visible.size && visible.isNotEmpty()) "取消全选" else "全选",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = XpColors.Accent,
+                            modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill))
+                                .pressableClick(haptic = false) {
+                                    val ids = visible.map { it.id }.toSet()
+                                    selection = if (selection == ids) emptySet() else ids
+                                }
+                                .padding(horizontal = XpSpace.s, vertical = XpSpace.xs),
+                        )
+                        Text(
+                            "取消",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                            color = XpColors.Accent,
+                            modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill))
+                                .pressableClick(haptic = false) { selection = null }
+                                .padding(horizontal = XpSpace.s, vertical = XpSpace.xs),
+                        )
+                    }
+
+                    else -> AppTopActions()
                 }
-                else -> AppTopActions()
             }
         },
     ) { top ->
-        when {
-            txns == null -> LedgerLoading(top)
-            searching -> LedgerSearchPage(
-                top = top,
-                defs = defs,
-                query = query,
-                onQuery = { query = it },
-                onSubmit = { scope.launch { prefs.pushRecent(query) } },
-                recent = recent,
-                onRecentPick = { query = it },
-                onClearRecent = { scope.launch { prefs.clearRecent() } },
-                groups = searchGroups,
-                hidden = hidden,
-                hits = searchHits,
-                onEdit = { onEdit(it, ::deleteTxn) },
-                onClearConditions = { clearConditions() },
-                filter = filter,
-                onFilter = { filterOpen = true },
-            )
-            else -> LedgerList(
-                top = top,
-                defs = defs,
-                groups = groups,
-                summary = summary,
-                budget = budget,
-                onOpenBudget = { budgetOpen = true },
-                onOpenCalendar = { calendarOpen = true },
-                hidden = hidden,
-                onToggleHidden = { scope.launch { prefs.setHidden(!hidden) } },
-                selection = selection,
-                onToggleSelect = { txn ->
-                    val current = selection.orEmpty()
-                    selection = if (txn.id in current) current - txn.id else current + txn.id
-                },
-                onLongPress = { txn -> haptics.thud(); selection = setOf(txn.id) },
-                onEdit = { onEdit(it, ::deleteTxn) },
-                onDelete = { deleteTxn(it) },
-                onAdd = onRecord,
-                allEmpty = all.isEmpty(),
-                listState = listState,
-                reduceMotion = reduceMotion,
-                onClearConditions = { clearConditions() },
-            )
+        // 搜索 is a secondary page: it slides in from the right over 记账 instead of swapping between frames.
+        AnimatedContent(
+            targetState = searching,
+            transitionSpec = {
+                if (targetState) {
+                    (fadeIn(tween(180, easing = XpEase.out)) + slideInHorizontally(tween(240, easing = XpEase.out)) { it / 10 }) togetherWith fadeOut(tween(120))
+                } else {
+                    fadeIn(tween(160, easing = XpEase.out)) togetherWith (fadeOut(tween(140)) + slideOutHorizontally(tween(200, easing = XpEase.out)) { it / 10 })
+                }
+            },
+            label = "ledgerSearch",
+            modifier = Modifier.fillMaxSize(),
+        ) { inSearch ->
+            when {
+                showSkeleton -> LedgerLoading(top)
+                inSearch -> LedgerSearchPage(
+                    top = top,
+                    defs = defs,
+                    query = query,
+                    onQuery = { query = it },
+                    onSubmit = { scope.launch { prefs.pushRecent(query) } },
+                    recent = recent,
+                    onRecentPick = { query = it },
+                    onClearRecent = { scope.launch { prefs.clearRecent() } },
+                    groups = searchGroups,
+                    hidden = hidden,
+                    hits = searchHits,
+                    onEdit = { onEdit(it, ::deleteTxn) },
+                    onClearConditions = { clearConditions() },
+                    filter = filter,
+                    onFilter = { filterOpen = true },
+                )
+                else -> LedgerList(
+                    top = top,
+                    defs = defs,
+                    groups = groups,
+                    summary = summary,
+                    budget = budget,
+                    onOpenBudget = { budgetOpen = true },
+                    onOpenCalendar = { calendarOpen = true },
+                    hidden = hidden,
+                    onToggleHidden = { scope.launch { prefs.setHidden(!hidden) } },
+                    selection = selection,
+                    onToggleSelect = { txn ->
+                        val current = selection.orEmpty()
+                        selection = if (txn.id in current) current - txn.id else current + txn.id
+                    },
+                    onLongPress = { txn -> haptics.thud(); selection = setOf(txn.id) },
+                    onEdit = { onEdit(it, ::deleteTxn) },
+                    onDelete = { deleteTxn(it) },
+                    onAdd = onRecord,
+                    allEmpty = all.isEmpty(),
+                    listState = listState,
+                    reduceMotion = reduceMotion,
+                    onClearConditions = { clearConditions() },
+                    fresh = landings.fresh,
+                )
+            }
         }
 
         // Floating delete pill: 48dp, 96dp above the tab bar, disabled (Negative at 30%) until something is picked.
-        if (selection != null) {
-            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp).padding(horizontal = 56.dp)) {
-                DeleteCapsule(count = selection?.size ?: 0) { deleteSelected() }
-            }
+        AnimatedVisibility(
+            visible = selection != null,
+            enter = fadeIn(tween(160, easing = XpEase.out)) + slideInVertically(tween(220, easing = XpEase.out)) { it / 2 } + scaleIn(tween(200, easing = XpEase.out), initialScale = 0.9f),
+            exit = fadeOut(tween(120)) + slideOutVertically(tween(160)) { it / 3 } + scaleOut(tween(160), targetScale = 0.92f),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp).padding(horizontal = 56.dp),
+        ) {
+            DeleteCapsule(count = selection?.size ?: 0) { deleteSelected() }
         }
 
         UndoToastHost(
@@ -291,7 +372,15 @@ fun LedgerScreen(
         LedgerFilterSheet(
             initial = filter,
             now = now,
-            onApply = { filter = it; filterOpen = false },
+            onApply = {
+                filter = it
+                filterOpen = false
+                // A confirmed filter rewrites the list; take the user back to the newest bill with a move,
+                // not a teleport (docs/APP-DESIGN.md §3.2).
+                scope.launch {
+                    if (reduceMotion) listState.scrollToItem(0) else listState.animateScrollToItem(0)
+                }
+            },
             onDismiss = { filterOpen = false },
         )
     }
@@ -331,6 +420,7 @@ private fun LedgerList(
     listState: androidx.compose.foundation.lazy.LazyListState,
     reduceMotion: Boolean,
     onClearConditions: () -> Unit,
+    fresh: Set<Long> = emptySet(),
 ) {
     // One open swipe row at a time; scrolling the list folds it back.
     val swipeRows = remember { SwipeRows() }
@@ -345,28 +435,44 @@ private fun LedgerList(
         if (selection == null) {
             // tt: the date jump lives in the summary card, not in the top bar (which keeps only 小票 and 设置 on the right).
             item(key = "summary") {
-                LedgerSummaryCard(summary, hidden, onToggleHidden, budget, onOpenBudget, onOpenCalendar = onOpenCalendar.takeIf { !allEmpty })
+                Box(Modifier.animateItem(fadeInSpec = tween(200), fadeOutSpec = null, placementSpec = tween(220, easing = XpEase.out))) {
+                    LedgerSummaryCard(summary, hidden, onToggleHidden, budget, onOpenBudget, onOpenCalendar = onOpenCalendar.takeIf { !allEmpty })
+                }
             }
         }
         if (groups.isEmpty()) {
             item(key = "empty") {
-                if (allEmpty) {
-                    Column(Modifier.padding(top = XpSpace.xxl)) {
-                        EmptyState(
-                            icon = Icons.Outlined.ReceiptLong,
-                            title = "还没有账单",
-                            body = "开启自动记账，或者说一句「午饭 32」。",
-                            actionLabel = "记一笔",
-                            onAction = onAdd,
-                        )
+                // Empty → content: the placeholder fades away instead of vanishing between two frames.
+                Box(Modifier.animateItem(fadeInSpec = tween(220, easing = XpEase.out), placementSpec = null, fadeOutSpec = tween(160))) {
+                    if (allEmpty) {
+                        Column(Modifier.padding(top = XpSpace.xxl)) {
+                            EmptyState(
+                                icon = Icons.Outlined.ReceiptLong,
+                                title = "还没有账单",
+                                body = "开启自动记账，或者说一句「午饭 32」。",
+                                actionLabel = "记一笔",
+                                onAction = onAdd,
+                            )
+                        }
+                    } else {
+                        LedgerNoResults(onClearConditions = onClearConditions)
                     }
-                } else {
-                    LedgerNoResults(onClearConditions = onClearConditions)
                 }
             }
         }
         itemsIndexed(groups, key = { _, g -> "day-${g.dayStart}" }) { index, group ->
-            Box(Modifier.padding(top = CardGap).staggerIn(if (selection != null) 0 else index, reduceMotion)) {
+            Box(
+                Modifier.fillMaxWidth()
+                    // A day card that arrives or leaves (first bill of the day, last one deleted) fades and
+                    // lets the cards below slide instead of jumping.
+                    .animateItem(
+                        fadeInSpec = tween(220, easing = XpEase.out),
+                        fadeOutSpec = tween(140),
+                        placementSpec = spring(dampingRatio = 1f, stiffness = 520f),
+                    )
+                    .padding(top = CardGap)
+                    .staggerIn(if (selection != null) 0 else index, reduceMotion),
+            ) {
                 LedgerDayCard(
                     group = group,
                     defs = defs,
@@ -376,6 +482,7 @@ private fun LedgerList(
                     onLongPress = onLongPress,
                     onEdit = onEdit,
                     onDelete = onDelete,
+                    fresh = fresh,
                 )
             }
         }
@@ -453,19 +560,31 @@ private fun LedgerSearchPage(
 @Composable
 private fun DeleteCapsule(count: Int, onClick: () -> Unit) {
     val enabled = count > 0
+    val fill by androidx.compose.animation.animateColorAsState(
+        targetValue = if (enabled) XpColors.Negative else XpColors.Negative.copy(alpha = 0.3f),
+        animationSpec = tween(180, easing = XpEase.out),
+        label = "deletePill",
+    )
     Row(
         Modifier.fillMaxWidth().height(48.dp)
             .clip(RoundedCornerShape(XpRadius.pill))
-            .background(if (enabled) XpColors.Negative else XpColors.Negative.copy(alpha = 0.3f))
-            .clickable(enabled = enabled, onClick = onClick),
+            .background(fill)
+            .pressableClick(enabled = enabled, scaleDown = 0.96f, haptic = enabled, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        Text(
-            if (count > 0) "删除 $count 笔" else "删除",
-            style = MaterialTheme.typography.labelLarge,
-            color = XpColors.OnAccent,
-        )
+        // The count changes while the pill is already up; cross-fade it instead of swapping the label.
+        AnimatedContent(
+            targetState = count,
+            transitionSpec = { fadeIn(tween(140, easing = XpEase.out)) togetherWith fadeOut(tween(100)) },
+            label = "deleteCount",
+        ) { n ->
+            Text(
+                if (n > 0) "删除 $n 笔" else "删除",
+                style = MaterialTheme.typography.labelLarge,
+                color = XpColors.OnAccent,
+            )
+        }
     }
 }
 

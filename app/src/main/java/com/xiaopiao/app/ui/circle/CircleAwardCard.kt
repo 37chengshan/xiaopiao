@@ -31,6 +31,9 @@ import com.xiaopiao.app.ui.components.XpButton
 import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.XpSheet
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.motion.rememberDtProgress
+import com.xiaopiao.app.ui.motion.xpOut
+import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -79,6 +82,9 @@ fun CircleAwardCard(
 
 @Composable
 fun CircleAwardSheet(circle: Circle, now: Long, viewerId: String, onClose: () -> Unit) {
+    // 撕纸抽屉 (docs/APP-DESIGN.md §5.2): the award receipt prints out of the top of the sheet, its torn edge
+    // travelling down over ~420ms, then the medals land one after another.
+    val reveal = rememberDtProgress(key = circle.id, durationMs = 420, easing = xpOut)
     XpSheet(onDismiss = onClose) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = XpSpace.page).padding(bottom = XpSpace.l),
@@ -95,7 +101,7 @@ fun CircleAwardSheet(circle: Circle, now: Long, viewerId: String, onClose: () ->
                 modifier = Modifier.padding(top = 2.dp),
             )
             Spacer(Modifier.size(XpSpace.m))
-            TornReceiptCard {
+            TornReceiptCard(reveal = reveal) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("🏆", style = MaterialTheme.typography.titleMedium)
                     Text(
@@ -106,10 +112,13 @@ fun CircleAwardSheet(circle: Circle, now: Long, viewerId: String, onClose: () ->
                     )
                 }
                 Spacer(Modifier.size(XpSpace.s))
-                circle.members.forEach { member ->
+                circle.members.forEachIndexed { index, member ->
                     val badge = weeklyTitle(circle, member, now)
                     Row(
-                        Modifier.fillMaxWidth().padding(vertical = 7.dp),
+                        Modifier.fillMaxWidth()
+                            // Each medal prints a step after the one above it, once the paper is out.
+                            .xpRevealLayer(index = index, durationMs = 240, delayStepMs = 55, riseDp = 8.dp)
+                            .padding(vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
                     ) {
