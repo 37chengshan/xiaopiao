@@ -21,12 +21,18 @@ import { Route as LegacySettingsRouteImport } from './routes/_legacy/settings'
 import { Route as LegacyTodayRouteImport } from './routes/_legacy/today'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAiRouteImport } from './routes/app/ai'
+import { Route as AppBizRouteImport } from './routes/app/biz'
 import { Route as AppCardsRouteImport } from './routes/app/cards'
 import { Route as AppCircleRouteImport } from './routes/app/circle'
 import { Route as AppLedgerRouteImport } from './routes/app/ledger'
 import { Route as AppReceiptRouteImport } from './routes/app/receipt'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppStatsRouteImport } from './routes/app/stats'
+import { Route as AppBizIndexRouteImport } from './routes/app/biz/index'
+import { Route as AppBizAnalysisRouteImport } from './routes/app/biz/analysis'
+import { Route as AppBizInsightsRouteImport } from './routes/app/biz/insights'
+import { Route as AppBizReportRouteImport } from './routes/app/biz/report'
+import { Route as AppBizRevenueRouteImport } from './routes/app/biz/revenue'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -87,6 +93,11 @@ const AppAiRoute = AppAiRouteImport.update({
   path: '/ai',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBizRoute = AppBizRouteImport.update({
+  id: '/biz',
+  path: '/biz',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppCardsRoute = AppCardsRouteImport.update({
   id: '/cards',
   path: '/cards',
@@ -117,6 +128,31 @@ const AppStatsRoute = AppStatsRouteImport.update({
   path: '/stats',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBizIndexRoute = AppBizIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppBizRoute,
+} as any)
+const AppBizAnalysisRoute = AppBizAnalysisRouteImport.update({
+  id: '/analysis',
+  path: '/analysis',
+  getParentRoute: () => AppBizRoute,
+} as any)
+const AppBizInsightsRoute = AppBizInsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => AppBizRoute,
+} as any)
+const AppBizReportRoute = AppBizReportRouteImport.update({
+  id: '/report',
+  path: '/report',
+  getParentRoute: () => AppBizRoute,
+} as any)
+const AppBizRevenueRoute = AppBizRevenueRouteImport.update({
+  id: '/revenue',
+  path: '/revenue',
+  getParentRoute: () => AppBizRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -129,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof LegacySettingsRoute
   '/today': typeof LegacyTodayRoute
   '/app/ai': typeof AppAiRoute
+  '/app/biz': typeof AppBizRouteWithChildren
   '/app/cards': typeof AppCardsRoute
   '/app/circle': typeof AppCircleRoute
   '/app/ledger': typeof AppLedgerRoute
@@ -136,6 +173,11 @@ export interface FileRoutesByFullPath {
   '/app/settings': typeof AppSettingsRoute
   '/app/stats': typeof AppStatsRoute
   '/app/': typeof AppIndexRoute
+  '/app/biz/analysis': typeof AppBizAnalysisRoute
+  '/app/biz/insights': typeof AppBizInsightsRoute
+  '/app/biz/report': typeof AppBizReportRoute
+  '/app/biz/revenue': typeof AppBizRevenueRoute
+  '/app/biz/': typeof AppBizIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -154,6 +196,11 @@ export interface FileRoutesByTo {
   '/app/settings': typeof AppSettingsRoute
   '/app/stats': typeof AppStatsRoute
   '/app': typeof AppIndexRoute
+  '/app/biz/analysis': typeof AppBizAnalysisRoute
+  '/app/biz/insights': typeof AppBizInsightsRoute
+  '/app/biz/report': typeof AppBizReportRoute
+  '/app/biz/revenue': typeof AppBizRevenueRoute
+  '/app/biz': typeof AppBizIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -168,6 +215,7 @@ export interface FileRoutesById {
   '/_legacy/settings': typeof LegacySettingsRoute
   '/_legacy/today': typeof LegacyTodayRoute
   '/app/ai': typeof AppAiRoute
+  '/app/biz': typeof AppBizRouteWithChildren
   '/app/cards': typeof AppCardsRoute
   '/app/circle': typeof AppCircleRoute
   '/app/ledger': typeof AppLedgerRoute
@@ -175,6 +223,11 @@ export interface FileRoutesById {
   '/app/settings': typeof AppSettingsRoute
   '/app/stats': typeof AppStatsRoute
   '/app/': typeof AppIndexRoute
+  '/app/biz/analysis': typeof AppBizAnalysisRoute
+  '/app/biz/insights': typeof AppBizInsightsRoute
+  '/app/biz/report': typeof AppBizReportRoute
+  '/app/biz/revenue': typeof AppBizRevenueRoute
+  '/app/biz/': typeof AppBizIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -189,6 +242,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/today'
     | '/app/ai'
+    | '/app/biz'
     | '/app/cards'
     | '/app/circle'
     | '/app/ledger'
@@ -196,6 +250,11 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/stats'
     | '/app/'
+    | '/app/biz/analysis'
+    | '/app/biz/insights'
+    | '/app/biz/report'
+    | '/app/biz/revenue'
+    | '/app/biz/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -214,6 +273,11 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/stats'
     | '/app'
+    | '/app/biz/analysis'
+    | '/app/biz/insights'
+    | '/app/biz/report'
+    | '/app/biz/revenue'
+    | '/app/biz'
   id:
     | '__root__'
     | '/'
@@ -227,6 +291,7 @@ export interface FileRouteTypes {
     | '/_legacy/settings'
     | '/_legacy/today'
     | '/app/ai'
+    | '/app/biz'
     | '/app/cards'
     | '/app/circle'
     | '/app/ledger'
@@ -234,6 +299,11 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/stats'
     | '/app/'
+    | '/app/biz/analysis'
+    | '/app/biz/insights'
+    | '/app/biz/report'
+    | '/app/biz/revenue'
+    | '/app/biz/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -328,6 +398,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAiRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/biz': {
+      id: '/app/biz'
+      path: '/biz'
+      fullPath: '/app/biz'
+      preLoaderRoute: typeof AppBizRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/cards': {
       id: '/app/cards'
       path: '/cards'
@@ -370,6 +447,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppStatsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/biz/': {
+      id: '/app/biz/'
+      path: '/'
+      fullPath: '/app/biz/'
+      preLoaderRoute: typeof AppBizIndexRouteImport
+      parentRoute: typeof AppBizRoute
+    }
+    '/app/biz/analysis': {
+      id: '/app/biz/analysis'
+      path: '/analysis'
+      fullPath: '/app/biz/analysis'
+      preLoaderRoute: typeof AppBizAnalysisRouteImport
+      parentRoute: typeof AppBizRoute
+    }
+    '/app/biz/insights': {
+      id: '/app/biz/insights'
+      path: '/insights'
+      fullPath: '/app/biz/insights'
+      preLoaderRoute: typeof AppBizInsightsRouteImport
+      parentRoute: typeof AppBizRoute
+    }
+    '/app/biz/report': {
+      id: '/app/biz/report'
+      path: '/report'
+      fullPath: '/app/biz/report'
+      preLoaderRoute: typeof AppBizReportRouteImport
+      parentRoute: typeof AppBizRoute
+    }
+    '/app/biz/revenue': {
+      id: '/app/biz/revenue'
+      path: '/revenue'
+      fullPath: '/app/biz/revenue'
+      preLoaderRoute: typeof AppBizRevenueRouteImport
+      parentRoute: typeof AppBizRoute
+    }
   }
 }
 
@@ -396,8 +508,28 @@ const LegacyRouteChildren: LegacyRouteChildren = {
 const LegacyRouteWithChildren =
   LegacyRoute._addFileChildren(LegacyRouteChildren)
 
+interface AppBizRouteChildren {
+  AppBizAnalysisRoute: typeof AppBizAnalysisRoute
+  AppBizInsightsRoute: typeof AppBizInsightsRoute
+  AppBizReportRoute: typeof AppBizReportRoute
+  AppBizRevenueRoute: typeof AppBizRevenueRoute
+  AppBizIndexRoute: typeof AppBizIndexRoute
+}
+
+const AppBizRouteChildren: AppBizRouteChildren = {
+  AppBizAnalysisRoute: AppBizAnalysisRoute,
+  AppBizInsightsRoute: AppBizInsightsRoute,
+  AppBizReportRoute: AppBizReportRoute,
+  AppBizRevenueRoute: AppBizRevenueRoute,
+  AppBizIndexRoute: AppBizIndexRoute,
+}
+
+const AppBizRouteWithChildren =
+  AppBizRoute._addFileChildren(AppBizRouteChildren)
+
 interface AppRouteChildren {
   AppAiRoute: typeof AppAiRoute
+  AppBizRoute: typeof AppBizRouteWithChildren
   AppCardsRoute: typeof AppCardsRoute
   AppCircleRoute: typeof AppCircleRoute
   AppLedgerRoute: typeof AppLedgerRoute
@@ -409,6 +541,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAiRoute: AppAiRoute,
+  AppBizRoute: AppBizRouteWithChildren,
   AppCardsRoute: AppCardsRoute,
   AppCircleRoute: AppCircleRoute,
   AppLedgerRoute: AppLedgerRoute,

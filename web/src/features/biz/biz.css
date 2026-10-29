@@ -1,0 +1,48 @@
+/*
+ * Small motion helpers for the shop console (docs/WEB-SPEC.md §A.4): press depth, skeleton pulse,
+ * snackbar countdown. Only transform / opacity animate, and reduced-motion drops all but the fade.
+ */
+.biz-press {
+  transition:
+    transform 120ms var(--ease-out),
+    filter 120ms var(--ease-out);
+}
+.biz-press:active {
+  transform: scale(0.98);
+  filter: brightness(0.96);
+}
+
+@keyframes biz-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes biz-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+.biz-skeleton {
+  animation: biz-pulse 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .biz-press {
+    transition: none;
+  }
+  .biz-press:active {
+    transform: none;
+    filter: none;
+  }
+  .biz-skeleton {
+    animation: none;
+  }
+}
