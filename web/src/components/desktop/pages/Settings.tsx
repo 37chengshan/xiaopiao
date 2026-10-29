@@ -79,7 +79,11 @@ export function SettingsPage() {
 
       </Card>
 
-      <Card title={s("st.shortcuts")} action={<Command className="size-3.5 text-d-ink-3" strokeWidth={1.8} aria-hidden />}>
+      <Card
+        className="hidden md:block"
+        title={s("st.shortcuts")}
+        action={<Command className="size-3.5 text-d-ink-3" strokeWidth={1.8} aria-hidden />}
+      >
         <Row icon={<KeyboardGlyph keys="N" />} label={s("st.scRecord")}>
           <Kbd>N</Kbd>
         </Row>

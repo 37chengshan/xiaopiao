@@ -41,7 +41,7 @@ export const s = defineStrings(
     "toolbar.localHint": "账本目前只在这台设备的内存里；云端同步开放后会显示同步状态。",
     "toolbar.receipt": "今天的小票",
     "toolbar.account": "账号",
-    "notice.body": "下载 App 后登录同一账号即可同步",
+    "notice.body": "下载 App，登录后同步",
     "notice.download": "下载 App",
     "notice.login": "登录 / 注册",
     "notice.dismiss": "关闭提示",
