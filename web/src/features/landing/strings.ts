@@ -21,7 +21,8 @@ const s = defineStrings(
     "hero.wordL": "今日",
     "hero.wordR": "小票",
     "hero.pillAria": "一天里的几张照片",
-    "hero.lead": "付款通知自己落进账本，21:30 把这一天打印出来。你不写字、不打卡、不挑分类，只过日子。",
+    "hero.lead":
+      "付款通知自己落进账本，21:30 把这一天打印出来。你不写字、不打卡、不挑分类，只过日子。",
     "hero.open": "滚一下，把今天打开",
     "hero.photo.desk": "夜里台灯下的书桌，小打印机正在出纸",
     "hero.photo.hand": "手里拿着一张刚撕下来的小票",
@@ -131,7 +132,8 @@ const s = defineStrings(
     "f.alt.shop": "小店柜台上的小票机和外带纸袋",
 
     "shelf.heading": "一年 365 张，都立在架子上",
-    "shelf.lead": "每天一张，脊上竖着印日期、当天头衔和合计。抽一张出来，翻面看正面。",
+    "shelf.lead":
+      "每天一张，脊上竖着印日期、当天头衔和合计。抽一张出来，翻面看正面。",
     "shelf.aria": "小票架",
     "shelf.hint": "点脊、拖拽、左右键、横向滚动都能翻",
     "shelf.prev": "上一张",
@@ -145,34 +147,45 @@ const s = defineStrings(
     "shelf.record": "仅作记录 · 非正式票据",
 
     "mosaic.heading": "一天一张，攒成一面墙",
-    "mosaic.lead": "小票不占地方，也舍不得删。翻回上个月，你会想起那天为什么花得这么多。",
+    "mosaic.lead":
+      "小票不占地方，也舍不得删。翻回上个月，你会想起那天为什么花得这么多。",
     "mosaic.cta": "打开网页版",
     "mosaic.cta2": "再看一遍小票架",
 
     "privacy.heading": "先说清楚，再开始",
-    "privacy.lead": "账是最私人的数据。下面四条不是承诺页上的装饰，是代码里的默认值。",
+    "privacy.lead":
+      "账是最私人的数据。下面四条不是承诺页上的装饰，是代码里的默认值。",
     "privacy.1.title": "原文不出手机",
-    "privacy.1.line": "截图、CSV、通知原文只在本机解析。云端只存金额、时间、分类这些字段。",
+    "privacy.1.line":
+      "截图、CSV、通知原文只在本机解析。云端只存金额、时间、分类这些字段。",
     "privacy.2.title": "贡献默认关闭",
-    "privacy.2.line": "给小店的数据要单独授权，一次一条，随时撤回，撤回后连历史一起删。",
+    "privacy.2.line":
+      "给小店的数据要单独授权，一次一条，随时撤回，撤回后连历史一起删。",
     "privacy.3.title": "小店只看聚合",
-    "privacy.3.line": "老板看到的是人群汇总。样本不到 20 人的格子不显示，逐笔数据永远不给。",
+    "privacy.3.line":
+      "老板看到的是人群汇总。样本不到 20 人的格子不显示，逐笔数据永远不给。",
     "privacy.4.title": "AI 不推荐、不比价",
-    "privacy.4.line": "它记录、汇总、提醒。买什么、怎么花、要不要理财，都由你自己决定。",
+    "privacy.4.line":
+      "它记录、汇总、提醒。买什么、怎么花、要不要理财，都由你自己决定。",
 
     "faq.heading": "你可能想问",
     "faq.q1": "账单原文会上传吗？",
-    "faq.a1": "不会。截图、CSV 和通知原文只在你的手机上解析，云端只存金额、时间、分类这些结构化字段。",
+    "faq.a1":
+      "不会。截图、CSV 和通知原文只在你的手机上解析，云端只存金额、时间、分类这些结构化字段。",
     "faq.q2": "AI 会劝我买东西、帮我理财吗？",
     "faq.a2": "不会。它只记录、总结、提醒；买不买、怎么花，都由你自己决定。",
     "faq.q3": "圈子里的人能看到我什么？",
-    "faq.a3": "默认只有当天总额。分类、单笔、小票全文要你一项项打开，随时能关，关掉后历史也一起隐藏。",
+    "faq.a3":
+      "默认只有当天总额。分类、单笔、小票全文要你一项项打开，随时能关，关掉后历史也一起隐藏。",
     "faq.q4": "小店老板会拿到我的数据吗？",
-    "faq.a4": "只有你单独授权后，记录才会进入匿名汇总。不到 20 人的格子不显示，你随时能撤回。",
+    "faq.a4":
+      "只有你单独授权后，记录才会进入匿名汇总。不到 20 人的格子不显示，你随时能撤回。",
     "faq.q5": "需要买一台打印机吗？",
-    "faq.a5": "不需要。小票先打印在屏幕上；想要纸，连任何小票打印机，或者存成 PDF 都行。",
+    "faq.a5":
+      "不需要。小票先打印在屏幕上；想要纸，连任何小票打印机，或者存成 PDF 都行。",
     "faq.q6": "在哪里用？",
-    "faq.a6": "安卓 App 负责自动记账；网页版在电脑上看账、打印和导出，登录同一个账号就能同步。",
+    "faq.a6":
+      "安卓 App 负责自动记账；网页版在电脑上看账、打印和导出，登录同一个账号就能同步。",
 
     "close.word": "打印",
     "close.line": "打开网页版，把今天打印出来。不用注册。",
@@ -229,7 +242,8 @@ const s = defineStrings(
     "hero.wordL": "TODAY",
     "hero.wordR": "RECEIPT",
     "hero.pillAria": "A few photographs from one day",
-    "hero.lead": "Payment notifications file themselves, and at 21:30 the day prints. No typing, no check-ins, no picking categories — just live.",
+    "hero.lead":
+      "Payment notifications file themselves, and at 21:30 the day prints. No typing, no check-ins, no picking categories — just live.",
     "hero.open": "Scroll to open today",
     "hero.photo.desk": "A small printer feeding paper on a desk at night",
     "hero.photo.hand": "A hand holding a freshly torn receipt",
@@ -239,32 +253,39 @@ const s = defineStrings(
     "launch.kicker": "One day, one phone",
     "launch.aria": "App screens",
     "launch.1.title": "It files itself",
-    "launch.1.line": "The moment a payment lands, the amount, the merchant and the time are already in the ledger.",
+    "launch.1.line":
+      "The moment a payment lands, the amount, the merchant and the time are already in the ledger.",
     "launch.1.num": "0",
     "launch.1.numLabel": "manual entries",
     "launch.2.title": "One receipt a night",
-    "launch.2.line": "At 21:30 today prints: the lines, the total, one sentence, one title.",
+    "launch.2.line":
+      "At 21:30 today prints: the lines, the total, one sentence, one title.",
     "launch.2.num": "21:30",
     "launch.2.numLabel": "every night",
     "launch.3.title": "The week at a glance",
-    "launch.3.line": "Where it went, and whether that is more or less than last week. One screen.",
+    "launch.3.line":
+      "Where it went, and whether that is more or less than last week. One screen.",
     "launch.3.num": "7",
     "launch.3.numLabel": "days, one screen",
     "launch.4.title": "Log it in three seconds",
-    "launch.4.line": "Cash, a street stall, a friend paying for you — two taps and it is done.",
+    "launch.4.line":
+      "Cash, a street stall, a friend paying for you — two taps and it is done.",
     "launch.4.num": "3",
     "launch.4.numLabel": "seconds an entry",
     "launch.5.title": "The small circle",
-    "launch.5.line": "Family, flatmates. One awards night a week. How much they see is your call, item by item.",
+    "launch.5.line":
+      "Family, flatmates. One awards night a week. How much they see is your call, item by item.",
     "launch.5.num": "1",
     "launch.5.numLabel": "awards night a week",
     "launch.6.title": "Small games",
-    "launch.6.line": "Guess the price, collect titles. Winning buys you nothing — that is the point.",
+    "launch.6.line":
+      "Guess the price, collect titles. Winning buys you nothing — that is the point.",
     "launch.6.num": "5",
     "launch.6.numLabel": "minutes a round",
 
     "bento.heading": "Interfaces that are alive",
-    "bento.lead": "Not screenshots. Every card here moves, and all of them move on the same day's data.",
+    "bento.lead":
+      "Not screenshots. Every card here moves, and all of them move on the same day's data.",
     "bento.today": "Spent today",
     "bento.today.delta": "¥12.00 less than yesterday",
     "bento.today.count": "4 entries",
@@ -299,7 +320,8 @@ const s = defineStrings(
     "bento.shop.sat": "S",
     "bento.shop.sun": "S",
     "bento.stamp.title": "Stamp your day",
-    "bento.stamp.lead": "Tap what you spent on and the stamp changes. Same rules as the app.",
+    "bento.stamp.lead":
+      "Tap what you spent on and the stamp changes. Same rules as the app.",
     "bento.stamp.total": "Today",
     "bento.stamp.empty": "Nothing yet",
     "bento.stamp.reset": "Reset",
@@ -339,7 +361,8 @@ const s = defineStrings(
     "f.alt.shop": "A receipt printer and takeaway bags on a shop counter",
 
     "shelf.heading": "365 receipts, standing on a shelf",
-    "shelf.lead": "One a day. Each spine carries the date, the day's title and the total. Pull one out and turn it over.",
+    "shelf.lead":
+      "One a day. Each spine carries the date, the day's title and the total. Pull one out and turn it over.",
     "shelf.aria": "Receipt shelf",
     "shelf.hint": "Click a spine, drag, use arrow keys or scroll sideways",
     "shelf.prev": "Previous day",
@@ -353,34 +376,46 @@ const s = defineStrings(
     "shelf.record": "A record only · not a tax receipt",
 
     "mosaic.heading": "A receipt a day becomes a wall",
-    "mosaic.lead": "A receipt takes no space, and you never want to delete one. Scroll back a month and you remember why that day cost so much.",
+    "mosaic.lead":
+      "A receipt takes no space, and you never want to delete one. Scroll back a month and you remember why that day cost so much.",
     "mosaic.cta": "Open the web app",
     "mosaic.cta2": "Back to the shelf",
 
     "privacy.heading": "The defaults, before you start",
-    "privacy.lead": "A ledger is the most private data there is. These four are defaults in the code, not decoration on a promise page.",
+    "privacy.lead":
+      "A ledger is the most private data there is. These four are defaults in the code, not decoration on a promise page.",
     "privacy.1.title": "The raw bill never leaves the phone",
-    "privacy.1.line": "Screenshots, CSVs and notification text are parsed on the device. The cloud keeps the amount, the time, the category.",
+    "privacy.1.line":
+      "Screenshots, CSVs and notification text are parsed on the device. The cloud keeps the amount, the time, the category.",
     "privacy.2.title": "Sharing starts off",
-    "privacy.2.line": "Contributing to a shop is a separate opt-in, per shop, withdrawable — and withdrawing deletes the history.",
+    "privacy.2.line":
+      "Contributing to a shop is a separate opt-in, per shop, withdrawable — and withdrawing deletes the history.",
     "privacy.3.title": "Shops only see totals",
-    "privacy.3.line": "The owner gets anonymous aggregates. Cells with fewer than 20 people never render. Per-person rows never exist.",
+    "privacy.3.line":
+      "The owner gets anonymous aggregates. Cells with fewer than 20 people never render. Per-person rows never exist.",
     "privacy.4.title": "The AI does not recommend",
-    "privacy.4.line": "It records, sums up and reminds. What to buy, how to spend, whether to invest: your call.",
+    "privacy.4.line":
+      "It records, sums up and reminds. What to buy, how to spend, whether to invest: your call.",
 
     "faq.heading": "Fair questions",
     "faq.q1": "Do my raw bills get uploaded?",
-    "faq.a1": "No. Screenshots, CSVs and notification text are parsed on your phone. The cloud keeps only fields like amount, time and category.",
+    "faq.a1":
+      "No. Screenshots, CSVs and notification text are parsed on your phone. The cloud keeps only fields like amount, time and category.",
     "faq.q2": "Will the AI push me to buy things or invest?",
-    "faq.a2": "No. It records, sums up and reminds. What to buy and how to spend is always your call.",
+    "faq.a2":
+      "No. It records, sums up and reminds. What to buy and how to spend is always your call.",
     "faq.q3": "What can people in my circle see?",
-    "faq.a3": "Only the day's total, by default. Categories, single items and the full receipt are switched on one by one, and switching off hides the history too.",
+    "faq.a3":
+      "Only the day's total, by default. Categories, single items and the full receipt are switched on one by one, and switching off hides the history too.",
     "faq.q4": "Does the shop owner get my data?",
-    "faq.a4": "Only after you opt in separately, and only as part of anonymous totals. Cells with fewer than 20 people never show, and you can withdraw any time.",
+    "faq.a4":
+      "Only after you opt in separately, and only as part of anonymous totals. Cells with fewer than 20 people never show, and you can withdraw any time.",
     "faq.q5": "Do I need to buy a printer?",
-    "faq.a5": "No. The receipt prints on screen first. Want paper? Any receipt printer works, or save it as a PDF.",
+    "faq.a5":
+      "No. The receipt prints on screen first. Want paper? Any receipt printer works, or save it as a PDF.",
     "faq.q6": "Where do I use it?",
-    "faq.a6": "The Android app does the logging. The web app is for reading, printing and exporting on a computer; sign in with the same account to sync.",
+    "faq.a6":
+      "The Android app does the logging. The web app is for reading, printing and exporting on a computer; sign in with the same account to sync.",
 
     "close.word": "PRINT",
     "close.line": "Open the web app and print today. No sign-up.",
@@ -424,33 +459,3 @@ const s = defineStrings(
 );
 
 export { s, s as landingStrings };
-
-/** Daily Slip editorial redesign. All new public copy, including the English-first hero. */
-export const ds = defineStrings(
-  {
-    brand: "Daily Slip", chinese: "今日小票", headlineA: "Daily", headlineB: "Slip",
-    nav: "主导航", story: "怎么记", play: "试着打印", archive: "小票档案", open: "打开网页版", lang: "EN", language: "Switch to English", skip: "跳到正文",
-    heroLine: "把日子过好，把账交给小票。", heroBody: "早餐、通勤、晚饭后的一杯茶。把零散的花销，收成每天一张会说话的小票。", heroNote: "AI 记账 · 每日小票 · 你的小圈子", heroPrint: "打印一张今天", printing: "正在出纸…", printed: "今天的小票，打印好了。", printAgain: "再打印一张", printerAlt: "白色热敏小票机与一张每日小票", receipt: "今天的小票", total: "今日合计", entries: "笔", receiptFoot: "花销有来处，日子有回声。", receiptRemark: "平常的一天，也值得留一张。", sampleDate: "10 月 29 日 · 星期四", paid: "已收好", quiet: "今天，钱包好好休息。", selected: "已选", choose: "点选今天的小事", reset: "重新选", demoNote: "点几样，看看这一天会是什么样。这里只试打印，不会写入你的账本。",
-    morning: "早上赶路，", evening: "晚上慢下来。", storyBody: "让记账跟着生活走，而不是让生活围着账本转。", morningTitle: "早上，顺手就记了", morningBody: "授权后在手机本地识别支付通知；现金和漏记的那一笔，也能随手补上。", dayTitle: "白天，想问就问", dayBody: "「这周咖啡花了多少？」AI 帮你找到账上的答案，不替你做消费决定。", nightTitle: "晚上，收好这一天", nightBody: "几笔花销、一句小结、一个今天的头衔。看得懂，也想再翻一翻。",
-    spendTitle: "小小的花销，", spendTitle2: "具体的生活。", spendBody: "奶茶、地铁、午饭。选几件今天的小事，小票就会跟着变。", tea: "一杯奶茶", coffee: "外带咖啡", breakfast: "早餐", lunch: "一碗热面", metro: "地铁通勤", taxi: "打车回家", grocery: "买点新鲜的", movie: "看场电影", member: "听歌会员", receiptLive: "小票实时预览",
-    wallTitle: "账本之外，", wallTitle2: "都是生活。", wallBody: "早餐摊的热气，晚饭后的一桌人，深夜回家时亮着的那盏灯。数字记下花销，小票留下那一天。", pause: "暂停照片", resume: "播放照片", wallAlt: "日常花销与生活场景照片",
-    shelfTitle: "每一天，", shelfTitle2: "都有迹可循。", shelfBody: "像翻一本薄薄的日记。挑一个日子，看看当时花了什么、为什么值得记得。", previous: "上一张小票", next: "下一张小票", day: "选择日期", shelfCaption: "不是一串数字，是过过的日子。", shelfOpen: "打开我的小票档案",
-    featuresTitle: "少点负担，", featuresTitle2: "多点明白。", feature1: "一眼看懂账本", feature1Body: "按时间、商户和分类整理。找一笔账，或看看这一周，都不必从头翻。", feature2: "小圈子，一起过日子", feature2Body: "和家人、室友分享周报。分享哪些、给谁看，都由你决定。", feature3: "小店，也看得清", feature3Body: "营收、订单与经营日报放在一起。自愿贡献的匿名数据，只在样本足够时展示。", viewLedger: "看看账本", viewCircle: "看看圈子", viewShop: "打开小店版",
-    privacyTitle: "账是你的。", privacyTitle2: "决定也是。", privacyBody: "AI 负责记录、总结和提醒。怎么花、要不要分享，始终由你来选。", privacy1: "原文留在手机", privacy1Body: "账单原文与截图只在本机解析，云端只保存结构化字段。", privacy2: "分享默认关闭", privacy2Body: "匿名数据贡献单独授权，可随时撤回；不足 20 人的格子不展示。", privacy3: "不替你做决定", privacy3Body: "不推荐买什么，不比价，不下单，也不给理财结论。",
-    faqTitle: "你可能还想知道", q1: "一定要有一台打印机吗？", a1: "不用。小票首先是一张可以在 App 或网页里查看的数字小票，这里的打印机是交互演示。", q2: "会自动读取我的所有消息吗？", a2: "不会。需要你主动授权，支付通知与账单原文在手机本地解析；你也可以选择手动记账。", q3: "能把我的账分享给朋友吗？", a3: "可以选择小圈子周报，分享范围由你决定。完整的个人账本不会默认公开。",
-    closing: "Make room", closing2: "for your day.", closingBody: "今天的第一张小票，从一笔小小的记录开始。", closingCta: "开始记下今天", footer: "小小一张，认真生活。", rights: "Daily Slip · 今日小票", top: "回到顶部", photoMorning: "早餐摊上扫码付款的手", photoMetro: "清晨站台上拿着手机的手", photoNight: "台灯旁亮起通知的手机", photoDesk: "深夜桌面上的白色小票打印机", photoHand: "阳光下手持空白小票", photoFriends: "家常饭桌上传看小票的手", photoTakeout: "夜里玄关上的外卖袋", photoShop: "清晨咖啡店的木柜台", photoStack: "木桌上的小票与硬币", photoWall: "整齐挂着小票的墙", photoTear: "从白色打印机上撕下小票", photoThermal: "热敏纸纤维和模糊点阵", photoSlot: "白色打印机出纸口特写", screenLedger: "今日小票账单界面", screenCircle: "今日小票圈子界面",
-  },
-  {
-    brand: "Daily Slip", chinese: "今日小票", headlineA: "Daily", headlineB: "Slip",
-    nav: "Main navigation", story: "How it works", play: "Try a slip", archive: "The archive", open: "Open the app", lang: "中文", language: "切换到中文", skip: "Skip to content",
-    heroLine: "Live your day. Let the little things add up.", heroBody: "Breakfast, the commute, a cup of tea after dinner. Turn everyday spending into one little receipt with a story to tell.", heroNote: "AI bookkeeping · Daily receipts · Your circle", heroPrint: "Print a little today", printing: "Printing…", printed: "Your daily slip is ready.", printAgain: "Print another slip", printerAlt: "A white thermal printer with a daily receipt", receipt: "Your daily slip", total: "Today's total", entries: "entries", receiptFoot: "Little spends. A life well lived.", receiptRemark: "An ordinary day. Still worth keeping.", sampleDate: "Thursday · October 29", paid: "Filed with care", quiet: "A quiet day for your wallet.", selected: "Selected", choose: "Pick the little things", reset: "Start again", demoNote: "Pick a few things and see your day take shape. This preview won't change your ledger.",
-    morning: "Mornings move.", evening: "Evenings settle.", storyBody: "Bookkeeping that fits around your life, with a little less to keep in your head.", morningTitle: "A morning, already noted", morningBody: "With your permission, payment notices are parsed on your phone. Add cash or a missed expense whenever you need to.", dayTitle: "An answer when you need it", dayBody: "“What did I spend on coffee this week?” Ask the ledger. AI finds the facts; the choices stay yours.", nightTitle: "An evening, neatly kept", nightBody: "A few expenses, a short reflection, a title for the day. Something you can read, and come back to.",
-    spendTitle: "Small spends.", spendTitle2: "A fuller life.", spendBody: "Tea, the train, a warm lunch. Pick a few everyday moments and watch your receipt take shape.", tea: "Bubble tea", coffee: "Coffee to go", breakfast: "Breakfast", lunch: "A bowl of noodles", metro: "The metro", taxi: "A ride home", grocery: "Something fresh", movie: "Movie night", member: "Music membership", receiptLive: "Live receipt preview",
-    wallTitle: "Behind every sum,", wallTitle2: "a little life.", wallBody: "Steam from a breakfast stall. Dinner with friends. The light you leave on for yourself. Numbers keep the spending; a slip keeps the day.", pause: "Pause photos", resume: "Play photos", wallAlt: "Photographs of everyday spending and city life",
-    shelfTitle: "Every day,", shelfTitle2: "worth keeping.", shelfBody: "Like a small journal. Pick a day to revisit the little things that made it yours.", previous: "Previous receipt", next: "Next receipt", day: "Select a day", shelfCaption: "Days you lived, not just numbers you spent.", shelfOpen: "Open my receipt archive",
-    featuresTitle: "Less keeping up.", featuresTitle2: "More clarity.", feature1: "A ledger at a glance", feature1Body: "Sorted by date, merchant and category. Find that one purchase or take in your week without starting from scratch.", feature2: "A small circle, together", feature2Body: "Share a weekly recap with family or flatmates. You choose what to share and who gets to see it.", feature3: "Clarity for your little shop", feature3Body: "Revenue, orders and daily reports, together. Voluntary anonymous insights only appear when the sample is large enough.", viewLedger: "Explore the ledger", viewCircle: "Meet your circle", viewShop: "Open Shop view",
-    privacyTitle: "Your ledger.", privacyTitle2: "Your call.", privacyBody: "AI records, summarises and reminds. How you spend and what you share are always your decisions.", privacy1: "Raw text stays on your phone", privacy1Body: "Statements and screenshots are parsed on device. Only structured fields reach the cloud.", privacy2: "Sharing starts switched off", privacy2Body: "Anonymous contributions need separate consent and can be withdrawn. Groups below 20 people stay hidden.", privacy3: "Choices stay with you", privacy3Body: "No shopping recommendations, price comparisons, ordering or financial advice.",
-    faqTitle: "A few good questions", q1: "Do I need a real printer?", a1: "No. Your slip is a digital receipt you can view in the app or on the web. The printer here is an interactive preview.", q2: "Will you read all my messages?", a2: "No. You choose whether to grant access. Payment notices and statement text are parsed on your phone. You can also log expenses manually.", q3: "Can I share with friends?", a3: "You can choose to share a weekly recap with your circle and control its scope. Your full personal ledger is never public by default.",
-    closing: "Make room", closing2: "for your day.", closingBody: "Your first daily slip begins with one little entry.", closingCta: "Start your day here", footer: "A little slip. A life well lived.", rights: "Daily Slip · 今日小票", top: "Back to top", photoMorning: "A phone held up to pay at a breakfast stall", photoMetro: "A hand holding a phone on a morning platform", photoNight: "A phone notification beside a bedside lamp", photoDesk: "A white receipt printer on a desk at night", photoHand: "A hand holding a blank receipt in sunlight", photoFriends: "Hands passing a receipt around a dinner table", photoTakeout: "A takeaway bag on a hallway cabinet at night", photoShop: "A wooden coffee shop counter in the morning", photoStack: "Receipts and coins on a wooden desk", photoWall: "Receipts clipped neatly to a wall", photoTear: "Hands tearing a receipt from a white printer", photoThermal: "Thermal paper fibres and soft abstract dots", photoSlot: "A close-up of a white printer's paper slot", screenLedger: "Daily Slip ledger interface", screenCircle: "Daily Slip circle interface",
-  },
-);

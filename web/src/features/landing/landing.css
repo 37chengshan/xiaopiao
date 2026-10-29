@@ -236,6 +236,10 @@
   color: var(--ink);
   background: rgba(20, 20, 19, 0.05);
 }
+.lx-nav__brand,
+.lx-nav__link {
+  white-space: nowrap;
+}
 .lx-nav.is-dark {
   background: rgba(24, 24, 22, 0.66);
   border-color: rgba(246, 244, 239, 0.16);
@@ -1904,22 +1908,22 @@
   }
 }
 @keyframes toastDrop {
-  0% {
+  0%,
+  58% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  70% {
+    opacity: 0;
+    transform: translateY(-24%);
+  }
+  86% {
     opacity: 0;
     transform: translateY(-130%);
   }
-  12% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  64% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  84%,
   100% {
-    opacity: 0;
-    transform: translateY(-18%);
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 @keyframes bubbleIn {
@@ -2094,6 +2098,22 @@
   .lx {
     --margin: 16px;
     font-size: 16px;
+  }
+  .lx-nav {
+    gap: 6px;
+    padding: 8px 8px 8px 12px;
+  }
+  .lx-nav__link {
+    padding: 8px 7px;
+    font-size: 13px;
+  }
+  .lx-nav .lx-pillbtn {
+    height: 36px;
+    padding: 0 14px;
+    font-size: 12.5px;
+  }
+  :root[data-locale="en"] .lx-nav__brand span {
+    display: none;
   }
   .lx-hero {
     height: 200svh;
