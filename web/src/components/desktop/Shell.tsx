@@ -140,26 +140,23 @@ export function Shell() {
 
           <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden" style={{ ["--d-chrome" as string]: `${chrome}px` }}>
             {/*
-              One scroll container for the whole shell, and a cross-fade between pages: the outgoing page stays
-              painted (absolutely positioned by popLayout) while the incoming one fades in over it. The old
-              version keyed this wrapper and started the new page at opacity 0, so every navigation painted at
-              least one fully blank frame — the flash. Nothing here may depend on an animation frame to become
-              visible: opacity 1 is the resting state and only the *incoming* layer animates.
+              One scroll container for the shell. Switching pages unmounts the old one at once, so the incoming
+              page must be *legible on its first painted frame*: it settles in from 60% over a 4px rise instead
+              of fading from 0. The old version started at opacity 0, which painted a fully blank frame on every
+              navigation — the flash — and left the page invisible whenever no animation frame arrived. A
+              cross-fade of two layers was worse: both at 50% composites to a wash-out.
             */}
             <div ref={scrollRef} className="hide-scrollbar d-scroll relative min-h-0 flex-1 overflow-y-auto">
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.div
-                  key={pathname}
-                  initial={reduce ? false : { opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={reduce ? { opacity: 1, transition: { duration: 0 } } : { opacity: 0, transition: { duration: 0.12, ease: EASE_OUT } }}
-                  transition={{ duration: 0.16, ease: EASE_OUT }}
-                >
-                  <div className="mx-auto w-full max-w-[1200px] px-4 py-5 lg:px-8 lg:py-6">
-                    <Outlet />
-                  </div>
-                </motion.div>
-              </AnimatePresence>
+              <motion.div
+                key={pathname}
+                initial={reduce ? false : { opacity: 0.6, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.16, ease: EASE_OUT }}
+              >
+                <div className="mx-auto w-full max-w-[1200px] px-4 py-5 lg:px-8 lg:py-6">
+                  <Outlet />
+                </div>
+              </motion.div>
             </div>
           </main>
           <StatusBar />
