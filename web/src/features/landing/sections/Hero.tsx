@@ -1,153 +1,299 @@
-import {
-  animate,
-  motion,
-  useMotionValue,
-  useReducedMotion,
-  useScroll,
-  useTransform,
-} from "framer-motion";
-import { useEffect, useRef } from "react";
-import { cn } from "@/lib/utils";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { s } from "../strings";
 import { useLocale } from "@/lib/strings";
-import { EASE_OUT } from "@/lib/motion";
-import { Pill } from "../components/Pill";
-import { ReceiptSheet, type ReceiptLine } from "../components/ReceiptSheet";
-import { Printer } from "../illustrations";
-import { landingStrings } from "../strings";
+import { usePrefersReducedMotion } from "../lib/motion";
+import { TopNav } from "./TopNav";
+
+const EASE = "cubic-bezier(.45,0,.2,1)";
+const NAV_EASE = "cubic-bezier(.2,.8,.2,1)";
 
 /**
- * L1 — hero. Headline lines rise out of a blur, the printer prints to 40% on load, then scrolling
- * finishes the sheet and floats it away while the headline scales down and fades (§L.2 L1).
+ * L1 — the paper slot opens. One 2.1s timeline (wild-pill-hero): the hairline between 今日 and 小票
+ * cracks into a slit, a circle, then a 2:1 capsule that pushes the two words apart; the nav drops in
+ * and the bottom bar rises. "再打一张" plays the same timeline backwards, then forwards again.
  */
 export function Hero() {
+  const reduce = usePrefersReducedMotion();
   useLocale();
-  const s = landingStrings;
-  const reduceMotion = useReducedMotion();
-  const ref = useRef<HTMLElement>(null);
-  const frozen = useMotionValue(0);
+  const pillRef = useRef<HTMLDivElement | null>(null);
+  const clipRef = useRef<HTMLDivElement | null>(null);
+  const lineRef = useRef<HTMLSpanElement | null>(null);
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
+  const footRef = useRef<HTMLDivElement | null>(null);
+  const ruleRef = useRef<HTMLDivElement | null>(null);
+  const [booted, setBooted] = useState(false);
+  const animations = useRef<Animation[]>([]);
+  const timers = useRef<number[]>([]);
 
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
-  const p = reduceMotion ? frozen : scrollYProgress;
+  const finalGeometry = useCallback(() => {
+    const pill = pillRef.current;
+    const row = rowRef.current;
+    if (!pill || !row) return null;
+    const fs = Number.parseFloat(getComputedStyle(pill).fontSize) || 64;
+    const mobile = window.matchMedia("(max-width: 720px)").matches;
+    const finalW = mobile ? row.clientWidth : fs * 3.62;
+    const finalH = mobile ? Math.min(row.clientWidth / 1.85, window.innerHeight * 0.42) : fs * 1.81;
+    return { fs, mobile, finalW, finalH };
+  }, []);
 
-  const titleScale = useTransform(p, [0, 1], [1, 0.92]);
-  const titleOpacity = useTransform(p, [0, 0.85], [1, 0]);
-  const titleBlur = useTransform(p, [0, 1], ["blur(0px)", "blur(6px)"]);
-  const hintOpacity = useTransform(p, [0, 0.18], [1, 0]);
+  const settle = useCallback(() => {
+    const geo = finalGeometry();
+    animations.current.forEach((a) => a.cancel());
+    animations.current = [];
+    timers.current.forEach((t) => window.clearTimeout(t));
+    if (pillRef.current && geo) {
+      pillRef.current.style.width = `${geo.finalW}px`;
+      pillRef.current.style.height = `${geo.finalH}px`;
+    }
+    if (clipRef.current) clipRef.current.style.clipPath = "inset(0 0 0 0)";
+    if (lineRef.current) lineRef.current.style.opacity = "0";
+    if (navRef.current) navRef.current.style.transform = "none";
+    if (footRef.current) footRef.current.style.transform = "none";
+    if (ruleRef.current) ruleRef.current.style.transform = "scaleX(1)";
+  }, [finalGeometry]);
 
-  const loaded = useMotionValue(reduceMotion ? 1 : 0);
+  const reset = useCallback(() => {
+    const geo = finalGeometry();
+    animations.current.forEach((a) => a.cancel());
+    animations.current = [];
+    if (!geo) return;
+    const hair = Math.max(2, geo.fs * 0.012);
+    if (pillRef.current) {
+      pillRef.current.style.width = `${geo.mobile ? geo.finalW : hair}px`;
+      pillRef.current.style.height = `${geo.mobile ? 2 : geo.finalH}px`;
+    }
+    if (clipRef.current) clipRef.current.style.clipPath = geo.mobile ? "inset(0 50% 0 50%)" : "inset(50% 0 50% 0)";
+    if (lineRef.current) lineRef.current.style.opacity = "1";
+    if (navRef.current) navRef.current.style.transform = "translateY(-140%)";
+    if (footRef.current) footRef.current.style.transform = "translateY(160%)";
+    if (ruleRef.current) ruleRef.current.style.transform = "scaleX(0)";
+  }, [finalGeometry]);
+
+  const play = useCallback(() => {
+    const geo = finalGeometry();
+    const pill = pillRef.current;
+    const clip = clipRef.current;
+    const line = lineRef.current;
+    if (!geo || !pill || !clip || !line) return;
+    reset();
+    const next: Animation[] = [];
+
+    if (geo.mobile) {
+      next.push(
+        pill.animate(
+          [
+            { height: "2px", offset: 0, easing: EASE },
+            { height: "2px", offset: 0.14 },
+            { height: `${geo.finalH * 0.1}px`, offset: 0.3, easing: EASE },
+            { height: `${geo.finalH * 0.55}px`, offset: 0.58, easing: EASE },
+            { height: `${geo.finalH}px`, offset: 1 },
+          ],
+          { duration: 2100, fill: "both" },
+        ),
+      );
+      next.push(
+        clip.animate(
+          [{ clipPath: "inset(0 50% 0 50%)" }, { clipPath: "inset(0 0 0 0)" }],
+          { duration: 300, delay: 0, fill: "both", easing: EASE },
+        ),
+      );
+    } else {
+      const hair = Math.max(2, geo.fs * 0.012);
+      next.push(
+        pill.animate(
+          [
+            { width: `${hair}px`, offset: 0, easing: EASE },
+            { width: `${hair}px`, offset: 0.14 },
+            { width: `${geo.fs * 0.16}px`, offset: 0.3, easing: EASE },
+            { width: `${geo.fs * 1.81}px`, offset: 0.58, easing: EASE },
+            { width: `${geo.finalW}px`, offset: 1 },
+          ],
+          { duration: 2100, fill: "both" },
+        ),
+      );
+      next.push(
+        clip.animate([{ clipPath: "inset(50% 0 50% 0)" }, { clipPath: "inset(0 0 0 0)" }], {
+          duration: 300,
+          fill: "both",
+          easing: EASE,
+        }),
+      );
+    }
+
+    next.push(line.animate([{ opacity: 1 }, { opacity: 1, offset: 0.14 }, { opacity: 0 }], { duration: 630, fill: "both" }));
+
+    if (navRef.current) {
+      next.push(
+        navRef.current.animate(
+          [
+            { transform: "translateY(-140%)", offset: 0 },
+            { transform: "translateY(-140%)", offset: 0.5 },
+            { transform: "translateY(0)", offset: 0.86 },
+            { transform: "translateY(0)", offset: 1 },
+          ],
+          { duration: 2100, fill: "both", easing: NAV_EASE },
+        ),
+      );
+    }
+    if (footRef.current) {
+      next.push(
+        footRef.current.animate(
+          [
+            { transform: "translateY(160%)", offset: 0 },
+            { transform: "translateY(160%)", offset: 0.52 },
+            { transform: "translateY(0)", offset: 0.9 },
+            { transform: "translateY(0)", offset: 1 },
+          ],
+          { duration: 2100, fill: "both", easing: NAV_EASE },
+        ),
+      );
+    }
+    if (ruleRef.current) {
+      next.push(
+        ruleRef.current.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(0)", offset: 0.4 }, { transform: "scaleX(1)" }], {
+          duration: 2100,
+          fill: "both",
+          easing: EASE,
+        }),
+      );
+    }
+
+    animations.current = next;
+    const first = next[0];
+    first.finished.then(() => settle()).catch(() => undefined);
+  }, [finalGeometry, reset, settle]);
+
   useEffect(() => {
-    if (reduceMotion) {
-      loaded.set(1);
+    if (reduce) {
+      settle();
+      setBooted(true);
       return;
     }
-    const controls = animate(loaded, 0.4, { delay: 0.6, duration: 1.2, ease: EASE_OUT });
-    return () => controls.stop();
-  }, [loaded, reduceMotion]);
+    play();
+    setBooted(true);
+    const running = animations.current;
+    const pending = timers.current;
+    const onResize = () => settle();
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      running.forEach((a) => a.cancel());
+      pending.forEach((t) => window.clearTimeout(t));
+    };
+    // Runs once on mount: the hero timeline is the page entrance.
+  }, [reduce, play, settle]);
 
-  const scrolled = useTransform(p, [0, 0.8], [0, 0.6]);
-  const printed = useTransform([loaded, scrolled], ([a, b]: number[]) => Math.min(1, a + b));
-  const paperY = useTransform(p, [0.72, 1], [0, -760]);
-  const paperRotate = useTransform(p, [0.72, 1], [0, -3]);
-  const paperOpacity = useTransform(p, [0.8, 0.98], [1, 0]);
-
-  const lines: ReceiptLine[] = [
-    { id: "hero-1", label: s("day.row3"), cents: 2200 },
-    { id: "hero-2", label: s("day.row4"), cents: 3200 },
-    { id: "hero-3", label: s("day.row5"), cents: 6800 },
-  ];
-  const total = lines.reduce((sum, line) => sum + line.cents, 0);
+  const reprint = () => {
+    if (reduce) return;
+    const list = animations.current;
+    if (list.length === 0) {
+      play();
+      return;
+    }
+    list.forEach((a) => {
+      a.playbackRate = -1;
+      a.play();
+    });
+    list[0].finished
+      .then(() => {
+        list.forEach((a) => {
+          a.playbackRate = 1;
+          a.play();
+        });
+        return list[0].finished;
+      })
+      .then(() => settle())
+      .catch(() => undefined);
+  };
 
   return (
-    <section
-      ref={ref}
-      id="top"
-      className={cn("relative bg-d-canvas text-d-ink", !reduceMotion && "h-[200vh]")}
-    >
-      <div
-        className={cn(
-          "relative mx-auto flex w-full max-w-[1320px] flex-col justify-center px-5 pt-24 pb-16",
-          !reduceMotion && "sticky top-0 h-svh overflow-hidden",
-        )}
-      >
-        <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-[1.04fr_0.96fr] lg:gap-4">
-          <motion.div
-            style={{ scale: titleScale, opacity: titleOpacity, filter: titleBlur }}
-            className="max-w-[600px] origin-left"
-          >
-            <motion.h1 className="text-[clamp(2.55rem,5.2vw,5rem)] leading-[1.04] font-semibold tracking-[-0.02em]">
-              {[s("hero.line1"), s("hero.line2")].map((line, index) => (
-                <motion.span
-                  key={line}
-                  className="block"
-                  initial={
-                    reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, filter: "blur(8px)" }
-                  }
-                  animate={
-                    reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }
-                  }
-                  transition={{
-                    duration: reduceMotion ? 0.2 : 0.72,
-                    delay: index * 0.08,
-                    ease: EASE_OUT,
-                  }}
-                >
-                  {line}
-                </motion.span>
-              ))}
-            </motion.h1>
+    <section id="top" className="lp-hero lp-grain">
+      <div className="lp-hero-sky" aria-hidden />
+      <svg className="lp-hero-art" viewBox="0 0 1440 900" preserveAspectRatio="none" aria-hidden>
+        <g fill="none" stroke="rgba(27,23,18,0.16)" strokeWidth="1">
+          <path d="M-40 640C220 590 360 700 640 662S1080 560 1480 620" />
+          <path d="M-40 700C260 650 380 760 660 722S1100 620 1480 676" />
+          <path d="M-40 760C300 712 420 820 700 782S1140 680 1480 736" />
+        </g>
+        <g fill="none" stroke="rgba(255,138,0,0.28)" strokeWidth="1.2" strokeLinecap="round">
+          <path d="M120 250c40-26 92-26 132 0" />
+          <path d="M1210 300c46-30 104-30 150 0" />
+          <path d="M1180 720c-30 34-30 82 0 116" />
+        </g>
+        <g fill="rgba(27,23,18,0.18)">
+          <circle cx="196" cy="252" r="2.4" />
+          <circle cx="1268" cy="300" r="2.4" />
+          <circle cx="1184" cy="740" r="2.4" />
+        </g>
+      </svg>
 
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.24, ease: EASE_OUT }}
-              className="mt-6 max-w-[470px] text-[17px] leading-relaxed text-balance text-d-ink-2"
-            >
-              {s("hero.sub")}
-            </motion.p>
+      <TopNav navRef={navRef} style={booted ? undefined : { transform: "translateY(-140%)", opacity: 0 }} />
 
-            <motion.div
-              initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.32, ease: EASE_OUT }}
-              className="mt-9 flex flex-wrap items-center gap-3"
-            >
-              <Pill href="#/app" cursorLabel={s("hero.cursor")}>
-                {s("hero.cta")}
-              </Pill>
-              <Pill href="#download" variant="grey">
-                {s("hero.secondary")}
-              </Pill>
-            </motion.div>
-          </motion.div>
-
-          <div className="relative mx-auto w-full max-w-[600px]">
-            <div className="relative aspect-[600/520] w-full">
-              <Printer className="h-full w-full text-d-ink" label={s("hero.printer")} />
-              <div className="receipt-hero absolute top-[58.1%] left-[26.67%] w-[46.67%]">
-                <motion.div style={{ y: paperY, opacity: paperOpacity, rotate: paperRotate }}>
-                  <ReceiptSheet
-                    progress={printed}
-                    lines={lines}
-                    title={s("hero.sheet.title")}
-                    meta={s("hero.sheet.meta")}
-                    totalLabel={s("hero.sheet.total")}
-                    totalCents={total}
-                    teeth={18}
-                    className="rounded-b-[2px]"
-                  />
-                </motion.div>
-              </div>
+      <div ref={rowRef} className="lp-hero-row">
+        <h1 className="sr-only">
+          {s("hero.title.a")} {s("hero.title.b")}
+        </h1>
+        <span className="lp-word" aria-hidden>
+          {s("hero.title.a")}
+        </span>
+        <div
+          ref={pillRef}
+          className="lp-pill"
+          role="img"
+          aria-label={s("hero.slot")}
+          style={booted ? undefined : { width: 2, height: 2, opacity: 0 }}
+        >
+          <div ref={clipRef} className="lp-pill-clip">
+            <img src="/img/landing-printer-slot-macro-v2.webp" alt="" aria-hidden loading="eager" />
+            <div className="lp-pill-shade" aria-hidden />
+            <div className="lp-pill-slot" aria-hidden />
+            <div className="lp-hero-paper" aria-hidden>
+              <b>
+                <span>便利店</span>
+                <span>11.50</span>
+              </b>
+              <b>
+                <span>地铁</span>
+                <span>4.00</span>
+              </b>
+              <span className="rule" />
+              <b>
+                <span>合计</span>
+                <span>15.50</span>
+              </b>
             </div>
           </div>
+          <span ref={lineRef} className="lp-pill-line" aria-hidden />
         </div>
+        <span className="lp-word lp-word--b" aria-hidden>
+          {s("hero.title.b")}
+        </span>
+      </div>
 
-        <motion.div
-          style={{ opacity: hintOpacity }}
-          className="pointer-events-none absolute bottom-7 left-1/2 hidden -translate-x-1/2 items-center gap-2 text-[11px] font-medium tracking-[0.18em] text-d-ink-3 uppercase lg:flex"
-        >
-          <span>{s("hero.hint")}</span>
-          <span className="block h-8 w-px bg-d-ink-3" />
-        </motion.div>
+      <div ref={footRef} className="lp-hero-foot" style={booted ? undefined : { transform: "translateY(160%)", opacity: 0 }}>
+        <div>
+          <div ref={ruleRef} className="lp-hero-rule" />
+          <p className="lp-dropcap mt-4 max-w-[54ch] text-[16px] leading-[1.7] text-[var(--lp-ink)] sm:text-[16px]">{s("hero.lede")}</p>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <a
+              href="#/app"
+              className="inline-flex h-12 items-center rounded-full bg-[var(--lp-ink)] px-6 text-[16px] font-medium text-[var(--lp-paper)] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
+            >
+              {s("hero.cta")}
+            </a>
+            <button
+              type="button"
+              onClick={reprint}
+              className="inline-flex h-12 items-center gap-2 rounded-full border border-[var(--lp-line)] px-5 text-[14px] font-medium text-[var(--lp-ink)] transition-colors hover:bg-[rgba(27,23,18,0.06)]"
+            >
+              <span aria-hidden>↻</span>
+              {s("hero.reprint")}
+            </button>
+            <span className="text-[13px] text-[var(--lp-ink-3)]">{s("hero.note")}</span>
+          </div>
+        </div>
+        <p className="hidden text-right text-[13px] text-[var(--lp-ink-3)] sm:block">{s("hero.scroll")} ↓</p>
       </div>
     </section>
   );
