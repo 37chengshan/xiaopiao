@@ -1,41 +1,37 @@
 import { useLocale } from "@/lib/strings";
 import "./landing.css";
 import { CursorHalo } from "./cursor/CursorHalo";
-import { LandingToaster } from "./components/LandingToast";
 import { useHaloEnabled } from "./hooks/useMediaQuery";
-import { DayLedger } from "./sections/DayLedger";
-import { Features } from "./sections/Features";
+import { AiFirst } from "./sections/AiFirst";
+import { Archive } from "./sections/Archive";
+import { Bento } from "./sections/Bento";
+import { Demo } from "./sections/Demo";
 import { Footer } from "./sections/Footer";
 import { Hero } from "./sections/Hero";
-import { Merchant } from "./sections/Merchant";
 import { Outro } from "./sections/Outro";
 import { Privacy } from "./sections/Privacy";
-import { TopNav } from "./sections/TopNav";
 
 /**
- * Landing page composition (docs/WEB-SPEC.md §L). Sections own their own effect; this file only
- * orders them, owns the cursor halo and hides the system pointer when it is active.
+ * Landing v2 (docs/WEB-SPEC.md §L, tt 2026-10-28): the whole page is one receipt being printed.
+ * The hero owns the nav because the nav is part of its opening timeline.
  */
 export function LandingPage() {
   useLocale();
   const halo = useHaloEnabled();
 
   return (
-    <div
-      className="landing-root min-h-svh overflow-x-clip bg-d-canvas text-d-ink antialiased"
-    >
-      <TopNav />
+    <div className="lp min-h-svh overflow-x-clip antialiased">
       <main>
         <Hero />
-        <DayLedger />
-        <Features />
-        <Merchant />
+        <Demo />
+        <Archive />
+        <Bento />
+        <AiFirst />
         <Privacy />
         <Outro />
       </main>
       <Footer />
       {halo ? <CursorHalo /> : null}
-      <LandingToaster />
     </div>
   );
 }
