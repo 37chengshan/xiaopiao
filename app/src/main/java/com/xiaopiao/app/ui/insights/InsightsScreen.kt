@@ -21,9 +21,7 @@ import com.xiaopiao.app.OpenRequest
 import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.ui.components.NavScrollNone
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Settings
 import com.xiaopiao.app.ui.budget.BudgetPage
-import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.work.ReminderIntents
 import com.xiaopiao.app.work.ReminderScheduler
@@ -73,7 +71,6 @@ fun InsightsScreen(
             onOpenSubscriptions = { route = InsightsRoute.SUBSCRIPTIONS },
             onOpenRegret = { route = InsightsRoute.REGRET },
             onPrint = onPrint,
-            onOpenSettings = onOpenSettings,
         )
         return
     }
@@ -83,7 +80,6 @@ fun InsightsScreen(
         page.label,
         NavScrollNone,
         onBack = { route = null },
-        trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
     ) { top ->
         Column(Modifier.fillMaxSize().padding(top = top)) {
             // Keep the page viewport clear of the floating tab bar so charts and the last row are never cut.

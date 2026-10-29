@@ -108,7 +108,7 @@ push 进入：左 = 返回（`onBack`），右 = 最多一个与本页相关的�
 | 组件 | 文件 | 用于 | 不要 |
 |---|---|---|---|
 | `NavScaffold` | `components/NavHeader.kt` | 所有带顶栏的页 | 自己画顶栏 |
-| `AppTopActions` / `LedgerSideLeading` | `components/`（待加） | §4.1 固定槽位 | 单独放齿轮 |
+| `AppTopActions` / `LedgerSideLeading` | `components/TopActions.kt`（动作来自 shell 提供的 `LocalTopBarHost`） | §4.1 固定槽位 | 单独放齿轮 |
 | `XpNavBar` + `NavGlyph` | `components/XpNavBar.kt`、`NavGlyphs.kt` | 底栏 | 静态图标 tab |
 | `GroupedSection` / `GroupedRow` | `components/Grouped.kt` | 设置类列表 | 每行一张阴影卡 |
 | `GlassGround` / `LocalGlass` | `components/GlassGround.kt` | 玻璃卡片的底 | 把卡片自己录进 source |
@@ -154,7 +154,7 @@ push 进入：左 = 返回（`onBack`），右 = 最多一个与本页相关的�
 
 | # | 问题 | 归属 |
 |---|---|---|
-| 1 | 小票、统计页顶栏左侧缺卡包 + 搜索，右侧缺小票；三页不一致 | Claude（加 `AppTopActions` / `LedgerSideLeading` 并全量替换） |
+| 1 | ~~小票、统计页顶栏左侧缺卡包 + 搜索，右侧缺小票；三页不一致~~ 记账 / 小票 / 统计 / AI 已换 `components/TopActions.kt`（2026-10-29）；圈子 / 游戏 / 小店待 worker 交付后替换 | Claude |
 | 2 | 编辑账单用旧 `AddSheet`，和记一笔不同 | Claude（§7） |
 | 3 | 统计页文字重叠 | Claude（§10） |
 | 4 | 小票页：打印机在上、出纸口朝下，**吐出来的纸就是设置面板**（tt） | Claude |

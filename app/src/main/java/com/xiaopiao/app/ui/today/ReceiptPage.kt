@@ -1,5 +1,7 @@
 package com.xiaopiao.app.ui.today
 
+import com.xiaopiao.app.ui.components.AppTopActions
+import com.xiaopiao.app.ui.components.LedgerSideLeading
 import com.xiaopiao.app.ui.components.XpButton
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpEase
@@ -33,7 +35,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -73,7 +74,6 @@ import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.ui.components.GroupedRow
 import com.xiaopiao.app.ui.components.GroupedSection
-import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.Segmented
 import com.xiaopiao.app.ui.components.XpSwitch
@@ -107,7 +107,7 @@ object DayPick {
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ReceiptPage(container: AppContainer, host: ReceiptHost, onOpenSettings: () -> Unit) {
+fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
     val scope = rememberCoroutineScope()
     val settings = host.settings
     val all by remember { container.ledger.observeAll() }.collectAsState(initial = emptyList())
@@ -136,7 +136,8 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost, onOpenSettings: () -
     Box(Modifier.fillMaxSize().blur(blur)) {
     NavScaffold(
         "小票", rememberNavScroll(scroll),
-        trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
+        leading = { LedgerSideLeading() },
+        trailing = { AppTopActions() },
     ) { top ->
         Column(Modifier.fillMaxSize().padding(top = top)) {
             // Pinned on top: the printer, with the receipt rising out of its slot (live preview). Never under the tab bar.
