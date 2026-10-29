@@ -1,7 +1,7 @@
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Download } from "lucide-react";
 import { startOfDay, type Txn } from "@/domain/types";
@@ -15,6 +15,7 @@ import { CommandPalette } from "./palette";
 import { EntryDialog, PrintDialog } from "./dialogs";
 import { useFlag, useHotkeys, useMediaQuery, dismissNotice, useNoticeDismissed } from "./hooks";
 import { titleOf } from "./nav";
+import { EASE_OUT } from "./motion";
 import { useDayDoc } from "./receiptDoc";
 import { Sidebar } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
@@ -50,6 +51,7 @@ export function Shell() {
   const title = titleOf(pathname);
   const todayDoc = useDayDoc(startOfDay(now));
   const noticeGone = useNoticeDismissed();
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const [collapsedPref, setCollapsedPref] = useFlag("xiaopiao.d.sidebar-collapsed");
   const narrow = useMediaQuery("(max-width: 1023px)");
@@ -90,6 +92,11 @@ export function Shell() {
 
   // Leaving the drawer open across a navigation would cover the page it just opened.
   useEffect(() => setDrawer(false), [pathname]);
+
+  // The scroll container outlives a navigation now, so each page starts at its top (before paint).
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [pathname]);
 
   const soon = () => toast(s("soon.title"), { description: s("soon.body") });
   const chrome = 52 + (noticeGone ? 0 : 36);
@@ -132,17 +139,28 @@ export function Shell() {
           )}
 
           <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden" style={{ ["--d-chrome" as string]: `${chrome}px` }}>
-            <motion.div
-              key={pathname}
-              initial={reduce ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-              className="hide-scrollbar min-h-0 flex-1 overflow-y-auto"
-            >
-              <div className="mx-auto w-full max-w-[1200px] px-4 py-5 lg:px-8 lg:py-6">
-                <Outlet />
-              </div>
-            </motion.div>
+            {/*
+              One scroll container for the whole shell, and a cross-fade between pages: the outgoing page stays
+              painted (absolutely positioned by popLayout) while the incoming one fades in over it. The old
+              version keyed this wrapper and started the new page at opacity 0, so every navigation painted at
+              least one fully blank frame — the flash. Nothing here may depend on an animation frame to become
+              visible: opacity 1 is the resting state and only the *incoming* layer animates.
+            */}
+            <div ref={scrollRef} className="hide-scrollbar d-scroll relative min-h-0 flex-1 overflow-y-auto">
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.div
+                  key={pathname}
+                  initial={reduce ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={reduce ? { opacity: 1, transition: { duration: 0 } } : { opacity: 0, transition: { duration: 0.12, ease: EASE_OUT } }}
+                  transition={{ duration: 0.16, ease: EASE_OUT }}
+                >
+                  <div className="mx-auto w-full max-w-[1200px] px-4 py-5 lg:px-8 lg:py-6">
+                    <Outlet />
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </main>
           <StatusBar />
         </div>

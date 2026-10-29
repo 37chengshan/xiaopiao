@@ -1,8 +1,9 @@
 import { Command } from "cmdk";
 import { Languages, Plus, Printer, Search, Store } from "lucide-react";
+import { useRouterState } from "@tanstack/react-router";
 import { getLocale, setLocale } from "@/lib/strings";
 import { Modal } from "./dialogs";
-import { PERSONAL_NAV, SETTINGS_ITEM, SHOP_NAV, go } from "./nav";
+import { PERSONAL_NAV, SETTINGS_ITEM, SHOP_NAV, go, segmentOf } from "./nav";
 import { s } from "./strings";
 
 /** cmdk palette (⌘K): jump between pages, log an entry, print today, switch halves or language. */
@@ -23,7 +24,7 @@ export function CommandPalette({
     onOpenChange(false);
     fn();
   };
-  const shop = window.location.hash.startsWith("#/app/biz");
+  const shop = useRouterState({ select: (state) => segmentOf(state.location.pathname) === "shop" });
   return (
     <Modal open={open} onOpenChange={onOpenChange} label={s("cm.search")} width={520}>
       <Command loop className="bg-transparent text-d-ink">
