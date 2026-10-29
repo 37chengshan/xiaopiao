@@ -1,12 +1,13 @@
 import { getLocale } from "@/lib/strings";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, Printer } from "lucide-react";
-import { addDays, dateKey, money, shortDate, weekdayIndex } from "@/logic/biz/format";
+import { go } from "@/components/desktop/nav";
+import { addDays, dateKey, money, parseDayText, shortDate, weekdayIndex } from "@/logic/biz/format";
 import { averageTicket, entryFor, weekToDateChange } from "@/logic/biz/book";
 import { reportFact } from "@/logic/biz/summary";
 import { buildReceipt, type ReceiptMm } from "../receipt";
 import { WEEKDAY_KEYS, useBizStrings } from "../strings";
-import { bookActions, useBizBook } from "../store";
+import { bookActions, requestAddDay, useBizBook } from "../store";
 import { reportLine } from "../summaryText";
 import { fill } from "../text";
 import { useNotify } from "./feedback";
@@ -27,6 +28,7 @@ export function ReportPage() {
   const [showWeek, setShowWeek] = useState(true);
   const [showSummary, setShowSummary] = useState(true);
   const notify = useNotify();
+  const previewBox = useRef<HTMLDivElement>(null);
 
   const entry = entryFor(book, reportDay);
   const day = reportDay;
@@ -64,7 +66,6 @@ export function ReportPage() {
   }, [book, day, mm, variant, showOrders, showTicket, showWeek, showSummary, t]);
 
   const slip = <ReceiptSlip spec={spec} label={`${t("report.head")} ${shortDate(day)}`} />;
-  const earliest = book.length > 0 ? book[0].day : today;
 
   return (
     <BizPage>
@@ -76,13 +77,12 @@ export function ReportPage() {
           title={t("report.title")}
         >
           <div className="flex flex-col items-center gap-4">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <button
                 type="button"
                 aria-label={t("report.prev")}
                 onClick={() => bookActions.setReportDay(addDays(day, -1))}
-                disabled={day <= earliest}
-                className="grid size-7 place-items-center rounded-md bg-d-fill text-d-ink-2 transition-colors hover:text-d-ink disabled:opacity-40"
+                className="grid size-7 place-items-center rounded-md bg-d-fill text-d-ink-2 transition-colors hover:text-d-ink"
               >
                 <ChevronLeft className="size-4" strokeWidth={1.75} aria-hidden />
               </button>
@@ -98,12 +98,36 @@ export function ReportPage() {
               >
                 <ChevronRight className="size-4" strokeWidth={1.75} aria-hidden />
               </button>
+              <input
+                type="date"
+                aria-label={t("report.pickDate")}
+                value={dateKey(day)}
+                max={dateKey(today)}
+                onChange={(e) => {
+                  const parsed = parseDayText(e.target.value, today);
+                  if (parsed !== null) bookActions.setReportDay(parsed);
+                }}
+                className="h-7 rounded-md bg-d-fill px-2 text-[12px] tabular-nums text-d-ink outline-none focus-visible:ring-2 focus-visible:ring-d-accent-ink/45"
+              />
             </div>
-            <div className="flex justify-center">{slip}</div>
+            <div ref={previewBox} className="flex justify-center">
+              {slip}
+            </div>
             {!entry && (
-              <p className="text-[12px] text-d-ink-2">
-                {t("report.noEntry")} · {t("report.noEntryHint")}
-              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2 text-[12px] text-d-ink-2">
+                <span>
+                  {t("report.noEntry")} · {t("report.noEntryHint")}
+                </span>
+                <Button
+                  tone="fill"
+                  onClick={() => {
+                    requestAddDay(day);
+                    go("/app/biz/revenue");
+                  }}
+                >
+                  {t("report.fillIt")}
+                </Button>
+              </div>
             )}
           </div>
         </Card>
@@ -147,7 +171,9 @@ export function ReportPage() {
               <Button
                 tone="solid"
                 onClick={() => {
-                  printSlip(spec);
+                  const svg = previewBox.current?.querySelector<SVGSVGElement>("svg.biz-slip");
+                  if (!svg) return;
+                  printSlip(spec, svg);
                   notify.printed();
                 }}
               >
@@ -157,7 +183,7 @@ export function ReportPage() {
               <Button
                 tone="fill"
                 onClick={() => {
-                  const svg = document.querySelector<SVGSVGElement>(".biz-slip");
+                  const svg = previewBox.current?.querySelector<SVGSVGElement>("svg.biz-slip");
                   if (!svg) return;
                   void exportSlipPng(svg, spec, `xiaopiao-report-${dateKey(day)}.png`).then(
                     () => notify.imageSaved(),
@@ -174,10 +200,7 @@ export function ReportPage() {
         </div>
       </div>
 
-      {/* Print sheet: the only thing on the page when the printer dialog opens. */}
-      <div className="biz-print-sheet hidden">
-        <ReceiptSlip spec={spec} label={`${t("report.head")} ${shortDate(day)}`} />
-      </div>
+      {/* Printing clones the preview slip into a body-level `#d-print-root` (see `printSlip`). */}
     </BizPage>
   );
 }

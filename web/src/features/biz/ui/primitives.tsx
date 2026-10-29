@@ -67,6 +67,7 @@ export function Kpi({
   unit,
   change,
   compareLabel,
+  extra,
   footer,
   className,
   count,
@@ -78,6 +79,8 @@ export function Kpi({
   unit?: string;
   change?: Change | null;
   compareLabel?: string;
+  /** a second comparison line under the main one (e.g. the same weekday last week) */
+  extra?: ReactNode;
   footer?: ReactNode;
   className?: string;
 }) {
@@ -96,6 +99,9 @@ export function Kpi({
       <div className="mt-2 flex min-h-[16px] flex-wrap items-center gap-x-1.5 text-[12px] leading-4">
         {change ? <Delta change={change} compareLabel={compareLabel} /> : footer}
       </div>
+      {extra && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[12px] leading-4 text-d-ink-3">{extra}</div>
+      )}
     </div>
   );
 }

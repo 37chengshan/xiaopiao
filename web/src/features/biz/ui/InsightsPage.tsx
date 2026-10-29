@@ -3,6 +3,7 @@ import { computeResults } from "@/features/merchant/logic/experiment";
 import { cn } from "@/lib/utils";
 import { insightActions, getCrowdInsights, useInsightState, type StepIndex } from "../store";
 import { useBizStrings } from "../strings";
+import { experimentCopy } from "../templates";
 import { DecideBoard } from "./DecideBoard";
 import { ExperimentBoard } from "./ExperimentBoard";
 import { InsightBoard } from "./InsightBoard";
@@ -17,15 +18,16 @@ export function InsightsPage() {
   const state = useInsightState();
   const insights = getCrowdInsights();
   const game = useMemo(() => {
-    if (!state.experiment) return { plays: 0, lead: null, sample: 0 };
+    if (!state.experiment) return { stances: 0, lead: null, sample: 0 };
     const results = computeResults(state.experiment);
-    const lead = results.leader ? state.experiment.options.find((o) => o.id === results.leader) : null;
+    const copy = experimentCopy(t, state.experiment);
+    const lead = results.leader ? copy.options.find((o) => o.id === results.leader) : null;
     return {
-      plays: results.playerCount,
+      stances: results.sampleSize,
       sample: state.experiment.votes.length,
       lead: lead ? `${lead.emoji} ${lead.label}` : null,
     };
-  }, [state.experiment]);
+  }, [state.experiment, t]);
 
   const published = !!state.experiment && state.experiment.status !== "draft";
   const reachable = (step: StepIndex) => step <= 1 || published;

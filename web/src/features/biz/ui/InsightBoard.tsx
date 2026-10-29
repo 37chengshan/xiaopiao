@@ -54,11 +54,11 @@ export function InsightBoard({
 }: {
   insights: Insights;
   onNext: () => void;
-  game: { plays: number; lead: string | null; sample: number };
+  game: { stances: number; lead: string | null; sample: number };
 }) {
   const t = useBizStrings();
   const peak = insights.peak;
-  const gatedPlays = gate(game.sample, game.plays);
+  const gatedStances = gate(game.sample, game.stances);
 
   return (
     <div className="grid grid-cols-12 gap-5">
@@ -90,12 +90,15 @@ export function InsightBoard({
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-[12px] text-d-ink-2">{t("results.sample")}</span>
                 <span className="text-[15px] font-semibold tabular-nums">
-                  {gatedPlays.value === null ? "—" : fill(t("results.plays"), `${gatedPlays.value}`)}
+                  {gatedStances.value === null ? "—" : fill(t("results.plays"), `${gatedStances.value}`)}
                 </span>
               </div>
               <p className="text-[12px] leading-5 text-d-ink-2">
-                {gatedPlays.value === null ? t("results.gated") : game.lead ? game.lead : t("decide.both")}
+                {gatedStances.value === null ? t("results.gated") : game.lead ? game.lead : t("decide.both")}
               </p>
+              {gatedStances.value !== null && (
+                <p className="text-[11px] leading-4 text-d-ink-3">{t("results.sourceNote")}</p>
+              )}
             </div>
           </Card>
 

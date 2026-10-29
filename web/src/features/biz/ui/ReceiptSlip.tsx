@@ -137,16 +137,30 @@ export async function exportSlipPng(svg: SVGSVGElement, spec: ReceiptSpec, fileN
 }
 
 /**
- * Prints the slip on its own sheet at its real roll width. The `@page` size is injected for the
- * duration of the dialog: a named `@page` is not honoured by every print path, while the default
- * one always is. Height comes from the same geometry the slip was drawn with.
+ * Prints the given slip on its own sheet at its real roll width. `desktop.css` hides every direct
+ * child of `<body>` except `#d-print-root` and then reveals that node, so the slip is cloned into
+ * a temporary body-level `#d-print-root` for the duration of the dialog. The preview lives inside
+ * `#root`; printing it there hid its own ancestor, which is exactly why 日报 came out blank.
+ * The `@page` size is injected for the same window: a named `@page` is not honoured by every
+ * print path, while the default one always is. Height comes from the slip's own geometry.
  */
-export function printSlip(spec: ReceiptSpec): void {
+export function printSlip(spec: ReceiptSpec, slip: SVGSVGElement): void {
   const heightMm = (spec.mm * spec.height) / spec.width;
-  const style = document.createElement("style");
-  style.textContent = `@page { size: ${spec.mm}mm ${heightMm.toFixed(1)}mm; margin: 0; }`;
-  document.head.appendChild(style);
-  const cleanup = () => style.remove();
+
+  const sheet = document.createElement("div");
+  sheet.id = "d-print-root";
+  sheet.className = "d-print-root";
+  sheet.appendChild(slip.cloneNode(true));
+  document.body.appendChild(sheet);
+
+  const page = document.createElement("style");
+  page.textContent = `@page { size: ${spec.mm}mm ${heightMm.toFixed(1)}mm; margin: 0; }`;
+  document.head.appendChild(page);
+
+  const cleanup = () => {
+    page.remove();
+    sheet.remove();
+  };
   window.addEventListener("afterprint", cleanup, { once: true });
   window.print();
   window.setTimeout(cleanup, 60_000);

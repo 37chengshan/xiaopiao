@@ -20,7 +20,7 @@ import {
 } from "@/logic/biz/book";
 import { exportRevenueCsv, type ImportPreview } from "@/logic/biz/import";
 import { WEEKDAY_KEYS, useBizStrings } from "../strings";
-import { bookActions, useBizBook } from "../store";
+import { bookActions, clearPendingAddDay, peekPendingAddDay, useBizBook } from "../store";
 import { fill } from "../text";
 import { readSpreadsheet } from "../fileImport";
 import { AddDayDialog } from "./AddDayDialog";
@@ -30,6 +30,8 @@ import { BizPage, Button, Card, Chip, EmptyState, Segmented, SortHeader } from "
 
 type RangeKey = "7" | "14" | "30" | "all";
 type SortKey = "day" | "revenueCents" | "orders";
+type EditField = "revenueCents" | "orders" | "note";
+const MAX_ORDERS = 100_000;
 type FileErrorCode = "notXlsx" | "noSheet" | "unsupported" | "oldXls";
 const FILE_ERRORS: readonly string[] = ["notXlsx", "noSheet", "unsupported", "oldXls"];
 
@@ -41,10 +43,11 @@ export function RevenuePage() {
   const [range, setRange] = useState<RangeKey>("14");
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "day", desc: true });
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [editing, setEditing] = useState<{ day: number; value: string } | null>(null);
+  const [editing, setEditing] = useState<{ day: number; field: EditField; value: string } | null>(null);
   const [undo, setUndo] = useState<{ entries: RevenueEntry[]; label: string } | null>(null);
   const [importState, setImportState] = useState<{ name: string; text: string } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [addDay, setAddDay] = useState<number | null>(() => peekPendingAddDay());
   const [dragging, setDragging] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const [flash, setFlash] = useState<Set<number>>(new Set());
@@ -55,6 +58,9 @@ export function RevenuePage() {
     const timer = window.setTimeout(() => setFlash(new Set()), 700);
     return () => window.clearTimeout(timer);
   }, [flash]);
+
+  // A 去补录 request is consumed once on mount; leaving the page must not resurrect it later.
+  useEffect(() => clearPendingAddDay(), []);
 
   const rows = useMemo(() => {
     const from = range === "all" ? Number.NEGATIVE_INFINITY : addDays(today, -(Number(range) - 1));
@@ -104,9 +110,23 @@ export function RevenuePage() {
   const commitEdit = () => {
     if (!editing) return;
     const entry = book.find((e) => e.day === editing.day);
-    const cents = parseMoneyText(editing.value);
-    if (entry && cents !== null && cents >= 0 && cents !== entry.revenueCents) {
-      bookActions.save({ ...entry, revenueCents: cents, source: "MANUAL" });
+    if (!entry) return setEditing(null);
+    const next: RevenueEntry = { ...entry };
+    if (editing.field === "revenueCents") {
+      const cents = parseMoneyText(editing.value);
+      if (cents === null || cents < 0) return setEditing(null);
+      next.revenueCents = cents;
+    } else if (editing.field === "orders") {
+      const count = editing.value.trim() === "" ? 0 : Number(editing.value.trim());
+      if (!Number.isInteger(count) || count < 0 || count > MAX_ORDERS) return setEditing(null);
+      next.orders = count;
+    } else {
+      next.note = editing.value.trim().slice(0, 40);
+    }
+    const changed =
+      next.revenueCents !== entry.revenueCents || next.orders !== entry.orders || next.note !== entry.note;
+    if (changed) {
+      bookActions.save({ ...next, source: "MANUAL" });
       setFlash(new Set([entry.day]));
       notify.saved();
     }
@@ -184,6 +204,8 @@ export function RevenuePage() {
           <div className="col-span-12">
             <AnimatePresence>{banner && <Banner onClose={() => setBanner(null)}>{banner}</Banner>}</AnimatePresence>
           </div>
+
+          <p className="col-span-12 -mt-2 text-[11px] leading-4 text-d-ink-3">{t("revenue.localOnly")}</p>
 
           <Card className="col-span-12" index={0} bodyClassName="pt-4">
             <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
@@ -276,7 +298,7 @@ export function RevenuePage() {
                     <AnimatePresence initial={false}>
                       {rows.map((entry) => {
                         const checked = selected.has(entry.day);
-                        const isEditing = editing?.day === entry.day;
+                        const editingField = editing?.day === entry.day ? editing.field : null;
                         return (
                           <motion.tr
                             key={entry.day}
@@ -317,11 +339,11 @@ export function RevenuePage() {
                               <span className="ml-2 text-[11px] text-d-ink-2">{t(WEEKDAY_KEYS[weekdayIndex(entry.day)])}</span>
                             </td>
                             <td className="px-2 py-[9px] text-right tabular-nums">
-                              {isEditing ? (
+                              {editingField === "revenueCents" ? (
                                 <input
                                   autoFocus
-                                  value={editing.value}
-                                  onChange={(e) => setEditing({ day: entry.day, value: e.target.value })}
+                                  value={editing?.value ?? ""}
+                                  onChange={(e) => setEditing({ day: entry.day, field: "revenueCents", value: e.target.value })}
                                   onBlur={commitEdit}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") commitEdit();
@@ -332,19 +354,67 @@ export function RevenuePage() {
                               ) : (
                                 <button
                                   type="button"
-                                  onClick={() => setEditing({ day: entry.day, value: centsToInput(entry.revenueCents) })}
+                                  onClick={() => setEditing({ day: entry.day, field: "revenueCents", value: centsToInput(entry.revenueCents) })}
                                   className="rounded px-1 text-d-ink transition-colors hover:bg-d-fill"
-                                  aria-label={`${t("revenue.edit")} ${shortDate(entry.day)}`}
+                                  aria-label={`${t("revenue.edit")} ${shortDate(entry.day)} ${t("revenue.col.revenue")}`}
                                 >
                                   {money(entry.revenueCents)}
                                 </button>
                               )}
                             </td>
-                            <td className="px-2 py-[9px] text-right tabular-nums text-d-ink-2">{entry.orders > 0 ? entry.orders : "—"}</td>
+                            <td className="px-2 py-[9px] text-right tabular-nums text-d-ink-2">
+                              {editingField === "orders" ? (
+                                <input
+                                  autoFocus
+                                  inputMode="numeric"
+                                  value={editing?.value ?? ""}
+                                  onChange={(e) => setEditing({ day: entry.day, field: "orders", value: e.target.value })}
+                                  onBlur={commitEdit}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") commitEdit();
+                                    if (e.key === "Escape") setEditing(null);
+                                  }}
+                                  className="h-7 w-16 rounded-md bg-d-surface px-1.5 text-right text-[13px] tabular-nums text-d-ink outline-none ring-2 ring-d-accent-ink/45"
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditing({ day: entry.day, field: "orders", value: entry.orders > 0 ? `${entry.orders}` : "" })}
+                                  className="rounded px-1 transition-colors hover:bg-d-fill hover:text-d-ink"
+                                  aria-label={`${t("revenue.edit")} ${shortDate(entry.day)} ${t("revenue.col.orders")}`}
+                                >
+                                  {entry.orders > 0 ? entry.orders : "—"}
+                                </button>
+                              )}
+                            </td>
                             <td className="px-2 py-[9px] text-right tabular-nums text-d-ink-2">
                               {entry.orders > 0 ? money(averageTicket(entry.revenueCents, entry.orders)) : "—"}
                             </td>
-                            <td className="max-w-[180px] truncate px-2 py-[9px] text-d-ink-2">{entry.note || "—"}</td>
+                            <td className="px-2 py-[9px] text-d-ink-2">
+                              {editingField === "note" ? (
+                                <input
+                                  autoFocus
+                                  value={editing?.value ?? ""}
+                                  maxLength={40}
+                                  onChange={(e) => setEditing({ day: entry.day, field: "note", value: e.target.value })}
+                                  onBlur={commitEdit}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") commitEdit();
+                                    if (e.key === "Escape") setEditing(null);
+                                  }}
+                                  className="h-7 w-40 rounded-md bg-d-surface px-1.5 text-[13px] text-d-ink outline-none ring-2 ring-d-accent-ink/45"
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditing({ day: entry.day, field: "note", value: entry.note })}
+                                  className="block max-w-[180px] truncate rounded px-1 text-left transition-colors hover:bg-d-fill hover:text-d-ink"
+                                  aria-label={`${t("revenue.edit")} ${shortDate(entry.day)} ${t("revenue.col.note")}`}
+                                >
+                                  {entry.note || "—"}
+                                </button>
+                              )}
+                            </td>
                             <td className="px-2 py-[9px]">
                               <Chip tone={entry.source === "CSV" ? "accent" : "neutral"}>
                                 {entry.source === "CSV"
@@ -416,10 +486,14 @@ export function RevenuePage() {
       )}
 
       <AddDayDialog
-        open={addOpen}
+        open={addOpen || addDay !== null}
         today={today}
-        day={today}
-        onClose={() => setAddOpen(false)}
+        day={addDay ?? today}
+        book={book}
+        onClose={() => {
+          setAddOpen(false);
+          setAddDay(null);
+        }}
         onSave={(entry) => {
           bookActions.save(entry);
           setFlash(new Set([entry.day]));
