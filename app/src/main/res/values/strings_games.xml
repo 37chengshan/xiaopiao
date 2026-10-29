@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="games_title">游戏</string>
+    <string name="games_settings">设置</string>
+    <string name="games_back">返回</string>
+    <string name="games_count_unit">个小游戏</string>
+    <string name="games_hub_sub">点开就玩 · 单局 1–5 分钟</string>
+    <string name="games_meta">约 %1$d 题 · %2$d 分钟</string>
+    <string name="games_mode_persona">人格</string>
+    <string name="games_mode_challenge">挑战</string>
+    <string name="games_mode_radar">雷达</string>
+    <string name="games_intro_start">开始</string>
+    <string name="games_intro_exit">退出</string>
+
+    <string name="games_q_counter">第 %1$d / %2$d 题</string>
+    <string name="games_percent">%1$d%%</string>
+    <string name="games_feedback_correct">答对了</string>
+    <string name="games_feedback_wrong">差一点</string>
+    <string name="games_feedback_price">实际价格 ¥%1$s</string>
+    <string name="games_feedback_range">实际价格 ¥%1$s，落在「%2$s」</string>
+    <string name="games_feedback_true">这句话是对的。</string>
+    <string name="games_feedback_false">这句话是错的。</string>
+    <string name="games_next">下一题</string>
+    <string name="games_result_cta">看结果</string>
+    <string name="games_tf_prompt">这句话对吗？</string>
+    <string name="games_tf_true">对</string>
+    <string name="games_tf_false">错</string>
+    <string name="games_task_done">完成</string>
+    <string name="games_task_skip">下次一定</string>
+
+    <string name="games_result_your">你的结果</string>
+    <string name="games_result_correct">答对</string>
+    <string name="games_result_tasks">完成</string>
+    <string name="games_result_points">得分</string>
+    <string name="games_result_points_unit">分</string>
+    <string name="games_result_saved">本局省下</string>
+    <string name="games_result_of">/ %1$d</string>
+    <string name="games_result_radar">最突出的一维</string>
+    <string name="games_result_radar_title">五维分布</string>
+    <string name="games_share_title">分享卡片</string>
+    <string name="games_share_footer">今日小票 · 游戏</string>
+    <string name="games_copy">复制文案</string>
+    <string name="games_copied">已复制</string>
+    <string name="games_clip_label">游戏结果</string>
+    <string name="games_again">再玩一次</string>
+    <string name="games_another">换一个</string>
+    <string name="games_disclaimer">娱乐，不构成建议</string>
+
+    <string name="games_tag_wallet_persona">10 个问题，测出钱包性格</string>
+    <string name="games_tag_spend_duel">30 道两难，看你花钱路数</string>
+    <string name="games_tag_receipt_guess">猜小票上的价格</string>
+    <string name="games_tag_blind_box">把价格猜进正确区间</string>
+    <string name="games_tag_daily_tasks">抽 10 条小任务，做几条算几条</string>
+    <string name="games_tag_save_challenge">8 幕情景，看你能省多少</string>
+    <string name="games_tag_ledger_quiz">15 道判断题，账本冷知识</string>
+    <string name="games_tag_spend_radar">5 道量表，画出五维花钱图</string>
+
+    <string name="games_howto_wallet_persona">从发工资的第一件事，到购物车里躺了很久的东西，10 个问题，看看你的钱包是什么性格。</string>
+    <string name="games_howto_spend_duel">30 道两难选择，没有标准答案。选着选着，你的花钱路数就浮出来了。</string>
+    <string name="games_howto_receipt_guess">看一件小票上的东西，猜它大概多少钱。选完立刻揭晓真实价格。</string>
+    <string name="games_howto_blind_box">不看具体数字，只选价格区间。8 个盲盒，看看你离真实价格差多远。</string>
+    <string name="games_howto_daily_tasks">随机抽 10 条小任务，做一条算一条。不打卡，不评判。</string>
+    <string name="games_howto_save_challenge">8 幕生活情景，每一幕都有个省钱的选择。看看这一局你能省下多少。</string>
+    <string name="games_howto_ledger_quiz">15 道判断题，全是账本里的冷知识。答错也有解释。</string>
+    <string name="games_howto_spend_radar">5 道量表，画出你的花钱五维图：计划、冲动、社交、体验、极简。</string>
+</resources>

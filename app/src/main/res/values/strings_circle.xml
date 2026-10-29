@@ -1,0 +1,172 @@
+<resources>
+
+    <!-- 通用 chrome -->
+    <string name="circle_sheet_back">返回</string>
+    <string name="circle_sheet_done">完成</string>
+    <string name="circle_sheet_cancel">取消</string>
+    <string name="circle_sheet_save">保存</string>
+    <string name="circle_sheet_meta">%1$s · %2$s</string>
+    <string name="circle_count">%1$d/%2$d 人</string>
+    <string name="circle_sheet_local_note">本机演示：圈子和邀请码都不会离开这台手机。</string>
+    <string name="circle_me_name">我</string>
+
+    <!-- 圈子菜单 -->
+    <string name="circle_menu_title">圈子</string>
+    <string name="circle_menu_subtitle">切换、邀请和管理</string>
+    <string name="circle_menu_circles">我的圈子</string>
+    <string name="circle_menu_new">新建圈子</string>
+    <string name="circle_menu_manage">管理</string>
+    <string name="circle_menu_members">成员与可见度</string>
+    <string name="circle_menu_invite">邀请家人</string>
+    <string name="circle_menu_leaderboard">排行榜</string>
+    <string name="circle_menu_award">本周颁奖</string>
+    <string name="circle_menu_award_sub">把这周的头衔发到群里</string>
+    <string name="circle_menu_games">小游戏</string>
+    <string name="circle_menu_games_sub">去玩一局，纯娱乐</string>
+    <string name="circle_menu_owner">圈主设置</string>
+    <string name="circle_menu_rename">改圈子名</string>
+    <string name="circle_menu_dissolve">解散圈子</string>
+
+    <!-- 新建 / 改名 / 解散 -->
+    <string name="circle_new_title">新建圈子</string>
+    <string name="circle_new_placeholder">圈子名字（最多 12 字）</string>
+    <string name="circle_new_confirm">创建</string>
+    <string name="circle_rename_title">改圈子名</string>
+    <string name="circle_rename_placeholder">新的名字（最多 12 字）</string>
+    <string name="circle_dissolve_title">解散这个圈子？</string>
+    <string name="circle_dissolve_body">本机的圈子和它的消息都会删除，其他成员不会再看到。</string>
+    <string name="circle_dissolve_confirm">解散</string>
+
+    <!-- 本周颁奖 -->
+    <string name="circle_award_title">本周颁奖</string>
+    <string name="circle_award_body">把这周的家人头衔发到群里？</string>
+    <string name="circle_award_confirm">发到群里</string>
+    <string name="circle_award_post_title">本周家庭颁奖</string>
+
+    <!-- 成员 -->
+    <string name="circle_members_title">成员与可见度</string>
+    <string name="circle_members_subtitle">%1$d/%2$d 人 · 昵称与角色</string>
+    <string name="circle_members_header">成员</string>
+    <string name="circle_members_me_tag">我</string>
+    <string name="circle_members_view_shares">看共享范围</string>
+    <string name="circle_members_my_shares">我的共享范围</string>
+    <string name="circle_members_nickname_action">圈内昵称</string>
+    <string name="circle_members_remark_action">备注名</string>
+    <string name="circle_members_make_admin">设为管理员</string>
+    <string name="circle_members_unmake_admin">取消管理员</string>
+    <string name="circle_members_remove">移除</string>
+    <string name="circle_members_admin_limit">管理员最多 3 人</string>
+    <string name="circle_members_nickname_prefix">圈内昵称：%1$s</string>
+    <string name="circle_members_remove_title">移除成员？</string>
+    <string name="circle_members_remove_body">移除后 TA 的历史小票会脱敏保留，人不在群里了。</string>
+    <string name="circle_members_footer">共享范围由每个人自己决定，管理员也不能替成员改。</string>
+    <string name="circle_nickname_title">圈内昵称</string>
+    <string name="circle_nickname_placeholder">家人看到的名字（最多 8 字）</string>
+    <string name="circle_remark_title">备注名</string>
+    <string name="circle_remark_placeholder">只有你看得到（最多 8 字）</string>
+    <string name="circle_role_owner">圈主</string>
+    <string name="circle_role_admin">管理员</string>
+    <string name="circle_role_member">成员</string>
+
+    <!-- 可见度 -->
+    <string name="circle_vis_title">谁能看到什么</string>
+    <string name="circle_vis_subtitle">按项授权，默认只给汇总</string>
+    <string name="circle_vis_self_header">家人能看到的</string>
+    <string name="circle_vis_other_header">「%1$s」愿意分享的</string>
+    <string name="circle_vis_readonly">只有 %1$s 自己能改；你和别的管理员都只能看。</string>
+    <string name="circle_vis_shared">已共享</string>
+    <string name="circle_vis_not_shared">未共享</string>
+    <string name="circle_vis_footer">关掉一项，群里已经发过的小票会立刻脱敏。管理员不能替成员改共享范围。</string>
+    <string name="circle_share_today_total">今日总额</string>
+    <string name="circle_share_today_total_hint">只显示一天一共花了多少，不含店名</string>
+    <string name="circle_share_category_mix">分类构成</string>
+    <string name="circle_share_category_mix_hint">按分类的占比，不写店名</string>
+    <string name="circle_share_weekly_titles">周报与头衔</string>
+    <string name="circle_share_weekly_titles_hint">家庭周报里可以提到你的头衔</string>
+    <string name="circle_share_txn_detail">单笔明细</string>
+    <string name="circle_share_txn_detail_hint">每一笔的金额、商户和时间</string>
+    <string name="circle_share_receipt_full">小票全文</string>
+    <string name="circle_share_receipt_full_hint">把小票原文一起发到群里</string>
+
+    <!-- 邀请 -->
+    <string name="circle_invite_title">邀请家人</string>
+    <string name="circle_invite_subtitle">6 位邀请码，24 小时内有效</string>
+    <string name="circle_invite_remaining">还可加入 %1$d 次</string>
+    <string name="circle_invite_expires">%1$s后失效</string>
+    <string name="circle_invite_expired">已过期，换一个新码</string>
+    <string name="circle_invite_used_up">次数已用完，换一个新码</string>
+    <string name="circle_invite_copy">复制邀请码</string>
+    <string name="circle_invite_copied">已复制</string>
+    <string name="circle_invite_refresh">换一个</string>
+    <string name="circle_invite_qr_desc">邀请二维码</string>
+    <string name="circle_invite_qr_hint">扫码加入同一个圈子</string>
+    <string name="circle_invite_members">当前 %1$d/%2$d 人</string>
+    <string name="circle_invite_join">加入圈子</string>
+    <string name="circle_invite_join_title">加入圈子</string>
+    <string name="circle_invite_join_placeholder">输入 6 位邀请码</string>
+    <string name="circle_invite_join_confirm">加入</string>
+    <string name="circle_invite_joined">已加入「%1$s」</string>
+    <string name="circle_invite_joiner_name">新家人</string>
+    <string name="circle_invite_footer">邀请码只在本机演示里有效，不会真的发出去。</string>
+    <string name="circle_dur_hm">%1$d 小时 %2$d 分</string>
+    <string name="circle_dur_m">%1$d 分</string>
+
+    <!-- 错误 -->
+    <string name="circle_err_empty_name">名字不能为空</string>
+    <string name="circle_err_name_too_long">最多 %1$d 个字</string>
+    <string name="circle_err_too_long">字数超出上限</string>
+    <string name="circle_err_full">圈子最多 %1$d 人，另建一个吧</string>
+    <string name="circle_err_invalid_code">邀请码无效，检查一下字母</string>
+    <string name="circle_err_expired_code">邀请码已过期</string>
+    <string name="circle_err_used_up">邀请码次数已用完</string>
+    <string name="circle_err_not_allowed">这个操作不允许</string>
+    <string name="circle_err_already_member">已经在圈子里了</string>
+    <string name="circle_err_last_circle">至少留一个圈子</string>
+
+    <!-- 徽章 -->
+    <string name="circle_badge_first_day">第一天</string>
+    <string name="circle_badge_three_receipts">三张连打</string>
+    <string name="circle_badge_regular_meals">吃饭规律</string>
+    <string name="circle_badge_coffee">咖啡续命</string>
+    <string name="circle_badge_stock_up">囤货达人</string>
+    <string name="circle_badge_commute">通勤战士</string>
+    <string name="circle_badge_early_night">早睡省钱</string>
+    <string name="circle_badge_budget_guard">预算守门</string>
+    <string name="circle_badge_cool_head">冷静选手</string>
+    <string name="circle_badge_best_life">最会过日子</string>
+
+    <!-- 排行榜 -->
+    <string name="circle_lb_title">排行榜</string>
+    <string name="circle_lb_week">%1$s · 第 %2$s 周</string>
+    <string name="circle_lb_least">支出最少</string>
+    <string name="circle_lb_most">支出最多</string>
+    <string name="circle_lb_streak">连续记账</string>
+    <string name="circle_lb_badges">徽章墙</string>
+    <string name="circle_lb_gate">本周只有 %1$d 人有数据，凑够 3 人再发榜。</string>
+    <string name="circle_lb_invite">邀请家人</string>
+    <string name="circle_lb_unshared">%1$d 人未共享今日总额，不参与排名</string>
+    <string name="circle_lb_count">%1$d 笔</string>
+    <string name="circle_lb_best_streak">最长 %1$d 天</string>
+    <string name="circle_lb_dormant">钱包休眠</string>
+    <string name="circle_lb_streak_unit">%1$d 天</string>
+    <string name="circle_lb_badge_unit">%1$d 枚</string>
+    <string name="circle_lb_empty_week">本周刚开始，先记一笔</string>
+    <string name="circle_lb_badge_caption">本周获得的徽章，纯娱乐</string>
+    <string name="circle_lb_footer">榜单只排总额和连续天数，永远不排单笔明细，也不显示别人的商户名。</string>
+
+    <!-- 分享到圈子 -->
+    <string name="circle_send_title">分享到圈子</string>
+    <string name="circle_send_subtitle">选一个或几个圈子</string>
+    <string name="circle_send_members">%1$d 人</string>
+    <string name="circle_send_public">会公开：%1$s</string>
+    <string name="circle_send_nothing">什么都不公开，只留一句「今天记过账」</string>
+    <string name="circle_send_hidden">；不公开：%1$s</string>
+    <string name="circle_send_separator">、</string>
+    <string name="circle_send_confirm">发到 %1$d 个圈子</string>
+    <string name="circle_send_confirm_empty">选一个圈子</string>
+    <string name="circle_send_no_circles">还没有圈子，先在菜单里建一个吧</string>
+    <string name="circle_send_footer">账单只在本机解析；圈子里的家人只看到你授权的那几项。</string>
+
+    <string name="circle_menu_share">分享到圈子</string>
+    <string name="circle_menu_share_sub">把小票发进选中的圈子</string>
+</resources>
