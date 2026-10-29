@@ -6,7 +6,7 @@ import { useLedger } from "@/services/LedgerProvider";
 import { cn } from "@/lib/utils";
 import { CIRCLES, ME, memberOf, seedMessages, weeklyFacts, type CircleMessage } from "../circleData";
 import { money } from "../format";
-import { Card, EmptyState, Hint } from "../ui";
+import { Button, Card, EmptyState, Hint } from "../ui";
 import { s } from "../strings";
 
 function Avatar({ emoji, self }: { emoji: string; self?: boolean }) {
@@ -20,6 +20,10 @@ export function CirclePage() {
   const [draft, setDraft] = useState("");
 
   const circle = CIRCLES.find((c) => c.id === circleId) ?? CIRCLES[0];
+  const week = useMemo(() => {
+    const start = weekStartOf(now);
+    return weeklyFacts(txns, start, addDays(start, 7));
+  }, [txns, now]);
   const room = useMemo(() => messages.filter((m) => m.circleId === circle.id), [messages, circle.id]);
 
   const send = (text: string, weekly?: CircleMessage["weekly"]) => {
@@ -63,10 +67,15 @@ export function CirclePage() {
 
       <Card className="col-span-12 flex h-[520px] min-h-0 flex-col xl:col-span-6 xl:h-auto" padded={false} fill>
         <header className="flex h-11 shrink-0 items-center justify-between border-b border-d-hairline px-4">
-          <h2 className="flex items-center gap-1.5 text-[13px] font-semibold text-d-ink-2">
-            <Users className="size-3.5" strokeWidth={1.9} aria-hidden />
-            {circle.emoji} {circle.name}
-          </h2>
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-1.5 truncate text-[13px] font-semibold text-d-ink-2">
+              <Users className="size-3.5 shrink-0" strokeWidth={1.9} aria-hidden />
+              {circle.emoji} {circle.name}
+            </h2>
+            <p className="mt-0.5 truncate pl-[22px] text-[11px] text-d-ink-3">
+              {s("ci.roomMeta").replace("{count}", String(circle.members.length))}
+            </p>
+          </div>
           <button type="button" onClick={shareWeek} className="d-press flex h-7 items-center gap-1 rounded-md bg-d-fill px-2 text-[12px] text-d-ink-2 hover:text-d-ink">
             <Share2 className="size-3.5" strokeWidth={1.8} aria-hidden />
             {s("ci.shareWeek")}
@@ -75,7 +84,7 @@ export function CirclePage() {
 
         <div className="d-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {room.length === 0 ? (
-            <EmptyState icon={Users} title={s("ci.empty")} className="py-10" />
+            <EmptyState art="/img/app-empty-circle.webp" title={s("ci.empty")} className="py-8" />
           ) : (
             room.map((m) => {
               const member = memberOf(circle, m.memberId);
@@ -134,6 +143,24 @@ export function CirclePage() {
       </Card>
 
       <div className="col-span-12 flex min-h-0 flex-col gap-5 xl:col-span-3">
+        <Card title={s("ci.weekCard")}>
+          {week.count === 0 ? (
+            <Hint>{s("ci.weekEmpty")}</Hint>
+          ) : (
+            <>
+              <p className="text-[11.5px] text-d-ink-3">{s("ci.weekTotal")}</p>
+              <p className="num mt-0.5 text-[22px] font-semibold leading-7 text-d-ink">{money(week.totalCents)}</p>
+              <p className="mt-1 text-[12px] text-d-ink-2">
+                {week.count} {s("ledger.itemUnit")}
+                {week.top ? ` · ${CATEGORIES[week.top].label}` : ""}
+              </p>
+              <Button size="sm" variant="primary" className="mt-3" onClick={shareWeek}>
+                {s("ci.shareWeek")}
+              </Button>
+            </>
+          )}
+        </Card>
+
         <Card title={s("ci.members")} padded={false}>
           <ul className="space-y-1 px-3 pb-3">
             {circle.members.map((m) => (

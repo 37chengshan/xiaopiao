@@ -237,7 +237,7 @@ export function RevenuePage() {
                           aria-label={fill(t("revenue.selected"), `${rows.length}`)}
                           checked={allSelected}
                           onChange={() => setSelected(allSelected ? new Set() : new Set(rows.map((e) => e.day)))}
-                          className="size-3.5 accent-[var(--d-accent)]"
+                          className="size-3.5 accent-[var(--d-accent-ink)]"
                         />
                       </th>
                       <SortHeader
@@ -309,7 +309,7 @@ export function RevenuePage() {
                                     return next;
                                   })
                                 }
-                                className="size-3.5 accent-[var(--d-accent)]"
+                                className="size-3.5 accent-[var(--d-accent-ink)]"
                               />
                             </td>
                             <td className="px-2 py-[9px] text-d-ink">
@@ -327,7 +327,7 @@ export function RevenuePage() {
                                     if (e.key === "Enter") commitEdit();
                                     if (e.key === "Escape") setEditing(null);
                                   }}
-                                  className="h-7 w-24 rounded-md bg-d-surface px-1.5 text-right text-[13px] tabular-nums text-d-ink outline-none ring-2 ring-d-accent/50"
+                                  className="h-7 w-24 rounded-md bg-d-surface px-1.5 text-right text-[13px] tabular-nums text-d-ink outline-none ring-2 ring-d-accent-ink/45"
                                 />
                               ) : (
                                 <button
@@ -379,7 +379,7 @@ export function RevenuePage() {
 
       {dragging && (
         <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-d-canvas/80">
-          <div className="rounded-xl border-2 border-dashed border-d-accent px-10 py-8 text-[14px] font-medium text-d-accent">
+          <div className="rounded-xl border-2 border-dashed border-d-accent px-10 py-8 text-[14px] font-medium text-d-accent-ink">
             {t("revenue.drag")}
           </div>
         </div>

@@ -12,13 +12,14 @@ import { CountUp, Reveal } from "./reveal";
  * These are local to `features/biz` for now; the shared shell lane owns `components/desktop`.
  */
 
-/** Content column: max 1200, 32px gutters, 12-column grid with 20px gaps (use `grid grid-cols-12 gap-5`). */
+/**
+ * Every `/app/biz/*` page renders inside the desktop shell, which already owns the canvas, the
+ * 1200px column and its gutters. This used to repeat all three, so the shop pages sat 20px lower
+ * and narrower than the personal ones (caught in the 2026-10-28 polish audit) — it is now only a
+ * layout hook. The grid (`grid grid-cols-12 gap-5`) stays in each page.
+ */
 export function BizPage({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className="min-h-dvh bg-d-canvas text-d-ink">
-      <div className={cn("mx-auto w-full max-w-[1200px] px-4 pb-16 pt-6 sm:px-8", className)}>{children}</div>
-    </div>
-  );
+  return <div className={cn("min-w-0", className)}>{children}</div>;
 }
 
 export function Card({
@@ -173,7 +174,7 @@ export function Button({
         "biz-press inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-medium leading-4 disabled:opacity-40",
         tone === "solid" && "bg-d-ink text-d-canvas hover:opacity-90",
         tone === "fill" && "bg-d-fill text-d-ink hover:bg-d-hairline",
-        tone === "quiet" && "text-d-accent hover:underline",
+        tone === "quiet" && "text-d-accent-ink hover:underline",
         className,
       )}
     >
@@ -222,7 +223,7 @@ export function Chip({ children, tone = "neutral" }: { children: ReactNode; tone
       className={cn(
         "inline-flex h-5 items-center rounded px-1.5 text-[11px] font-medium leading-3",
         tone === "neutral" && "bg-d-fill text-d-ink-2",
-        tone === "accent" && "bg-d-accent/10 text-d-accent",
+        tone === "accent" && "bg-d-accent/10 text-d-accent-ink",
         tone === "warn" && "bg-d-warning/10 text-d-warning",
       )}
     >

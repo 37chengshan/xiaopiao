@@ -21,14 +21,19 @@ function NavRow({ item, active, collapsed }: { item: NavItem; active: boolean; c
       aria-current={active ? "page" : undefined}
       title={collapsed ? item.label() : undefined}
       className={cn(
-        "d-press relative flex h-[30px] items-center overflow-hidden rounded-lg text-[13px] font-medium transition-colors",
-        collapsed ? "mx-auto w-8 justify-center" : "gap-2 px-2.5",
+        "d-press relative flex h-[30px] items-center rounded-lg text-[13px] font-medium transition-colors",
+        "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent-ink",
+        collapsed ? "mx-auto w-8 justify-center" : "gap-2 pl-3 pr-2.5",
         active ? "text-d-ink" : "text-d-ink-2 hover:bg-d-fill/50 hover:text-d-ink",
         active && collapsed && "bg-d-fill",
       )}
     >
       {active && !collapsed && <motion.span aria-hidden layoutId="side-nav-active" transition={SPRING_SLIDE} className="absolute inset-0 rounded-lg bg-d-fill" />}
-      <Icon className="relative size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+      {/* 2px warm bar marks the current page; it slides between rows with the same spring. */}
+      {active && !collapsed && (
+        <motion.span aria-hidden layoutId="side-nav-bar" transition={SPRING_SLIDE} className="absolute left-0 top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-d-accent" />
+      )}
+      <Icon className={cn("relative size-4 shrink-0", active && "text-d-ink")} strokeWidth={active ? 2 : 1.75} aria-hidden />
       <motion.span animate={{ opacity: collapsed ? 0 : 1 }} transition={{ duration: 0.1 }} className="relative truncate whitespace-nowrap">
         {item.label()}
       </motion.span>

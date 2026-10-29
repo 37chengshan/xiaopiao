@@ -434,7 +434,17 @@ html [data-sonner-toast] {
   --d-ink-3: oklch(0.752 0.006 286.3); /* #AEAEB2 */
   --d-hairline: oklch(0.923 0.007 286.3); /* #E5E5EA */
   --d-fill: oklch(0.947 0.004 286.3); /* #EDEDF0 */
-  --d-accent: oklch(0.522 0.177 255.8); /* #0066CC */
+  /* Warm orange is the house accent (tt 2026-10-28). Two tokens, because one colour cannot do both jobs:
+   * `--d-accent` is the brand fill (bars, badge dots, switches) and `--d-accent-ink` is the readable
+   * variant for text, thin chart strokes and focus rings — #FF8A00 on white is only 2.4:1. */
+  --d-accent: #ff8a00; /* brand orange, fills only */
+  --d-accent-ink: #b45309; /* 5.0:1 on surface — links, accent text, series lines, focus rings */
+  --d-highlight: #ffc93c; /* warm yellow, "today's receipt" surfaces */
+  /* The warm hero band. Light mode is the full yellow; dark mode is a deep amber wash so white text
+   * never has to sit on #FFD60A. Both ink tokens are fixed, so the band reads the same either way. */
+  --d-hero-bg: #ffc93c;
+  --d-hero-ink: #1d1d1f;
+  --d-hero-ink-2: rgb(29 29 31 / 66%);
   --d-positive: oklch(0.558 0.146 147.5); /* #248A3D */
   --d-negative: oklch(0.553 0.225 27.3); /* #D70015 */
   --d-warning: oklch(0.547 0.147 48.9); /* #B25000 */
@@ -448,7 +458,12 @@ html [data-sonner-toast] {
   --d-ink-3: oklch(0.501 0.005 286.2); /* #636366 */
   --d-hairline: oklch(0.341 0.003 286.2); /* #38383A */
   --d-fill: oklch(0.294 0.004 286.2); /* #2C2C2E */
-  --d-accent: oklch(0.669 0.181 251.8); /* #2997FF */
+  --d-accent: #ff9f0a; /* brand orange on black, 8.3:1 */
+  --d-accent-ink: #ffb340; /* slightly lighter twin: text, series, focus rings */
+  --d-highlight: #ffd60a; /* warm yellow on black */
+  --d-hero-bg: #2a2005; /* amber wash, not a lamp */
+  --d-hero-ink: #ffe08a;
+  --d-hero-ink-2: rgb(255 224 138 / 68%);
   --d-positive: oklch(0.756 0.208 147.0); /* #30D158 */
   --d-negative: oklch(0.663 0.224 28.3); /* #FF453A */
   --d-warning: oklch(0.782 0.171 67.2); /* #FF9F0A */
@@ -463,6 +478,11 @@ html [data-sonner-toast] {
   --color-d-hairline: var(--d-hairline);
   --color-d-fill: var(--d-fill);
   --color-d-accent: var(--d-accent);
+  --color-d-accent-ink: var(--d-accent-ink);
+  --color-d-highlight: var(--d-highlight);
+  --color-d-hero: var(--d-hero-bg);
+  --color-d-hero-ink: var(--d-hero-ink);
+  --color-d-hero-ink-2: var(--d-hero-ink-2);
   --color-d-positive: var(--d-positive);
   --color-d-negative: var(--d-negative);
   --color-d-warning: var(--d-warning);

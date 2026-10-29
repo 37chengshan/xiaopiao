@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { AlertTriangle, Plus } from "lucide-react";
+import { Plus, Printer, RefreshCw } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CATEGORIES, startOfDay, type Txn } from "@/domain/types";
 import { addDays, hhmm } from "@/logic/time";
@@ -14,6 +14,58 @@ import { monthStartOf, peakDayOf, seriesOf, sumOut } from "../statsModel";
 import { Button, Card, EmptyState, Hint, Kpi, Skeleton } from "../ui";
 import { s } from "../strings";
 import { useShell } from "../Shell";
+
+/**
+ * The warm band at the top of 总览 (tt 2026-10-28): today's receipt, one plain sentence about it,
+ * and the print button. It is the only saturated surface on the page, so it sets the mood without
+ * competing with the numbers below.
+ */
+function TodayStrip({ count, total, top, onPrint, onRecord }: {
+  count: number;
+  total: number;
+  top: { merchant: string; cents: number } | null;
+  onPrint: () => void;
+  onRecord: () => void;
+}) {
+  const { now } = useLedger();
+  const sentence =
+    count === 0
+      ? s("hero.empty")
+      : (count === 1 ? s("hero.sentenceOne") : s("hero.sentence"))
+          .replace("{count}", String(count))
+          .replace("{total}", money(total))
+          .replace("{merchant}", top?.merchant ?? s("common.none"))
+          .replace("{amount}", money(top?.cents ?? 0));
+
+  return (
+    <section className="relative flex min-w-0 flex-col gap-5 overflow-hidden rounded-2xl bg-d-hero px-5 py-5 text-d-hero-ink sm:flex-row sm:items-center sm:px-6 sm:py-5">
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-d-hero-ink-2">
+          <span aria-hidden className="size-1.5 rounded-full bg-d-hero-ink" />
+          {s("hero.kicker")}
+          <span className="font-normal normal-case tracking-normal">{dayLabel(now)}</span>
+        </p>
+        <p className="mt-2 text-[16px] font-semibold leading-[24px] tracking-[-0.01em]">{sentence}</p>
+        <div className="mt-3.5 flex flex-wrap items-center gap-2">
+          <Button variant="primary" size="sm" icon={Printer} onClick={onPrint} className="bg-d-hero-ink text-d-hero hover:bg-d-hero-ink/90">
+            {s("hero.print")}
+          </Button>
+          <Button size="sm" onClick={onRecord} className="bg-d-hero-ink/10 text-d-hero-ink hover:bg-d-hero-ink/18">
+            {s("hero.record")}
+          </Button>
+          <span className="text-[11.5px] text-d-hero-ink-2">{s("hero.paperHint")}</span>
+        </div>
+      </div>
+      <img
+        src="/img/app-today.webp"
+        alt=""
+        aria-hidden
+        loading="lazy"
+        className="hidden h-[112px] w-[150px] shrink-0 rounded-xl object-cover sm:block"
+      />
+    </section>
+  );
+}
 
 /** 近 30 天 / 本月的事实小结：只陈述，不评判，不给建议。 */
 function SummaryFacts({ facts }: { facts: { top: string | null; topCents: number; share: number; vsPrevPct: number | null; vsPrevDir: "up" | "down" | "flat"; prevCents: number; peakDay: number | null; peakCents: number } }) {
@@ -74,6 +126,12 @@ export function OverviewPage() {
     const monthIn = txns.filter((t) => t.direction === "IN" && t.occurredAt >= monthStart && t.occurredAt < monthEnd).reduce((sum, t) => sum + t.amountCents, 0);
     const prevMonthIn = txns.filter((t) => t.direction === "IN" && t.occurredAt >= prevMonthStart && t.occurredAt < prevMonthEnd).reduce((sum, t) => sum + t.amountCents, 0);
 
+    const todayTxns = txns.filter((t) => t.direction === "OUT" && t.occurredAt >= today && t.occurredAt < monthEnd);
+    const topToday = todayTxns.reduce<{ merchant: string; cents: number } | null>(
+      (best, t) => (best === null || t.amountCents > best.cents ? { merchant: t.merchant, cents: t.amountCents } : best),
+      null,
+    );
+
     const monthDays = new Set(txns.filter((t) => t.occurredAt >= monthStart && t.occurredAt < monthEnd).map((t) => startOfDay(t.occurredAt)));
     const trend30 = seriesOf("custom", { start: addDays(today, -29), end: addDays(today, 1) }, txns, null);
 
@@ -92,7 +150,7 @@ export function OverviewPage() {
     const peak = peakDayOf(txns, { start: addDays(today, -29), end: addDays(today, 1) });
     const topCategory = sorted[0];
 
-    return { todayOut, yestOut, monthOut, prevMonthOut, monthIn, prevMonthIn, monthDays, trend30, mix: top, mixTotal, recent, peak, topCategory };
+    return { todayTxns, topToday, todayOut, yestOut, monthOut, prevMonthOut, monthIn, prevMonthIn, monthDays, trend30, mix: top, mixTotal, recent, peak, topCategory };
   }, [txns, now]);
 
   const columns: Column<Txn>[] = [
@@ -131,14 +189,6 @@ export function OverviewPage() {
     },
   ];
 
-  if (isError) {
-    return (
-      <Card padded={false}>
-        <EmptyState icon={AlertTriangle} title={s("common.error")} action={<Button variant="primary" onClick={refetch}>{s("common.retry")}</Button>} />
-      </Card>
-    );
-  }
-
   const vsPrev = delta(data.monthOut, data.prevMonthOut);
   const share = data.mixTotal > 0 ? Math.round(((data.mix[0]?.value ?? 0) / data.mixTotal) * 100) : 0;
   const facts = {
@@ -171,6 +221,16 @@ export function OverviewPage() {
   return (
     <Loadable loading={skeleton} skeleton={skeletonGrid}>
       <div className="grid grid-cols-12 gap-5">
+        <div className="col-span-12">
+          <TodayStrip
+            count={data.todayTxns.length}
+            total={data.todayOut}
+            top={data.topToday}
+            onPrint={() => shell.openPrint()}
+            onRecord={() => shell.openEntry()}
+          />
+        </div>
+
         <div className="col-span-12 grid grid-cols-2 gap-5 xl:grid-cols-4">
           <Stagger index={0}>
             <Kpi label={s("ov.todayOut")} cents={data.todayOut} delta={delta(data.todayOut, data.yestOut)} vs={s("ov.vsYesterday")} />
@@ -193,7 +253,21 @@ export function OverviewPage() {
 
         <Stagger index={4} className="col-span-12 xl:col-span-8">
           <Card className="h-full" title={s("ov.trend")} action={<Hint>{s("ov.trendHint")}</Hint>}>
-            <AreaTrend points={data.trend30} compareName={s("stats.previous")} valueName={s("ov.trend")} height={236} interval={4} />
+            {data.mixTotal === 0 && data.trend30.every((point) => point.value === 0) ? (
+              <EmptyState
+                art="/img/app-empty-ledger.webp"
+                title={s("ov.emptyTrendTitle")}
+                hint={s("ov.emptyTrendHint")}
+                action={
+                  <Button variant="primary" size="sm" icon={Plus} onClick={() => shell.openEntry()}>
+                    {s("hero.record")}
+                  </Button>
+                }
+                className="py-6"
+              />
+            ) : (
+              <AreaTrend points={data.trend30} compareName={s("stats.previous")} valueName={s("ov.trend")} height={236} interval={4} />
+            )}
           </Card>
         </Stagger>
 
@@ -245,9 +319,9 @@ export function OverviewPage() {
               maxHeight="360px"
               empty={
                 <EmptyState
-                  icon={Plus}
-                  title={s("ledger.empty")}
-                  hint={s("ledger.emptyHint")}
+                  art="/img/app-empty-ledger.webp"
+                  title={s("empty.ledgerTitle")}
+                  hint={s("empty.ledgerHint")}
                   action={
                     <Button variant="primary" icon={Plus} onClick={() => shell.openEntry()}>
                       {s("cm.record")}

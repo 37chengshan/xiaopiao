@@ -1,43 +1,29 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Link, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import { NotFound } from "@/features/notfound/NotFound";
 
+/** Unknown hash path: the full-bleed 404 screen, same one the router falls back to. */
 function NotFoundComponent() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold text-foreground">页面未找到</h1>
-        <p className="mt-2 text-sm text-muted-foreground">你访问的页面不存在，或已被移动。</p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            返回首页
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
+  return <NotFound />;
 }
 
+/** A crashed route keeps the shell's own typography and the warm focus ring instead of legacy tokens. */
 function ErrorComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center bg-d-canvas px-4 text-d-ink">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">页面加载失败</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          页面暂时无法加载。你可以尝试重试，或返回首页。
-        </p>
+        <h1 className="text-[17px] font-semibold tracking-[-0.01em]">页面加载失败</h1>
+        <p className="mt-2 text-[13px] leading-[20px] text-d-ink-2">页面暂时无法加载。你可以尝试重试，或返回首页。</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => window.location.reload()}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="d-press inline-flex h-9 items-center justify-center rounded-lg bg-d-ink px-3.5 text-[13px] font-medium text-d-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-d-accent-ink"
           >
             重试
           </button>
           <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+            href="#/"
+            className="d-press inline-flex h-9 items-center justify-center rounded-lg bg-d-fill px-3.5 text-[13px] font-medium text-d-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-d-accent-ink"
           >
             返回首页
           </a>

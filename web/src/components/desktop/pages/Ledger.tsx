@@ -1,5 +1,5 @@
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-import { Download, Filter, Plus, Upload, X } from "lucide-react";
+import { Download, Filter, Plus, RefreshCw, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { notifyUndo } from "../toast";
@@ -240,7 +240,7 @@ export function LedgerPage() {
 
         <PopoverPrimitive.Root open={filterOpen} onOpenChange={setFilterOpen}>
           <PopoverPrimitive.Trigger asChild>
-            <Button variant={filterCount > 0 ? "quiet" : "quiet"} icon={Filter} className={cn(filterCount > 0 && "text-d-accent")}>
+            <Button variant={filterCount > 0 ? "quiet" : "quiet"} icon={Filter} className={cn(filterCount > 0 && "text-d-accent-ink")}>
               {s("ledger.filter")}
               {filterCount > 0 && <span className="num text-[11px]">{filterCount}</span>}
             </Button>
@@ -250,7 +250,7 @@ export function LedgerPage() {
               <div className="space-y-3.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] font-semibold text-d-ink">{s("ledger.filters")}</span>
-                  <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="d-press text-[12px] text-d-accent">
+                  <button type="button" onClick={() => setFilters(EMPTY_FILTERS)} className="d-press text-[12px] text-d-accent-ink">
                     {s("ledger.clearFilters")}
                   </button>
                 </div>
@@ -315,7 +315,7 @@ export function LedgerPage() {
                           type="button"
                           aria-pressed={on}
                           onClick={() => setFilters((f) => ({ ...f, categories: on ? f.categories.filter((c) => c !== key) : [...f.categories, key] }))}
-                          className={cn("d-press h-6 rounded-md px-2 text-[12px]", on ? "bg-d-accent/10 text-d-accent" : "bg-d-fill text-d-ink-2 hover:text-d-ink")}
+                          className={cn("d-press h-6 rounded-md px-2 text-[12px]", on ? "bg-d-accent/10 text-d-accent-ink" : "bg-d-fill text-d-ink-2 hover:text-d-ink")}
                         >
                           {CATEGORIES[key].label}
                         </button>
@@ -357,7 +357,7 @@ export function LedgerPage() {
                           type="button"
                           aria-pressed={on}
                           onClick={() => setFilters((f) => ({ ...f, sources: on ? f.sources.filter((c) => c !== key) : [...f.sources, key] }))}
-                          className={cn("d-press h-6 rounded-md px-2 text-[12px]", on ? "bg-d-accent/10 text-d-accent" : "bg-d-fill text-d-ink-2 hover:text-d-ink")}
+                          className={cn("d-press h-6 rounded-md px-2 text-[12px]", on ? "bg-d-accent/10 text-d-accent-ink" : "bg-d-fill text-d-ink-2 hover:text-d-ink")}
                         >
                           {SOURCE_LABEL[key]}
                         </button>
@@ -429,7 +429,11 @@ export function LedgerPage() {
 
       {isError ? (
         <Card padded={false}>
-          <EmptyState icon={Upload} title={s("common.error")} action={<Button variant="primary" onClick={refetch}>{s("common.retry")}</Button>} />
+          <EmptyState
+            title={s("empty.errorTitle")}
+            hint={s("empty.errorHint")}
+            action={<Button variant="primary" icon={RefreshCw} onClick={refetch}>{s("common.retry")}</Button>}
+          />
         </Card>
       ) : (
         <Loadable loading={skeleton} skeleton={<Skeleton rows={8} />}>
@@ -453,9 +457,9 @@ export function LedgerPage() {
               rows.length === 0 ? (
                 txns.length === 0 ? (
                   <EmptyState
-                    icon={Plus}
-                    title={s("ledger.empty")}
-                    hint={s("ledger.emptyHint")}
+                    art="/img/app-empty-ledger.webp"
+                    title={s("empty.ledgerTitle")}
+                    hint={s("empty.ledgerHint")}
                     action={<Button variant="primary" icon={Plus} onClick={() => shell.openEntry()}>{s("cm.record")}</Button>}
                   />
                 ) : (

@@ -113,7 +113,7 @@ function TemplateRow({
       )}
     >
       <span className="min-w-0 flex-1 text-[13px] font-medium leading-5 text-d-ink">{template.title}</span>
-      {selected && <Check className="size-4 text-d-accent" strokeWidth={2.25} aria-hidden />}
+      {selected && <Check className="size-4 text-d-accent-ink" strokeWidth={2.25} aria-hidden />}
     </button>
   );
 }

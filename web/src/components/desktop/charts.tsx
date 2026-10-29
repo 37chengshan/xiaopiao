@@ -63,7 +63,8 @@ function readChartColors() {
   const css = getComputedStyle(document.documentElement);
   const read = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
   return {
-    accent: read("--d-accent", "#0066CC"),
+    accent: read("--d-accent", "#FF8A00"),
+    accentInk: read("--d-accent-ink", "#B45309"),
     ink3: read("--d-ink-3", "#AEAEB2"),
     hairline: read("--d-hairline", "#E5E5EA"),
     fill: read("--d-fill", "#EDEDF0"),
@@ -115,7 +116,7 @@ export function AreaTrend({ points, height = 220, compareName, valueName, interv
         <AreaChart data={points} margin={{ top: 8, right: 6, bottom: 0, left: -6 }}>
           <defs>
             <linearGradient id="d-area-fill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={c.accent} stopOpacity={0.18} />
+              <stop offset="0%" stopColor={c.accent} stopOpacity={0.22} />
               <stop offset="100%" stopColor={c.accent} stopOpacity={0} />
             </linearGradient>
           </defs>
@@ -123,7 +124,7 @@ export function AreaTrend({ points, height = 220, compareName, valueName, interv
           <YAxis tick={axis} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => moneyShort(v)} />
           <RechartsTooltip content={<TipBox accent={c.accent} />} cursor={{ stroke: c.hairline }} />
           {hasCompare && <Area type="monotone" dataKey="compare" name={compareName} stroke={c.ink3} strokeOpacity={0.3} strokeWidth={1.25} fill="transparent" strokeDasharray="3 3" dot={false} isAnimationActive={animate} animationDuration={500} />}
-          <Area type="monotone" dataKey="value" name={valueName} stroke={c.accent} strokeWidth={1.75} fill="url(#d-area-fill)" dot={false} activeDot={{ r: 3, strokeWidth: 0 }} isAnimationActive={animate} animationDuration={500} />
+          <Area type="monotone" dataKey="value" name={valueName} stroke={c.accentInk} strokeWidth={1.75} fill="url(#d-area-fill)" dot={false} activeDot={{ r: 3, strokeWidth: 0 }} isAnimationActive={animate} animationDuration={500} />
         </AreaChart>
       </ResponsiveContainer>
     </div>

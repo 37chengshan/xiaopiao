@@ -17,7 +17,7 @@ import { MiniBars, type Point } from "../charts";
 import { money } from "../format";
 import { useDayDoc } from "../receiptDoc";
 import { seriesOf } from "../statsModel";
-import { Button, Card, EmptyState, Hint, Kbd } from "../ui";
+import { Button, Card, Hint, Kbd } from "../ui";
 import { s } from "../strings";
 import { useShell } from "../Shell";
 
@@ -88,6 +88,64 @@ function Facts({ rows }: { rows: { label: string; value: string }[] }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/**
+ * What the sources panel shows before the first answer: the same blocks a real answer cites
+ * (a 7-day strip, today's total, the last three entries), so the column is never a blank wall.
+ */
+function LocalBook({ txns, today, onRecord }: { txns: Txn[]; today: number; onRecord: () => void }) {
+  const points: Point[] = seriesOf("custom", { start: addDays(today, -6), end: addDays(today, 1) }, txns, null);
+  const weekTotal = points.reduce((sum, p) => sum + p.value, 0);
+  const todayTotal = txns.filter((t) => t.direction === "OUT" && t.occurredAt >= today).reduce((sum, t) => sum + t.amountCents, 0);
+  const recent = [...txns].sort((a, b) => b.occurredAt - a.occurredAt).slice(0, 3);
+
+  return (
+    <div className="space-y-2">
+      <p className="px-1 text-[11.5px] font-medium text-d-ink-2">{s("ai.localBook")}</p>
+
+      <div className="rounded-lg bg-d-fill/50 p-2.5">
+        <p className="mb-1.5 flex items-baseline justify-between text-[11.5px] text-d-ink-2">
+          <span>{s("ai.localWeek")}</span>
+          <span className="num text-[11px] text-d-ink-3">{money(weekTotal)}</span>
+        </p>
+        <MiniBars points={points} />
+      </div>
+
+      <dl className="grid grid-cols-2 gap-2">
+        <div className="rounded-lg bg-d-fill/50 px-2.5 py-2">
+          <dt className="text-[11px] text-d-ink-3">{s("ai.localToday")}</dt>
+          <dd className="num mt-0.5 text-[15px] font-semibold text-d-ink">{money(todayTotal)}</dd>
+        </div>
+        <div className="rounded-lg bg-d-fill/50 px-2.5 py-2">
+          <dt className="text-[11px] text-d-ink-3">{s("ci.weekCount")}</dt>
+          <dd className="num mt-0.5 text-[15px] font-semibold text-d-ink">
+            {points.reduce((n, p) => n + (p.value > 0 ? 1 : 0), 0)}
+            <span className="ml-0.5 text-[11px] font-normal text-d-ink-3">{s("ov.dayUnit")}</span>
+          </dd>
+        </div>
+      </dl>
+
+      {recent.length > 0 && (
+        <div className="rounded-lg bg-d-fill/50 p-2">
+          <p className="px-1 pb-1 text-[11px] text-d-ink-3">{s("ai.localRecent")}</p>
+          {recent.map((t) => (
+            <div key={t.id} className="flex items-center gap-2 px-1 py-1 text-[12px]">
+              <span aria-hidden>{CATEGORIES[t.category].emoji}</span>
+              <span className="min-w-0 flex-1 truncate text-d-ink">{t.merchant}</span>
+              <span className="num shrink-0 text-d-ink-2">{money(t.amountCents)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="px-1 pt-1 text-[11px] leading-[16px] text-d-ink-3">{s("ai.localBookHint")}</p>
+
+      <Button size="sm" variant="ghost" icon={Plus} onClick={onRecord}>
+        {s("cm.record")}
+      </Button>
+    </div>
   );
 }
 
@@ -412,7 +470,11 @@ export function AiPage() {
             <span>{ref.kind === "chartWeek" ? s("ci.weekly") : s("ov.last7")}</span>
             <span className="num text-[11px] text-d-ink-3">{money(total)}</span>
           </p>
-          <MiniBars points={points} />
+          {total === 0 ? (
+            <p className="py-3 text-center text-[11.5px] text-d-ink-3">{s("ai.refsNoData")}</p>
+          ) : (
+            <MiniBars points={points} />
+          )}
         </div>
       );
     }
@@ -605,7 +667,7 @@ export function AiPage() {
                         {m.phase === "error" && (
                           <p className="mt-1 flex items-center gap-2 text-[12px] text-d-negative">
                             {s("ai.failed")}
-                            <button type="button" onClick={() => lastUser && void runTurn(lastUser.text ?? "")} className="d-press text-[12px] font-medium text-d-accent underline underline-offset-2">
+                            <button type="button" onClick={() => lastUser && void runTurn(lastUser.text ?? "")} className="d-press text-[12px] font-medium text-d-accent-ink underline underline-offset-2">
                               {s("ai.retry")}
                             </button>
                           </p>
@@ -622,6 +684,20 @@ export function AiPage() {
                     </div>
                   </div>
                 ),
+              )}
+              {!msgs.some((m) => m.role === "user") && (
+                <div className="flex flex-wrap gap-2 pl-[34px]">
+                  {[s("ai.starter1"), s("ai.starter2"), s("ai.starter3")].map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => void runTurn(q)}
+                      className="d-press rounded-full bg-d-fill px-3 py-1.5 text-[12.5px] text-d-ink-2 transition-colors hover:bg-d-hairline hover:text-d-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-d-accent-ink"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -688,7 +764,7 @@ export function AiPage() {
       <Card className="col-span-12 flex h-[340px] min-h-0 flex-col xl:col-span-4 xl:h-auto" padded={false} fill title={s("ai.refs")}>
         <div className="d-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-4">
           {!lastAi?.refs || lastAi.refs.length === 0 ? (
-            <EmptyState icon={Sparkles} title={s("ai.refsEmptyTitle")} hint={s("ai.refsEmpty")} className="px-2 py-10" />
+            <LocalBook txns={txns} today={today} onRecord={() => shell.openEntry()} />
           ) : (
             lastAi.refs.map((ref) => refContent(ref, lastAi.phase === "streaming" || lastAi.phase === "card"))
           )}

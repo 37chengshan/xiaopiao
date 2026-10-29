@@ -1,4 +1,4 @@
-import { Download, Eraser, Info, Languages, LogIn, Palette, ShieldCheck } from "lucide-react";
+import { Command, Download, Eraser, Info, Languages, LogIn, Palette, ShieldCheck } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useLedger } from "@/services/LedgerProvider";
@@ -7,7 +7,7 @@ import { useLocale } from "@/lib/strings";
 import { downloadCsv } from "../csvExport";
 import { Modal } from "../dialogs";
 import { setLocalePref } from "../localePref";
-import { Button, Card, Hint, Segmented } from "../ui";
+import { Button, Card, Hint, Kbd, Segmented } from "../ui";
 import { s } from "../strings";
 import pkg from "../../../../package.json";
 
@@ -22,6 +22,11 @@ function Row({ icon, label, hint, children }: { icon: ReactNode; label: string; 
       {children && <div className="shrink-0">{children}</div>}
     </div>
   );
+}
+
+/** A tiny key cap for the shortcut rows: the row icon is the shortcut itself. */
+function KeyboardGlyph({ keys }: { keys: string }) {
+  return <span className="font-mono text-[10px] font-semibold leading-none">{keys}</span>;
 }
 
 export function SettingsPage() {
@@ -72,6 +77,25 @@ export function SettingsPage() {
           />
         </Row>
 
+      </Card>
+
+      <Card title={s("st.shortcuts")} action={<Command className="size-3.5 text-d-ink-3" strokeWidth={1.8} aria-hidden />}>
+        <Row icon={<KeyboardGlyph keys="N" />} label={s("st.scRecord")}>
+          <Kbd>N</Kbd>
+        </Row>
+        <Row icon={<KeyboardGlyph keys="/" />} label={s("st.scSearch")}>
+          <span className="flex items-center gap-1">
+            <Kbd>/</Kbd>
+            <span className="text-[11px] text-d-ink-3">·</span>
+            <Kbd>⌘K</Kbd>
+          </span>
+        </Row>
+        <Row icon={<KeyboardGlyph keys="P" />} label={s("st.scPrint")}>
+          <Kbd>P</Kbd>
+        </Row>
+        <Row icon={<KeyboardGlyph keys="⌘\\" />} label={s("st.scSidebar")}>
+          <Kbd>⌘\</Kbd>
+        </Row>
       </Card>
 
       <Card title={s("st.data")}>

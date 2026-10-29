@@ -78,7 +78,7 @@ export function AddDayDialog({
             value={date}
             max={dateKey(today)}
             onChange={(e) => setDate(e.target.value)}
-            className="h-8 w-full rounded-lg bg-d-fill px-2.5 text-[13px] text-d-ink outline-none focus:ring-2 focus:ring-d-accent/40"
+            className="h-8 w-full rounded-lg bg-d-fill px-2.5 text-[13px] text-d-ink outline-none focus-visible:ring-2 focus-visible:ring-d-accent-ink/45"
           />
         </Field>
         <Field label={t("add.revenue")}>
@@ -87,7 +87,7 @@ export function AddDayDialog({
             value={revenue}
             placeholder={centsToInput(128_050)}
             onChange={(e) => setRevenue(e.target.value)}
-            className="h-8 w-full rounded-lg bg-d-fill px-2.5 text-[13px] tabular-nums text-d-ink outline-none focus:ring-2 focus:ring-d-accent/40"
+            className="h-8 w-full rounded-lg bg-d-fill px-2.5 text-[13px] tabular-nums text-d-ink outline-none focus-visible:ring-2 focus-visible:ring-d-accent-ink/45"
             autoFocus
           />
         </Field>
@@ -97,7 +97,7 @@ export function AddDayDialog({
             value={orders}
             placeholder="86"
             onChange={(e) => setOrders(e.target.value)}
-            className="h-8 w-full rounded-lg bg-d-fill px-2.5 text-[13px] tabular-nums text-d-ink outline-none focus:ring-2 focus:ring-d-accent/40"
+            className="h-8 w-full rounded-lg bg-d-fill px-2.5 text-[13px] tabular-nums text-d-ink outline-none focus-visible:ring-2 focus-visible:ring-d-accent-ink/45"
           />
         </Field>
         <Field label={t("add.note")}>
@@ -105,7 +105,7 @@ export function AddDayDialog({
             value={note}
             maxLength={40}
             onChange={(e) => setNote(e.target.value)}
-            className="h-8 w-full rounded-lg bg-d-fill px-2.5 text-[13px] text-d-ink outline-none focus:ring-2 focus:ring-d-accent/40"
+            className="h-8 w-full rounded-lg bg-d-fill px-2.5 text-[13px] text-d-ink outline-none focus-visible:ring-2 focus-visible:ring-d-accent-ink/45"
           />
         </Field>
         {error && <p className="text-[12px] leading-4 text-d-warning">{error}</p>}

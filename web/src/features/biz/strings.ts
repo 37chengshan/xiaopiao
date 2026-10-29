@@ -47,6 +47,10 @@ export const s = defineStrings(
     "chart.last14": "近 14 天",
     "chart.compare": "上一期",
     "chart.noData": "这段时间还没有记录",
+    "overview.manage": "录入 / 导入",
+    "overview.updated": "更新于 {}",
+    "chart.weekday": "周内分布",
+    "chart.weekdayHint": "近 8 周按星期几平均，只算有记录的天。",
 
     "summary.title": "本周小结",
     "summary.empty": "记上几天，这里就会说点什么。",
@@ -312,6 +316,10 @@ export const s = defineStrings(
     "chart.last14": "Last 14 days",
     "chart.compare": "Prior period",
     "chart.noData": "Nothing recorded in this stretch",
+    "overview.manage": "Add or import",
+    "overview.updated": "Updated {}",
+    "chart.weekday": "By weekday",
+    "chart.weekdayHint": "Averages over the last 8 weeks, counting only days with a number.",
 
     "summary.title": "This week, in facts",
     "summary.empty": "Record a few days and this fills in.",
