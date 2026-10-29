@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.isImeVisible
 import com.xiaopiao.app.ui.components.LocalTabBarInset
 import com.xiaopiao.app.ui.components.AppTopActions
 import com.xiaopiao.app.ui.components.NavIconButton
+import com.kyant.backdrop.backdrops.layerBackdrop
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
 import androidx.compose.animation.AnimatedContent
@@ -61,6 +62,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -103,13 +105,11 @@ import com.xiaopiao.app.ui.today.TodayGreeting
 import java.util.Calendar
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /** Characters per second for the streaming reply; dt-based, so refresh rate cannot change it. */
 private const val StreamCharsPerSecond = 78f
-
-/** Drawer travel applied to the page while the drawer is open (ChatGPT pushes the content a little). */
-private val DrawerPagePush = 24.dp
 
 /**
  * AI page (v7, docs/APP-DESIGN.md §3.4). Top bar: ☰ · segment · receipt strip · new chat. Body: one soft
@@ -145,11 +145,12 @@ fun ChatScreen(
 
     val conversation = remember { androidx.compose.runtime.mutableStateListOf<ChatItem>() }
     var seq by remember { mutableIntStateOf(0) }
+    var transcriptLoaded by remember { mutableStateOf(false) }
     fun newId(): Long = (++seq).toLong()
+
 
     var input by rememberSaveable { mutableStateOf("") }
     var scrollSignal by remember { mutableIntStateOf(0) }
-    var drawerOpen by remember { mutableStateOf(false) }
     var streaming by remember { mutableStateOf(false) }
     var streamJob by remember { mutableStateOf<Job?>(null) }
     val attachments = remember { androidx.compose.runtime.mutableStateListOf<ChatAttachment>() }
@@ -157,28 +158,26 @@ fun ChatScreen(
     var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val context = LocalContext.current
 
-    val sessions = remember { androidx.compose.runtime.mutableStateListOf<ChatSession>() }
-    var sessionSeq by remember { mutableIntStateOf(0) }
-    var activeSession by remember { mutableIntStateOf(++sessionSeq) }
+    // Open where we left off: the last conversation is restored from the phone, then written back
+    // (debounced) after every completed turn.
+    LaunchedEffect(Unit) {
+        if (conversation.isEmpty()) conversation.addAll(ChatTranscript.load(context))
+        seq = conversation.size
+        transcriptLoaded = true
+    }
+    LaunchedEffect(transcriptLoaded) {
+        if (!transcriptLoaded) return@LaunchedEffect
+        snapshotFlow { conversation.toList() }.collectLatest { list ->
+            kotlinx.coroutines.delay(400)
+            ChatTranscript.save(context, list)
+        }
+    }
 
     val haptics = rememberXpHaptics()
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val reduced = rememberReducedMotion()
     val focusRequester = remember { FocusRequester() }
-
-    /** Saves the open conversation into the drawer list (no-op for an untouched chat). */
-    fun archiveCurrent() {
-        if (conversation.none { it is ChatItem.User }) return
-        val saved = ChatSession(
-            id = activeSession,
-            title = SessionGroups.titleOf(conversation),
-            items = conversation.toList(),
-            updatedAt = System.currentTimeMillis(),
-        )
-        sessions.removeAll { it.id == activeSession }
-        sessions.add(0, saved)
-    }
 
     fun stopStreaming() {
         streamJob?.cancel()
@@ -438,20 +437,14 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(drawerOpen) { onDrawerOpenChange(drawerOpen) }
-
-    val drawer = remember { Animatable(if (drawerOpen) 1f else 0f) }
-    LaunchedEffect(drawerOpen) {
-        drawer.animateTo(if (drawerOpen) 1f else 0f, spring(dampingRatio = 1f, stiffness = 420f))
-    }
+    // The chat is a single conversation now (tt: no left drawer), so the shell never hides its bar.
+    LaunchedEffect(Unit) { onDrawerOpenChange(false) }
 
     Box(Modifier.fillMaxSize().background(chatBackdrop())) {
         // Same glass top bar as 记账 (docs/DESIGN.md §4.1): ☰ on the left, 小票 + 设置 on the right.
         NavScaffold(
             "AI",
             NavScrollNone,
-            modifier = Modifier.graphicsLayer { translationX = DrawerPagePush.toPx() * drawer.value },
-            leading = { NavIconButton(Icons.Outlined.Menu, "会话", onClick = { drawerOpen = true }) },
             trailing = { AppTopActions() },
         ) { top ->
         // The conversation runs under the floating input and the glass tab bar (docs/DESIGN.md §4.3); with the
@@ -460,8 +453,9 @@ fun ChatScreen(
         val barInset = if (imeUp) 0.dp else LocalTabBarInset.current
         val density = LocalDensity.current
         var composerH by remember { mutableStateOf(72.dp) }
+        val glass = com.kyant.backdrop.backdrops.rememberLayerBackdrop()
         Box(Modifier.fillMaxSize().background(chatBackdrop()).padding(top = top).imePadding()) {
-            Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().layerBackdrop(glass)) {
                 when {
                     conversation.isEmpty() -> ChatEmptyState(
                         hint = emptyHint(stats, hello),
@@ -506,6 +500,7 @@ fun ChatScreen(
                 attachments = attachments,
                 onRemoveAttachment = { attachments.remove(it) },
                 focusRequester = focusRequester,
+                glass = glass,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = barInset)
                     .onSizeChanged { composerH = with(density) { it.height.toDp() } },
             )
@@ -528,41 +523,6 @@ fun ChatScreen(
             )
         }
 
-        // Edge swipe to open; the drawer itself handles drag-to-close.
-        ChatDrawerEdge(onOpen = { drawerOpen = true }, modifier = Modifier.align(Alignment.CenterStart))
-
-        ChatDrawer(
-            open = drawerOpen,
-            sessions = sessions,
-            now = System.currentTimeMillis(),
-            onClose = { drawerOpen = false },
-            onNewChat = {
-                archiveCurrent()
-                conversation.clear()
-                activeSession = ++sessionSeq
-                drawerOpen = false
-            },
-            onOpenSession = { session ->
-                archiveCurrent()
-                conversation.clear()
-                conversation.addAll(session.items)
-                activeSession = session.id
-                drawerOpen = false
-            },
-            onRename = { session, title ->
-                val index = sessions.indexOfFirst { it.id == session.id }
-                if (index >= 0) sessions[index] = sessions[index].copy(title = title)
-            },
-            onDelete = { session ->
-                sessions.removeAll { it.id == session.id }
-                if (activeSession == session.id) {
-                    conversation.clear()
-                    activeSession = ++sessionSeq
-                }
-            },
-            onOpenSettings = { drawerOpen = false; onOpenSettings() },
-            progress = drawer,
-        )
     }
 }
 

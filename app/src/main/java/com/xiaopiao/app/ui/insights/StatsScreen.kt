@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.Icon
@@ -65,6 +66,7 @@ import com.xiaopiao.app.insights.StatsRange
 import com.xiaopiao.app.insights.StatsSnapshot
 import com.xiaopiao.app.insights.startOfWeek
 import com.xiaopiao.app.ui.components.BarTrend
+import com.xiaopiao.app.ui.components.EmptyState
 import com.xiaopiao.app.ui.components.DonutChart
 import com.xiaopiao.app.ui.components.GroupedRow
 import com.xiaopiao.app.ui.components.GroupedSection
@@ -338,20 +340,28 @@ fun StatsScreen(
                         direction = direction,
                         onDirection = { direction = it },
                     )
-                    if (narrative != null) {
-                        AiSummaryCard(
-                            title = snapshot.aiTitle,
-                            line = narrative,
-                            onOpen = onOpenAwards,
-                            modifier = Modifier.enterOnChange(snapshot.hashCode(), 0, reduceMotion),
+                    if (snapshot.entries.isEmpty()) {
+                        // Empty is normal here, so say what the page will become instead of showing blank cards.
+                        EmptyState(
+                            icon = Icons.Outlined.ReceiptLong,
+                            title = "这一段还没有账单",
+                            body = "记下第一笔后，这里会长出趋势、构成和排行。",
+                            modifier = Modifier.cardSurface().padding(vertical = XpSpace.m),
                         )
-                    }
-                    KpiCard(snapshot, Modifier.enterOnChange(snapshot.hashCode(), 1, reduceMotion))
-                    TrendCard(
-                        snapshot, Modifier.enterOnChange(snapshot.hashCode(), 2, reduceMotion),
-                        onPickBucket = { b -> anchor = b.start },
-                    )
-                    if (snapshot.entries.isNotEmpty()) {
+                    } else {
+                        if (narrative != null) {
+                            AiSummaryCard(
+                                title = snapshot.aiTitle,
+                                line = narrative,
+                                onOpen = onOpenAwards,
+                                modifier = Modifier.enterOnChange(snapshot.hashCode(), 0, reduceMotion),
+                            )
+                        }
+                        KpiCard(snapshot, Modifier.enterOnChange(snapshot.hashCode(), 1, reduceMotion))
+                        TrendCard(
+                            snapshot, Modifier.enterOnChange(snapshot.hashCode(), 2, reduceMotion),
+                            onPickBucket = { b -> anchor = b.start },
+                        )
                         CompositionCard(
                             snapshot = snapshot,
                             grouping = grouping,

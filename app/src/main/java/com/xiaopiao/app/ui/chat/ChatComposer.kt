@@ -58,6 +58,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.shadow.Shadow
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
 import androidx.compose.ui.unit.sp
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.motion.XpTiming
@@ -88,6 +94,8 @@ fun ChatComposer(
     attachments: List<ChatAttachment> = emptyList(),
     onRemoveAttachment: (ChatAttachment) -> Unit = {},
     focusRequester: FocusRequester? = null,
+    /** When the page records its scroll layer, the card samples it so the input is real liquid glass. */
+    glass: Backdrop? = null,
 ) {
     val plan = ChatInput.plan(value, streaming, attachments.size)
     val shape = RoundedCornerShape(30.dp)
@@ -96,13 +104,32 @@ fun ChatComposer(
         if (attachments.isNotEmpty()) {
             AttachmentChips(attachments, onRemoveAttachment)
         }
+        val film = XpColors.Card.copy(alpha = if (XpColors.isDark) 0.40f else 0.55f)
+        val rim = Color.Black.copy(alpha = if (XpColors.isDark) 0.24f else 0.06f)
         Box(
-            Modifier
-                .fillMaxWidth()
-                .shadow(elevation = 10.dp, shape = shape, clip = false, ambientColor = Color(0x14000000), spotColor = Color(0x1A000000))
-                .clip(shape)
-                .background(XpColors.Card)
-                .animateContentSize(tween(200, easing = XpEase.out)),
+            if (glass == null) {
+                Modifier
+                    .fillMaxWidth()
+                    .shadow(elevation = 10.dp, shape = shape, clip = false, ambientColor = Color(0x14000000), spotColor = Color(0x1A000000))
+                    .clip(shape)
+                    .background(XpColors.Card)
+                    .animateContentSize(tween(200, easing = XpEase.out))
+            } else {
+                Modifier
+                    .fillMaxWidth()
+                    .drawBackdrop(
+                        backdrop = glass,
+                        shape = { shape },
+                        effects = {
+                            vibrancy()
+                            blur(10.dp.toPx())
+                            lens(8.dp.toPx(), 12.dp.toPx())
+                        },
+                        shadow = { Shadow(radius = 16.dp, color = rim) },
+                        onDrawSurface = { drawRect(film) },
+                    )
+                    .animateContentSize(tween(200, easing = XpEase.out))
+            },
         ) {
             if (!plan.expanded) {
                 // Idle: one 56dp row. Tapping the placeholder focuses the field; the button is voice.
