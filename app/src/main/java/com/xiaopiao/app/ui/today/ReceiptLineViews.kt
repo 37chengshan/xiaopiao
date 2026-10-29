@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -27,13 +28,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xiaopiao.app.ui.components.NumberTicker
 import com.xiaopiao.app.ui.theme.ReceiptHandwriting
-import com.xiaopiao.app.ui.theme.ReceiptRow
+import com.xiaopiao.app.ui.theme.ReceiptRow as ThermalRow
 import com.xiaopiao.app.ui.theme.XpColors
 
 /** Clock the paper reads; the lambda is only called inside layout/draw/derived state so frames never recompose the screen. */
 class PrintClock(val timeline: PrintTimeline, val instant: Boolean, val elapsed: () -> Long) {
     fun now(): Long = if (instant) Long.MAX_VALUE / 4 else elapsed()
 }
+
+/** The paper's row style in the typeface chosen in 小票页 (thermal mono by default). */
+private val ReceiptRow: TextStyle
+    @Composable @ReadOnlyComposable get() = ThermalRow.copy(fontFamily = LocalReceiptFont.current.family)
 
 /** Thermal print is never perfectly even: each line gets a stable, slightly different ink density (0.86..1). */
 internal fun inkDensity(index: Int): Float = 0.86f + 0.14f * (((index * 2654435761L) ushr 8) % 100L) / 100f
@@ -74,7 +79,7 @@ private fun Centered(line: ReceiptLine, modifier: Modifier, c: PaperColors) {
         LineKind.NOTICE -> ReceiptRow.copy(fontSize = 11.sp, color = c.inkFaint)
         LineKind.BIG -> ReceiptRow.copy(fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, color = c.ink)
         LineKind.FOOTER -> ReceiptRow.copy(fontSize = 11.sp, color = c.inkFaint, letterSpacing = 0.5.sp)
-        LineKind.COMMENT -> ReceiptHandwriting.copy(color = c.ink)
+        LineKind.COMMENT -> if (LocalReceiptFont.current == ReceiptFont.Thermal) ReceiptHandwriting.copy(color = c.ink) else ReceiptRow.copy(fontSize = 13.sp, color = c.ink)
         LineKind.MORE -> ReceiptRow.copy(fontSize = 11.sp, color = c.inkSoft)
         else -> ReceiptRow.copy(color = c.ink)
     }
@@ -132,15 +137,17 @@ private fun TotalBlock(line: ReceiptLine, step: PrintStep, clock: PrintClock, mo
                 Text("¥", style = ReceiptRow.copy(fontSize = 20.sp, color = c.inkSoft, fontWeight = FontWeight.Medium), modifier = Modifier.padding(end = 3.dp, bottom = 5.dp))
                 // Reserve the final width so the number never shifts while rolling; the ticker appears in place.
                 Box {
-                    Text(digits, style = BigTotalStyle.copy(color = Color.Transparent))
-                    if (started) NumberTicker(text = digits, style = BigTotalStyle, color = c.ink, rollFromZero = !clock.instant)
+                    Text(digits, style = bigTotalStyle().copy(color = Color.Transparent))
+                    if (started) NumberTicker(text = digits, style = bigTotalStyle(), color = c.ink, rollFromZero = !clock.instant)
                 }
             }
         }
     }
 }
 
-private val BigTotalStyle = TextStyle(
+@Composable
+@ReadOnlyComposable
+private fun bigTotalStyle() = TextStyle(
     fontFamily = ReceiptRow.fontFamily, fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp,
     fontFeatureSettings = "tnum",
 )

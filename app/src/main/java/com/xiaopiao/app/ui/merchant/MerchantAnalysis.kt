@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.merchant
 
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +37,7 @@ import com.xiaopiao.app.merchant.RevenueBook
 import com.xiaopiao.app.merchant.RevenueEntry
 import com.xiaopiao.app.merchant.RevenueSource
 import com.xiaopiao.app.ui.components.IconTile
+import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.components.XpButton
@@ -59,6 +61,7 @@ fun MerchantAnalysisScreen(
     onRecord: () -> Unit,
     onOpenCrowd: () -> Unit,
     onOpenRevenue: () -> Unit,
+    onOpenSettings: () -> Unit = {},
 ) {
     val book = remember(entries) { RevenueBook.normalize(entries) }
     val insights = remember(book, today) { MerchantAi.draft(book, today) }
@@ -73,7 +76,10 @@ fun MerchantAnalysisScreen(
         }
     }
 
-    NavScaffold(title = "分析", scroll = NavScrollNone, demo = demo) { top ->
+    NavScaffold(
+        title = "分析", scroll = NavScrollNone, demo = demo,
+        trailing = { NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
+    ) { top ->
         Column(
             Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl)
                 .xpRevealLayer(index = 0),

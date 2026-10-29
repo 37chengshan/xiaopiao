@@ -60,16 +60,18 @@ class ReceiptHost internal constructor(
             val all = container.ledger.observeAll().first()
             val now = System.currentTimeMillis()
             val content = settings.content
-            val lines = ReceiptSource.linesFor(all, day, today, content, now)
-            val receipt = ReceiptSource.receiptFor(all, day)
+            val excluded = settings.excluded
+            val lines = ReceiptSource.linesFor(all, day, today, content, now, excluded = excluded)
+            val receipt = ReceiptSource.receiptFor(all, day, excluded)
             val stamp = ReceiptLayout.stampText(receipt)
-            val meta = ReceiptSource.metaFor(all, day, now)
+            val meta = ReceiptSource.metaFor(all, day, now, excluded)
             val share = ShareContent(
                 full = ReceiptLayout.build(receipt, day == today, false, expanded = true, meta = meta, content = ReceiptPreset.Full.content),
                 stampText = stamp,
                 fileKey = ReceiptLayout.isoDay(day).substringBefore(' '),
                 briefLines = ReceiptLayout.build(receipt, day == today, false, meta = meta, content = ReceiptPreset.Brief.content),
                 colors = settings.colors(),
+                font = settings.font,
             )
             val timeline = PrintTimeline.build(lines, reduced)
             job = PrintJob(day, lines, timeline, stamp, share)
@@ -124,7 +126,7 @@ fun ReceiptHostOverlay(host: ReceiptHost) {
     val density = LocalDensity.current
     val session = host.session
     val colors = host.settings.colors()
-    CompositionLocalProvider(LocalPaperColors provides colors) {
+    CompositionLocalProvider(LocalPaperColors provides colors, LocalReceiptFont provides host.settings.font) {
         ReceiptOverlay(
             session, job.lines, job.timeline, job.stampText,
             onTear = { v -> session.tear(v, with(density) { 900.dp.toPx() }, { host.share = job.share }, host.reduced) },

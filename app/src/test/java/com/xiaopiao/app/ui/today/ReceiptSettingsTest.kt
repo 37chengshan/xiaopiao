@@ -143,4 +143,40 @@ class ReceiptSettingsTest {
         val local = java.util.Calendar.getInstance().apply { clear(); set(2026, 9, 28) }.timeInMillis
         assertEquals(local, DayPick.localDayFromUtc(DayPick.utcFromLocalDay(local)))
     }
+
+    // ---- font and category filter (v6) -------------------------------------
+
+    @Test fun fontAndExcludedCategoriesRoundTripAndDefaultToEverything() = runBlocking {
+        val p = prefs()
+        val def = p.observe().first()
+        assertEquals(ReceiptFont.Thermal, def.font)
+        assertTrue(def.excluded.isEmpty())
+        p.setFont(ReceiptFont.Serif)
+        p.setExcluded(setOf(Category.DRINK, Category.OTHER))
+        val s = p.observe().first()
+        assertEquals(ReceiptFont.Serif, s.font)
+        assertEquals(setOf(Category.DRINK, Category.OTHER), s.excluded)
+        assertFalse(s.includes(Category.DRINK))
+        assertTrue(s.includes(Category.MEAL))
+        p.setExcluded(emptySet())
+        assertTrue(p.observe().first().excluded.isEmpty())
+    }
+
+    @Test fun unknownFontIdAndCategoryNamesFallBackSafely() {
+        assertEquals(ReceiptFont.Thermal, ReceiptFont.fromId("nope"))
+        assertEquals(ReceiptFont.Thermal, ReceiptFont.fromId(null))
+        assertEquals(setOf(Category.MEAL), ReceiptPrefs.decodeCategories("MEAL,GONE"))
+        assertTrue(ReceiptPrefs.decodeCategories(null).isEmpty())
+        assertEquals(setOf(Category.FUN, Category.MEAL), ReceiptPrefs.decodeCategories(ReceiptPrefs.encodeCategories(setOf(Category.MEAL, Category.FUN))))
+    }
+
+    @Test fun excludedCategoriesLeaveTheReceiptAndItsTotal() {
+        val day = 0L
+        val all = listOf(txn(1, 5000, Category.MEAL), txn(2, 3000, Category.DRINK), txn(3, 2000, Category.TRANSPORT))
+        val full = ReceiptSource.receiptFor(all, day)
+        val filtered = ReceiptSource.receiptFor(all, day, excluded = setOf(Category.DRINK))
+        assertEquals(10000L, full.totalOutCents)
+        assertEquals(7000L, filtered.totalOutCents)
+        assertTrue(filtered.items.none { it.category == Category.DRINK })
+    }
 }

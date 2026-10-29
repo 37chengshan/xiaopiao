@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.outlined.SportsEsports
@@ -100,16 +101,14 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.ui.draw.drawBehind
 import com.xiaopiao.app.ui.theme.XpEase
 
-/**
- * Navigation (docs/APP-DESIGN.md §2): left capsule 记账 · 统计 · ＋ · AI, a detached 圈子 circle on the right.
- * In circle mode the left capsule folds to 记账 ＋ and the right circle opens into AI · 圈子 · 游戏.
- */
-private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
-    Ledger("ledger", "记账", Icons.Outlined.ViewList),
-    Insights("insights", "统计", Icons.Outlined.Insights),
-    Chat("chat", "AI", Icons.Outlined.ChatBubbleOutline),
-    Circle("circle", "圈子", Icons.Outlined.Groups),
-}
+private val NavTab.icon: ImageVector
+    get() = when (this) {
+        NavTab.Ledger -> Icons.Outlined.ViewList
+        NavTab.Insights -> Icons.Outlined.Insights
+        NavTab.Receipt -> Icons.Outlined.ReceiptLong
+        NavTab.Chat -> Icons.Outlined.ChatBubbleOutline
+        NavTab.Circle -> Icons.Outlined.Groups
+    }
 
 @Composable
 fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed: () -> Unit = {}) {
@@ -117,9 +116,11 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route
     var merchantMode by rememberSaveable { mutableStateOf(false) }
+    var merchantSettings by rememberSaveable { mutableStateOf(false) }
+    val merchantState = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     val record = rememberRecordSheetState()
     val voiceHost = com.xiaopiao.app.ui.record.rememberVoiceHost()
-    var gamesRequest by remember { mutableIntStateOf(0) }
+    val gamesRequest = remember { GamesRequest() }
     val context = androidx.compose.ui.platform.LocalContext.current
     val onboarding = remember { com.xiaopiao.app.ui.onboarding.OnboardingPrefs(context.applicationContext) }
     val onboarded by onboarding.observeDone().collectAsState(initial = null)
@@ -133,27 +134,34 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
 
     if (merchantMode) {
         // 小店版 is a whole-product mode (palette, nav, landing), not a page (docs/APP-DESIGN.md §6).
-        MerchantShell(container, onExit = { merchantMode = false })
+        if (merchantSettings) {
+            // The same 设置 page, reached from the gear on every 小店 page; back returns to where the shop was.
+            BackHandler { merchantSettings = false }
+            SettingsScreen(container, onOpenMerchant = { merchantSettings = false }, onBack = { merchantSettings = false })
+        } else {
+            // SaveableStateProvider keeps the shop's tab / sub-page while the settings page replaces it.
+            merchantState.SaveableStateProvider("merchant") {
+                MerchantShell(container, onExit = { merchantMode = false }, onOpenSettings = { merchantSettings = true })
+            }
+        }
         return
     }
 
-    fun go(tab: Tab) = nav.navigate(tab.route) {
+    fun go(tab: NavTab) = nav.navigate(tab.route) {
         popUpTo(nav.graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
         restoreState = true
     }
 
     // The resident receipt: pages place a ReceiptStrip, the ceremony itself lives here, above the navigation.
-    val receiptHost = rememberReceiptHost(container) {
-        if (nav.currentDestination?.route != "receipt") nav.navigate("receipt") { launchSingleTop = true }
-    }
+    val receiptHost = rememberReceiptHost(container) { go(NavTab.Receipt) }
 
     LaunchedEffect(open) {
         when (open?.target) {
             // The 21:30 reminder goes straight into the print ceremony.
-            ReminderIntents.OPEN_TODAY -> { go(Tab.Ledger); receiptHost.print(); onOpenConsumed() }
+            ReminderIntents.OPEN_TODAY -> { go(NavTab.Ledger); receiptHost.print(); onOpenConsumed() }
             // Insights consumes the request itself after jumping to the sub-page.
-            ReminderIntents.OPEN_WEEKLY, ReminderIntents.OPEN_SUBSCRIPTIONS -> go(Tab.Ledger)
+            ReminderIntents.OPEN_WEEKLY, ReminderIntents.OPEN_SUBSCRIPTIONS -> go(NavTab.Ledger)
         }
     }
 
@@ -163,13 +171,13 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         containerColor = XpColors.CanvasGrouped,
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
-            // Standalone pages own the screen; no tabs.
-            if (current != "receipt" && current != "settings") XpTabBar(
+            // Standalone pages (settings) own the screen; no tabs.
+            if (NavModel.showsTabBar(current)) XpTabBar(
                 current = current,
                 onSelect = { go(it) },
                 onRecord = { record.openDefault(recordMethod) },
                 onVoice = { voiceHost.request() },
-                onGames = { gamesRequest++; if (current != Tab.Circle.route) go(Tab.Circle) },
+                onGames = { gamesRequest.request(); if (current != NavTab.Circle.route) go(NavTab.Circle) },
             )
         },
     ) { padding ->
@@ -183,7 +191,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         ) {
             // Tab switches are instant: it is the most frequent navigation in the app (docs/APP-DESIGN.md §7).
             NavHost(
-                nav, startDestination = Tab.Ledger.route,
+                nav, startDestination = NavTab.Ledger.route,
                 // Tabs are a frequent switch: keep it near-instant, only a 120ms crossfade so the
                 // screen does not "pop". No slide — that would slow down a dozens-times-a-day action.
                 enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) },
@@ -191,13 +199,13 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) },
                 popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90)) },
             ) {
-                composable(Tab.Ledger.route) {
+                composable(NavTab.Ledger.route) {
                     LedgerScreen(
                         container,
                         onOpenSettings = { nav.navigate("settings") },
                     )
                 }
-                composable(Tab.Insights.route) {
+                composable(NavTab.Insights.route) {
                     InsightsScreen(
                         container,
                         open,
@@ -223,24 +231,16 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         onBack = { nav.popBackStack() },
                     )
                 }
-                composable(
-                    "receipt",
-                    enterTransition = {
-                        androidx.compose.animation.slideInVertically(androidx.compose.animation.core.spring(0.9f, 340f)) { it / 6 } +
-                            androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(180))
-                    },
-                    exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140)) },
-                    popExitTransition = {
-                        androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.spring(0.9f, 320f)) { it / 6 } +
-                            androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140))
-                    },
-                ) {
-                    ReceiptPage(container, receiptHost, onBack = { nav.popBackStack() })
+                composable(NavTab.Receipt.route) {
+                    ReceiptPage(container, receiptHost, onOpenSettings = { nav.navigate("settings") })
                 }
-                composable(Tab.Chat.route) {
-                    ChatScreen(container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openDefault(recordMethod) })
+                composable(NavTab.Chat.route) {
+                    ChatScreen(
+                        container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openDefault(recordMethod) },
+                        onOpenSettings = { nav.navigate("settings") },
+                    )
                 }
-                composable(Tab.Circle.route) { CircleHome(container, onOpenSettings = { nav.navigate("settings") }, openGames = gamesRequest) }
+                composable(NavTab.Circle.route) { CircleHome(container, onOpenSettings = { nav.navigate("settings") }, openGames = gamesRequest.pending, onGamesConsumed = { gamesRequest.consume() }) }
 
             }
         }
@@ -260,16 +260,18 @@ private val SlotMax = 64.dp
 private val BarHeight = 64.dp
 private val CapsulePad = XpSpace.xs
 private val NavGap = XpSpace.s
+/** In circle mode ＋ grows into a solid ink circle of this size, centred in the folded capsule. */
+private val BigPlus = 56.dp
 
 /**
- * Two floating capsules. [circleMode] drives one spring progress `p` (0 = default, 1 = circle open) that
- * folds the left capsule (统计 / AI slide shut, ＋ stays), grows the right circle into the AI · 圈子 · 游戏
- * capsule and pulls it toward the middle. The spring is retargeted, not restarted, so a second tap mid-way
- * just reverses it (docs/APP-DESIGN.md §2, tt#29/33/34).
+ * Two floating white capsules (same fill, same soft shadow). [circleMode] drives one spring progress `p`
+ * (0 = default, 1 = circle open): the left capsule folds 记账 · 统计 · 小票 away and ＋ swells into a centred solid
+ * circle, the right capsule opens 游戏 next to AI · 圈子 and drifts toward the middle. The spring is retargeted,
+ * not restarted, so a second tap mid-way just reverses it (docs/APP-DESIGN.md §2, tt#29/33/34/69).
  */
 @Composable
-private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> Unit, onVoice: () -> Unit, onGames: () -> Unit) {
-    val circleMode = current == Tab.Circle.route
+private fun XpTabBar(current: String?, onSelect: (NavTab) -> Unit, onRecord: () -> Unit, onVoice: () -> Unit, onGames: () -> Unit) {
+    val circleMode = NavModel.isCircleMode(current)
     val reduced = com.xiaopiao.app.ui.components.rememberReducedMotion()
     val progress = remember { androidx.compose.animation.core.Animatable(if (circleMode) 1f else 0f) }
     LaunchedEffect(circleMode) {
@@ -279,49 +281,38 @@ private fun XpTabBar(current: String?, onSelect: (Tab) -> Unit, onRecord: () -> 
     }
     val p = progress.value.coerceIn(0f, 1f)
     val dark = XpColors.isDark
-    val capsuleColor = if (dark) XpColors.Surface2.copy(alpha = 0.94f) else XpColors.Card.copy(alpha = 0.94f)
+    val capsuleColor = if (dark) XpColors.Surface2.copy(alpha = 0.96f) else XpColors.Card.copy(alpha = 0.96f)
     val shape = RoundedCornerShape(BarHeight / 2)
-    val lift = if (dark) Modifier else Modifier.shadow(20.dp, shape, ambientColor = Color(0x14000000), spotColor = Color(0x14000000))
+    // iOS-style float: a soft, low shadow (y≈6dp, blur≈20dp, 8–10% black). Dark mode swaps it for a 1dp highlight rim.
+    val lift = if (dark) Modifier.border(1.dp, Color.White.copy(alpha = 0.10f), shape)
+    else Modifier.shadow(14.dp, shape, clip = false, ambientColor = Color(0x14000000), spotColor = Color(0x1A000000))
 
     androidx.compose.foundation.layout.BoxWithConstraints(
         Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = XpSpace.l).padding(bottom = XpSpace.s),
     ) {
-        // Five slots plus both capsules' padding must fit on narrow phones (circle mode shows 2 + 3 slots).
-        val slot = minOf(SlotMax, (maxWidth - CapsulePad * 4 - NavGap) / 5)
+        // Default state shows 4 + 2 slots; circle mode 1 + 3. Six slots plus both paddings must fit a narrow phone.
+        val slot = minOf(SlotMax, (maxWidth - CapsulePad * 4 - NavGap) / 6)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            // Left capsule: 记账 · 统计 · ＋ · AI → 记账 ＋ (tt#29).
+            // Left capsule: 记账 · 统计 · ＋ · 小票 → ＋ alone, centred and enlarged in circle mode.
             Row(
-                Modifier.height(BarHeight).clip(shape).then(lift).background(capsuleColor).padding(horizontal = CapsulePad),
+                Modifier.height(BarHeight).then(lift).clip(shape).background(capsuleColor).padding(horizontal = CapsulePad),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TabItem(Tab.Ledger, current, Modifier.width(slot), onSelect)
-                Folding(slot, 1f - p) { TabItem(Tab.Insights, current, Modifier.width(slot), onSelect) }
-                PlusItem(Modifier.width(slot), fade = p, onClick = onRecord, onLongPress = onVoice)
-                Folding(slot, 1f - p) { TabItem(Tab.Chat, current, Modifier.width(slot), onSelect) }
+                Folding(slot, 1f - p) { TabItem(NavTab.Ledger, current, Modifier.width(slot), onSelect) }
+                Folding(slot, 1f - p) { TabItem(NavTab.Insights, current, Modifier.width(slot), onSelect) }
+                PlusItem(Modifier.width(slot), big = p, onClick = onRecord, onLongPress = onVoice)
+                Folding(slot, 1f - p) { TabItem(NavTab.Receipt, current, Modifier.width(slot), onSelect) }
             }
             Spacer(Modifier.weight(1f))
-            // Right: a lone circle that opens into AI · 圈子 · 游戏 and drifts toward the middle (tt#33/34).
-            val openWidth = slot * 3 + CapsulePad * 2
-            Box(
-                Modifier.height(BarHeight).width(androidx.compose.ui.unit.lerp(slot, openWidth, p)).clip(shape).then(lift)
-                    .background(androidx.compose.ui.graphics.lerp(XpColors.Primary, capsuleColor, p))
-                    .then(if (circleMode) Modifier else Modifier.pressableClick { onSelect(Tab.Circle) }),
-                contentAlignment = Alignment.Center,
+            // Right capsule: AI · 圈子, plus 游戏 sliding open in circle mode.
+            Row(
+                Modifier.height(BarHeight).then(lift).clip(shape).background(capsuleColor).padding(horizontal = CapsulePad),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (p < 0.6f) Icon(
-                    Icons.Outlined.Groups, contentDescription = "圈子", tint = XpColors.OnPrimary,
-                    modifier = Modifier.size(24.dp).graphicsLayer { alpha = (1f - p / 0.6f).coerceIn(0f, 1f) },
-                )
-                if (p > 0.02f) Row(
-                    Modifier.requiredWidth(openWidth).height(BarHeight).padding(horizontal = CapsulePad)
-                        .graphicsLayer { alpha = ((p - 0.25f) / 0.75f).coerceIn(0f, 1f) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TabItem(Tab.Chat, current, Modifier.width(slot), onSelect)
-                    TabItem(Tab.Circle, current, Modifier.width(slot), onSelect)
-                    CircleGameTab(Modifier.width(slot).fillMaxHeight(), onGames)
-                }
+                TabItem(NavTab.Chat, current, Modifier.width(slot), onSelect)
+                TabItem(NavTab.Circle, current, Modifier.width(slot), onSelect)
+                Folding(slot, p) { CircleGameTab(Modifier.width(slot).fillMaxHeight(), onGames) }
             }
             Spacer(Modifier.weight(maxOf(0.001f, 0.55f * p)))
         }
@@ -354,16 +345,16 @@ private fun CircleGameTab(modifier: Modifier, onClick: () -> Unit) {
 
 /**
  * 记一笔: same slot, icon size and caption as its neighbours, no fill (tt#34/36). Tap = default input,
- * long-press = voice. [fade] 0 → 1 washes the glyph out as the circle opens (tt#33).
+ * long-press = voice. [big] 0 → 1 (circle mode) swells it into a centred solid ink circle with a 28dp glyph.
  */
 @Composable
-private fun PlusItem(modifier: Modifier, fade: Float, onClick: () -> Unit, onLongPress: () -> Unit) {
+private fun PlusItem(modifier: Modifier, big: Float, onClick: () -> Unit, onLongPress: () -> Unit) {
     val haptics = rememberXpHaptics()
     var pressed by remember { mutableStateOf(false) }
     val scale by androidx.compose.animation.core.animateFloatAsState(
-        if (pressed) 0.9f else 1f, androidx.compose.animation.core.spring(0.55f, 400f), label = "plusScale",
+        if (pressed) 0.92f else 1f, androidx.compose.animation.core.spring(0.55f, 450f), label = "plusScale",
     )
-    Column(
+    Box(
         modifier.fillMaxHeight().graphicsLayer { scaleX = scale; scaleY = scale }
             .pointerInput(Unit) {
                 awaitEachGesture {
@@ -382,23 +373,31 @@ private fun PlusItem(modifier: Modifier, fade: Float, onClick: () -> Unit, onLon
                     }
                 }
             },
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+        contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            Icons.Outlined.Add, contentDescription = "记一笔 · 长按说一句",
-            tint = XpColors.Ink.copy(alpha = 1f - 0.45f * fade), modifier = Modifier.size(24.dp),
+        Box(
+            Modifier.size(BigPlus).graphicsLayer { scaleX = big; scaleY = big; alpha = big }
+                .clip(CircleShape).background(XpColors.Primary),
         )
-        Text(
-            "记一笔", fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium,
-            color = androidx.compose.ui.graphics.lerp(XpColors.Ink, XpColors.InkSecondary, fade),
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Icon(
+                Icons.Outlined.Add, contentDescription = "记一笔 · 长按说一句",
+                tint = androidx.compose.ui.graphics.lerp(XpColors.Ink, XpColors.OnPrimary, big),
+                modifier = Modifier.size(androidx.compose.ui.unit.lerp(24.dp, 28.dp, big)),
+            )
+            // The caption belongs to the small state; the big circle stands alone.
+            Text(
+                "记一笔", fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium, color = XpColors.Ink,
+                modifier = Modifier.graphicsLayer { alpha = 1f - big }.then(if (big > 0.5f) Modifier.height(0.dp) else Modifier),
+            )
+        }
     }
 }
 
 @Composable
-private fun TabItem(tab: Tab, current: String?, modifier: Modifier, onSelect: (Tab) -> Unit) {
+private fun TabItem(tab: NavTab, current: String?, modifier: Modifier, onSelect: (NavTab) -> Unit) {
     val selected = current?.startsWith(tab.route) == true
-    val color = if (selected) XpColors.Accent else XpColors.InkSecondary
+    val color = if (selected) XpColors.Ink else XpColors.InkSecondary
     val iconScale by androidx.compose.animation.core.animateFloatAsState(
         if (selected) 1.1f else 1f,
         androidx.compose.animation.core.spring(0.5f, 500f),
@@ -418,7 +417,7 @@ private fun TabItem(tab: Tab, current: String?, modifier: Modifier, onSelect: (T
         Modifier.graphicsLayer { alpha = 0.999f }
             .padding(horizontal = 10.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(XpColors.Fill.copy(alpha = 0.7f * pill))
+            .background(XpColors.Fill.copy(alpha = pill))
             .padding(horizontal = 10.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {

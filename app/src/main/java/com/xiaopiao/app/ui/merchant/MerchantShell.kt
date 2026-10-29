@@ -82,7 +82,7 @@ enum class MerchantSub(val order: Int, val title: String) {
  * · 我的 (experiments, data notes, way back). 小票 opens from the 今日/营收 header.
  */
 @Composable
-fun MerchantShell(container: AppContainer, onExit: () -> Unit) {
+fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: () -> Unit = {}) {
     val palette = remember(XpColors.style, XpColors.isDark) { merchantPalette(paletteFor(XpColors.style, XpColors.isDark)) }
     XpPaletteOverride(palette) {
         val store = remember { MerchantStore.get(container.appContext) }
@@ -139,6 +139,7 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit) {
                                 onEditDay = ::openRecord,
                                 onOpenReceipt = ::openReceipt,
                                 onOpenRevenue = { tab = MerchantTab.Revenue },
+                                onOpenSettings = onOpenSettings,
                             )
                             MerchantTab.Revenue -> MerchantRevenueScreen(
                                 entries = state.revenue,
@@ -147,6 +148,7 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit) {
                                 onRecord = { openRecord(today) },
                                 onEditDay = ::openRecord,
                                 onOpenReceipt = ::openReceipt,
+                                onOpenSettings = onOpenSettings,
                             )
                             MerchantTab.Analysis -> MerchantAnalysisScreen(
                                 entries = state.revenue,
@@ -154,6 +156,7 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit) {
                                 onRecord = { openRecord(today) },
                                 onOpenCrowd = { sub = MerchantSub.Crowd },
                                 onOpenRevenue = { tab = MerchantTab.Revenue },
+                                onOpenSettings = onOpenSettings,
                             )
                             MerchantTab.Mine -> MerchantMineScreen(
                                 state = state,
@@ -161,6 +164,7 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit) {
                                 onOpenSub = ::openSub,
                                 onPrivacy = { privacyOpen = true },
                                 onExit = onExit,
+                                onOpenSettings = onOpenSettings,
                             )
                         }
                     }

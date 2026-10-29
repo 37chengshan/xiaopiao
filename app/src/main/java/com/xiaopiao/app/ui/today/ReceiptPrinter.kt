@@ -65,6 +65,8 @@ fun ReceiptPrinter(
     printing: Boolean,
     onPrint: (from: Offset?) -> Unit,
     modifier: Modifier = Modifier,
+    /** True when the paper rises out of a slot on the printer's top edge (the 小票 tab sits it in the lower half). */
+    slotAtTop: Boolean = false,
 ) {
     val dark = XpColors.isDark
     val haptics = rememberXpHaptics()
@@ -87,11 +89,11 @@ fun ReceiptPrinter(
     val sink by animateFloatAsState(if (pressed) 1f else 0f, spring(0.6f, 700f), label = "keySink")
 
     Box(
-        modifier.fillMaxWidth().height(PrinterHeight).drawBehind { drawBody(dark, printing, blink) },
+        modifier.fillMaxWidth().height(PrinterHeight).drawBehind { drawBody(dark, printing, blink, slotAtTop) },
     ) {
         // LCD: day label in green-on-black mono.
         Box(
-            Modifier.align(Alignment.TopStart).padding(start = 22.dp, top = 28.dp).size(104.dp, 28.dp)
+            Modifier.align(Alignment.TopStart).padding(start = 22.dp, top = if (slotAtTop) 48.dp else 28.dp).size(104.dp, 28.dp)
                 .drawBehind {
                     drawRoundRect(Color(0xFF0E1A12), cornerRadius = CornerRadius(6.dp.toPx()))
                     drawRoundRect(Color.White.copy(alpha = 0.12f), Offset(1.dp.toPx(), 1.dp.toPx()), Size(size.width - 2.dp.toPx(), size.height * 0.45f), CornerRadius(5.dp.toPx()))
@@ -106,7 +108,7 @@ fun ReceiptPrinter(
         }
         // Print key.
         Box(
-            Modifier.align(Alignment.TopEnd).padding(end = 28.dp, top = 22.dp).size(52.dp)
+            Modifier.align(Alignment.TopEnd).padding(end = 28.dp, top = if (slotAtTop) 42.dp else 22.dp).size(52.dp)
                 .onGloballyPositioned { keyCentre = it.boundsInWindow().center }
                 .semantics {
                     contentDescription = "打印键：按当前设置打印所选日期的小票"
@@ -132,7 +134,7 @@ fun ReceiptPrinter(
     }
 }
 
-private fun DrawScope.drawBody(dark: Boolean, printing: Boolean, blink: Float) {
+private fun DrawScope.drawBody(dark: Boolean, printing: Boolean, blink: Float, slotAtTop: Boolean) {
     val d = density
     val bodyH = size.height - 10 * d
     val r = CornerRadius(26 * d)
@@ -146,23 +148,25 @@ private fun DrawScope.drawBody(dark: Boolean, printing: Boolean, blink: Float) {
     drawRoundRect(Color.Black.copy(alpha = 0.10f), Offset.Zero, Size(size.width, bodyH), r, style = Stroke(1f * d))
     // Vents.
     val vent = Color.Black.copy(alpha = if (dark) 0.5f else 0.14f)
-    for (i in 0 until 5) drawRoundRect(vent, Offset(22 * d, (66 + i * 6) * d), Size(52 * d, 2.2f * d), CornerRadius(1.1f * d))
+    val ventY = if (slotAtTop) 86f else 66f
+    for (i in 0 until 4) drawRoundRect(vent, Offset(22 * d, (ventY + i * 6) * d), Size(52 * d, 2.2f * d), CornerRadius(1.1f * d))
     // LED: green when ready, amber blinking while printing; with a soft glow.
     val led = if (printing) Color(0xFFFFB020) else Color(0xFF34C759)
     val a = if (printing) blink else 1f
-    val c = Offset(size.width - 60 * d, 18 * d)
+    val c = Offset(size.width - (if (slotAtTop) 112 else 60) * d, (if (slotAtTop) 38 else 18) * d)
     drawCircle(Brush.radialGradient(listOf(led.copy(alpha = 0.45f * a), Color.Transparent), c, 12 * d), 12 * d, c)
     drawCircle(Color.Black.copy(alpha = 0.35f), 4.6f * d, c)
     drawCircle(led.copy(alpha = a), 3.6f * d, c)
     drawCircle(Color.White.copy(alpha = 0.6f * a), 1.1f * d, c + Offset(-1.1f * d, -1.1f * d))
     // Paper slot: recessed, dark, with an inner shadow under the top edge and a bright lip below.
     val slotW = size.width - 32 * d
-    val slotY = (112 - 7) * d
+    val slotY = (if (slotAtTop) 8 else 105) * d
     val sx = (size.width - slotW) / 2f
     val sr = CornerRadius(7 * d)
     drawRoundRect(Color(0xFF111113), Offset(sx, slotY), Size(slotW, 14 * d), sr)
     drawRoundRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent), startY = slotY, endY = slotY + 9 * d), Offset(sx, slotY), Size(slotW, 14 * d), sr)
-    drawRoundRect(Color.White.copy(alpha = if (dark) 0.16f else 0.7f), Offset(sx + 6 * d, slotY + 14 * d), Size(slotW - 12 * d, 1.4f * d), CornerRadius(0.7f * d))
+    val lipY = if (slotAtTop) slotY + 15 * d else slotY + 14 * d
+    drawRoundRect(Color.White.copy(alpha = if (dark) 0.16f else 0.7f), Offset(sx + 6 * d, lipY), Size(slotW - 12 * d, 1.4f * d), CornerRadius(0.7f * d))
 }
 
 private fun DrawScope.drawKey(sink: Float, dark: Boolean) {

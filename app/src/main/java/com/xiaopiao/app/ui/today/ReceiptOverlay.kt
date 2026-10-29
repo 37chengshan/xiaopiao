@@ -166,12 +166,15 @@ fun ReceiptOverlay(
             onTear = { latestTear(0f) },
             onSettings = onSettings,
             onClose = onClose,
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = XpSpace.xl).zIndex(3f)
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = NavBarClearance).zIndex(3f)
                 .graphicsLayer { alpha = session.present.value; translationY = 16.dp.toPx() * (1f - session.present.value) },
         )
     }
     }
 }
+
+/** The floating tab bar (64dp capsules + gap) sits under the overlay; keep the status capsule clear above it. */
+private val NavBarClearance = 64.dp + XpSpace.s + XpSpace.m
 
 /** Bottom glass capsule: 正在打印…  跳过  /  向下拖动撕下小票  撕下  ✕. */
 @Composable

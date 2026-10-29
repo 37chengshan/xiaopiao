@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,12 +59,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xiaopiao.app.AppContainer
+import com.xiaopiao.app.domain.Category
 import com.xiaopiao.app.domain.DAY_MS
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.ui.components.GroupedRow
 import com.xiaopiao.app.ui.components.GroupedSection
+import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.Segmented
 import com.xiaopiao.app.ui.components.XpSwitch
@@ -89,13 +94,13 @@ object DayPick {
 }
 
 /**
- * 小票页: the printer on top with the chosen day's receipt coming out of it (live preview of every setting below),
- * a day strip + calendar for reprinting any earlier day, paper themes with a custom ink, and what to print.
- * Settings save on every change; the resident strip prints with them (docs/APP-DESIGN.md §3.1).
+ * 小票 tab: the upper half is settings (day, paper, ink, typeface, categories, what to print), the lower half is the
+ * printer with the receipt rising out of its slot as a live preview of those settings. Settings save on every
+ * change; the print key and the resident strip both print with them (docs/APP-DESIGN.md §3.1).
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ReceiptPage(container: AppContainer, host: ReceiptHost, onBack: () -> Unit) {
+fun ReceiptPage(container: AppContainer, host: ReceiptHost, onOpenSettings: () -> Unit) {
     val scope = rememberCoroutineScope()
     val settings = host.settings
     val all by remember { container.ledger.observeAll() }.collectAsState(initial = emptyList())
@@ -108,73 +113,87 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost, onBack: () -> Unit) 
     var dragging by remember { mutableStateOf(false) }
     val colors = if (dragging) PaperColors.resolve(settings.theme, PaperColors.inkFromHue(hue)) else settings.colors()
 
-    val lines = remember(all, selectedDay, today, settings.content) {
-        ReceiptSource.linesFor(all, selectedDay, today, settings.content, System.currentTimeMillis())
+    val lines = remember(all, selectedDay, today, settings.content, settings.excluded) {
+        ReceiptSource.linesFor(all, selectedDay, today, settings.content, System.currentTimeMillis(), excluded = settings.excluded)
     }
     val timeline = remember(lines) { PrintTimeline.build(lines, reduced = true) }
-    val stampText = remember(all, selectedDay) { ReceiptLayout.stampText(ReceiptSource.receiptFor(all, selectedDay)) }
-    val dayOut = remember(all, selectedDay) {
-        all.filter { it.direction == Direction.OUT && it.occurredAt in selectedDay until selectedDay + DAY_MS }.sumOf { it.amountCents }
+    val stampText = remember(all, selectedDay, settings.excluded) { ReceiptLayout.stampText(ReceiptSource.receiptFor(all, selectedDay, settings.excluded)) }
+    val dayOut = remember(all, selectedDay, settings.excluded) {
+        all.filter { it.direction == Direction.OUT && it.category !in settings.excluded && it.occurredAt in selectedDay until selectedDay + DAY_MS }.sumOf { it.amountCents }
     }
 
     val scroll = rememberScrollState()
-    NavScaffold("小票", rememberNavScroll(scroll), onBack = onBack) { top ->
-        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top + XpSpace.s, bottom = 96.dp)) {
-            // Printer with the receipt tucked under its slot.
-            CompositionLocalProvider(LocalPaperColors provides colors) {
-                Box(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l), contentAlignment = Alignment.TopCenter) {
-                    Box(Modifier.padding(top = PrinterSlotCentre).heightIn(max = 300.dp).clipToBounds().previewFade()) {
+    NavScaffold(
+        "小票", rememberNavScroll(scroll),
+        trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
+    ) { top ->
+        Column(Modifier.fillMaxSize().padding(top = top)) {
+            // Upper half: settings.
+            Column(Modifier.weight(1f).verticalScroll(scroll).padding(bottom = XpSpace.l)) {
+                Label("日期", first = true)
+                DayStrip(all, today, selectedDay, onSelect = { selectedDay = it }, onCalendar = { calendarOpen = true })
+
+                Label("纸张")
+                ThemeRow(settings.theme) { t -> scope.launch { host.prefs.setTheme(t) } }
+                Spacer(Modifier.height(XpSpace.m))
+                InkRow(custom = settings.customInk, onPick = { argb -> scope.launch { host.prefs.setCustomInk(argb) } })
+                Slider(
+                    value = hue, onValueChange = { hue = it; dragging = true },
+                    onValueChangeFinished = { dragging = false; scope.launch { host.prefs.setCustomInk(PaperColors.inkFromHue(hue)) } },
+                    valueRange = 0f..360f,
+                    colors = SliderDefaults.colors(thumbColor = XpColors.Ink, activeTrackColor = XpColors.Ink, inactiveTrackColor = XpColors.Fill),
+                    modifier = Modifier.padding(horizontal = XpSpace.l + 4.dp),
+                )
+
+                Label("字体")
+                Box(Modifier.padding(horizontal = XpSpace.l)) {
+                    val fonts = ReceiptFont.entries
+                    Segmented(fonts.map { it.label }, settings.font.ordinal, { i -> scope.launch { host.prefs.setFont(fonts[i]) } })
+                }
+
+                Label("打印哪些分类")
+                CategoryChips(settings.excluded) { next -> scope.launch { host.prefs.setExcluded(next) } }
+
+                Label("打印内容")
+                Box(Modifier.padding(horizontal = XpSpace.l)) {
+                    val presets = ReceiptPreset.entries
+                    val current = settings.content.preset
+                    Segmented(
+                        presets.map { it.label } + "自定义",
+                        current?.ordinal ?: presets.size,
+                        { i -> presets.getOrNull(i)?.let { p -> scope.launch { host.prefs.setContent(p.content) } } },
+                    )
+                }
+                Spacer(Modifier.height(XpSpace.m))
+                GroupedSection {
+                    ReceiptContent.Flag.entries.forEachIndexed { i, flag ->
+                        item(i) {
+                            val on = flag.get(settings.content)
+                            GroupedRow(
+                                flag.label,
+                                trailing = { XpSwitch(on, { v -> scope.launch { host.prefs.setContent(settings.content.withFlag(flag, v)) } }) },
+                                onClick = { scope.launch { host.prefs.setContent(settings.content.withFlag(flag, !on)) } },
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Lower half: the printer, with the receipt rising out of its slot (live preview).
+            CompositionLocalProvider(LocalPaperColors provides colors, LocalReceiptFont provides settings.font) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l).height(PreviewPeek + PrinterHeight - 12.dp), contentAlignment = Alignment.TopCenter) {
+                    Box(Modifier.height(PreviewPeek).clipToBounds().previewFade()) {
                         val clock = remember(timeline) { PrintClock(timeline, instant = true) { 0L } }
                         val stamp = remember { StampVisuals({ 1f }, { 1f }, { 0f }) }
-                        ReceiptPaper(lines, clock, stampText, stamp, tornTop = false)
+                        ReceiptPaper(lines, clock, stampText, stamp, tornTop = true)
                     }
                     ReceiptPrinter(
                         lcd = ReceiptLayout.dayLabel(selectedDay).substringBefore(' ') + "  ¥" + (dayOut / 100),
                         printing = host.printing,
                         onPrint = { from -> host.print(selectedDay, from) },
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                        slotAtTop = true,
                     )
-                }
-            }
-
-            Label("日期")
-            DayStrip(all, today, selectedDay, onSelect = { selectedDay = it }, onCalendar = { calendarOpen = true })
-
-            Label("纸张")
-            ThemeRow(settings.theme) { t -> scope.launch { host.prefs.setTheme(t) } }
-            Spacer(Modifier.height(XpSpace.m))
-            InkRow(
-                custom = settings.customInk,
-                onPick = { argb -> scope.launch { host.prefs.setCustomInk(argb) } },
-            )
-            Slider(
-                value = hue, onValueChange = { hue = it; dragging = true },
-                onValueChangeFinished = { dragging = false; scope.launch { host.prefs.setCustomInk(PaperColors.inkFromHue(hue)) } },
-                valueRange = 0f..360f,
-                colors = SliderDefaults.colors(thumbColor = XpColors.Ink, activeTrackColor = XpColors.Ink, inactiveTrackColor = XpColors.Fill),
-                modifier = Modifier.padding(horizontal = XpSpace.l + 4.dp),
-            )
-
-            Label("打印内容")
-            Box(Modifier.padding(horizontal = XpSpace.l)) {
-                val presets = ReceiptPreset.entries
-                val current = settings.content.preset
-                Segmented(
-                    presets.map { it.label } + "自定义",
-                    current?.ordinal ?: presets.size,
-                    { i -> presets.getOrNull(i)?.let { p -> scope.launch { host.prefs.setContent(p.content) } } },
-                )
-            }
-            Spacer(Modifier.height(XpSpace.m))
-            GroupedSection {
-                ReceiptContent.Flag.entries.forEachIndexed { i, flag ->
-                    item(i) {
-                        val on = flag.get(settings.content)
-                        GroupedRow(
-                            flag.label,
-                            trailing = { XpSwitch(on, { v -> scope.launch { host.prefs.setContent(settings.content.withFlag(flag, v)) } }) },
-                            onClick = { scope.launch { host.prefs.setContent(settings.content.withFlag(flag, !on)) } },
-                        )
-                    }
                 }
             }
         }
@@ -195,16 +214,53 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost, onBack: () -> Unit) 
     }
 }
 
-/** The preview is only a taste: it fades out at the bottom instead of running the whole receipt down the page. */
+/** How much of the receipt shows above the printer's slot. */
+private val PreviewPeek = 96.dp
+
+/** Category chips: tap to leave a category off the paper. At least one stays on; 全部 resets. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CategoryChips(excluded: Set<Category>, onChange: (Set<Category>) -> Unit) {
+    FlowRow(
+        Modifier.fillMaxWidth().padding(horizontal = XpSpace.l),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        val allOn = excluded.isEmpty()
+        Chip("全部", allOn) { onChange(emptySet()) }
+        Category.entries.forEach { c ->
+            val on = c !in excluded
+            Chip("${c.emoji} ${c.label}", on && !allOn) {
+                val next = if (on) excluded + c else excluded - c
+                // Keep at least one category on the paper.
+                if (next.size < Category.entries.size) onChange(next)
+            }
+        }
+    }
+}
+
+/** Two-level chip: ink-filled when on, grey fill when off (no outline). */
+@Composable
+private fun Chip(label: String, on: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.height(32.dp).clip(RoundedCornerShape(16.dp))
+            .background(if (on) XpColors.Primary else XpColors.Fill)
+            .pressableClick(haptic = false, onClick = onClick).padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = if (on) XpColors.OnPrimary else XpColors.InkSecondary, maxLines = 1)
+    }
+}
+
+/** The preview is only a taste: it fades in from the top, as if the paper were still coming up out of the slot. */
 private fun Modifier.previewFade(): Modifier = this.drawWithContent {
     drawContent()
-    drawRect(Brush.verticalGradient(listOf(Color.Transparent, XpColors.CanvasGrouped), startY = size.height - 70 * density, endY = size.height))
+    drawRect(Brush.verticalGradient(listOf(XpColors.CanvasGrouped, Color.Transparent), startY = 0f, endY = 28 * density))
 }
 
 @Composable
-private fun Label(text: String) {
+private fun Label(text: String, first: Boolean = false) {
     Text(
-        text, Modifier.padding(start = XpSpace.l + 4.dp, end = XpSpace.l, top = XpSpace.xl, bottom = XpSpace.s),
+        text, Modifier.padding(start = XpSpace.l + 4.dp, end = XpSpace.l, top = if (first) XpSpace.s else XpSpace.xl, bottom = XpSpace.s),
         style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary,
     )
 }

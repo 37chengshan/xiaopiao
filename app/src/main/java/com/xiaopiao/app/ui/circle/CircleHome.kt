@@ -66,7 +66,7 @@ private val ComposerHeight = 64.dp
  */
 @Suppress("UNUSED_PARAMETER")
 @Composable
-fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGames: Int = 0) {
+fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGames: Boolean = false, onGamesConsumed: () -> Unit = {}) {
     val now = remember { System.currentTimeMillis() }
     var members by remember { mutableStateOf(CircleDemo.members()) }
     var posts by remember { mutableStateOf(CircleDemo.feed(now)) }
@@ -105,8 +105,8 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGam
         sendTick += 1
     }
 
-    // The nav's 游戏 cell opens the hub directly (tt#37).
-    LaunchedEffect(openGames) { if (openGames > 0) gamesOpen = true }
+    // The nav's 游戏 cell opens the hub directly (tt#37). One-shot: consumed here, so entering 圈子 never opens it by itself.
+    LaunchedEffect(openGames) { if (openGames) { gamesOpen = true; onGamesConsumed() } }
 
     LaunchedEffect(sendTick) {
         if (sendTick > 0 && rows.isNotEmpty()) listState.animateScrollToItem(rows.size)
@@ -114,7 +114,7 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGam
 
     // 游戏 hub is a pushed page, not a swap: it slides in over the feed (220ms) and pops back in 180ms.
     XpPushHost(
-        page = if (gamesOpen) { { GamesHub(onBack = { gamesOpen = false }) } } else null,
+        page = if (gamesOpen) { { GamesHub(onBack = { gamesOpen = false }, onOpenSettings = onOpenSettings) } } else null,
         onBack = { gamesOpen = false },
         modifier = Modifier.fillMaxSize(),
     ) {
