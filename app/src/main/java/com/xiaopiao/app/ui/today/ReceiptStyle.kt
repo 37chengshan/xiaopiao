@@ -5,7 +5,6 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
-import com.xiaopiao.app.domain.Category
 import com.xiaopiao.app.ui.theme.XpColors
 
 /** Which parts of the day get printed (docs/APP-DESIGN.md §3.1: 打印内容开关). */
@@ -100,12 +99,12 @@ data class ReceiptSettings(
     val customInk: Int? = null,
     val content: ReceiptContent = ReceiptPreset.Full.content,
     val font: ReceiptFont = ReceiptFont.Thermal,
-    /** Categories left off the paper. Empty = everything is printed (the default); new categories start included. */
-    val excluded: Set<Category> = emptySet(),
+    /** Ledger category ids ([com.xiaopiao.app.domain.CategoryDef.id]) left off the paper. Empty = everything is printed (the default); new categories start included. */
+    val excluded: Set<String> = emptySet(),
 ) {
     fun colors(): PaperColors = PaperColors.resolve(theme, customInk)
 
-    fun includes(c: Category): Boolean = c !in excluded
+    fun includes(categoryId: String): Boolean = categoryId !in excluded
 }
 
 /** Resolved colours the paper is drawn with. Read through [LocalPaperColors]. */

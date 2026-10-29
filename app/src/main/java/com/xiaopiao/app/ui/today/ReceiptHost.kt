@@ -61,10 +61,11 @@ class ReceiptHost internal constructor(
             val now = System.currentTimeMillis()
             val content = settings.content
             val excluded = settings.excluded
-            val lines = ReceiptSource.linesFor(all, day, today, content, now, excluded = excluded)
-            val receipt = ReceiptSource.receiptFor(all, day, excluded)
+            val defs = container.categories.defs()
+            val lines = ReceiptSource.linesFor(all, day, today, content, now, excluded = excluded, defs = defs)
+            val receipt = ReceiptSource.receiptFor(all, day, excluded, defs)
             val stamp = ReceiptLayout.stampText(receipt)
-            val meta = ReceiptSource.metaFor(all, day, now, excluded)
+            val meta = ReceiptSource.metaFor(all, day, now, excluded, defs)
             val share = ShareContent(
                 full = ReceiptLayout.build(receipt, day == today, false, expanded = true, meta = meta, content = ReceiptPreset.Full.content),
                 stampText = stamp,

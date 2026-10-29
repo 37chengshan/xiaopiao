@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.xiaopiao.app.domain.Category
+import com.xiaopiao.app.domain.CategoryDefaults
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -43,15 +44,18 @@ class ReceiptPrefs(private val store: DataStore<Preferences>) {
     suspend fun setFont(font: ReceiptFont) { store.edit { it[fontKey] = font.id } }
 
     /** [excluded] are the categories kept off the paper; an empty set prints everything. */
-    suspend fun setExcluded(excluded: Set<Category>) {
+    suspend fun setExcluded(excluded: Set<String>) {
         store.edit { if (excluded.isEmpty()) it.remove(excludedKey) else it[excludedKey] = encodeCategories(excluded) }
     }
 
     companion object {
-        /** Stored by name, so reordering or adding categories never changes what an old setting means. */
-        fun encodeCategories(set: Set<Category>): String = set.map { it.name }.sorted().joinToString(",")
+        /** Stored by category id, so reordering or adding categories never changes what an old setting means. */
+        fun encodeCategories(set: Set<String>): String = set.sorted().joinToString(",")
 
-        fun decodeCategories(raw: String?): Set<Category> =
-            raw?.split(',')?.mapNotNull { n -> Category.entries.firstOrNull { it.name == n } }?.toSet().orEmpty()
+        /** Ids as stored; settings written before categories had ids used the enum name (MEAL), which maps to its built-in id. */
+        fun decodeCategories(raw: String?): Set<String> =
+            raw?.split(',')?.filter { it.isNotBlank() }?.map { n ->
+                Category.entries.firstOrNull { it.name == n }?.let(CategoryDefaults::idFor) ?: n
+            }?.toSet().orEmpty()
     }
 }

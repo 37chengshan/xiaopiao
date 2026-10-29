@@ -1,16 +1,5 @@
 package com.xiaopiao.app.ui.today
 
-import com.xiaopiao.app.ui.components.rememberWindowBlurBehind
-import com.xiaopiao.app.ui.components.glassSurface
-import com.xiaopiao.app.ui.components.AppTopActions
-import com.xiaopiao.app.ui.components.LedgerSideLeading
-import com.xiaopiao.app.ui.components.XpButton
-import com.xiaopiao.app.ui.theme.XpRadius
-import com.xiaopiao.app.ui.theme.XpEase
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -24,31 +13,28 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -61,27 +47,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xiaopiao.app.AppContainer
-import com.xiaopiao.app.domain.Category
+import com.xiaopiao.app.domain.CategoryDef
+import com.xiaopiao.app.domain.CategoryDefaults
 import com.xiaopiao.app.domain.DAY_MS
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.startOfDay
-import com.xiaopiao.app.ui.components.GroupedRow
-import com.xiaopiao.app.ui.components.GroupedSection
+import com.xiaopiao.app.ui.category.CategoryTile
+import com.xiaopiao.app.ui.components.AppTopActions
+import com.xiaopiao.app.ui.components.LedgerSideLeading
 import com.xiaopiao.app.ui.components.NavScaffold
-import com.xiaopiao.app.ui.components.Segmented
-import com.xiaopiao.app.ui.components.XpSwitch
+import com.xiaopiao.app.ui.components.SnapPicker
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.theme.XpColors
+import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -103,16 +90,19 @@ object DayPick {
 }
 
 /**
- * 小票 tab: the upper half is settings (day, paper, ink, typeface, categories, what to print), the lower half is the
- * printer with the receipt rising out of its slot as a live preview of those settings. Settings save on every
- * change; the print key and the resident strip both print with them (docs/APP-DESIGN.md §3.1).
+ * 小票 tab (tt 2026-10-29): the printer heads the page and everything scrolls together, so the page slides up under
+ * the glass top capsules. Below it one compact card of snap pickers — 日期 / 纸张 / 墨色 / 字体 / 内容, each swiped
+ * left/right and settling on the centred choice — then the categories to print, drawn with the ledger's own
+ * category tiles (custom ones included), so 小票 and 账单 always agree. Settings save on every change; the printer
+ * key and the top-bar receipt button print with them (docs/APP-DESIGN.md §3.1).
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
     val scope = rememberCoroutineScope()
     val settings = host.settings
     val all by remember { container.ledger.observeAll() }.collectAsState(initial = emptyList())
+    val defs by remember { container.categories.observeDefs() }.collectAsState(initial = CategoryDefaults.all)
     val today = host.today
     var selectedDay by rememberSaveable { mutableLongStateOf(today) }
     var calendarOpen by remember { mutableStateOf(false) }
@@ -122,28 +112,20 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
     var dragging by remember { mutableStateOf(false) }
     val colors = if (dragging) PaperColors.resolve(settings.theme, PaperColors.inkFromHue(hue)) else settings.colors()
 
-    val lines = remember(all, selectedDay, today, settings.content, settings.excluded) {
-        ReceiptSource.linesFor(all, selectedDay, today, settings.content, System.currentTimeMillis(), excluded = settings.excluded)
-    }
-    val timeline = remember(lines) { PrintTimeline.build(lines, reduced = true) }
-    val stampText = remember(all, selectedDay, settings.excluded) { ReceiptLayout.stampText(ReceiptSource.receiptFor(all, selectedDay, settings.excluded)) }
-    val dayOut = remember(all, selectedDay, settings.excluded) {
-        all.filter { it.direction == Direction.OUT && it.category !in settings.excluded && it.occurredAt in selectedDay until selectedDay + DAY_MS }.sumOf { it.amountCents }
+    val dayOut = remember(all, defs, selectedDay, settings.excluded) {
+        all.filter {
+            it.direction == Direction.OUT && it.occurredAt in selectedDay until selectedDay + DAY_MS &&
+                ReceiptSource.prints(it, settings.excluded, defs)
+        }.sumOf { it.amountCents }
     }
 
     val scroll = rememberScrollState()
-    var categoriesOpen by rememberSaveable { mutableStateOf(false) }
-    // tt: the category picker is a window over a blurred page, not chips in the scroll.
-    val blur by animateDpAsState(if (categoriesOpen) 18.dp else 0.dp, tween(220, easing = XpEase.out), label = "pageBlur")
-    Box(Modifier.fillMaxSize().blur(blur)) {
     NavScaffold(
         "小票", rememberNavScroll(scroll),
         leading = { LedgerSideLeading() },
         trailing = { AppTopActions() },
     ) { top ->
-        Column(Modifier.fillMaxSize().padding(top = top)) {
-            // The printer faces down (slot on its lower edge) and the preview paper that used to hang
-            // above it is gone (tt 2026-10-29): the machine is the page header, settings follow below.
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             CompositionLocalProvider(LocalPaperColors provides colors, LocalReceiptFont provides settings.font) {
                 ReceiptPrinter(
                     lcd = ReceiptLayout.dayLabel(selectedDay).substringBefore(' ') + "  ¥" + (dayOut / 100),
@@ -153,106 +135,74 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
                     slotAtTop = false,
                 )
             }
-            // Below it, the settings scroll on their own; the bottom pad clears the floating tab bar.
-            val base = MaterialTheme.typography
-            val compact = base.copy(
-                bodyLarge = base.bodyLarge.copy(fontSize = 14.sp, lineHeight = 19.sp),
-                bodyMedium = base.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
-                bodySmall = base.bodySmall.copy(fontSize = 11.sp, lineHeight = 15.sp),
-                titleSmall = base.titleSmall.copy(fontSize = 13.sp, lineHeight = 18.sp),
-                titleMedium = base.titleMedium.copy(fontSize = 14.sp, lineHeight = 19.sp),
-                labelLarge = base.labelLarge.copy(fontSize = 12.sp, lineHeight = 16.sp),
-                labelMedium = base.labelMedium.copy(fontSize = 11.sp, lineHeight = 15.sp),
-            )
-            Column(Modifier.weight(1f).verticalScroll(scroll).padding(bottom = 120.dp)) {
-              MaterialTheme(typography = compact) {
-                Label("日期", first = true)
-                DayStrip(all, today, selectedDay, onSelect = { selectedDay = it }, onCalendar = { calendarOpen = true })
 
-                Label("纸张")
-                ThemeRow(settings.theme) { t -> scope.launch { host.prefs.setTheme(t) } }
-                Spacer(Modifier.height(XpSpace.m))
-                InkRow(custom = settings.customInk, onPick = { argb -> scope.launch { host.prefs.setCustomInk(argb) } })
-                Slider(
-                    value = hue, onValueChange = { hue = it; dragging = true },
-                    onValueChangeFinished = { dragging = false; scope.launch { host.prefs.setCustomInk(PaperColors.inkFromHue(hue)) } },
-                    valueRange = 0f..360f,
-                    colors = SliderDefaults.colors(thumbColor = XpColors.Ink, activeTrackColor = XpColors.Ink, inactiveTrackColor = XpColors.Fill),
-                    modifier = Modifier.padding(horizontal = XpSpace.l + 4.dp),
-                )
-
-                Label("字体")
-                Box(Modifier.padding(horizontal = XpSpace.l)) {
-                    val fonts = ReceiptFont.entries
-                    Segmented(fonts.map { it.label }, settings.font.ordinal, { i -> scope.launch { host.prefs.setFont(fonts[i]) } })
+            SettingsCard(Modifier.padding(top = XpSpace.l)) {
+                PickerRow("日期") {
+                    DayPicker(all, today, selectedDay, Modifier.weight(1f)) { selectedDay = it }
+                    Box(
+                        Modifier.padding(end = XpSpace.s).size(36.dp).clip(CircleShape).background(XpColors.Fill)
+                            .pressableClick(onClick = { calendarOpen = true }),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Outlined.CalendarMonth, contentDescription = "日历：选择任意一天", tint = XpColors.Ink, modifier = Modifier.size(18.dp)) }
                 }
-
-                Label("打印哪些分类")
-                GroupedSection {
-                    item(0) {
-                        GroupedRow(
-                            "选择分类",
-                            trailing = {
-                                Text(
-                                    if (settings.excluded.isEmpty()) "全部" else "已选 ${Category.entries.size - settings.excluded.size} 类",
-                                    style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary,
-                                )
-                            },
-                            chevron = true,
-                            onClick = { categoriesOpen = true },
-                        )
-                    }
+                Rule()
+                PickerRow("纸张") {
+                    val themes = PaperTheme.entries
+                    SnapPicker(
+                        themes, themes.indexOf(settings.theme), { i -> scope.launch { host.prefs.setTheme(themes[i]) } },
+                        Modifier.weight(1f), itemWidth = 52.dp, label = { it.label },
+                    ) { t, on -> PaperSwatch(t, on) }
                 }
-
-                Label("打印内容")
-                Box(Modifier.padding(horizontal = XpSpace.l)) {
-                    val presets = ReceiptPreset.entries
-                    val current = settings.content.preset
-                    Segmented(
-                        presets.map { it.label } + "自定义",
-                        current?.ordinal ?: presets.size,
-                        { i -> presets.getOrNull(i)?.let { p -> scope.launch { host.prefs.setContent(p.content) } } },
+                Rule()
+                PickerRow("墨色") {
+                    val inkIndex = InkChoices.indexOf(settings.customInk).let { if (it < 0) InkChoices.size else it }
+                    SnapPicker(
+                        InkChoices + listOf(CustomInk), inkIndex,
+                        { i ->
+                            val argb = if (i < InkChoices.size) InkChoices[i] else PaperColors.inkFromHue(hue)
+                            scope.launch { host.prefs.setCustomInk(argb) }
+                        },
+                        Modifier.weight(1f), itemWidth = 32.dp, spacing = 10.dp,
+                        label = { argb -> if (argb == null) "原色" else if (argb == CustomInk) "自调颜色" else "墨色" },
+                    ) { argb, on -> InkDot(argb, on, hue) }
+                }
+                if (settings.customInk != null && settings.customInk !in InkChoices) {
+                    Slider(
+                        value = hue, onValueChange = { hue = it; dragging = true },
+                        onValueChangeFinished = { dragging = false; scope.launch { host.prefs.setCustomInk(PaperColors.inkFromHue(hue)) } },
+                        valueRange = 0f..360f,
+                        colors = SliderDefaults.colors(thumbColor = XpColors.Ink, activeTrackColor = XpColors.Ink, inactiveTrackColor = XpColors.Fill),
+                        modifier = Modifier.padding(start = LabelWidth + XpSpace.l, end = XpSpace.l).height(32.dp),
                     )
                 }
-                Spacer(Modifier.height(XpSpace.m))
-                GroupedSection {
-                    ReceiptContent.Flag.entries.forEachIndexed { i, flag ->
-                        item(i) {
-                            val on = flag.get(settings.content)
-                            GroupedRow(
-                                flag.label,
-                                trailing = { XpSwitch(on, { v -> scope.launch { host.prefs.setContent(settings.content.withFlag(flag, v)) } }) },
-                                onClick = { scope.launch { host.prefs.setContent(settings.content.withFlag(flag, !on)) } },
-                            )
-                        }
-                    }
+                Rule()
+                PickerRow("字体") {
+                    val fonts = ReceiptFont.entries
+                    SnapPicker(
+                        fonts, settings.font.ordinal, { i -> scope.launch { host.prefs.setFont(fonts[i]) } },
+                        Modifier.weight(1f), itemWidth = 80.dp, label = { it.label },
+                    ) { f, on -> Pill(f.label, on) }
+                }
+                Rule()
+                val presets = ReceiptPreset.entries
+                var custom by rememberSaveable { mutableStateOf(settings.content.preset == null) }
+                PickerRow("内容") {
+                    val labels = presets.map { it.label } + "自定义"
+                    SnapPicker(
+                        labels, if (custom) presets.size else settings.content.preset?.ordinal ?: presets.size,
+                        { i ->
+                            custom = i >= presets.size
+                            presets.getOrNull(i)?.let { p -> scope.launch { host.prefs.setContent(p.content) } }
+                        },
+                        Modifier.weight(1f), itemWidth = 80.dp, label = { it },
+                    ) { l, on -> Pill(l, on) }
+                }
+                if (custom || settings.content.preset == null) {
+                    ContentFlags(settings.content) { next -> scope.launch { host.prefs.setContent(next) } }
                 }
             }
-        }
-    }
 
-    }
-
-    if (categoriesOpen) {
-        Dialog(onDismissRequest = { categoriesOpen = false }) {
-            val blurred = rememberWindowBlurBehind()
-            Column(
-                Modifier.fillMaxWidth().glassSurface(RoundedCornerShape(XpRadius.xl), blurred).clip(RoundedCornerShape(XpRadius.xl))
-                    .padding(vertical = XpSpace.l),
-            ) {
-                Text(
-                    "打印哪些分类", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink,
-                    modifier = Modifier.padding(horizontal = XpSpace.l + 4.dp),
-                )
-                Text(
-                    "没选中的分类不会印在小票上，账本里照常保留。", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary,
-                    modifier = Modifier.padding(start = XpSpace.l + 4.dp, end = XpSpace.l, top = XpSpace.xs, bottom = XpSpace.l),
-                )
-                CategoryChips(settings.excluded) { next -> scope.launch { host.prefs.setExcluded(next) } }
-                Box(Modifier.fillMaxWidth().padding(top = XpSpace.l, start = XpSpace.l, end = XpSpace.l)) {
-                    XpButton("完成", onClick = { categoriesOpen = false }, modifier = Modifier.fillMaxWidth())
-                }
-            }
+            CategoryCard(defs, settings.excluded) { next -> scope.launch { host.prefs.setExcluded(next) } }
         }
     }
 
@@ -269,136 +219,188 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
             dismissButton = { androidx.compose.material3.TextButton(onClick = { calendarOpen = false }) { Text("取消", color = XpColors.InkSecondary) } },
         ) { DatePicker(state) }
     }
+}
+
+/** Width of the left-hand labels in the settings card; pickers start right after it. */
+private val LabelWidth = 40.dp
+
+@Composable
+private fun SettingsCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Column(
+        modifier.fillMaxWidth().padding(horizontal = XpSpace.l)
+            .clip(RoundedCornerShape(XpRadius.contentCard)).background(XpColors.Card)
+            .padding(vertical = 4.dp),
+    ) { content() }
+}
+
+/** One setting: an 11sp label on the left, its picker filling the rest of the row. */
+@Composable
+private fun PickerRow(label: String, content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            label, Modifier.padding(start = XpSpace.l).width(LabelWidth - 8.dp),
+            fontSize = 11.sp, fontWeight = FontWeight.Medium, color = XpColors.InkSecondary, maxLines = 1,
+        )
+        content()
     }
 }
 
-/** How much of the receipt shows above the printer's slot. */
-private val PreviewPeek = 96.dp
-
-/** Category chips: tap to leave a category off the paper. At least one stays on; 全部 resets. */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CategoryChips(excluded: Set<Category>, onChange: (Set<Category>) -> Unit) {
-    FlowRow(
-        Modifier.fillMaxWidth().padding(horizontal = XpSpace.l),
-        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        val allOn = excluded.isEmpty()
-        Chip("全部", allOn) { onChange(emptySet()) }
-        Category.entries.forEach { c ->
-            val on = c !in excluded
-            Chip("${c.emoji} ${c.label}", on && !allOn) {
-                val next = if (on) excluded + c else excluded - c
-                // Keep at least one category on the paper.
-                if (next.size < Category.entries.size) onChange(next)
-            }
-        }
-    }
-}
-
-/** Two-level chip: ink-filled when on, grey fill when off (no outline). */
-@Composable
-private fun Chip(label: String, on: Boolean, onClick: () -> Unit) {
-    Box(
-        Modifier.height(32.dp).clip(RoundedCornerShape(16.dp))
-            .background(if (on) XpColors.Primary else XpColors.Fill)
-            .pressableClick(haptic = false, onClick = onClick).padding(horizontal = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = if (on) XpColors.OnPrimary else XpColors.InkSecondary, maxLines = 1)
-    }
-}
-
-/** The preview is only a taste: it fades in from the top, as if the paper were still coming up out of the slot. */
-private fun Modifier.previewFade(): Modifier = this.drawWithContent {
-    drawContent()
-    drawRect(Brush.verticalGradient(listOf(XpColors.CanvasGrouped, Color.Transparent), startY = 0f, endY = 28 * density))
-}
-
-@Composable
-private fun Label(text: String, first: Boolean = false) {
-    Text(
-        text, Modifier.padding(start = XpSpace.l + 4.dp, end = XpSpace.l, top = if (first) XpSpace.s else XpSpace.l, bottom = XpSpace.xs),
-        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, letterSpacing = 0.5.sp, fontWeight = FontWeight.Medium),
-        color = XpColors.InkSecondary,
-    )
+private fun Rule() {
+    Box(Modifier.fillMaxWidth().padding(start = XpSpace.l + LabelWidth).height(0.5.dp).background(XpColors.Hairline))
 }
 
 private val Weekdays = arrayOf("日", "一", "二", "三", "四", "五", "六")
 
+/** Last [STRIP_DAYS] days, oldest first; the centred day is the one printed. Dots mark days with entries. */
 @Composable
-private fun DayStrip(all: List<Txn>, today: Long, selected: Long, onSelect: (Long) -> Unit, onCalendar: () -> Unit) {
+private fun DayPicker(all: List<Txn>, today: Long, selected: Long, modifier: Modifier, onSelect: (Long) -> Unit) {
     val days = remember(today) { (0 until STRIP_DAYS).map { today - it * DAY_MS }.reversed() }
     val withData = remember(all) { all.map { startOfDay(it.occurredAt) }.toSet() }
-    val state = rememberLazyListState()
-    LaunchedEffect(selected) {
-        val i = days.indexOf(selected)
-        if (i >= 0) state.animateScrollToItem((i - 2).coerceAtLeast(0))
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        LazyRow(Modifier.weight(1f), state = state, contentPadding = androidx.compose.foundation.layout.PaddingValues(start = XpSpace.l, end = XpSpace.s), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            itemsIndexed(days, key = { _, d -> d }) { _, d ->
-                val on = d == selected
-                val cal = Calendar.getInstance().apply { timeInMillis = d }
-                Column(
-                    Modifier.width(40.dp).clip(RoundedCornerShape(12.dp))
-                        .background(if (on) XpColors.Primary else XpColors.Card)
-                        .pressableClick { onSelect(d) }.padding(vertical = 7.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(Weekdays[cal.get(Calendar.DAY_OF_WEEK) - 1], fontSize = 10.sp, color = if (on) XpColors.OnPrimary.copy(alpha = 0.7f) else XpColors.InkSecondary)
-                    Text("${cal.get(Calendar.DAY_OF_MONTH)}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (on) XpColors.OnPrimary else XpColors.Ink)
-                    Box(Modifier.padding(top = 3.dp).size(4.dp).clip(CircleShape).background(if (d in withData) (if (on) XpColors.OnPrimary else XpColors.Accent) else Color.Transparent))
-                }
-            }
+    SnapPicker(
+        days, days.indexOf(selected).coerceAtLeast(0), { i -> onSelect(days[i]) },
+        modifier, itemWidth = 38.dp, spacing = 6.dp,
+        label = { d -> ReceiptLayout.dayLabel(d) },
+    ) { d, on ->
+        val cal = Calendar.getInstance().apply { timeInMillis = d }
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                .background(if (on) XpColors.Primary else Color.Transparent).padding(vertical = 5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(Weekdays[cal.get(Calendar.DAY_OF_WEEK) - 1], fontSize = 10.sp, color = if (on) XpColors.OnPrimary.copy(alpha = 0.7f) else XpColors.InkSecondary)
+            Text("${cal.get(Calendar.DAY_OF_MONTH)}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (on) XpColors.OnPrimary else XpColors.Ink)
+            Box(Modifier.padding(top = 2.dp).size(3.dp).clip(CircleShape).background(if (d in withData) (if (on) XpColors.OnPrimary else XpColors.Accent) else Color.Transparent))
         }
-        Box(
-            Modifier.padding(end = XpSpace.l).size(44.dp).clip(CircleShape).background(XpColors.Fill).pressableClick(onClick = onCalendar),
-            contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Outlined.CalendarMonth, contentDescription = "日历：选择任意一天", tint = XpColors.Ink, modifier = Modifier.size(22.dp)) }
     }
 }
 
+/** A tiny sheet of the paper: two ink lines and the stamp dot, outlined in ink when it is the choice. */
 @Composable
-private fun ThemeRow(selected: PaperTheme, onPick: (PaperTheme) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        PaperTheme.entries.forEach { t ->
-            val c = PaperColors.resolve(t, null)
-            val on = t == selected
-            Column(Modifier.weight(1f).pressableClick { onPick(t) }, horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
-                    Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(8.dp)).background(c.paper)
-                        .border(if (on) 2.dp else 0.5.dp, if (on) XpColors.Ink else XpColors.Hairline, RoundedCornerShape(8.dp))
-                        .padding(8.dp),
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Box(Modifier.fillMaxWidth(0.55f).height(3.dp).background(c.ink.copy(alpha = 0.85f)))
-                        Box(Modifier.fillMaxWidth().height(2.dp).background(c.ink.copy(alpha = 0.3f)))
-                        Box(Modifier.fillMaxWidth(0.7f).height(2.dp).background(c.ink.copy(alpha = 0.3f)))
-                    }
-                    Box(Modifier.align(Alignment.BottomEnd).size(14.dp).clip(CircleShape).background(c.stamp.copy(alpha = 0.8f)))
-                }
-                Text(t.label, Modifier.padding(top = 5.dp), fontSize = 10.sp, color = if (on) XpColors.Ink else XpColors.InkSecondary, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1)
+private fun PaperSwatch(t: PaperTheme, on: Boolean) {
+    val c = PaperColors.resolve(t, null)
+    val shape = RoundedCornerShape(6.dp)
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier.size(34.dp, 30.dp).clip(shape).background(c.paper)
+                .border(if (on) 1.5.dp else 0.5.dp, if (on) XpColors.Ink else XpColors.Hairline, shape).padding(5.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Box(Modifier.fillMaxWidth(0.6f).height(2.dp).background(c.ink.copy(alpha = 0.85f)))
+                Box(Modifier.fillMaxWidth().height(1.5.dp).background(c.ink.copy(alpha = 0.3f)))
             }
+            Box(Modifier.align(Alignment.BottomEnd).size(7.dp).clip(CircleShape).background(c.stamp.copy(alpha = 0.8f)))
         }
+        Text(t.label, Modifier.padding(top = 2.dp), fontSize = 9.sp, color = if (on) XpColors.Ink else XpColors.InkSecondary, maxLines = 1)
     }
 }
 
 private val InkChoices = listOf<Int?>(null, 0xFF1D1D1F.toInt(), 0xFF1F3A8A.toInt(), 0xFF166534.toInt(), 0xFF7F1D1D.toInt(), 0xFF5B21B6.toInt())
 
+/** Sentinel for the last ink slot: a hue picked on the slider. */
+private const val CustomInk = 0x00C0FFEE
+
 @Composable
-private fun InkRow(custom: Int?, onPick: (Int?) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l + 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("墨色", fontSize = 11.sp, color = XpColors.InkSecondary, modifier = Modifier.width(34.dp))
-        InkChoices.forEach { argb ->
-            val on = custom == argb
+private fun InkDot(argb: Int?, on: Boolean, hue: Float) {
+    val ring = if (on) 2.dp else 0.5.dp
+    Box(
+        Modifier.size(26.dp).clip(CircleShape)
+            .background(
+                when (argb) {
+                    null -> XpColors.Fill
+                    CustomInk -> Color(PaperColors.inkFromHue(hue))
+                    else -> Color(argb)
+                },
+            )
+            .border(ring, if (on) XpColors.Ink else XpColors.Hairline, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        when (argb) {
+            null -> Text("原", fontSize = 10.sp, color = XpColors.InkSecondary)
+            CustomInk -> Icon(Icons.Outlined.Palette, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+        }
+    }
+}
+
+/** Two-level text pill: filled when centred, bare text otherwise. */
+@Composable
+private fun Pill(text: String, on: Boolean) {
+    Box(
+        Modifier.height(28.dp).clip(RoundedCornerShape(XpRadius.pill))
+            .background(if (on) XpColors.Primary else Color.Transparent).padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text, fontSize = 12.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (on) XpColors.OnPrimary else XpColors.Ink, maxLines = 1, overflow = TextOverflow.Clip,
+        )
+    }
+}
+
+/** 自定义 content: each printable part as a toggle chip, only while 自定义 is chosen. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ContentFlags(content: ReceiptContent, onChange: (ReceiptContent) -> Unit) {
+    FlowRow(
+        Modifier.fillMaxWidth().padding(start = XpSpace.l + LabelWidth, end = XpSpace.l, bottom = XpSpace.m),
+        horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        ReceiptContent.Flag.entries.forEach { flag ->
+            val on = flag.get(content)
             Box(
-                Modifier.size(28.dp).clip(CircleShape)
-                    .background(argb?.let { Color(it) } ?: XpColors.Fill)
-                    .border(if (on) 2.dp else 0.5.dp, if (on) XpColors.Ink else XpColors.Hairline, CircleShape)
-                    .pressableClick { onPick(argb) },
+                Modifier.height(28.dp).clip(RoundedCornerShape(XpRadius.pill))
+                    .background(if (on) XpColors.Primary else XpColors.Fill)
+                    .pressableClick(haptic = true) { onChange(content.withFlag(flag, !on)) }.padding(horizontal = 10.dp),
                 contentAlignment = Alignment.Center,
-            ) { if (argb == null) Text("原", fontSize = 11.sp, color = XpColors.InkSecondary) }
+            ) { Text(flag.label, fontSize = 12.sp, color = if (on) XpColors.OnPrimary else XpColors.InkSecondary, maxLines = 1) }
+        }
+    }
+}
+
+/**
+ * Which categories go on the paper, as the ledger's own tiles (custom categories included). Tap to leave one off;
+ * at least one stays on; 全部 resets. Off tiles fade back but keep their colour, so it is clear what they are.
+ */
+@Composable
+private fun CategoryCard(defs: List<CategoryDef>, excluded: Set<String>, onChange: (Set<String>) -> Unit) {
+    val spend = remember(defs) { defs.filter { it.fits(Direction.OUT) && !it.hidden }.sortedBy { it.sortOrder } }
+    Column(
+        Modifier.fillMaxWidth().padding(start = XpSpace.l, end = XpSpace.l, top = XpSpace.m)
+            .clip(RoundedCornerShape(XpRadius.contentCard)).background(XpColors.Card).padding(vertical = XpSpace.m),
+    ) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l), verticalAlignment = Alignment.CenterVertically) {
+            Text("印哪些分类", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = XpColors.Ink)
+            val printed = spend.count { it.id !in excluded }
+            Text(
+                if (excluded.isEmpty()) "全部" else "$printed / ${spend.size} · 全部",
+                Modifier.clip(RoundedCornerShape(XpRadius.pill)).pressableClick { onChange(emptySet()) }.padding(horizontal = 6.dp, vertical = 2.dp),
+                fontSize = 12.sp, color = if (excluded.isEmpty()) XpColors.InkSecondary else XpColors.Accent,
+            )
+        }
+        Text(
+            "没选中的不印在小票上，账本里照常保留。", Modifier.padding(horizontal = XpSpace.l, vertical = 2.dp),
+            fontSize = 11.sp, color = XpColors.InkTertiary,
+        )
+        LazyRow(
+            Modifier.fillMaxWidth().padding(top = XpSpace.s),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = XpSpace.l),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            items(spend, key = { it.id }) { def ->
+                val on = def.id !in excluded
+                Column(
+                    Modifier.width(54.dp).graphicsLayer { alpha = if (on) 1f else 0.35f }
+                        .pressableClick(haptic = true) {
+                            val next = if (on) excluded + def.id else excluded - def.id
+                            // Keep at least one category on the paper.
+                            if (spend.any { it.id !in next }) onChange(next)
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    CategoryTile(def, size = 36.dp, selected = on)
+                    Text(def.label, Modifier.padding(top = 3.dp), fontSize = 10.sp, color = XpColors.InkSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
         }
     }
 }

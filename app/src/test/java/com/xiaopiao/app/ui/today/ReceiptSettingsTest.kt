@@ -152,12 +152,12 @@ class ReceiptSettingsTest {
         assertEquals(ReceiptFont.Thermal, def.font)
         assertTrue(def.excluded.isEmpty())
         p.setFont(ReceiptFont.Serif)
-        p.setExcluded(setOf(Category.DRINK, Category.OTHER))
+        p.setExcluded(setOf("drink", "custom:42"))
         val s = p.observe().first()
         assertEquals(ReceiptFont.Serif, s.font)
-        assertEquals(setOf(Category.DRINK, Category.OTHER), s.excluded)
-        assertFalse(s.includes(Category.DRINK))
-        assertTrue(s.includes(Category.MEAL))
+        assertEquals(setOf("drink", "custom:42"), s.excluded)
+        assertFalse(s.includes("drink"))
+        assertTrue(s.includes("meal"))
         p.setExcluded(emptySet())
         assertTrue(p.observe().first().excluded.isEmpty())
     }
@@ -165,16 +165,17 @@ class ReceiptSettingsTest {
     @Test fun unknownFontIdAndCategoryNamesFallBackSafely() {
         assertEquals(ReceiptFont.Thermal, ReceiptFont.fromId("nope"))
         assertEquals(ReceiptFont.Thermal, ReceiptFont.fromId(null))
-        assertEquals(setOf(Category.MEAL), ReceiptPrefs.decodeCategories("MEAL,GONE"))
+        // Pre-id settings stored enum names; they come back as the built-in ids.
+        assertEquals(setOf("meal", "drink"), ReceiptPrefs.decodeCategories("MEAL,DRINK"))
         assertTrue(ReceiptPrefs.decodeCategories(null).isEmpty())
-        assertEquals(setOf(Category.FUN, Category.MEAL), ReceiptPrefs.decodeCategories(ReceiptPrefs.encodeCategories(setOf(Category.MEAL, Category.FUN))))
+        assertEquals(setOf("fun", "custom:7"), ReceiptPrefs.decodeCategories(ReceiptPrefs.encodeCategories(setOf("custom:7", "fun"))))
     }
 
     @Test fun excludedCategoriesLeaveTheReceiptAndItsTotal() {
         val day = 0L
         val all = listOf(txn(1, 5000, Category.MEAL), txn(2, 3000, Category.DRINK), txn(3, 2000, Category.TRANSPORT))
         val full = ReceiptSource.receiptFor(all, day)
-        val filtered = ReceiptSource.receiptFor(all, day, excluded = setOf(Category.DRINK))
+        val filtered = ReceiptSource.receiptFor(all, day, excluded = setOf("drink"))
         assertEquals(10000L, full.totalOutCents)
         assertEquals(7000L, filtered.totalOutCents)
         assertTrue(filtered.items.none { it.category == Category.DRINK })
