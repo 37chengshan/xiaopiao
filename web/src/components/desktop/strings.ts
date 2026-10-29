@@ -105,7 +105,7 @@ export const s = defineStrings(
     "ov.vsYesterday": "较昨日",
     "ov.vsLastMonth": "较上月",
     "ov.vsMonth": "较月初",
-    "ov.flat": "与 {} 持平",
+    "ov.flat": "与{}持平",
     "ov.trend": "近 30 天",
     "ov.trendHint": "每天的支出合计",
     "ov.last7": "近 7 天",
