@@ -15,6 +15,9 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -47,6 +50,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.R
@@ -163,9 +167,22 @@ internal fun CircleLeaderboardContent(
                 )
             }
         } else {
-            GroupedSection(margin = 0.dp, dividerInset = 78.dp) {
-                board.rows.forEach { row ->
-                    item(row.memberId) {
+            // 拟物榜单 (tt 2026-10-29): the board is a printed receipt — torn bottom, dashed rules,
+            // monospaced figures and a rubber stamp on the leader.
+            Box(Modifier.fillMaxWidth()) {
+                TornReceiptCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.circle_lb_stub),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XpColors.Ink,
+                            letterSpacing = 1.5.sp,
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(XpColors.Hairline))
+                    board.rows.forEachIndexed { index, row ->
+                        if (index > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(XpColors.Hairline.copy(alpha = 0.6f)))
                         CircleRankRow(
                             circle = circle,
                             row = row,
@@ -179,6 +196,34 @@ internal fun CircleLeaderboardContent(
                             },
                         )
                     }
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(XpColors.Hairline))
+                    Spacer(Modifier.height(6.dp))
+                    Row {
+                        Text(
+                            stringResource(R.string.circle_lb_total, board.eligible),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XpColors.InkTertiary,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            stringResource(R.string.circle_lb_scope),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XpColors.InkTertiary,
+                        )
+                    }
+                }
+                if (board.rows.isNotEmpty()) {
+                    Text(
+                        "TOP",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 2.sp),
+                        color = XpColors.Stamp,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = XpSpace.m, end = XpSpace.m)
+                            .rotate(-9f)
+                            .border(1.5.dp, XpColors.Stamp, RoundedCornerShape(3.dp))
+                            .padding(horizontal = 6.dp, vertical = 1.dp),
+                    )
                 }
             }
             if (board.unshared > 0) {
@@ -235,83 +280,74 @@ private fun CircleRankRow(
     ) {
         Row(
             Modifier.fillMaxWidth()
-                .pressableClick(scaleDown = 0.99f, onClick = onToggle)
-                .padding(horizontal = XpSpace.l, vertical = XpSpace.s + 2.dp),
+                .pressableClick(scaleDown = 0.98f, haptic = true, onClick = onToggle)
+                .padding(start = XpSpace.m, end = XpSpace.s, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 row.rank.toString(),
-                style = MaterialTheme.typography.titleSmall.copy(
+                style = MaterialTheme.typography.labelLarge.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.SemiBold,
                 ),
                 color = if (row.rank <= 3) XpColors.Accent else XpColors.InkTertiary,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
-                modifier = Modifier.width(22.dp),
+                modifier = Modifier.width(18.dp),
             )
-            Spacer(Modifier.width(XpSpace.s))
+            Spacer(Modifier.width(6.dp))
             if (member != null) {
-                CircleAvatar(member, size = 32.dp)
+                CircleAvatar(member, size = 28.dp)
             } else {
-                RankFallbackAvatar(row.name)
+                RankFallbackAvatar(row.name, size = 28.dp)
             }
-            Spacer(Modifier.width(XpSpace.m))
+            Spacer(Modifier.width(XpSpace.s))
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        row.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = XpColors.Ink,
-                        maxLines = 2,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    if (row.isMe) {
-                        Spacer(Modifier.width(XpSpace.xs + 1.dp))
-                        CircleMeTag()
-                    }
-                    if (row.dormant && spendBoard) {
-                        Spacer(Modifier.width(XpSpace.xs + 1.dp))
-                        Text(
-                            stringResource(R.string.circle_lb_dormant),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = XpColors.InkTertiary,
-                            maxLines = 1,
-                        )
-                    }
+                Text(
+                    row.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = XpColors.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                val extras = buildList {
+                    if (row.isMe) add(stringResource(R.string.circle_home_me))
+                    if (row.dormant && spendBoard) add(stringResource(R.string.circle_lb_dormant))
+                    if (!row.shared) add(stringResource(R.string.circle_home_shared_none))
                 }
                 Text(
-                    detail,
-                    style = MaterialTheme.typography.bodySmall,
+                    buildString {
+                        if (extras.isNotEmpty()) append(extras.joinToString(" · ")).append(" · ")
+                        append(detail)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
                     color = XpColors.InkSecondary,
-                    maxLines = 2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.width(XpSpace.s))
+            Spacer(Modifier.width(6.dp))
             when (type) {
-                LeaderboardType.LeastSpent, LeaderboardType.MostSpent -> {
+                LeaderboardType.LeastSpent, LeaderboardType.MostSpent ->
                     MoneyText(
                         cents = row.value,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = XpColors.Ink,
                     )
-                }
-                LeaderboardType.Streak -> {
+                LeaderboardType.Streak ->
                     Text(
                         stringResource(R.string.circle_lb_streak_unit, row.value.toInt()),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = XpColors.Ink,
                         maxLines = 1,
                     )
-                }
-                LeaderboardType.Badges -> {
+                LeaderboardType.Badges ->
                     Text(
                         stringResource(R.string.circle_lb_badge_unit, row.value.toInt()),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = XpColors.Ink,
                         maxLines = 1,
                     )
-                }
             }
             Icon(
                 Icons.Outlined.KeyboardArrowDown,
@@ -366,9 +402,9 @@ private fun CircleRankRow(
 }
 
 @Composable
-private fun RankFallbackAvatar(name: String) {
+private fun RankFallbackAvatar(name: String, size: androidx.compose.ui.unit.Dp = 32.dp) {
     Box(
-        Modifier.size(32.dp).clip(CircleShape).background(XpColors.Fill),
+        Modifier.size(size).clip(CircleShape).background(XpColors.Fill),
         contentAlignment = Alignment.Center,
     ) {
         Text(

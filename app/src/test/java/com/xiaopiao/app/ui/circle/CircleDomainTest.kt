@@ -197,6 +197,18 @@ class CircleDomainTest {
     }
 
     @Test
+    fun `creating a circle makes the viewer its owner and opens it`() {
+        val b = book(circle())
+        val result = createCircle(b, "新家", member("me"), now)
+        assertNull(result.error)
+        val created = result.book.current()
+        assertEquals("新家", created.name)
+        assertEquals("me", created.ownerId)
+        assertEquals(CircleRole.Owner, created.members.single().role)
+        assertEquals(CircleError.NameTooLong, createCircle(b, "一个超过十二个字的圈子名字呀", member("me"), now).error)
+    }
+
+    @Test
     fun `award card names every member and stays deterministic per week`() {
         val c = CircleDemo.book(now).current()
         val first = awardSystemPost(c, now)

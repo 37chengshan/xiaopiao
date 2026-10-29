@@ -33,7 +33,7 @@ data class ReceiptMeta(val printedAtMs: Long = 0L, val previousOutCents: Cents? 
 /** Turns a [DailyReceipt] into fixed-width printable lines (grouped by category, ellipsis, wrapping). Pure and testable. */
 object ReceiptLayout {
     const val COLS = 30
-    const val COMMENT_COLS = 26
+    const val COMMENT_COLS = 18
     /** Item rows shown under their category before "还有 N 笔" kicks in (collapsed = what gets printed on screen). */
     const val MAX_ROWS = 6
     const val DEFAULT_STAMP = "钱包休眠者"

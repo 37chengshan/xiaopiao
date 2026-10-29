@@ -142,25 +142,30 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
         trailing = { AppTopActions() },
     ) { top ->
         Column(Modifier.fillMaxSize().padding(top = top)) {
-            // Pinned on top: the printer, with the receipt rising out of its slot (live preview). Never under the tab bar.
+            // The printer faces down (slot on its lower edge) and the preview paper that used to hang
+            // above it is gone (tt 2026-10-29): the machine is the page header, settings follow below.
             CompositionLocalProvider(LocalPaperColors provides colors, LocalReceiptFont provides settings.font) {
-                Box(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l).height(PreviewPeek + PrinterHeight - 12.dp), contentAlignment = Alignment.TopCenter) {
-                    Box(Modifier.height(PreviewPeek).clipToBounds().previewFade()) {
-                        val clock = remember(timeline) { PrintClock(timeline, instant = true) { 0L } }
-                        val stamp = remember { StampVisuals({ 1f }, { 1f }, { 0f }) }
-                        ReceiptPaper(lines, clock, stampText, stamp, tornTop = true)
-                    }
-                    ReceiptPrinter(
-                        lcd = ReceiptLayout.dayLabel(selectedDay).substringBefore(' ') + "  ¥" + (dayOut / 100),
-                        printing = host.printing,
-                        onPrint = { from -> host.print(selectedDay, from) },
-                        modifier = Modifier.align(Alignment.BottomCenter),
-                        slotAtTop = true,
-                    )
-                }
+                ReceiptPrinter(
+                    lcd = ReceiptLayout.dayLabel(selectedDay).substringBefore(' ') + "  ¥" + (dayOut / 100),
+                    printing = host.printing,
+                    onPrint = { from -> host.print(selectedDay, from) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = XpSpace.l),
+                    slotAtTop = false,
+                )
             }
             // Below it, the settings scroll on their own; the bottom pad clears the floating tab bar.
+            val base = MaterialTheme.typography
+            val compact = base.copy(
+                bodyLarge = base.bodyLarge.copy(fontSize = 14.sp, lineHeight = 19.sp),
+                bodyMedium = base.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
+                bodySmall = base.bodySmall.copy(fontSize = 11.sp, lineHeight = 15.sp),
+                titleSmall = base.titleSmall.copy(fontSize = 13.sp, lineHeight = 18.sp),
+                titleMedium = base.titleMedium.copy(fontSize = 14.sp, lineHeight = 19.sp),
+                labelLarge = base.labelLarge.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                labelMedium = base.labelMedium.copy(fontSize = 11.sp, lineHeight = 15.sp),
+            )
             Column(Modifier.weight(1f).verticalScroll(scroll).padding(bottom = 120.dp)) {
+              MaterialTheme(typography = compact) {
                 Label("日期", first = true)
                 DayStrip(all, today, selectedDay, onSelect = { selectedDay = it }, onCalendar = { calendarOpen = true })
 
@@ -264,6 +269,7 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
             dismissButton = { androidx.compose.material3.TextButton(onClick = { calendarOpen = false }) { Text("取消", color = XpColors.InkSecondary) } },
         ) { DatePicker(state) }
     }
+    }
 }
 
 /** How much of the receipt shows above the printer's slot. */
@@ -312,8 +318,9 @@ private fun Modifier.previewFade(): Modifier = this.drawWithContent {
 @Composable
 private fun Label(text: String, first: Boolean = false) {
     Text(
-        text, Modifier.padding(start = XpSpace.l + 4.dp, end = XpSpace.l, top = if (first) XpSpace.s else XpSpace.xl, bottom = XpSpace.s),
-        style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary,
+        text, Modifier.padding(start = XpSpace.l + 4.dp, end = XpSpace.l, top = if (first) XpSpace.s else XpSpace.l, bottom = XpSpace.xs),
+        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, letterSpacing = 0.5.sp, fontWeight = FontWeight.Medium),
+        color = XpColors.InkSecondary,
     )
 }
 
@@ -334,13 +341,13 @@ private fun DayStrip(all: List<Txn>, today: Long, selected: Long, onSelect: (Lon
                 val on = d == selected
                 val cal = Calendar.getInstance().apply { timeInMillis = d }
                 Column(
-                    Modifier.width(44.dp).clip(RoundedCornerShape(14.dp))
+                    Modifier.width(40.dp).clip(RoundedCornerShape(12.dp))
                         .background(if (on) XpColors.Primary else XpColors.Card)
-                        .pressableClick { onSelect(d) }.padding(vertical = 8.dp),
+                        .pressableClick { onSelect(d) }.padding(vertical = 7.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(Weekdays[cal.get(Calendar.DAY_OF_WEEK) - 1], fontSize = 11.sp, color = if (on) XpColors.OnPrimary.copy(alpha = 0.7f) else XpColors.InkSecondary)
-                    Text("${cal.get(Calendar.DAY_OF_MONTH)}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = if (on) XpColors.OnPrimary else XpColors.Ink)
+                    Text(Weekdays[cal.get(Calendar.DAY_OF_WEEK) - 1], fontSize = 10.sp, color = if (on) XpColors.OnPrimary.copy(alpha = 0.7f) else XpColors.InkSecondary)
+                    Text("${cal.get(Calendar.DAY_OF_MONTH)}", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (on) XpColors.OnPrimary else XpColors.Ink)
                     Box(Modifier.padding(top = 3.dp).size(4.dp).clip(CircleShape).background(if (d in withData) (if (on) XpColors.OnPrimary else XpColors.Accent) else Color.Transparent))
                 }
             }
@@ -371,7 +378,7 @@ private fun ThemeRow(selected: PaperTheme, onPick: (PaperTheme) -> Unit) {
                     }
                     Box(Modifier.align(Alignment.BottomEnd).size(14.dp).clip(CircleShape).background(c.stamp.copy(alpha = 0.8f)))
                 }
-                Text(t.label, Modifier.padding(top = 5.dp), fontSize = 11.sp, color = if (on) XpColors.Ink else XpColors.InkSecondary, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1)
+                Text(t.label, Modifier.padding(top = 5.dp), fontSize = 10.sp, color = if (on) XpColors.Ink else XpColors.InkSecondary, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1)
             }
         }
     }
@@ -382,7 +389,7 @@ private val InkChoices = listOf<Int?>(null, 0xFF1D1D1F.toInt(), 0xFF1F3A8A.toInt
 @Composable
 private fun InkRow(custom: Int?, onPick: (Int?) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l + 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("墨色", fontSize = 13.sp, color = XpColors.InkSecondary, modifier = Modifier.width(34.dp))
+        Text("墨色", fontSize = 11.sp, color = XpColors.InkSecondary, modifier = Modifier.width(34.dp))
         InkChoices.forEach { argb ->
             val on = custom == argb
             Box(

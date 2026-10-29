@@ -26,6 +26,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material3.Icon
@@ -42,6 +44,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -64,7 +69,7 @@ import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 
-private val ComposerHeight = 64.dp
+private val ComposerHeight = 88.dp
 
 /**
  * 圈子 tab: several family/roommate circles, each its own group chat (docs/APP-DESIGN.md §5).
@@ -156,7 +161,7 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                         now = now,
                         viewerId = viewerId,
                         modifier = Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m),
-                        onOpen = { sheet = "menu" },
+                        onOpen = { sheet = "award" },
                     )
                 }
                 if (rows.isEmpty()) {
@@ -217,19 +222,48 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                 draft = draft,
                 onDraftChange = { draft = it },
                 onSend = ::send,
+                onPlus = { sheet = "send" },
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = BottomGlassInset).imePadding(),
             )
         }
     }
 
     when {
-        sheet == "menu" -> CircleMenuSheet(
+        sheet == "menu" -> CircleMenuDrawer(
             book = book,
             onBookChange = { book = it },
-            onOpenGames = onOpenGames,
+            onClose = { sheet = null },
+            onGames = { sheet = null; onOpenGames() },
+            onMembers = { sheet = "members" },
+            onInvite = { sheet = "invite" },
+            onLeaderboard = { sheet = "leaderboard" },
+            onAward = { sheet = "award" },
+            onShare = { sheet = "send" },
+            viewerId = viewerId,
+        )
+        sheet == "members" -> CircleMembersSheet(
+            book = book,
+            onBookChange = { book = it },
             onClose = { sheet = null },
             viewerId = viewerId,
-            onShare = { sheet = "send" },
+        )
+        sheet == "invite" -> CircleInviteSheet(
+            book = book,
+            onBookChange = { book = it },
+            onClose = { sheet = null },
+        )
+        sheet == "leaderboard" -> CircleLeaderboardSheet(
+            book = book,
+            now = now,
+            viewerId = viewerId,
+            onClose = { sheet = null },
+            onInvite = { sheet = "invite" },
+        )
+        sheet == "award" -> CircleAwardSheet(
+            circle = circle,
+            now = now,
+            viewerId = viewerId,
+            onClose = { sheet = null },
         )
         sheet == "send" -> {
             val today = startOfDay(now)
@@ -300,63 +334,68 @@ private fun CircleComposer(
     draft: String,
     onDraftChange: (String) -> Unit,
     onSend: () -> Unit,
+    onPlus: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     val enabled = draft.isNotBlank()
-    // Glass, not a slab: the feed keeps scrolling under it and the bar under that.
-    Column(modifier.fillMaxWidth().background(XpColors.Material.copy(alpha = 0.82f))) {
-        Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpColors.Hairline))
+    val shape = RoundedCornerShape(30.dp)
+    // Same recipe as the AI composer (ui/chat/ChatComposer.kt): one elevated white card, plus on the
+    // left, accent circle on the right. The feed keeps scrolling underneath it.
+    Box(
+        modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s),
+    ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s),
+            Modifier.fillMaxWidth()
+                .shadow(10.dp, shape, clip = false, ambientColor = Color(0x14000000), spotColor = Color(0x1A000000))
+                .clip(shape)
+                .background(XpColors.Card)
+                .padding(horizontal = XpSpace.s, vertical = XpSpace.s),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                Modifier.weight(1f)
-                    .clip(RoundedCornerShape(XpRadius.pill))
-                    .background(XpColors.Fill.copy(alpha = 0.9f))
-                    .padding(horizontal = XpSpace.m + 2.dp, vertical = XpSpace.s + 2.dp),
+                Modifier.size(40.dp).clip(CircleShape).pressableClick(scaleDown = 0.92f, onClick = onPlus),
+                contentAlignment = Alignment.Center,
             ) {
-                BasicTextField(
-                    value = draft,
-                    onValueChange = { onDraftChange(it.take(140)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = XpColors.Ink),
-                    cursorBrush = SolidColor(XpColors.Accent),
-                    maxLines = 3,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { if (enabled) { onSend(); keyboard?.hide() } }),
-                    decorationBox = { inner ->
-                        Box {
-                            if (draft.isEmpty()) {
-                                Text(
-                                    stringResource(R.string.circle_home_composer),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = XpColors.InkSecondary,
-                                    maxLines = 1,
-                                )
-                            }
-                            inner()
-                        }
-                    },
-                )
+                Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.circle_home_share), tint = XpColors.Ink, modifier = Modifier.size(22.dp))
             }
-            Spacer(Modifier.width(XpSpace.s))
+            BasicTextField(
+                value = draft,
+                onValueChange = { onDraftChange(it.take(140)) },
+                modifier = Modifier.weight(1f).padding(horizontal = XpSpace.s),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = XpColors.Ink, fontSize = 17.sp, lineHeight = 24.sp),
+                cursorBrush = SolidColor(XpColors.Accent),
+                maxLines = 4,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = { if (enabled) { onSend(); keyboard?.hide() } }),
+                decorationBox = { inner ->
+                    Box {
+                        if (draft.isEmpty()) {
+                            Text(
+                                stringResource(R.string.circle_home_composer),
+                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
+                                color = XpColors.InkSecondary,
+                                maxLines = 1,
+                            )
+                        }
+                        inner()
+                    }
+                },
+            )
             Box(
-                Modifier.size(38.dp)
-                    .clip(CircleShape)
-                    .background(if (enabled) XpColors.Primary else XpColors.Fill)
-                    .pressableClick(enabled = enabled, haptic = true) {
+                Modifier.size(44.dp).clip(CircleShape)
+                    .background(if (enabled) XpColors.Accent else XpColors.Fill)
+                    .pressableClick(enabled = enabled, scaleDown = 0.94f, haptic = true) {
                         onSend()
                         keyboard?.hide()
                     },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    Icons.AutoMirrored.Outlined.Send,
+                    Icons.Outlined.ArrowUpward,
                     contentDescription = stringResource(R.string.circle_home_send),
-                    tint = if (enabled) XpColors.OnPrimary else XpColors.InkTertiary,
-                    modifier = Modifier.size(18.dp),
+                    tint = if (enabled) XpColors.OnAccent else XpColors.InkTertiary,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
