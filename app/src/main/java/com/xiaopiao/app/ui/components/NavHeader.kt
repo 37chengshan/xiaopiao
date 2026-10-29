@@ -110,9 +110,16 @@ fun NavScaffold(
         }
         // No bar: a soft edge fade keeps the title legible, and each group of controls floats in its own glass capsule.
         val edge = XpColors.CanvasGrouped
+        // The status bar band stays near-solid so scrolled text never reads behind the clock; the fade starts below it.
+        val statusStop = topInset / (topInset + BarHeight + EdgeFade)
         Box(
             Modifier.fillMaxWidth().height(topInset + BarHeight + EdgeFade)
-                .background(Brush.verticalGradient(0f to edge.copy(alpha = 0.92f), 0.6f to edge.copy(alpha = 0.7f), 1f to edge.copy(alpha = 0f))),
+                .background(
+                    Brush.verticalGradient(
+                        0f to edge.copy(alpha = 0.97f), statusStop to edge.copy(alpha = 0.92f),
+                        0.7f to edge.copy(alpha = 0.7f), 1f to edge.copy(alpha = 0f),
+                    ),
+                ),
         )
         Box(
             Modifier.fillMaxWidth()
