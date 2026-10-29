@@ -10,37 +10,91 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppRouteImport } from './routes/_app'
-import { Route as AppGameRouteImport } from './routes/_app/game'
-import { Route as AppHomeRouteImport } from './routes/_app/home'
-import { Route as AppInsightsRouteImport } from './routes/_app/insights'
-import { Route as AppLedgerRouteImport } from './routes/_app/ledger'
-import { Route as AppMerchantRouteImport } from './routes/_app/merchant'
-import { Route as AppSettingsRouteImport } from './routes/_app/settings'
-import { Route as AppTodayRouteImport } from './routes/_app/today'
+import { Route as LegacyRouteImport } from './routes/_legacy'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as LegacyGameRouteImport } from './routes/_legacy/game'
+import { Route as LegacyHomeRouteImport } from './routes/_legacy/home'
+import { Route as LegacyInsightsRouteImport } from './routes/_legacy/insights'
+import { Route as LegacyLedgerRouteImport } from './routes/_legacy/ledger'
+import { Route as LegacyMerchantRouteImport } from './routes/_legacy/merchant'
+import { Route as LegacySettingsRouteImport } from './routes/_legacy/settings'
+import { Route as LegacyTodayRouteImport } from './routes/_legacy/today'
+import { Route as AppIndexRouteImport } from './routes/app/index'
+import { Route as AppAiRouteImport } from './routes/app/ai'
+import { Route as AppCardsRouteImport } from './routes/app/cards'
+import { Route as AppCircleRouteImport } from './routes/app/circle'
+import { Route as AppLedgerRouteImport } from './routes/app/ledger'
+import { Route as AppReceiptRouteImport } from './routes/app/receipt'
+import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as AppStatsRouteImport } from './routes/app/stats'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
+const LegacyRoute = LegacyRouteImport.update({
+  id: '/_legacy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppGameRoute = AppGameRouteImport.update({
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegacyGameRoute = LegacyGameRouteImport.update({
   id: '/game',
   path: '/game',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => LegacyRoute,
 } as any)
-const AppHomeRoute = AppHomeRouteImport.update({
+const LegacyHomeRoute = LegacyHomeRouteImport.update({
   id: '/home',
   path: '/home',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => LegacyRoute,
 } as any)
-const AppInsightsRoute = AppInsightsRouteImport.update({
+const LegacyInsightsRoute = LegacyInsightsRouteImport.update({
   id: '/insights',
   path: '/insights',
+  getParentRoute: () => LegacyRoute,
+} as any)
+const LegacyLedgerRoute = LegacyLedgerRouteImport.update({
+  id: '/ledger',
+  path: '/ledger',
+  getParentRoute: () => LegacyRoute,
+} as any)
+const LegacyMerchantRoute = LegacyMerchantRouteImport.update({
+  id: '/merchant',
+  path: '/merchant',
+  getParentRoute: () => LegacyRoute,
+} as any)
+const LegacySettingsRoute = LegacySettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => LegacyRoute,
+} as any)
+const LegacyTodayRoute = LegacyTodayRouteImport.update({
+  id: '/today',
+  path: '/today',
+  getParentRoute: () => LegacyRoute,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAiRoute = AppAiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCardsRoute = AppCardsRouteImport.update({
+  id: '/cards',
+  path: '/cards',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCircleRoute = AppCircleRouteImport.update({
+  id: '/circle',
+  path: '/circle',
   getParentRoute: () => AppRoute,
 } as any)
 const AppLedgerRoute = AppLedgerRouteImport.update({
@@ -48,9 +102,9 @@ const AppLedgerRoute = AppLedgerRouteImport.update({
   path: '/ledger',
   getParentRoute: () => AppRoute,
 } as any)
-const AppMerchantRoute = AppMerchantRouteImport.update({
-  id: '/merchant',
-  path: '/merchant',
+const AppReceiptRoute = AppReceiptRouteImport.update({
+  id: '/receipt',
+  path: '/receipt',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -58,48 +112,75 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
-const AppTodayRoute = AppTodayRouteImport.update({
-  id: '/today',
-  path: '/today',
+const AppStatsRoute = AppStatsRouteImport.update({
+  id: '/stats',
+  path: '/stats',
   getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/game': typeof AppGameRoute
-  '/home': typeof AppHomeRoute
-  '/insights': typeof AppInsightsRoute
-  '/ledger': typeof AppLedgerRoute
-  '/merchant': typeof AppMerchantRoute
-  '/settings': typeof AppSettingsRoute
-  '/today': typeof AppTodayRoute
+  '/app': typeof AppRouteWithChildren
+  '/game': typeof LegacyGameRoute
+  '/home': typeof LegacyHomeRoute
+  '/insights': typeof LegacyInsightsRoute
+  '/ledger': typeof LegacyLedgerRoute
+  '/merchant': typeof LegacyMerchantRoute
+  '/settings': typeof LegacySettingsRoute
+  '/today': typeof LegacyTodayRoute
+  '/app/ai': typeof AppAiRoute
+  '/app/cards': typeof AppCardsRoute
+  '/app/circle': typeof AppCircleRoute
+  '/app/ledger': typeof AppLedgerRoute
+  '/app/receipt': typeof AppReceiptRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/stats': typeof AppStatsRoute
+  '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/game': typeof AppGameRoute
-  '/home': typeof AppHomeRoute
-  '/insights': typeof AppInsightsRoute
-  '/ledger': typeof AppLedgerRoute
-  '/merchant': typeof AppMerchantRoute
-  '/settings': typeof AppSettingsRoute
-  '/today': typeof AppTodayRoute
+  '/game': typeof LegacyGameRoute
+  '/home': typeof LegacyHomeRoute
+  '/insights': typeof LegacyInsightsRoute
+  '/ledger': typeof LegacyLedgerRoute
+  '/merchant': typeof LegacyMerchantRoute
+  '/settings': typeof LegacySettingsRoute
+  '/today': typeof LegacyTodayRoute
+  '/app/ai': typeof AppAiRoute
+  '/app/cards': typeof AppCardsRoute
+  '/app/circle': typeof AppCircleRoute
+  '/app/ledger': typeof AppLedgerRoute
+  '/app/receipt': typeof AppReceiptRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/stats': typeof AppStatsRoute
+  '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/_app': typeof AppRouteWithChildren
-  '/_app/game': typeof AppGameRoute
-  '/_app/home': typeof AppHomeRoute
-  '/_app/insights': typeof AppInsightsRoute
-  '/_app/ledger': typeof AppLedgerRoute
-  '/_app/merchant': typeof AppMerchantRoute
-  '/_app/settings': typeof AppSettingsRoute
-  '/_app/today': typeof AppTodayRoute
+  '/_legacy': typeof LegacyRouteWithChildren
+  '/app': typeof AppRouteWithChildren
+  '/_legacy/game': typeof LegacyGameRoute
+  '/_legacy/home': typeof LegacyHomeRoute
+  '/_legacy/insights': typeof LegacyInsightsRoute
+  '/_legacy/ledger': typeof LegacyLedgerRoute
+  '/_legacy/merchant': typeof LegacyMerchantRoute
+  '/_legacy/settings': typeof LegacySettingsRoute
+  '/_legacy/today': typeof LegacyTodayRoute
+  '/app/ai': typeof AppAiRoute
+  '/app/cards': typeof AppCardsRoute
+  '/app/circle': typeof AppCircleRoute
+  '/app/ledger': typeof AppLedgerRoute
+  '/app/receipt': typeof AppReceiptRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/stats': typeof AppStatsRoute
+  '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/app'
     | '/game'
     | '/home'
     | '/insights'
@@ -107,6 +188,14 @@ export interface FileRouteTypes {
     | '/merchant'
     | '/settings'
     | '/today'
+    | '/app/ai'
+    | '/app/cards'
+    | '/app/circle'
+    | '/app/ledger'
+    | '/app/receipt'
+    | '/app/settings'
+    | '/app/stats'
+    | '/app/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -117,21 +206,39 @@ export interface FileRouteTypes {
     | '/merchant'
     | '/settings'
     | '/today'
+    | '/app/ai'
+    | '/app/cards'
+    | '/app/circle'
+    | '/app/ledger'
+    | '/app/receipt'
+    | '/app/settings'
+    | '/app/stats'
+    | '/app'
   id:
     | '__root__'
     | '/'
-    | '/_app'
-    | '/_app/game'
-    | '/_app/home'
-    | '/_app/insights'
-    | '/_app/ledger'
-    | '/_app/merchant'
-    | '/_app/settings'
-    | '/_app/today'
+    | '/_legacy'
+    | '/app'
+    | '/_legacy/game'
+    | '/_legacy/home'
+    | '/_legacy/insights'
+    | '/_legacy/ledger'
+    | '/_legacy/merchant'
+    | '/_legacy/settings'
+    | '/_legacy/today'
+    | '/app/ai'
+    | '/app/cards'
+    | '/app/circle'
+    | '/app/ledger'
+    | '/app/receipt'
+    | '/app/settings'
+    | '/app/stats'
+    | '/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LegacyRoute: typeof LegacyRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
 }
 
@@ -144,89 +251,178 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app': {
-      id: '/_app'
+    '/_legacy': {
+      id: '/_legacy'
       path: ''
       fullPath: '/'
+      preLoaderRoute: typeof LegacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/game': {
-      id: '/_app/game'
+    '/_legacy/game': {
+      id: '/_legacy/game'
       path: '/game'
       fullPath: '/game'
-      preLoaderRoute: typeof AppGameRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof LegacyGameRouteImport
+      parentRoute: typeof LegacyRoute
     }
-    '/_app/home': {
-      id: '/_app/home'
+    '/_legacy/home': {
+      id: '/_legacy/home'
       path: '/home'
       fullPath: '/home'
-      preLoaderRoute: typeof AppHomeRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof LegacyHomeRouteImport
+      parentRoute: typeof LegacyRoute
     }
-    '/_app/insights': {
-      id: '/_app/insights'
+    '/_legacy/insights': {
+      id: '/_legacy/insights'
       path: '/insights'
       fullPath: '/insights'
-      preLoaderRoute: typeof AppInsightsRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof LegacyInsightsRouteImport
+      parentRoute: typeof LegacyRoute
     }
-    '/_app/ledger': {
-      id: '/_app/ledger'
+    '/_legacy/ledger': {
+      id: '/_legacy/ledger'
       path: '/ledger'
       fullPath: '/ledger'
+      preLoaderRoute: typeof LegacyLedgerRouteImport
+      parentRoute: typeof LegacyRoute
+    }
+    '/_legacy/merchant': {
+      id: '/_legacy/merchant'
+      path: '/merchant'
+      fullPath: '/merchant'
+      preLoaderRoute: typeof LegacyMerchantRouteImport
+      parentRoute: typeof LegacyRoute
+    }
+    '/_legacy/settings': {
+      id: '/_legacy/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof LegacySettingsRouteImport
+      parentRoute: typeof LegacyRoute
+    }
+    '/_legacy/today': {
+      id: '/_legacy/today'
+      path: '/today'
+      fullPath: '/today'
+      preLoaderRoute: typeof LegacyTodayRouteImport
+      parentRoute: typeof LegacyRoute
+    }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/ai': {
+      id: '/app/ai'
+      path: '/ai'
+      fullPath: '/app/ai'
+      preLoaderRoute: typeof AppAiRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/cards': {
+      id: '/app/cards'
+      path: '/cards'
+      fullPath: '/app/cards'
+      preLoaderRoute: typeof AppCardsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/circle': {
+      id: '/app/circle'
+      path: '/circle'
+      fullPath: '/app/circle'
+      preLoaderRoute: typeof AppCircleRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/ledger': {
+      id: '/app/ledger'
+      path: '/ledger'
+      fullPath: '/app/ledger'
       preLoaderRoute: typeof AppLedgerRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/merchant': {
-      id: '/_app/merchant'
-      path: '/merchant'
-      fullPath: '/merchant'
-      preLoaderRoute: typeof AppMerchantRouteImport
+    '/app/receipt': {
+      id: '/app/receipt'
+      path: '/receipt'
+      fullPath: '/app/receipt'
+      preLoaderRoute: typeof AppReceiptRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/settings': {
-      id: '/_app/settings'
+    '/app/settings': {
+      id: '/app/settings'
       path: '/settings'
-      fullPath: '/settings'
+      fullPath: '/app/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/today': {
-      id: '/_app/today'
-      path: '/today'
-      fullPath: '/today'
-      preLoaderRoute: typeof AppTodayRouteImport
+    '/app/stats': {
+      id: '/app/stats'
+      path: '/stats'
+      fullPath: '/app/stats'
+      preLoaderRoute: typeof AppStatsRouteImport
       parentRoute: typeof AppRoute
     }
   }
 }
 
+interface LegacyRouteChildren {
+  LegacyGameRoute: typeof LegacyGameRoute
+  LegacyHomeRoute: typeof LegacyHomeRoute
+  LegacyInsightsRoute: typeof LegacyInsightsRoute
+  LegacyLedgerRoute: typeof LegacyLedgerRoute
+  LegacyMerchantRoute: typeof LegacyMerchantRoute
+  LegacySettingsRoute: typeof LegacySettingsRoute
+  LegacyTodayRoute: typeof LegacyTodayRoute
+}
+
+const LegacyRouteChildren: LegacyRouteChildren = {
+  LegacyGameRoute: LegacyGameRoute,
+  LegacyHomeRoute: LegacyHomeRoute,
+  LegacyInsightsRoute: LegacyInsightsRoute,
+  LegacyLedgerRoute: LegacyLedgerRoute,
+  LegacyMerchantRoute: LegacyMerchantRoute,
+  LegacySettingsRoute: LegacySettingsRoute,
+  LegacyTodayRoute: LegacyTodayRoute,
+}
+
+const LegacyRouteWithChildren =
+  LegacyRoute._addFileChildren(LegacyRouteChildren)
+
 interface AppRouteChildren {
-  AppGameRoute: typeof AppGameRoute
-  AppHomeRoute: typeof AppHomeRoute
-  AppInsightsRoute: typeof AppInsightsRoute
+  AppAiRoute: typeof AppAiRoute
+  AppCardsRoute: typeof AppCardsRoute
+  AppCircleRoute: typeof AppCircleRoute
   AppLedgerRoute: typeof AppLedgerRoute
-  AppMerchantRoute: typeof AppMerchantRoute
+  AppReceiptRoute: typeof AppReceiptRoute
   AppSettingsRoute: typeof AppSettingsRoute
-  AppTodayRoute: typeof AppTodayRoute
+  AppStatsRoute: typeof AppStatsRoute
+  AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppGameRoute: AppGameRoute,
-  AppHomeRoute: AppHomeRoute,
-  AppInsightsRoute: AppInsightsRoute,
+  AppAiRoute: AppAiRoute,
+  AppCardsRoute: AppCardsRoute,
+  AppCircleRoute: AppCircleRoute,
   AppLedgerRoute: AppLedgerRoute,
-  AppMerchantRoute: AppMerchantRoute,
+  AppReceiptRoute: AppReceiptRoute,
   AppSettingsRoute: AppSettingsRoute,
-  AppTodayRoute: AppTodayRoute,
+  AppStatsRoute: AppStatsRoute,
+  AppIndexRoute: AppIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LegacyRoute: LegacyRouteWithChildren,
   AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
