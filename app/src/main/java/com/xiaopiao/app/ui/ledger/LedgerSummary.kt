@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.ledger
 
+import androidx.compose.material.icons.outlined.CalendarMonth
 import com.xiaopiao.app.domain.BudgetSummary
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -96,6 +97,8 @@ fun LedgerSummaryCard(
     budget: BudgetSummary?,
     onOpenBudget: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 按天查看 sits in the card's top-right corner (tt: inside the card, not a row of its own). Null hides it. */
+    onOpenCalendar: (() -> Unit)? = null,
 ) {
     Box(
         modifier.fillMaxWidth()
@@ -130,6 +133,21 @@ fun LedgerSummaryCard(
                             tint = XpColors.InkSecondary,
                             modifier = Modifier.size(17.dp),
                         )
+                    }
+                    if (onOpenCalendar != null) {
+                        Spacer(Modifier.weight(1f))
+                        Row(
+                            Modifier.height(28.dp).clip(RoundedCornerShape(XpRadius.pill)).background(Color.White.copy(alpha = 0.55f))
+                                .pressableClick(haptic = false, scaleDown = 0.96f, onClick = onOpenCalendar)
+                                .padding(horizontal = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = XpColors.InkSecondary, modifier = Modifier.size(15.dp))
+                            Text(
+                                "按天查看", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, maxLines = 1,
+                                modifier = Modifier.padding(start = 4.dp),
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(2.dp))

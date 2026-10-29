@@ -138,7 +138,7 @@ fun SettingsScreen(
         onBack = { sub = null },
         modifier = Modifier.fillMaxSize(),
     ) {
-        NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack) { top ->
+        NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack, glassGround = true) { top ->
             Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
                 Box(Modifier.xpRevealLayer(index = 0)) {
                     AppearanceNavSection(

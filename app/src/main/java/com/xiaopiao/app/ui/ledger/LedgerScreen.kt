@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.ledger
 
+import com.xiaopiao.app.ui.components.XpSheet
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.size
 import com.xiaopiao.app.ui.budget.BudgetPage
@@ -82,18 +83,19 @@ private val CardGap = XpSpace.cardGap
  * 账单 tab (docs/APP-DESIGN.md §3.2, adopted from the wallet reference per §3.7):
  * summary card → search/筛选 → day cards. Swipe or long-press to manage, calendar to jump to a day.
  */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun LedgerScreen(
     container: AppContainer,
     @Suppress("UNUSED_PARAMETER") onVoiceStart: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
 ) {
-    // 「设置预算」 opens the budget page over the ledger; back returns here.
+    // 「设置预算」 pulls up the budget drawer over the ledger (tt: a drawer, not a page).
     var budgetOpen by rememberSaveable { mutableStateOf(false) }
     if (budgetOpen) {
-        BackHandler { budgetOpen = false }
-        BudgetPage(container, onBack = { budgetOpen = false }, onOpenSettings = onOpenSettings)
-        return
+        XpSheet(onDismiss = { budgetOpen = false }) {
+            BudgetPage(container, onBack = { budgetOpen = false }, onOpenSettings = onOpenSettings, inSheet = true)
+        }
     }
     val budgetFlow = remember(container) { container.budget.observeSummary(container.ledger) }
     val budget: BudgetSummary? by budgetFlow.collectAsStateWithLifecycle(initialValue = null)
@@ -340,27 +342,8 @@ fun LedgerScreen(
     }
 }
 
-/** Items above the first day card: the summary and the 按天查看 pill (search lives in the top bar). */
-private const val HEADER_ITEMS = 2
-
-/** Right-aligned 32dp pill under the summary card: opens the day picker that jumps the list. */
-@Composable
-private fun DayJumpPill(onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(top = XpSpace.m), horizontalArrangement = Arrangement.End) {
-        Row(
-            Modifier.height(32.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Card)
-                .pressableClick(haptic = false, scaleDown = 0.96f, onClick = onClick)
-                .padding(horizontal = XpSpace.m),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = XpColors.InkSecondary, modifier = Modifier.size(16.dp))
-            Text(
-                "按天查看", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, maxLines = 1,
-                modifier = Modifier.padding(start = XpSpace.xs),
-            )
-        }
-    }
-}
+/** Items above the first day card: the summary (search sits in the top bar, 按天查看 inside the summary card). */
+private const val HEADER_ITEMS = 1
 
 @Composable
 private fun LedgerList(
@@ -385,14 +368,16 @@ private fun LedgerList(
     onClearConditions: () -> Unit,
 ) {
     LazyColumn(
-        Modifier.fillMaxSize().padding(top = top),
+        Modifier.fillMaxSize(),
         state = listState,
-        contentPadding = PaddingValues(start = PageInset, end = PageInset, top = XpSpace.m, bottom = 128.dp),
+        // Top inset as content padding, so the list scrolls under the glass top bar instead of stopping at it.
+        contentPadding = PaddingValues(start = PageInset, end = PageInset, top = top + XpSpace.m, bottom = 128.dp),
     ) {
         if (selection == null) {
-            item(key = "summary") { LedgerSummaryCard(summary, hidden, onToggleHidden, budget, onOpenBudget) }
-            // tt: the date jump lives down here, not in the top bar (which keeps only 小票 and 设置 on the right).
-            if (!allEmpty) item(key = "jump") { DayJumpPill(onClick = onOpenCalendar) }
+            // tt: the date jump lives in the summary card, not in the top bar (which keeps only 小票 and 设置 on the right).
+            item(key = "summary") {
+                LedgerSummaryCard(summary, hidden, onToggleHidden, budget, onOpenBudget, onOpenCalendar = onOpenCalendar.takeIf { !allEmpty })
+            }
         }
         if (groups.isEmpty()) {
             item(key = "empty") {

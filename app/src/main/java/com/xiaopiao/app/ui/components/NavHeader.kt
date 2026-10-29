@@ -1,5 +1,11 @@
 package com.xiaopiao.app.ui.components
 
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.foundation.clickable
@@ -82,23 +88,42 @@ fun NavScaffold(
     /** Root pages can put one action on the left (e.g. 记账页的卡包按钮); hidden while [onBack] is set. */
     leading: (@Composable RowScope.() -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {},
+    /** Lay the page on a theme-coloured [GlassGround] so its grouped cards turn into liquid glass (设置). */
+    glassGround: Boolean = false,
     content: @Composable BoxScope.(top: Dp) -> Unit,
 ) {
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val density = androidx.compose.ui.platform.LocalDensity.current.density
-    Box(modifier.fillMaxSize().background(XpColors.CanvasGrouped)) {
-        content(topInset + BarHeight)
+    // Liquid-glass top bar: the page is recorded here and the bar (a sibling above it) samples what scrolls under.
+    val glass = rememberLayerBackdrop()
+    val film = XpColors.Material.copy(alpha = 0.55f)
+    val hairline = XpColors.Hairline
+    Box(modifier.fillMaxSize()) {
+        Box(Modifier.matchParentSize().layerBackdrop(glass).background(XpColors.CanvasGrouped)) {
+            if (glassGround) GlassGround(Modifier.matchParentSize()) { Box(Modifier.fillMaxSize()) { content(topInset + BarHeight) } }
+            else content(topInset + BarHeight)
+        }
         Box(
             Modifier.fillMaxWidth()
-                .drawBehind {
-                    val p = 1f
-                    drawRect(XpColors.Material.copy(alpha = 0.94f * p))
-                    drawRect(
-                        XpColors.Hairline.copy(alpha = XpColors.Hairline.alpha * p),
-                        topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - 0.5.dp.toPx()),
-                        size = androidx.compose.ui.geometry.Size(size.width, 0.5.dp.toPx()),
-                    )
-                }
+                .drawBackdrop(
+                    backdrop = glass,
+                    shape = { BarShape },
+                    effects = {
+                        vibrancy()
+                        blur(14.dp.toPx())
+                        lens(10.dp.toPx(), 14.dp.toPx())
+                    },
+                    highlight = null,
+                    shadow = null,
+                    onDrawSurface = { drawRect(film) },
+                    onDrawFront = {
+                        drawRect(
+                            hairline,
+                            topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - 0.5.dp.toPx()),
+                            size = androidx.compose.ui.geometry.Size(size.width, 0.5.dp.toPx()),
+                        )
+                    },
+                )
                 .statusBarsPadding()
                 .height(BarHeight)
                 .padding(horizontal = XpSpace.m),
@@ -152,3 +177,6 @@ fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, m
         Icon(icon, contentDescription = description, tint = XpColors.Ink, modifier = Modifier.size(18.dp))
     }
 }
+
+/** A zero-radius rounded rect: the lens needs a corner-based shape to build its edge field. */
+private val BarShape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
