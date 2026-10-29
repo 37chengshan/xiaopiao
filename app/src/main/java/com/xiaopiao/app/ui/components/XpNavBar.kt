@@ -45,10 +45,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -57,6 +63,14 @@ import androidx.compose.ui.unit.sp
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.shadow.InnerShadow
+import com.kyant.backdrop.shadow.Shadow
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /** A horizontal run on the bar, in dp from the bar's left edge. */
@@ -75,14 +89,14 @@ object NavBarGeometry {
     const val MARGIN = 16f
     const val PAD = 4f
     /** Clear air between the two capsules (the 圈子 capsule sits a little apart from the main one). */
-    const val GAP = 14f
-    const val PLUS = 56f
-    const val MAX_SLOT = 64f
-    const val HEIGHT = 64f
+    const val GAP = 12f
+    const val PLUS = 50f
+    const val MAX_SLOT = 60f
+    const val HEIGHT = 56f
     /** Headroom above the capsules so the raised ⊕ can stand proud of them and still take touches. */
-    const val TOP = 16f
+    const val TOP = 10f
     /** How far ⊕ rises above its resting centre in the 记账 state. */
-    const val RAISE = 16f
+    const val RAISE = 10f
     /** Ring around the raised ⊕, in the capsule colour, so it reads as cut out of the bar. */
     const val RING = 3f
 
@@ -145,6 +159,8 @@ fun XpNavBar(
     modifier: Modifier = Modifier,
     onPlusLongPress: (() -> Unit)? = null,
     hidden: Boolean = false,
+    /** Page content to sample. Non-null turns the capsules and ⊕ into liquid glass; null keeps the opaque bar. */
+    backdrop: Backdrop? = null,
 ) {
     val reduced = rememberReducedMotion()
     val progress = remember { Animatable(if (social) 1f else 0f) }
@@ -170,10 +186,16 @@ fun XpNavBar(
         val g = remember(maxWidth.value) { NavBarGeometry.layout(maxWidth.value) }
         val s = g.slot
         val interactive = !hidden
+        // Finger-follow light (glass only): watched on the Initial pass so the tabs still get their clicks.
+        val light = remember { GlassLight() }
+        val scope = rememberCoroutineScope()
 
-        Box(Modifier.fillMaxWidth().height((NavBarGeometry.HEIGHT + NavBarGeometry.TOP).dp)) {
-            Capsule(lerpF(g.leftCap0.start, g.leftCap1.start, pos), lerpF(g.leftCap0.end, g.leftCap1.end, pos), shape, lift, capsuleColor)
-            Capsule(lerpF(g.rightCap0.start, g.rightCap1.start, pos), lerpF(g.rightCap0.end, g.rightCap1.end, pos), shape, lift, capsuleColor)
+        Box(
+            Modifier.fillMaxWidth().height((NavBarGeometry.HEIGHT + NavBarGeometry.TOP).dp)
+                .then(if (backdrop != null && !reduced) Modifier.pointerInput(Unit) { trackLight(light, scope) } else Modifier),
+        ) {
+            Capsule(lerpF(g.leftCap0.start, g.leftCap1.start, pos), lerpF(g.leftCap0.end, g.leftCap1.end, pos), shape, lift, capsuleColor, backdrop, light)
+            Capsule(lerpF(g.rightCap0.start, g.rightCap1.start, pos), lerpF(g.rightCap0.end, g.rightCap1.end, pos), shape, lift, capsuleColor, backdrop, light)
 
             // 记账 side: a · b · c converge on the folded 账单 slot while fading.
             val fadeOut = 1f - p
@@ -190,18 +212,87 @@ fun XpNavBar(
             // ⊕: one element for both states.
             // Taller than the capsule: the raised disc must stay inside the touch area.
             Slot(lerpF(g.plus0, g.plus1, pos), lerpF(NavBarGeometry.PLUS, s, pos), 1f, top = 0f, height = NavBarGeometry.HEIGHT + NavBarGeometry.TOP) {
-                NavBarPlus(spec, p, interactive, capsuleColor, onPlus, onPlusLongPress)
+                NavBarPlus(spec, p, interactive, capsuleColor, onPlus, onPlusLongPress, backdrop)
             }
         }
     }
 }
 
 @Composable
-private fun Capsule(start: Float, end: Float, shape: RoundedCornerShape, lift: Modifier, color: Color) {
+private fun Capsule(
+    start: Float, end: Float, shape: RoundedCornerShape, lift: Modifier, color: Color,
+    backdrop: Backdrop?, light: GlassLight,
+) {
+    val frame = Modifier.offset(x = start.dp, y = NavBarGeometry.TOP.dp).width((end - start).coerceAtLeast(0f).dp).height(NavBarGeometry.HEIGHT.dp)
+    if (backdrop == null) {
+        Box(frame.then(lift).clip(shape).background(color))
+        return
+    }
+    val dark = XpColors.isDark
+    // OHMusic bottom bar recipe: vibrancy, 4dp scatter, edge lens, a ~40% surface film, soft drop shadow.
+    val film = if (dark) Color(0xFF1C1C1E).copy(alpha = 0.42f) else Color.White.copy(alpha = 0.42f)
+    val drop = Color.Black.copy(alpha = if (dark) 0.32f else 0.10f)
     Box(
-        Modifier.offset(x = start.dp, y = NavBarGeometry.TOP.dp).width((end - start).coerceAtLeast(0f).dp).height(NavBarGeometry.HEIGHT.dp)
-            .then(lift).clip(shape).background(color),
+        frame.drawBackdrop(
+            backdrop = backdrop,
+            shape = { shape },
+            effects = {
+                vibrancy()
+                blur(4.dp.toPx())
+                lens(18.dp.toPx(), 24.dp.toPx())
+            },
+            shadow = { Shadow(radius = 20.dp, color = drop) },
+            layerBlock = {
+                // The capsule under the finger swells a touch, like pressing into a soft slab.
+                val k = light.strength * light.over(start.dp.toPx(), end.dp.toPx())
+                scaleX = 1f + 0.03f * k; scaleY = 1f + 0.03f * k
+            },
+            onDrawSurface = { drawRect(film) },
+            onDrawFront = { light.draw(this, Offset(start.dp.toPx(), NavBarGeometry.TOP.dp.toPx())) },
+        ),
     )
+}
+
+/** Where the finger is on the bar (px, bar coordinates) and how lit the glass is (0..1). */
+private class GlassLight {
+    var at by mutableStateOf(Offset.Unspecified)
+    val glow = Animatable(0f)
+    val strength: Float get() = glow.value
+
+    /** 1 when the finger is over the run [startPx, endPx], else 0. */
+    fun over(startPx: Float, endPx: Float): Float =
+        if (at.isSpecified && at.x in startPx..endPx) 1f else 0f
+
+    /** Additive radial light at the finger, drawn on top of a glass element whose top-left is [origin]. */
+    fun draw(scope: DrawScope, origin: Offset) = with(scope) {
+        val k = glow.value
+        if (k < 0.01f || !at.isSpecified) return
+        val c = at - origin
+        val r = size.height * 1.3f
+        drawCircle(
+            Brush.radialGradient(
+                0f to Color.White.copy(alpha = 0.50f * k), 0.45f to Color.White.copy(alpha = 0.18f * k), 1f to Color.Transparent,
+                center = c, radius = r,
+            ),
+            radius = r, center = c, blendMode = BlendMode.Plus,
+        )
+    }
+}
+
+/** Light comes on fast and follows the finger; it fades slowly and springs off after release. */
+private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.trackLight(light: GlassLight, scope: CoroutineScope) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        light.at = down.position
+        scope.launch { light.glow.animateTo(1f, spring(1f, 1500f)) }
+        while (true) {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+            if (!change.pressed) break
+            light.at = change.position
+        }
+        scope.launch { light.glow.animateTo(0f, spring(1f, 220f)) }
+    }
 }
 
 /** Positions [content] by its centre x (dp) and fades it; the slot is as tall as the bar. */
@@ -256,7 +347,7 @@ private fun NavBarTab(item: NavBarItem, selected: Boolean, enabled: Boolean, onC
         },
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
     ) {
-        Icon(item.icon, contentDescription = item.label, tint = color, modifier = Modifier.size(24.dp).graphicsLayer { scaleX = scale.value; scaleY = scale.value })
+        Icon(item.icon, contentDescription = item.label, tint = color, modifier = Modifier.size(22.dp).graphicsLayer { scaleX = scale.value; scaleY = scale.value })
         NavBarLabel(item.label, color)
     }
 }
@@ -266,7 +357,10 @@ private fun NavBarTab(item: NavBarItem, selected: Boolean, enabled: Boolean, onC
  * 24dp glyph with a caption, in InkSecondary. Tap = record, long-press = voice.
  */
 @Composable
-private fun NavBarPlus(spec: NavBarSpec, p: Float, enabled: Boolean, ring: Color, onClick: () -> Unit, onLongPress: (() -> Unit)?) {
+private fun NavBarPlus(
+    spec: NavBarSpec, p: Float, enabled: Boolean, ring: Color, onClick: () -> Unit, onLongPress: (() -> Unit)?,
+    backdrop: Backdrop? = null,
+) {
     val haptics = rememberXpHaptics()
     var pressed by remember { mutableStateOf(false) }
     val press by animateFloatAsState(if (pressed) 0.92f else 1f, spring(0.55f, 450f), label = "plusPress")
@@ -306,18 +400,38 @@ private fun NavBarPlus(spec: NavBarSpec, p: Float, enabled: Boolean, ring: Color
         val rest = NavBarGeometry.TOP / 2f
         val lift = NavBarGeometry.RAISE * (1f - p)
         val disc = (1f - p * 1.4f).coerceIn(0f, 1f)
-        val outer = NavBarGeometry.PLUS + NavBarGeometry.RING * 2
-        Box(
-            Modifier.offset(y = (rest - lift).dp).size(outer.dp)
-                .graphicsLayer { scaleX = 1f - 0.45f * p; scaleY = 1f - 0.45f * p; alpha = disc }
-                .shadow(10.dp, CircleShape, clip = false, ambientColor = XpColors.Accent.copy(alpha = 0.35f), spotColor = XpColors.Accent.copy(alpha = 0.45f))
-                .clip(CircleShape).background(ring).padding(NavBarGeometry.RING.dp)
-                .clip(CircleShape).background(XpColors.Accent),
-        )
+        val discScale = Modifier.graphicsLayer { scaleX = 1f - 0.45f * p; scaleY = 1f - 0.45f * p; alpha = disc }
+        if (backdrop != null) {
+            // Hero glass: accent-tinted lens with colour fringing and an inner rim — the one element that earns it.
+            val accent = XpColors.Accent
+            Box(
+                Modifier.offset(y = (rest - lift).dp).size(NavBarGeometry.PLUS.dp).then(discScale)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { CircleShape },
+                        effects = {
+                            vibrancy()
+                            blur(2.dp.toPx())
+                            lens(12.dp.toPx(), 18.dp.toPx(), chromaticAberration = true)
+                        },
+                        shadow = { Shadow(radius = 14.dp, color = accent.copy(alpha = 0.45f)) },
+                        innerShadow = { InnerShadow(radius = 6.dp, color = Color.White.copy(alpha = 0.35f)) },
+                        onDrawSurface = { drawRect(accent.copy(alpha = 0.80f)) },
+                    ),
+            )
+        } else {
+            val outer = NavBarGeometry.PLUS + NavBarGeometry.RING * 2
+            Box(
+                Modifier.offset(y = (rest - lift).dp).size(outer.dp).then(discScale)
+                    .shadow(10.dp, CircleShape, clip = false, ambientColor = XpColors.Accent.copy(alpha = 0.35f), spotColor = XpColors.Accent.copy(alpha = 0.45f))
+                    .clip(CircleShape).background(ring).padding(NavBarGeometry.RING.dp)
+                    .clip(CircleShape).background(XpColors.Accent),
+            )
+        }
         Icon(
             Icons.Outlined.Add, contentDescription = spec.plusDescription,
             tint = lerp(XpColors.OnAccent, XpColors.InkSecondary, p),
-            modifier = Modifier.offset(y = (rest - lift - 6.dp.value * p).dp).size(lerpDp(28.dp, 24.dp, p)),
+            modifier = Modifier.offset(y = (rest - lift - 6.dp.value * p).dp).size(lerpDp(26.dp, 22.dp, p)),
         )
         NavBarLabel(spec.plusLabel, XpColors.InkSecondary, Modifier.offset(y = (rest + 12f).dp).graphicsLayer { alpha = p })
     }
