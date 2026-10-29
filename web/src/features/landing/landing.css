@@ -2125,7 +2125,7 @@
   }
   .lx[data-locale="en"] .lx-hero__row,
   :root[data-locale="en"] .lx-hero__row {
-    --fs: min(26vw, 12.5svh);
+    --fs: min(17.5vw, 9svh);
   }
   .lx-hero__band {
     grid-template-columns: 1fr;
