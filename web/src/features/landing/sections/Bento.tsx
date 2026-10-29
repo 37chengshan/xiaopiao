@@ -80,7 +80,11 @@ function VoiceCard({ active }: { active: boolean }) {
 function SubsCard({ active }: { active: boolean }) {
   const t = useClock();
   const phase = active ? t : 0;
-  const subs = ["iCloud · ¥6/月", "视频会员 · ¥25/月", "网易云 · ¥15/月"];
+  const subs = [
+    { name: "iCloud", amount: "¥6", period: s("bento.perMonth") },
+    { name: "视频会员", amount: "¥25", period: s("bento.perMonth") },
+    { name: "网易云", amount: "¥15", period: s("bento.perMonth") },
+  ];
   return (
     <div className="lp-card h-full">
       <p className="lp-card-kicker">{s("bento.subs.title")}</p>
@@ -88,12 +92,12 @@ function SubsCard({ active }: { active: boolean }) {
       <ul className="mt-4 flex flex-1 flex-col gap-2">
         {subs.map((row, i) => (
           <li
-            key={row}
+            key={row.name}
             className="flex items-center justify-between rounded-lg bg-[rgba(27,23,18,0.04)] px-2.5 py-2 text-[13px]"
             style={{ opacity: phase > 0.4 + i * 0.5 ? 1 : 0, transform: phase > 0.4 + i * 0.5 ? "none" : "translateX(-10px)", transition: "opacity .45s, transform .45s" }}
           >
-            <span>{row}</span>
-            <span className="num text-[var(--lp-ink-3)]">{["72", "300", "180"][i]}/年</span>
+            <span>{row.name} · {row.amount}{row.period}</span>
+            <span className="num text-[var(--lp-ink-3)]">{["72", "300", "180"][i]}{s("bento.perYear")}</span>
           </li>
         ))}
       </ul>

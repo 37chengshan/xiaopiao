@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { defineStrings, useLocale } from "@/lib/strings";
 
 /**
@@ -57,6 +58,7 @@ export const s = defineStrings(
     "summary.honest": "只陈述你这本账上的数字。",
     "summary.decline": "连续 {} 天比前一天少，从 {} 落到 {}。",
     "summary.declineShort": "连续 {} 天比前一天少。",
+    "summary.dayPart": "{}（{}）",
     "summary.week": "本周 {} 天共 {}，{}。",
     "summary.weekNoBase": "本周 {} 天共 {}，上周同期还没有记录。",
     "summary.weekUp": "比上周同期多 {}（{}）",
@@ -178,7 +180,9 @@ export const s = defineStrings(
     "report.noEntry": "这天还没有记录",
     "report.noEntryHint": "补上数字就能出日报。",
     "report.fillIt": "去补录",
-    "report.line": "这天做了 {}，{}。",
+    "report.dayLine": "{} {}",
+    "report.lineUp": "这天做了 {}，比上周同一天多 {}（{}）。",
+    "report.lineDown": "这天做了 {}，比上周同一天少 {}（{}）。",
     "report.lineNoBase": "这天做了 {}，上周同一天没有记录。",
     "report.lineFlat": "这天做了 {}，和上周同一天一样。",
     "report.head": "经营日报",
@@ -219,6 +223,29 @@ export const s = defineStrings(
     "insights.gameHint": "游戏表态，与交易数据分开",
     "insights.next": "下一步：发起一个小实验",
     "insights.heatLegend": "斜线 = 不足 {} 人",
+    "insights.peakName": "{}{}",
+    "insights.band.lt10": "10 元以下",
+    "insights.band.10to15": "10–15 元",
+    "insights.band.15to20": "15–20 元",
+    "insights.band.gt20": "20 元以上",
+    "topping.taro": "芋泥",
+    "topping.pearl": "珍珠",
+    "topping.coconut": "椰果",
+    "topping.pudding": "布丁",
+    "topping.herbal": "烧仙草",
+    "category.MEAL": "吃饭",
+    "category.DRINK": "奶茶咖啡",
+    "category.SNACK": "零食",
+    "category.GROCERY": "买菜日用",
+    "category.TRANSPORT": "出行",
+    "category.SHOPPING": "购物",
+    "category.FUN": "娱乐",
+    "category.SUBSCRIPTION": "会员订阅",
+    "category.HOUSING": "住房水电",
+    "category.HEALTH": "医疗健康",
+    "category.SOCIAL": "人情红包",
+    "category.LEARNING": "学习",
+    "category.OTHER": "其他",
 
     "status.draft": "草稿",
     "status.running": "进行中",
@@ -326,6 +353,7 @@ export const s = defineStrings(
     "summary.honest": "Only numbers from your own book.",
     "summary.decline": "{} days in a row below the day before, from {} down to {}.",
     "summary.declineShort": "{} days in a row below the day before.",
+    "summary.dayPart": "{} ({})",
     "summary.week": "{} days this week, {} in total — {}.",
     "summary.weekNoBase": "{} days this week, {} in total; nothing recorded for last week.",
     "summary.weekUp": "{} more than the same days last week ({})",
@@ -447,7 +475,9 @@ export const s = defineStrings(
     "report.noEntry": "Nothing recorded for this day",
     "report.noEntryHint": "Add the numbers and the report prints.",
     "report.fillIt": "Add it",
-    "report.line": "{} came in — {}.",
+    "report.dayLine": "{}, {}",
+    "report.lineUp": "{} came in — {} more than the same day last week ({}).",
+    "report.lineDown": "{} came in — {} less than the same day last week ({}).",
     "report.lineNoBase": "{} came in; nothing recorded for the same day last week.",
     "report.lineFlat": "{} came in — the same as the same day last week.",
     "report.head": "Daily report",
@@ -488,6 +518,29 @@ export const s = defineStrings(
     "insights.gameHint": "Game stances, kept apart from transaction data",
     "insights.next": "Next: start a small experiment",
     "insights.heatLegend": "Hatched = under {} people",
+    "insights.peakName": "{} {}",
+    "insights.band.lt10": "Under ¥10",
+    "insights.band.10to15": "¥10–15",
+    "insights.band.15to20": "¥15–20",
+    "insights.band.gt20": "¥20+",
+    "topping.taro": "Taro",
+    "topping.pearl": "Tapioca",
+    "topping.coconut": "Coconut jelly",
+    "topping.pudding": "Pudding",
+    "topping.herbal": "Grass jelly",
+    "category.MEAL": "Meals",
+    "category.DRINK": "Milk tea",
+    "category.SNACK": "Snacks",
+    "category.GROCERY": "Groceries",
+    "category.TRANSPORT": "Transport",
+    "category.SHOPPING": "Shopping",
+    "category.FUN": "Fun",
+    "category.SUBSCRIPTION": "Subscriptions",
+    "category.HOUSING": "Home & bills",
+    "category.HEALTH": "Health",
+    "category.SOCIAL": "Gifts",
+    "category.LEARNING": "Learning",
+    "category.OTHER": "Other",
 
     "status.draft": "Draft",
     "status.running": "Running",
@@ -556,8 +609,20 @@ export const WEEKDAY_KEYS = [
   "weekday.6",
 ] as const;
 
-/** Subscribe to locale changes and hand back the dictionary for this render. */
-export function useBizStrings(): (key: Parameters<typeof s>[0]) => string {
-  useLocale();
-  return s;
+export type BizStringKey = Parameters<typeof s>[0];
+
+/**
+ * Subscribe to locale changes and hand back the dictionary for this render. The returned function
+ * changes identity with the locale, so a `useMemo(..., [t])` that builds sentences recomputes after
+ * a switch instead of keeping the previous language.
+ */
+export function useBizStrings(): (key: BizStringKey) => string {
+  const locale = useLocale();
+  return useCallback(
+    (key: BizStringKey) => {
+      void locale;
+      return s(key);
+    },
+    [locale],
+  );
 }

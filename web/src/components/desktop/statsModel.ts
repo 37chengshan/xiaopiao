@@ -168,9 +168,13 @@ export function windowLabel(period: Period, anchor: number, custom?: CustomRange
     if (period === "year") return `${d.getFullYear()}`;
     return `${d.toISOString().slice(0, 10)} – ${endDay.toISOString().slice(0, 10)}`;
   }
-  if (period === "week") return `${d.getMonth() + 1}月${d.getDate()}日 – ${endDay.getMonth() + 1}月${endDay.getDate()}日`;
-  if (period === "month") return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`;
-  if (period === "year") return `${d.getFullYear()} 年`;
+  if (period === "week") {
+    return getLocale() === "en"
+      ? `${MONTH_SHORT_EN[d.getMonth()]} ${d.getDate()} – ${MONTH_SHORT_EN[endDay.getMonth()]} ${endDay.getDate()}`
+      : `${d.getMonth() + 1}月${d.getDate()}日 – ${endDay.getMonth() + 1}月${endDay.getDate()}日`;
+  }
+  if (period === "month") return getLocale() === "en" ? `${MONTH_SHORT_EN[d.getMonth()]} ${d.getFullYear()}` : `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`;
+  if (period === "year") return getLocale() === "en" ? `${d.getFullYear()}` : `${d.getFullYear()} 年`;
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} – ${endDay.getFullYear()}-${String(endDay.getMonth() + 1).padStart(2, "0")}-${String(endDay.getDate()).padStart(2, "0")}`;
 }
 

@@ -1,3 +1,4 @@
+import { getLocale } from "@/lib/strings";
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, Printer } from "lucide-react";
 import { addDays, dateKey, money, shortDate, weekdayIndex } from "@/logic/biz/format";
@@ -7,6 +8,7 @@ import { buildReceipt, type ReceiptMm } from "../receipt";
 import { WEEKDAY_KEYS, useBizStrings } from "../strings";
 import { bookActions, useBizBook } from "../store";
 import { reportLine } from "../summaryText";
+import { fill } from "../text";
 import { useNotify } from "./feedback";
 import { exportSlipPng, printSlip, ReceiptSlip } from "./ReceiptSlip";
 import { BizPage, Button, Card, Segmented } from "./primitives";
@@ -35,7 +37,6 @@ export function ReportPage() {
     return buildReceipt({
       mm,
       shopName: t("shop.name"),
-      day,
       revenueCents: fact.revenueCents,
       orders: fact.orders,
       ticketCents: averageTicket(fact.revenueCents, fact.orders),
@@ -55,10 +56,10 @@ export function ReportPage() {
         issued: t("report.issued"),
         thanks: t("report.thanks"),
         ordersUnit: t("unit.orders"),
-        weekday: t(WEEKDAY_KEYS[weekdayIndex(day)]),
+        dayLine: fill(t("report.dayLine"), shortDate(day), t(WEEKDAY_KEYS[weekdayIndex(day)])),
         summaryFallback: t("report.noEntryHint"),
       },
-      issuedAt: new Date().toLocaleString("zh-CN", { hour12: false }),
+      issuedAt: new Date().toLocaleString(getLocale() === "en" ? "en-US" : "zh-CN", { hour12: false }),
     });
   }, [book, day, mm, variant, showOrders, showTicket, showWeek, showSummary, t]);
 
@@ -86,7 +87,7 @@ export function ReportPage() {
                 <ChevronLeft className="size-4" strokeWidth={1.75} aria-hidden />
               </button>
               <span className="min-w-[104px] text-center text-[13px] font-medium tabular-nums">
-                {shortDate(day)} {t(WEEKDAY_KEYS[weekdayIndex(day)])}
+                {fill(t("report.dayLine"), shortDate(day), t(WEEKDAY_KEYS[weekdayIndex(day)]))}
               </span>
               <button
                 type="button"

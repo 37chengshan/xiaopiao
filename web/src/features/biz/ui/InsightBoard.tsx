@@ -1,10 +1,50 @@
 import { gate } from "@/logic/biz/sample";
 import type { HeatCell, Insights } from "@/features/merchant/logic/aggregator";
-import { WEEKDAY_KEYS, useBizStrings } from "../strings";
+import { WEEKDAY_KEYS, useBizStrings, type BizStringKey } from "../strings";
 import { fill } from "../text";
 import { Button, Card, Chip, ShareBar } from "./primitives";
 
 const SLOT_KEYS = ["slot.0", "slot.1", "slot.2", "slot.3", "slot.4", "slot.5"] as const;
+
+/** Share cells carry a stable id; the label is copy, so it comes from the dictionary, not the data. */
+const BAND_KEYS: Record<string, BizStringKey> = {
+  lt10: "insights.band.lt10",
+  "10to15": "insights.band.10to15",
+  "15to20": "insights.band.15to20",
+  gt20: "insights.band.gt20",
+};
+const TOPPING_KEYS: Record<string, BizStringKey> = {
+  taro: "topping.taro",
+  pearl: "topping.pearl",
+  coconut: "topping.coconut",
+  pudding: "topping.pudding",
+  herbal: "topping.herbal",
+};
+const CATEGORY_KEYS: Record<string, BizStringKey> = {
+  MEAL: "category.MEAL",
+  DRINK: "category.DRINK",
+  SNACK: "category.SNACK",
+  GROCERY: "category.GROCERY",
+  TRANSPORT: "category.TRANSPORT",
+  SHOPPING: "category.SHOPPING",
+  FUN: "category.FUN",
+  SUBSCRIPTION: "category.SUBSCRIPTION",
+  HOUSING: "category.HOUSING",
+  HEALTH: "category.HEALTH",
+  SOCIAL: "category.SOCIAL",
+  LEARNING: "category.LEARNING",
+  OTHER: "category.OTHER",
+};
+
+function translated(
+  t: (key: BizStringKey) => string,
+  keys: Record<string, BizStringKey>,
+  key: string,
+  fallback: string,
+): string {
+  const dictionaryKey = keys[key];
+  return dictionaryKey ? t(dictionaryKey) : fallback;
+}
 
 /** Step 1: what the anonymous crowd looks like. Anything under 20 people stays hidden. */
 export function InsightBoard({
@@ -38,7 +78,7 @@ export function InsightBoard({
                 title={insights.repeatRate === null ? t("insights.suppressed") : undefined}
               />
               <Stat
-                value={peak ? `${t(WEEKDAY_KEYS[peak.weekday])}${t(SLOT_KEYS[peak.slot])}` : "—"}
+                value={peak ? fill(t("insights.peakName"), t(WEEKDAY_KEYS[peak.weekday]), t(SLOT_KEYS[peak.slot])) : "—"}
                 label={t("insights.peak")}
                 muted={!peak}
               />
@@ -69,7 +109,7 @@ export function InsightBoard({
             {insights.priceBands.map((cell) => (
               <ShareBar
                 key={cell.key}
-                label={cell.label}
+                label={translated(t, BAND_KEYS, cell.key, cell.label)}
                 share={cell.share}
                 suppressed={cell.suppressed}
                 suppressedLabel={t("insights.suppressed")}
@@ -83,7 +123,7 @@ export function InsightBoard({
             {insights.toppings.map((cell) => (
               <ShareBar
                 key={cell.key}
-                label={cell.label}
+                label={translated(t, TOPPING_KEYS, cell.key, cell.label)}
                 emoji={cell.emoji}
                 share={cell.share}
                 suppressed={cell.suppressed}
@@ -98,7 +138,7 @@ export function InsightBoard({
             {insights.categoryShare.slice(0, 6).map((cell) => (
               <ShareBar
                 key={cell.key}
-                label={cell.label}
+                label={translated(t, CATEGORY_KEYS, cell.key, cell.label)}
                 emoji={cell.emoji}
                 share={cell.share}
                 note={cell.people === null ? undefined : `${cell.people} ${t("unit.people")}`}
@@ -125,15 +165,15 @@ function Heatmap({ insights }: { insights: Insights }) {
 
   return (
     <div role="group" aria-label={t("insights.heat")}>
-      <div className="grid grid-cols-[44px_repeat(6,1fr)] gap-1 pb-1.5 text-center text-[11px] font-medium text-d-ink-3">
+      <div className="grid grid-cols-[auto_repeat(6,1fr)] gap-1 pb-1.5 text-center text-[11px] font-medium text-d-ink-3">
         <span aria-hidden />
         {SLOT_KEYS.map((key) => (
           <span key={key}>{t(key)}</span>
         ))}
       </div>
       {insights.heatmap.map((row, weekday) => (
-        <div key={weekday} className="mb-1 grid grid-cols-[44px_repeat(6,1fr)] gap-1">
-          <span className="self-center text-[11px] font-medium text-d-ink-2">{t(WEEKDAY_KEYS[weekday])}</span>
+        <div key={weekday} className="mb-1 grid grid-cols-[auto_repeat(6,1fr)] gap-1">
+          <span className="self-center pr-1 text-[11px] font-medium text-d-ink-2">{t(WEEKDAY_KEYS[weekday])}</span>
           {row.map((cell) => (
             <div
               key={cell.slot}
@@ -166,7 +206,7 @@ function Heatmap({ insights }: { insights: Insights }) {
         />
         {fill(t("insights.heatLegend"), `${insights.k}`)}
         <span className="ml-auto text-d-ink-3">
-          {t("insights.peak")} {insights.peak ? `${t(WEEKDAY_KEYS[insights.peak.weekday])}${t(SLOT_KEYS[insights.peak.slot])}` : "—"}
+          {t("insights.peak")} {insights.peak ? fill(t("insights.peakName"), t(WEEKDAY_KEYS[insights.peak.weekday]), t(SLOT_KEYS[insights.peak.slot])) : "—"}
         </span>
       </div>
     </div>

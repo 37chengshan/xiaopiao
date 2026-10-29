@@ -40,7 +40,7 @@ export function DecideBoard({
   const results = computeResults(experiment);
   const lead = results.leader ? experiment.options.find((o) => o.id === results.leader) : null;
   const peak = insights.peak
-    ? `${t(WEEKDAY_KEYS[insights.peak.weekday])}${t(SLOT_KEYS[insights.peak.slot])}`
+    ? fill(t("insights.peakName"), t(WEEKDAY_KEYS[insights.peak.weekday]), t(SLOT_KEYS[insights.peak.slot]))
     : t("insights.peak");
   const sampleHint = results.sampleSize >= 30 && results.isClear ? t("results.stable") : t("results.thin");
 

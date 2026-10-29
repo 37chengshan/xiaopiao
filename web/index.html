@@ -3,6 +3,15 @@
 
 <head>
   <meta charset="UTF-8" />
+  <script>
+    // The language is a device preference; apply it before first paint so copy, sizing and
+    // <html lang> never flash Chinese and then reflow into English (or the reverse).
+    try {
+      var stored = localStorage.getItem("xiaopiao.d.locale");
+      document.documentElement.setAttribute("data-locale", stored === "en" ? "en" : "zh");
+      if (stored === "en") document.documentElement.lang = "en";
+    } catch (e) {}
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#FAF9F5" />

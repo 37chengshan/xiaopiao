@@ -9,6 +9,10 @@ const s = defineStrings(
   {
     "nav.aria": "主导航",
     "brand": "今日小票",
+    "mini.total": "合计",
+    "mini.recorded": "已记",
+    "bento.perMonth": "/月",
+    "bento.perYear": "/年",
     "nav.demo": "现场演示",
     "nav.archive": "小票档案",
     "nav.features": "功能",
@@ -123,6 +127,10 @@ const s = defineStrings(
   {
     "nav.aria": "Main navigation",
     brand: "Today's Receipt",
+    "mini.total": "TOTAL",
+    "mini.recorded": "LOGGED",
+    "bento.perMonth": "/mo",
+    "bento.perYear": "/yr",
     "nav.demo": "Live demo",
     "nav.archive": "Archive",
     "nav.features": "Features",

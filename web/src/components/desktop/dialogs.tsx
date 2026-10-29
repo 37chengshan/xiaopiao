@@ -8,6 +8,7 @@ import { ReceiptPaper } from "@/features/receipt/ReceiptPaper";
 import { type ReceiptDoc } from "@/features/receipt/receiptModel";
 import { PAPER_W } from "@/features/receipt/zigzag";
 import { CATEGORIES, type Category, type Direction, type Txn, startOfDay } from "@/domain/types";
+import { categoryLabel } from "./labels";
 import { useLedger } from "@/services/LedgerProvider";
 import { at } from "@/logic/time";
 import { parseDateKey, dateKey } from "@/logic/time";
@@ -264,7 +265,7 @@ export function EntryDialog({ open, onOpenChange, initial }: { open: boolean; on
                   )}
                 >
                   <span aria-hidden>{CATEGORIES[key].emoji}</span>
-                  <span className="truncate">{CATEGORIES[key].label}</span>
+                  <span className="truncate">{categoryLabel(key)}</span>
                 </button>
               );
             })}

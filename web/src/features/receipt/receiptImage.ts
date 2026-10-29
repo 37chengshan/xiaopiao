@@ -1,5 +1,6 @@
 import type { ReceiptGradient } from "./gradients";
-import { DISCLAIMER, displayWidth, fmtMoney, STUB, TAGLINE, type ReceiptDoc } from "./receiptModel";
+import { displayWidth, fmtMoney, type ReceiptDoc } from "./receiptModel";
+import { s } from "./strings";
 import { bottomEdge, PAPER_W, topEdge } from "./zigzag";
 
 /**
@@ -11,7 +12,7 @@ const PAPER = "#FBFAF6";
 const INK = "#2A2724";
 const STAMP = "#C0412F";
 const MONO = `ui-monospace, "SF Mono", Menlo, "PingFang SC", "Noto Sans Mono CJK SC", monospace`;
-const SERIF = `"Songti SC", "Noto Serif SC", Georgia, serif`;
+const SERIF = `Georgia, "Songti SC", "Noto Serif SC", serif`;
 const MARGIN = 28;
 const PAD = 20;
 const SCALE = 3;
@@ -36,6 +37,8 @@ function wrapText(text: string, cols: number): string[] {
 
 export function layout(doc: ReceiptDoc): { ops: Op[]; height: number } {
   const ops: Op[] = [];
+  // a letterspaced title ("今 日 小 票") is the CJK convention; the English title keeps normal tracking
+  const spaced = doc.copy.titleSpaced !== doc.copy.title;
   let y = 30;
   const rule = () => {
     y += 6;
@@ -46,38 +49,38 @@ export function layout(doc: ReceiptDoc): { ops: Op[]; height: number } {
     ops.push({ k: "line", y: y + 15, left, right, ...o });
     y += 20;
   };
-  ops.push({ k: "center", y: y + 22, text: "今日小票", size: 23, font: SERIF, weight: 600, spacing: 11 });
+  ops.push({ k: "center", y: y + 22, text: doc.copy.title, size: 23, font: SERIF, weight: 600, spacing: spaced ? 11 : 1.5 });
   y += 30;
-  ops.push({ k: "center", y: y + 14, text: TAGLINE, size: 12, font: SERIF, dim: true });
+  ops.push({ k: "center", y: y + 14, text: doc.copy.tagline, size: 12, font: SERIF, dim: true });
   y += 18;
   rule();
-  line("日期", doc.dateLabel);
-  if (doc.variant === "full") line("出票", doc.printedAt);
+  line(doc.copy.date, doc.dateLabel);
+  if (doc.variant === "full") line(doc.copy.printed, doc.printedAt);
   rule();
-  ops.push({ k: "center", y: y + 12, text: doc.isToday ? "今日支出" : "当日支出", size: 11.5, font: MONO, dim: true, spacing: 3.5 });
+  ops.push({ k: "center", y: y + 12, text: doc.isToday ? doc.copy.totalToday : doc.copy.totalThatDay, size: 11.5, font: MONO, dim: true, spacing: spaced ? 3.5 : 0.8 });
   y += 18;
   ops.push({ k: "center", y: y + 40, text: `¥ ${fmtMoney(doc.totalCents)}`, size: 42, font: MONO, weight: 600 });
   y += 52;
-  ops.push({ k: "center", y: y + 10, text: DISCLAIMER, size: 10.5, font: MONO, dim: true });
+  ops.push({ k: "center", y: y + 10, text: doc.copy.disclaimer, size: 10.5, font: MONO, dim: true });
   y += 16;
   rule();
   if (doc.variant === "brief") {
     /* brief: no detail lines */
   } else if (doc.zero) {
-    ops.push({ k: "center", y: y + 28, text: "今日无消费", size: 22, font: SERIF, weight: 600 });
+    ops.push({ k: "center", y: y + 28, text: doc.copy.emptyTitle, size: 22, font: SERIF, weight: 600 });
     y += 40;
-    ops.push({ k: "center", y: y + 8, text: "钱包今天睡着了 🌙", size: 11.5, font: MONO, dim: true });
+    ops.push({ k: "center", y: y + 8, text: doc.copy.emptyQuote, size: 11.5, font: MONO, dim: true });
     y += 22;
   } else {
-    line("分类 / 明细", "金额", { dim: true });
+    line(doc.copy.colCategory, doc.copy.colAmount, { dim: true });
     y += 4;
     for (const g of doc.groups) {
       line(`${g.emoji} ${g.label}`, fmtMoney(g.subtotalCents), { weight: 500 });
       for (const l of g.lines) line(l.merchant, fmtMoney(l.cents), { dim: true, indent: 22 });
-      if (g.hidden > 0) line(`… 另 ${g.hidden} 笔`, "", { dim: true, indent: 22 });
+      if (g.hiddenLabel) line(g.hiddenLabel, "", { dim: true, indent: 22 });
       y += 4;
     }
-    if (doc.folded) line(`… 其他 ${doc.folded.count} 类`, fmtMoney(doc.folded.cents), { dim: true });
+    if (doc.folded) line(doc.folded.label, fmtMoney(doc.folded.cents), { dim: true });
     if (doc.income) {
       y += 2;
       line(`${doc.income.emoji} ${doc.income.label}`, `+${fmtMoney(doc.income.subtotalCents)}`, { weight: 500 });
@@ -86,11 +89,18 @@ export function layout(doc: ReceiptDoc): { ops: Op[]; height: number } {
   }
   if (doc.variant === "full") {
     rule();
-    ops.push({ k: "center", y: y + 14, text: `${doc.stats.count}   ${doc.stats.delta}   ${doc.stats.weekDay}`, size: 10.5, font: MONO, dim: true });
-    y += 20;
+    if (doc.stats.stacked) {
+      for (const part of [doc.stats.count, doc.stats.delta, doc.stats.weekDay]) {
+        ops.push({ k: "center", y: y + 13, text: part, size: 10.5, font: MONO, dim: true });
+        y += 15;
+      }
+    } else {
+      ops.push({ k: "center", y: y + 14, text: `${doc.stats.count}   ${doc.stats.delta}   ${doc.stats.weekDay}`, size: 10.5, font: MONO, dim: true });
+      y += 20;
+    }
     rule();
   }
-  for (const part of wrapText(`「${doc.remark}」`, 40)) {
+  for (const part of wrapText(doc.remarkText, 40)) {
     ops.push({ k: "center", y: y + 16, text: part, size: 12.5, font: SERIF });
     y += 21;
   }
@@ -101,7 +111,7 @@ export function layout(doc: ReceiptDoc): { ops: Op[]; height: number } {
     ops.push({ k: "center", y: y - 8, text: doc.badgeReason, size: 11, font: MONO, dim: true });
     y += 12;
   }
-  ops.push({ k: "center", y: y + 10, text: STUB, size: 10.5, font: MONO, dim: true, spacing: 1.2 });
+  ops.push({ k: "center", y: y + 10, text: doc.copy.stub, size: 10.5, font: MONO, dim: true, spacing: spaced ? 1.2 : 0.6 });
   y += 16;
   return { ops, height: y + 26 };
 }
@@ -210,7 +220,7 @@ export async function renderReceiptPng(doc: ReceiptDoc, gradient: ReceiptGradien
   ctx.font = `10px ${MONO}`;
   ctx.textAlign = "center";
   ctx.fillStyle = gradient.dark ? "rgba(255,255,255,0.6)" : "rgba(42,39,36,0.55)";
-  ctx.fillText("今日小票 · 仅作记录", W / 2, H - 16);
+  ctx.fillText(doc.copy.footer, W / 2, H - 16);
 
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png"));
 }
@@ -219,7 +229,7 @@ export type ShareOutcome = "shared" | "cancelled" | "fallback";
 
 /** Web Share with a file when supported; otherwise tells the caller to save the image instead. */
 export async function shareReceiptFile(blob: Blob, title: string): Promise<ShareOutcome> {
-  const file = new File([blob], "今日小票.png", { type: "image/png" });
+  const file = new File([blob], s("share.fileName"), { type: "image/png" });
   try {
     if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title });
@@ -232,7 +242,7 @@ export async function shareReceiptFile(blob: Blob, title: string): Promise<Share
 }
 
 /** Saves through a temporary link (the browser's download / "save image" path). */
-export function saveBlob(blob: Blob, name = "今日小票.png"): void {
+export function saveBlob(blob: Blob, name = s("share.fileName")): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

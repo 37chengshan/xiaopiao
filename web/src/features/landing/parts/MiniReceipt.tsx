@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { s } from "../strings";
 
 /**
  * A receipt drawn in HTML (never an image) so the same component works inside the hero's paper slot,
@@ -12,7 +13,7 @@ export interface ReceiptRow {
 
 export function MiniReceipt({
   date,
-  brand = "今日小票",
+  brand,
   rows,
   total,
   stamp,
@@ -31,7 +32,7 @@ export function MiniReceipt({
 }) {
   return (
     <div data-ui="" className={cn("lp-mini", dense && "!p-2", className)}>
-      <p className={cn("text-center font-semibold tracking-[0.32em]", large ? "text-[13px]" : "text-[10px]")}>{brand}</p>
+      <p className={cn("text-center font-semibold tracking-[0.32em]", large ? "text-[13px]" : "text-[10px]")}>{brand ?? s("brand")}</p>
       <p className={cn("mt-1 text-center opacity-60", large ? "text-[9.5px]" : "text-[8px]")}>{date}</p>
       <span className="lp-mini-rule" />
       {rows.map((row) => (
@@ -42,7 +43,7 @@ export function MiniReceipt({
       ))}
       <span className="lp-mini-rule" />
       <div className={cn("lp-mini-row font-semibold", large ? "!text-[13px]" : "!text-[13px]")}>
-        <span>合计</span>
+        <span>{s("mini.total")}</span>
         <span className="num">{total}</span>
       </div>
       {stamp && (

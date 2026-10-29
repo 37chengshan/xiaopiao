@@ -56,6 +56,11 @@ export function relativeDay(dayStart: number, now: number): string {
 /** ¥ amount without the fen part, for axis ticks and tight labels. */
 export function moneyShort(cents: Cents): string {
   const yuan = Math.round(cents / 100);
+  if (getLocale() === "en") {
+    if (yuan >= 1_000_000) return `¥${(yuan / 1_000_000).toFixed(1)}M`;
+    if (yuan >= 10_000) return `¥${(yuan / 1000).toFixed(yuan >= 100_000 ? 0 : 1)}k`;
+    return `¥${yuan.toLocaleString("en-US")}`;
+  }
   if (yuan >= 10000) return `¥${(yuan / 10000).toFixed(yuan >= 100000 ? 0 : 1)}万`;
   return `¥${yuan.toLocaleString("en-US")}`;
 }

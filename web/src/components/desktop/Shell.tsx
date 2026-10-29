@@ -17,6 +17,7 @@ import { useFlag, useHotkeys, useMediaQuery, dismissNotice, useNoticeDismissed }
 import { titleOf } from "./nav";
 import { useDayDoc } from "./receiptDoc";
 import { Sidebar } from "./Sidebar";
+import { StatusBar } from "./StatusBar";
 import { s } from "./strings";
 import { Toolbar } from "./toolbar";
 import { Button, IconButton } from "./ui";
@@ -143,6 +144,7 @@ export function Shell() {
               </div>
             </motion.div>
           </main>
+          <StatusBar />
         </div>
 
         <AnimatePresence>

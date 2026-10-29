@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { s } from "../strings";
+import { landingDate } from "../format";
 import { useLocale } from "@/lib/strings";
 import { usePrefersReducedMotion } from "../lib/motion";
 import { TopNav } from "./TopNav";
@@ -15,6 +16,7 @@ const NAV_EASE = "cubic-bezier(.2,.8,.2,1)";
 export function Hero() {
   const reduce = usePrefersReducedMotion();
   useLocale();
+  const sectionRef = useRef<HTMLElement | null>(null);
   const pillRef = useRef<HTMLDivElement | null>(null);
   const clipRef = useRef<HTMLDivElement | null>(null);
   const lineRef = useRef<HTMLSpanElement | null>(null);
@@ -22,7 +24,6 @@ export function Hero() {
   const navRef = useRef<HTMLElement | null>(null);
   const footRef = useRef<HTMLDivElement | null>(null);
   const ruleRef = useRef<HTMLDivElement | null>(null);
-  const [booted, setBooted] = useState(false);
   const animations = useRef<Animation[]>([]);
   const timers = useRef<number[]>([]);
 
@@ -164,25 +165,67 @@ export function Hero() {
     first.finished.then(() => settle()).catch(() => undefined);
   }, [finalGeometry, reset, settle]);
 
+  // Scroll drives the print (tt 2026-10-28): the wheel, not a timer, opens the slot. `再打一张`
+  // keeps the manual 2.1s replay because that one is a deliberate "print it again" gesture.
   useEffect(() => {
     if (reduce) {
       settle();
-      setBooted(true);
       return;
     }
-    play();
-    setBooted(true);
+    let frame = 0;
     const running = animations.current;
     const pending = timers.current;
-    const onResize = () => settle();
-    window.addEventListener("resize", onResize);
+
+    const apply = () => {
+      const geo = finalGeometry();
+      const section = sectionRef.current;
+      const pill = pillRef.current;
+      const clip = clipRef.current;
+      const line = lineRef.current;
+      if (!geo || !section || !pill || !clip || !line) return;
+
+      const travel = Math.max(240, section.clientHeight * 0.62);
+      const p = Math.min(1, Math.max(0, window.scrollY / travel));
+      // The slit cracks in the first eighth of the scroll, then the capsule opens with an ease-out.
+      const grow = p <= 0.1 ? 0 : Math.min(1, (p - 0.1) / 0.78);
+      const eased = 1 - Math.pow(1 - grow, 3);
+      const hair = Math.max(2, geo.fs * 0.012);
+
+      if (geo.mobile) {
+        pill.style.width = "100%";
+        pill.style.height = `${2 + (geo.finalH - 2) * eased}px`;
+        clip.style.clipPath = `inset(0 ${50 - 50 * Math.min(1, grow * 2.2)}% 0 ${50 - 50 * Math.min(1, grow * 2.2)}%)`;
+      } else {
+        pill.style.width = `${hair + (geo.finalW - hair) * eased}px`;
+        pill.style.height = `${geo.finalH}px`;
+        clip.style.clipPath = `inset(${50 - 50 * Math.min(1, grow * 2.2)}% 0 ${50 - 50 * Math.min(1, grow * 2.2)}% 0)`;
+      }
+      line.style.opacity = grow > 0.02 ? String(Math.max(0, 1 - grow * 6)) : "1";
+      if (ruleRef.current) ruleRef.current.style.transform = `scaleX(${Math.min(1, grow * 1.4)})`;
+    };
+
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        apply();
+      });
+    };
+
+    apply();
+    window.requestAnimationFrame(apply);
+    window.addEventListener("load", onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
     return () => {
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("load", onScroll);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
       running.forEach((a) => a.cancel());
       pending.forEach((t) => window.clearTimeout(t));
     };
-    // Runs once on mount: the hero timeline is the page entrance.
-  }, [reduce, play, settle]);
+  }, [reduce, finalGeometry, settle]);
 
   const reprint = () => {
     if (reduce) return;
@@ -208,7 +251,7 @@ export function Hero() {
   };
 
   return (
-    <section id="top" className="lp-hero lp-grain">
+    <section ref={sectionRef} id="top" className="lp-hero lp-grain">
       <div className="lp-hero-sky" aria-hidden />
       <svg className="lp-hero-art" viewBox="0 0 1440 900" preserveAspectRatio="none" aria-hidden>
         <g fill="none" stroke="rgba(27,23,18,0.16)" strokeWidth="1">
@@ -228,7 +271,7 @@ export function Hero() {
         </g>
       </svg>
 
-      <TopNav navRef={navRef} style={booted ? undefined : { transform: "translateY(-140%)", opacity: 0 }} />
+      <TopNav navRef={navRef} />
 
       <div className="lp-hero-badge-wrap">
         <span className="lp-badge">
@@ -249,13 +292,16 @@ export function Hero() {
           className="lp-pill"
           role="img"
           aria-label={s("hero.slot")}
-          style={booted ? undefined : { width: 2, height: 2, opacity: 0 }}
+          style={{ width: 2, height: 2 }}
         >
           <div ref={clipRef} className="lp-pill-clip">
             <img src="/img/landing-printer-slot-macro-v2.webp" alt="" aria-hidden loading="eager" />
             <div className="lp-pill-shade" aria-hidden />
             <div className="lp-pill-slot" aria-hidden />
             <div className="lp-hero-paper" aria-hidden>
+              <p className="lp-hero-paper-brand">{s("brand")}</p>
+              <p className="lp-hero-paper-date">{landingDate(2026, 10, 27)}</p>
+              <span className="rule" />
               <b>
                 <span>便利店</span>
                 <span>11.50</span>
@@ -265,8 +311,8 @@ export function Hero() {
                 <span>4.00</span>
               </b>
               <span className="rule" />
-              <b>
-                <span>合计</span>
+              <b className="total">
+                <span>{s("mini.total")}</span>
                 <span>15.50</span>
               </b>
             </div>
@@ -280,13 +326,13 @@ export function Hero() {
 
       <aside className="lp-hero-float lp-hero-float--left" aria-hidden>
         <div className="lp-float-card">
-          <p className="lp-float-kicker">10月27日 周一</p>
+          <p className="lp-float-kicker">{landingDate(2026, 10, 27)}</p>
           <p className="lp-float-row"><span>面馆 · 午饭</span><span>32.00</span></p>
           <p className="lp-float-row"><span>地铁</span><span>5.00</span></p>
           <p className="lp-float-row"><span>咖啡</span><span>18.00</span></p>
           <span className="lp-float-rule" />
-          <p className="lp-float-row lp-float-total"><span>合计</span><span>55.00</span></p>
-          <span className="lp-float-stamp">已记</span>
+          <p className="lp-float-row lp-float-total"><span>{s("mini.total")}</span><span>55.00</span></p>
+          <span className="lp-float-stamp">{s("mini.recorded")}</span>
         </div>
       </aside>
       <aside className="lp-hero-float lp-hero-float--right" aria-hidden>
@@ -294,7 +340,7 @@ export function Hero() {
         <span className="lp-float-tag">365 / 365</span>
       </aside>
 
-      <div ref={footRef} className="lp-hero-foot" style={booted ? undefined : { transform: "translateY(160%)", opacity: 0 }}>
+      <div ref={footRef} className="lp-hero-foot">
         <div>
           <div ref={ruleRef} className="lp-hero-rule" />
           <p className="lp-dropcap mt-4 max-w-[54ch] text-[16px] leading-[1.7] text-[var(--lp-ink)] sm:text-[16px]">{s("hero.lede")}</p>

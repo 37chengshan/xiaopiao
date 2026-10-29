@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/lib/strings";
 import { WALLET, type WalletCard } from "../cardsData";
 import { Card, Button, Hint } from "../ui";
 import { s } from "../strings";
@@ -31,6 +32,7 @@ function CardFace({ card, active }: { card: WalletCard; active: boolean }) {
 }
 
 export function CardsPage() {
+  useLocale();
   const [activeId, setActiveId] = useState(WALLET[0]?.id ?? "");
   const active = WALLET.find((c) => c.id === activeId) ?? WALLET[0];
   const behind = WALLET.filter((c) => c.id !== active.id);

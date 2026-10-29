@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { templateAssistant } from "@/ai/assistant";
 import { CATEGORIES, type Category, type Txn, startOfDay } from "@/domain/types";
+import { categoryLabel } from "../labels";
+import { getLocale } from "@/lib/strings";
 import { buildWeeklyReport } from "@/logic/weeklyReport";
 import { decodeBillBytes, parseBillCsv } from "@/logic/csv";
 import { cycleLabel, detectSubscriptions } from "@/logic/subscriptions";
@@ -11,6 +13,7 @@ import { simulateRegret } from "@/logic/regret";
 import { addDays, hhmm, weekStartOf } from "@/logic/time";
 import { useLedger } from "@/services/LedgerProvider";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/lib/strings";
 import { ReceiptPaper } from "@/features/receipt/ReceiptPaper";
 import { type DraftTxn } from "@/logic/quickAdd";
 import { MiniBars, type Point } from "../charts";
@@ -149,7 +152,11 @@ function LocalBook({ txns, today, onRecord }: { txns: Txn[]; today: number; onRe
   );
 }
 
+const fill = (template: string, ...vals: (string | number)[]) =>
+  vals.reduce<string>((acc, v) => acc.replace("{}", String(v)), template);
+
 export function AiPage() {
+  useLocale();
   const { txns, now, add } = useLedger();
   const shell = useShell();
   const today = startOfDay(now);
@@ -177,6 +184,10 @@ export function AiPage() {
   useEffect(() => {
     if (msgs.length > 0) return;
     const o = templateAssistant.opening(txns, now);
+    if (getLocale() === "en") {
+      o.text = s("ai.opening");
+      o.chips = [s("ai.chip1"), s("ai.chip2"), s("ai.chip3")];
+    }
     setMsgs([{ id: nid(), role: "ai", phase: "done", chunks: [o.text], text: o.text }]);
   }, [msgs.length, txns, now]);
 
@@ -247,38 +258,38 @@ export function AiPage() {
         switch (intent.kind) {
           case "ADD": {
             tools.push({ id: "draft", label: s("tool.draft"), done: false });
-            summaries = [`${intent.drafts.length} 笔`];
-            answer = `听到了 ${intent.drafts.length} 笔，确认之后才会真的记下。`;
+            summaries = [fill(s("ai.answer.count"), intent.drafts.length)];
+            answer = fill(s("ai.answer.drafts"), intent.drafts.length);
             card = { kind: "drafts", drafts: intent.drafts, saved: false };
             break;
           }
           case "TODAY_SPEND": {
             tools.push({ id: "today", label: s("tool.today"), done: false });
-            summaries = [`${todaysOut.length} 笔`];
-            answer = todaysOut.length ? `今天到现在花了 ${money(todayTotal)}，共 ${todaysOut.length} 笔。` : "今天一分钱还没花。";
+            summaries = [fill(s("ai.answer.count"), todaysOut.length)];
+            answer = todaysOut.length ? fill(s("ai.answer.today"), money(todayTotal), todaysOut.length) : s("ai.answer.todayNone");
             refs = [{ kind: "chart7" }, { kind: "entries", ids: todaysOut.slice(-5).map((t) => t.id) }];
             break;
           }
           case "RECEIPT": {
             tools.push({ id: "receipt", label: s("tool.receipt"), done: false });
-            summaries = ["已出票"];
-            answer = "来啦，今天的小票。";
+            summaries = [s("ai.answer.receiptSummary")];
+            answer = s("ai.answer.receipt");
             card = { kind: "receipt" };
             refs = [{ kind: "receipt" }];
             break;
           }
           case "WEEKLY": {
             tools.push({ id: "week", label: s("tool.week"), done: false }, { id: "peak", label: s("tool.peak"), done: false });
-            summaries = [`${week.txnCount} 笔`, week.topCategories[0] ? CATEGORIES[week.topCategories[0].category].label : "—"];
-            answer = `这周花了 ${money(week.totalCents)}，${week.txnCount} 笔。`;
+            summaries = [fill(s("ai.answer.count"), week.txnCount), week.topCategories[0] ? categoryLabel(week.topCategories[0].category) : "—"];
+            answer = fill(s("ai.answer.week"), money(week.totalCents), week.txnCount);
             card = { kind: "weekly" };
             refs = [{ kind: "weekly" }, { kind: "chartWeek" }];
             break;
           }
           case "SUBSCRIPTIONS": {
             tools.push({ id: "subs", label: s("tool.subs"), done: false });
-            summaries = [`${subList.length} 个`];
-            answer = subList.length ? "这些是看起来规律扣款的订阅，取消要你自己在相应平台操作。" : "暂时没发现自动续费。";
+            summaries = [fill(s("ai.answer.subsCount"), subList.length)];
+            answer = subList.length ? s("ai.answer.subs") : s("ai.answer.subsNone");
             if (subList.length) {
               card = { kind: "subs" };
               refs = [{ kind: "subs" }];
@@ -295,19 +306,19 @@ export function AiPage() {
               reductionPct: intent.reductionPct,
               windowMonths: intent.months,
             });
-            summaries = [`30 天 ${money(result.monthlyCents)}`];
-            answer = `按 ${intent.months} 个月的观察窗口，少花 ${intent.reductionPct}% 大概是这个数。只是算术，不是建议。`;
+            summaries = [fill(s("ai.monthExpected"), money(result.monthlyCents))];
+            answer = fill(s("ai.answer.regret"), intent.months, intent.reductionPct);
             card = { kind: "regret", targetCategory: target, pct: intent.reductionPct, months: intent.months };
             refs = [{ kind: "chart7" }];
             break;
           }
           case "IMPORT": {
-            answer = "可以导入支付宝 / 微信的 CSV 账单，导入前会先给你看预览。";
+            answer = s("ai.answer.import");
             card = { kind: "import" };
             break;
           }
           default: {
-            answer = "这句我还没听懂，试试直接说「午饭 32 奶茶 15」，或者问我「今天花了多少」。";
+            answer = s("ai.answer.fallback");
           }
         }
 
@@ -422,7 +433,7 @@ export function AiPage() {
           rows={[
             { label: s("stats.total"), value: money(weekly.totalCents) },
             { label: s("stats.previous"), value: money(weekly.prevTotalCents) },
-            ...weekly.topCategories.map((row) => ({ label: CATEGORIES[row.category].label, value: money(row.cents) })),
+            ...weekly.topCategories.map((row) => ({ label: categoryLabel(row.category), value: money(row.cents) })),
           ]}
         />
       );
@@ -442,8 +453,8 @@ export function AiPage() {
       return (
         <Facts
           rows={[
-            { label: "30 天预计", value: money(result.monthlyCents) },
-            { label: `省下 ${c.pct}%`, value: money(result.savedCents) },
+            { label: s("ai.monthExpected"), value: money(result.monthlyCents) },
+            { label: fill(s("ai.savePct"), c.pct), value: money(result.savedCents) },
             ...result.equivalents.slice(0, 2).map((e) => ({ label: e.label, value: `${e.count}` })),
           ]}
         />
@@ -508,7 +519,7 @@ export function AiPage() {
             rows={[
               { label: s("stats.total"), value: money(weekly.totalCents) },
               { label: s("stats.count"), value: `${weekly.txnCount} ${s("ledger.itemUnit")}` },
-              ...weekly.topCategories.map((c) => ({ label: CATEGORIES[c.category].label, value: money(c.cents) })),
+              ...weekly.topCategories.map((c) => ({ label: categoryLabel(c.category), value: money(c.cents) })),
             ]}
           />
         </div>

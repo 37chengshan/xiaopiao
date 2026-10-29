@@ -110,7 +110,7 @@ export function Demo() {
 
             <div className="lp-ticket">
               <div className="lp-mini">
-                <p className="text-center text-[10px] font-semibold tracking-[0.28em]">今日小票</p>
+                <p className="text-center text-[10px] font-semibold tracking-[0.28em]">{s("brand")}</p>
                 <p className="mt-1 text-center text-[8px] opacity-60">{s("demo.receipt.date")}</p>
                 <span className="lp-mini-rule" />
                 {rows.map((row, i) => (

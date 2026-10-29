@@ -2,7 +2,7 @@ import { useLocale } from "@/lib/strings";
 import { s } from "../strings";
 import { BrandMark } from "@/components/brand/BrandMark";
 
-/** Footer: the brand returns full width, then one line of links and the generated-image credit. */
+/** Footer: brand + tagline, then one line of links and the generated-image credit. */
 export function Footer() {
   useLocale();
   return (
@@ -12,9 +12,6 @@ export function Footer() {
           <BrandMark className="size-7" />
           <span className="text-[13px] font-medium text-[var(--lp-ink-2)]">{s("footer.tagline")}</span>
         </div>
-        <p aria-hidden className="lp-footer-word mt-6 select-none whitespace-nowrap text-[var(--lp-ink)]">
-          {s("brand")}
-        </p>
         <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-[var(--lp-line)] pt-5 text-[13px] text-[var(--lp-ink-2)]">
           <a href="#/app" className="hover:text-[var(--lp-ink)]">
             {s("nav.cta")}

@@ -7,12 +7,14 @@ import { ReceiptStage } from "./ReceiptStage";
 import { unlockAudio } from "./sound";
 import { phoneColumnOf } from "./usePushBack";
 import { useReceiptDoc } from "./useReceiptDoc";
+import { useReceiptStrings } from "./strings";
 
 /**
  * A day's receipt on the page: the finished paper, and one button that plays the print moment over the phone column.
  * `playKey` changing (another day selected) closes a running print.
  */
 export function Receipt({ receipt, playKey = 0 }: { receipt: DailyReceipt; playKey?: number }) {
+  const t = useReceiptStrings();
   const doc = useReceiptDoc(receipt);
   const anchor = useRef<HTMLDivElement>(null);
   const [column, setColumn] = useState<HTMLElement | null>(null);
@@ -33,7 +35,7 @@ export function Receipt({ receipt, playKey = 0 }: { receipt: DailyReceipt; playK
       </div>
       <XButton variant="clay" className="sticky bottom-3 mx-auto mt-4 flex w-full max-w-[304px] bg-[linear-gradient(180deg,color-mix(in_oklab,var(--clay)_86%,white),var(--clay))] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_8px_18px_-6px_color-mix(in_oklab,var(--clay)_60%,transparent)] dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_0_0_1px_color-mix(in_oklab,var(--clay)_70%,transparent),0_6px_22px_-6px_color-mix(in_oklab,var(--clay)_55%,transparent)]" onClick={start}>
         <Printer className="size-[18px]" strokeWidth={1.75} aria-hidden />
-        打印
+        {t("print")}
       </XButton>
       {column && <ReceiptStage receipt={receipt} column={column} onClose={() => setColumn(null)} />}
     </div>

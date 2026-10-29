@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
-import { getLocale, setLocale, useLocale } from "@/lib/strings";
+import { getLocale, useLocale } from "@/lib/strings";
+import { applyLocale, restoreLocale } from "@/lib/locale";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { cn } from "@/lib/utils";
 import { s } from "../strings";
@@ -16,6 +17,10 @@ export function TopNav({ navRef, style }: { navRef?: RefObject<HTMLElement | nul
   useLocale();
   const [open, setOpen] = useState(false);
   const localRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    restoreLocale();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -69,7 +74,7 @@ export function TopNav({ navRef, style }: { navRef?: RefObject<HTMLElement | nul
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setLocale(getLocale() === "zh" ? "en" : "zh")}
+            onClick={() => applyLocale(getLocale() === "zh" ? "en" : "zh")}
             className="rounded-full border border-[var(--lp-line)] px-2.5 py-1.5 text-[13px] font-medium text-[var(--lp-ink)] transition-colors hover:bg-[rgba(27,23,18,0.06)]"
             aria-label={s("nav.lang")}
           >
