@@ -129,7 +129,8 @@ private fun FlowFrame(
         title = route.title,
         scroll = NavScrollNone,
         onBack = onBack,
-        backLabel = "返回",
+        // The flow closes back to 分析, its home tab (移动七条 §1).
+        backLabel = bi("分析", "Insights"),
         demo = false,
         trailing = { NavIconButton(Icons.Outlined.Info, bi("数据怎么来的", "Where the data comes from"), onClick = onPrivacy) },
     ) { top ->

@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,6 +62,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.OpenRequest
+import com.xiaopiao.app.R
 import com.xiaopiao.app.ui.chat.ChatScreen
 import com.xiaopiao.app.ui.circle.CircleHome
 import com.xiaopiao.app.ui.components.NavBarItem
@@ -151,7 +153,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
             // The same 设置 page, reached from the gear on every 小店 page; back returns to where the shop was.
             BackHandler { merchantSettings = false }
             // Same page, but its edition row now leads back to the personal edition.
-            SettingsScreen(container, inMerchant = true, onSwitchEdition = { merchantSettings = false; merchantMode = false }, onBack = { merchantSettings = false })
+            SettingsScreen(container, inMerchant = true, onSwitchEdition = { merchantSettings = false; merchantMode = false }, onBack = { merchantSettings = false }, backLabel = stringResource(R.string.back_shop))
         } else {
             // SaveableStateProvider keeps the shop's tab / sub-page while the settings page replaces it.
             merchantState.SaveableStateProvider("merchant") {
@@ -179,9 +181,25 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
 
     // The resident receipt: pages place a ReceiptStrip, the ceremony itself lives here, above the navigation.
     val receiptHost = rememberReceiptHost(container) { go(NavTab.Receipt) }
+    // 设置 is a push page, and its 返回 names the tab whose gear opened it (移动七条 §1). The label is read
+    // at composition time from the current route, then frozen into state when the gear is tapped.
+    val settingsBack = remember { mutableStateOf("返回") }
+    val tabLabels = mapOf(
+        NavTab.Ledger to stringResource(R.string.back_ledger),
+        NavTab.Receipt to stringResource(R.string.back_receipt),
+        NavTab.Insights to stringResource(R.string.back_insights),
+        NavTab.Chat to stringResource(R.string.back_chat),
+        NavTab.Circle to stringResource(R.string.back_circle),
+        NavTab.Games to stringResource(R.string.back_games),
+    )
+    fun openSettingsFrom(tab: NavTab?) {
+        settingsBack.value = tabLabels[tab] ?: tabLabels.getValue(NavTab.Ledger)
+        nav.navigate("settings")
+    }
+    val currentTab by androidx.compose.runtime.rememberUpdatedState(NavTab.entries.firstOrNull { it.route == current })
     val topBarHost = remember(nav) {
         TopBarHost(
-            openSettings = { nav.navigate("settings") },
+            openSettings = { openSettingsFrom(currentTab) },
             openWallet = { walletOpen = true },
             openSearch = { ledgerSearch = true; go(NavTab.Ledger) },
         )
@@ -265,7 +283,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         container,
                         open,
                         onOpenConsumed,
-                        onOpenSettings = { nav.navigate("settings") },
+                        onOpenSettings = { openSettingsFrom(NavTab.Insights) },
+                        onRecord = { record.openManual() },
                     )
                 }
                 composable(
@@ -284,6 +303,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         container,
                         onSwitchEdition = { merchantMode = true },
                         onBack = { nav.popBackStack() },
+                        backLabel = settingsBack.value,
                     )
                 }
                 composable(NavTab.Receipt.route) {
@@ -292,14 +312,14 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 composable(NavTab.Chat.route) {
                     ChatScreen(
                         container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openManual() },
-                        onOpenSettings = { nav.navigate("settings") },
+                        onOpenSettings = { openSettingsFrom(NavTab.Chat) },
                         // The session drawer covers the page; the tab bar steps aside while it is open.
                         onDrawerOpenChange = { navBarHidden = it },
                     )
                 }
-                composable(NavTab.Circle.route) { CircleHome(container, onOpenSettings = { nav.navigate("settings") }, onOpenGames = { go(NavTab.Games) }) }
+                composable(NavTab.Circle.route) { CircleHome(container, onOpenSettings = { openSettingsFrom(NavTab.Circle) }, onOpenGames = { go(NavTab.Games) }) }
                 // 游戏 is its own tab of the social side, not a state inside 圈子: nothing saved can reopen it by itself.
-                composable(NavTab.Games.route) { GamesHub(onBack = { go(NavTab.Circle) }, onOpenSettings = { nav.navigate("settings") }) }
+                composable(NavTab.Games.route) { GamesHub(onBack = { go(NavTab.Circle) }, onOpenSettings = { openSettingsFrom(NavTab.Games) }) }
 
             }
             }

@@ -14,7 +14,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.xiaopiao.app.R
 import com.xiaopiao.app.data.CaptureLogEntry
 import com.xiaopiao.app.importer.ImportSummary
 import com.xiaopiao.app.ui.components.GroupedRow
@@ -90,7 +92,9 @@ fun AppearancePage(
     onBack: () -> Unit,
 ) {
     val scroll = rememberScrollState()
-    NavScaffold("外观", rememberNavScroll(scroll), onBack = onBack, glassGround = true) { top ->
+    NavScaffold(
+        "外观", rememberNavScroll(scroll), onBack = onBack, backLabel = stringResource(R.string.back_settings), glassGround = true,
+    ) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             XpReveal(index = 0) { AppearanceSection(mode, onMode) }
             XpReveal(index = 1) { ColorThemeSection(theme, onTheme) }
@@ -120,7 +124,10 @@ fun DataPage(
     onBack: () -> Unit,
 ) {
     val scroll = rememberScrollState()
-    NavScaffold("数据与隐私", rememberNavScroll(scroll), onBack = onBack, glassGround = true) { top ->
+    NavScaffold(
+        "数据与隐私", rememberNavScroll(scroll), onBack = onBack,
+        backLabel = stringResource(R.string.back_settings), glassGround = true,
+    ) { top ->
         Column(
             Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(XpSpace.xs),
@@ -153,7 +160,9 @@ fun DataPage(
 @Composable
 fun AboutPage(onPrivacy: () -> Unit, onBack: () -> Unit) {
     val scroll = rememberScrollState()
-    NavScaffold("关于", rememberNavScroll(scroll), onBack = onBack, glassGround = true) { top ->
+    NavScaffold(
+        "关于", rememberNavScroll(scroll), onBack = onBack, backLabel = stringResource(R.string.back_settings), glassGround = true,
+    ) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             XpReveal(index = 0) { AboutSection(onPrivacy) }
             XpReveal(index = 1) {

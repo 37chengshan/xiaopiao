@@ -234,6 +234,7 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
                             onBack = { sub = null },
                             onRecordDay = ::openRecord,
                             onOpenSettings = onOpenSettings,
+                            backLabel = tab.label,
                         )
                         else -> MerchantExperimentScreen(
                             sub = sub!!,

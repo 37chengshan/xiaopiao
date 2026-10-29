@@ -89,6 +89,8 @@ fun BudgetPage(
     onOpenSettings: () -> Unit = {},
     /** tt: opened from the ledger it is a bottom drawer, not a page — no nav bar, its own title row. */
     inSheet: Boolean = false,
+    /** Where 返回 goes (移动七条 §1): 统计 when it is a stats sub-page, 记账 for the drawer. */
+    backLabel: String = "返回",
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -142,7 +144,7 @@ fun BudgetPage(
             "预算",
             NavScrollNone,
             onBack = onBack,
-            backLabel = "返回",
+            backLabel = backLabel,
             trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
         ) { top -> body(Modifier.fillMaxSize().padding(top = top)) }
     }

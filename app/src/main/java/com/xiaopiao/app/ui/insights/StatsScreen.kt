@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,6 +47,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
+import com.xiaopiao.app.R
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.insights.StatsAggregator
@@ -65,6 +68,7 @@ import com.xiaopiao.app.insights.StatsSnapshot
 import com.xiaopiao.app.insights.startOfWeek
 import com.xiaopiao.app.ui.components.BarTrend
 import com.xiaopiao.app.ui.components.DonutChart
+import com.xiaopiao.app.ui.components.EmptyState
 import com.xiaopiao.app.ui.components.GroupedRow
 import com.xiaopiao.app.ui.components.GroupedSection
 import com.xiaopiao.app.ui.components.IconTile
@@ -157,6 +161,8 @@ fun StatsScreen(
     onOpenSubscriptions: () -> Unit,
     onOpenRegret: () -> Unit,
     onPrint: (() -> Unit)? = null,
+    /** 记一笔 from the empty state: the shell owns the record pane (docs/DESIGN.md §7). */
+    onRecord: () -> Unit = {},
 ) {
     val txns by container.ledger.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -318,24 +324,36 @@ fun StatsScreen(
                         direction = direction,
                         onDirection = { direction = it },
                     )
-                    if (narrative != null) {
-                        AiSummaryCard(
-                            title = snapshot.aiTitle,
-                            line = narrative,
-                            onOpen = onOpenAwards,
-                            modifier = Modifier.enterOnChange(snapshot.hashCode(), 0, reduceMotion),
+                    // Nothing in this period: no chart of zeros, no ¥0 KPIs, no empty ranking — one honest
+                    // empty state instead (移动七条 §7), and 「更多」 stays reachable below it.
+                    if (snapshot.isEmpty) {
+                        StatsEmptyState(
+                            ledgerEmpty = txns.isEmpty(),
+                            // 自定义 has no previous period to show, so its only way out is a new record.
+                            canGoBack = range != StatsRange.Custom,
+                            onRecord = onRecord,
+                            onPrevious = { anchor = StatsAggregator.shiftAnchor(range, anchor, -1) },
                         )
-                    }
-                    KpiCard(snapshot, Modifier.enterOnChange(snapshot.hashCode(), 1, reduceMotion))
-                    TrendCard(snapshot, Modifier.enterOnChange(snapshot.hashCode(), 2, reduceMotion))
-                    if (snapshot.entries.isNotEmpty()) {
-                        CompositionCard(
-                            snapshot = snapshot,
-                            grouping = grouping,
-                            onGrouping = { grouping = it },
-                            modifier = Modifier.enterOnChange("${snapshot.hashCode()}-$grouping", 3, reduceMotion),
-                        )
-                        RankingCard(snapshot, Modifier.enterOnChange("${snapshot.hashCode()}-$grouping", 4, reduceMotion))
+                    } else {
+                        if (narrative != null) {
+                            AiSummaryCard(
+                                title = snapshot.aiTitle,
+                                line = narrative,
+                                onOpen = onOpenAwards,
+                                modifier = Modifier.enterOnChange(snapshot.hashCode(), 0, reduceMotion),
+                            )
+                        }
+                        KpiCard(snapshot, Modifier.enterOnChange(snapshot.hashCode(), 1, reduceMotion))
+                        TrendCard(snapshot, Modifier.enterOnChange(snapshot.hashCode(), 2, reduceMotion))
+                        if (snapshot.entries.isNotEmpty()) {
+                            CompositionCard(
+                                snapshot = snapshot,
+                                grouping = grouping,
+                                onGrouping = { grouping = it },
+                                modifier = Modifier.enterOnChange("${snapshot.hashCode()}-$grouping", 3, reduceMotion),
+                            )
+                            RankingCard(snapshot, Modifier.enterOnChange("${snapshot.hashCode()}-$grouping", 4, reduceMotion))
+                        }
                     }
                     MoreSection(onOpenBudget, onOpenAwards, onOpenSubscriptions, onOpenRegret)
                 }
@@ -479,6 +497,23 @@ private fun CircleArrow(icon: androidx.compose.ui.graphics.vector.ImageVector, d
 }
 
 // ── cards ─────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Empty period, two flavours (移动七条 §7): the whole ledger is empty → 「记一笔」; this period is empty while
+ * other periods hold bills → 「看上一期」, because the user's next question is "where did it go?".
+ */
+@Composable
+private fun StatsEmptyState(ledgerEmpty: Boolean, canGoBack: Boolean, onRecord: () -> Unit, onPrevious: () -> Unit) {
+    val backFirst = !ledgerEmpty && canGoBack
+    EmptyState(
+        icon = Icons.Outlined.ReceiptLong,
+        title = stringResource(if (ledgerEmpty) R.string.stats_empty_all_title else R.string.stats_empty_period_title),
+        body = stringResource(if (ledgerEmpty) R.string.stats_empty_all_body else R.string.stats_empty_period_body),
+        actionLabel = stringResource(if (backFirst) R.string.stats_empty_previous else R.string.stats_empty_record),
+        onAction = if (backFirst) onPrevious else onRecord,
+        modifier = Modifier.padding(top = XpSpace.l),
+    )
+}
 
 /** Quiet summary: hairline card, 11sp label, 13sp copy, inline link. No avatar, fill, or accent chrome. */
 @Composable
