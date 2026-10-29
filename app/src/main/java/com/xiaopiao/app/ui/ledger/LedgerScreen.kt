@@ -85,6 +85,9 @@ fun LedgerScreen(
     @Suppress("UNUSED_PARAMETER") onVoiceStart: () -> Unit = {},
     searchRequested: Boolean = false,
     onSearchConsumed: () -> Unit = {},
+    /** 记一笔 and 编辑账单 are one pane owned by the shell (docs/DESIGN.md §7). */
+    onRecord: () -> Unit = {},
+    onEdit: (txn: Txn, onDelete: (Txn) -> Unit) -> Unit = { _, _ -> },
 ) {
     val onOpenSettings = LocalTopBarHost.current.openSettings
     // 「设置预算」 pulls up the budget drawer over the ledger (tt: a drawer, not a page).
@@ -111,8 +114,6 @@ fun LedgerScreen(
     var filter by remember { mutableStateOf(LedgerFilter()) }
     var filterOpen by remember { mutableStateOf(false) }
     var calendarOpen by remember { mutableStateOf(false) }
-    var addOpen by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<Txn?>(null) }
     var selection by remember { mutableStateOf<Set<Long>?>(null) }
     // 搜索 in the top-left (here or from 小票 / 统计) arrives as a request from the shell.
     LaunchedEffect(searchRequested) { if (searchRequested) { searching = true; onSearchConsumed() } }
@@ -238,7 +239,7 @@ fun LedgerScreen(
                 groups = searchGroups,
                 hidden = hidden,
                 hits = searchHits,
-                onEdit = { editing = it; addOpen = true },
+                onEdit = { onEdit(it, ::deleteTxn) },
                 onClearConditions = { clearConditions() },
                 filter = filter,
                 onFilter = { filterOpen = true },
@@ -259,9 +260,9 @@ fun LedgerScreen(
                     selection = if (txn.id in current) current - txn.id else current + txn.id
                 },
                 onLongPress = { txn -> haptics.thud(); selection = setOf(txn.id) },
-                onEdit = { editing = it; addOpen = true },
+                onEdit = { onEdit(it, ::deleteTxn) },
                 onDelete = { deleteTxn(it) },
-                onAdd = { editing = null; addOpen = true },
+                onAdd = onRecord,
                 allEmpty = all.isEmpty(),
                 listState = listState,
                 reduceMotion = reduceMotion,
@@ -300,15 +301,6 @@ fun LedgerScreen(
         )
     }
 
-    if (addOpen) {
-        AddTxnSheet(
-            editing = editing,
-            now = System.currentTimeMillis(),
-            onDismiss = { addOpen = false; editing = null },
-            onAddAll = { list -> scope.launch { list.forEach { ledger.add(it) } } },
-            onSave = { txn -> scope.launch { if (txn.id == 0L) ledger.add(txn) else ledger.update(txn) } },
-        )
-    }
 }
 
 /** Items above the first day card: the summary (search sits in the top bar, 按天查看 inside the summary card). */
