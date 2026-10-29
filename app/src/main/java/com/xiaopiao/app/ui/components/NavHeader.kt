@@ -7,12 +7,18 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.shadow.Shadow
 import androidx.compose.runtime.getValue
@@ -78,7 +84,14 @@ fun rememberNavScroll(state: LazyListState): NavScroll = remember(state) {
 /** A screen with no scrolling title (always expanded). */
 val NavScrollNone = NavScroll { 0f }
 
-private val BarHeight = 44.dp
+/** Height of the glass pill and of the title band: what the page reserves, so it never changes here. */
+val NavBarHeight = 44.dp
+
+/**
+ * Minimum touch target of every top-bar control (mobile rules §2: ≥48dp). Nothing is 48dp tall visually —
+ * the bar's hit band is simply taller than its pill, and each control centres its 44dp visual inside it.
+ */
+val NavTouchTarget = 48.dp
 
 /**
  * Apple-style navigation chrome. Content is laid out full-bleed and receives the height it must reserve
@@ -105,41 +118,48 @@ fun NavScaffold(
     val glass = rememberLayerBackdrop()
     Box(modifier.fillMaxSize()) {
         Box(Modifier.matchParentSize().layerBackdrop(glass).background(XpColors.CanvasGrouped)) {
-            if (glassGround) GlassGround(Modifier.matchParentSize()) { Box(Modifier.fillMaxSize()) { content(topInset + BarHeight) } }
-            else content(topInset + BarHeight)
+            if (glassGround) GlassGround(Modifier.matchParentSize()) { Box(Modifier.fillMaxSize()) { content(topInset + NavBarHeight) } }
+            else content(topInset + NavBarHeight)
         }
         // No bar: a soft edge fade keeps the title legible, and each group of controls floats in its own glass capsule.
         val edge = XpColors.CanvasGrouped
         Box(
-            Modifier.fillMaxWidth().height(topInset + BarHeight + EdgeFade)
+            Modifier.fillMaxWidth().height(topInset + NavBarHeight + EdgeFade)
                 .background(Brush.verticalGradient(0f to edge.copy(alpha = 0.92f), 0.6f to edge.copy(alpha = 0.7f), 1f to edge.copy(alpha = 0f))),
         )
+        // The strip is [NavTouchTarget] tall so its controls can own a 48dp hit area, but everything visible —
+        // title, label, pills, glyphs — stays inside [NavBarHeight] at the top, exactly where it was.
         Box(
             Modifier.fillMaxWidth()
                 .statusBarsPadding()
-                .height(BarHeight)
+                .height(NavTouchTarget)
                 .padding(horizontal = XpSpace.m),
         ) {
-            Text(
-                title, Modifier.align(Alignment.Center).padding(horizontal = 112.dp),
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = XpColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+            Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(NavBarHeight), contentAlignment = Alignment.Center) {
+                Text(
+                    title, Modifier.padding(horizontal = 112.dp),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = XpColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
             if (onBack != null) {
-                GlassCapsule(glass, Modifier.align(Alignment.CenterStart)) {
-                    Row(
-                        Modifier.fillMaxHeight().pressableClick(onClick = onBack).padding(start = 10.dp, end = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Icon(Icons.Outlined.ArrowBackIosNew, contentDescription = "返回", tint = XpColors.Ink, modifier = Modifier.size(16.dp))
-                        Text(backLabel, style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink)
+                GlassCapsule(glass, Modifier.align(Alignment.TopStart)) {
+                    // The tap box is 48dp tall; the label row keeps the pill's own 44dp so it stays optically centred.
+                    Box(Modifier.height(NavTouchTarget).pressableClick(onClick = onBack), contentAlignment = Alignment.TopCenter) {
+                        Row(
+                            Modifier.height(NavBarHeight).padding(start = 10.dp, end = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Icon(Icons.Outlined.ArrowBackIosNew, contentDescription = "返回", tint = XpColors.Ink, modifier = Modifier.size(16.dp))
+                            Text(backLabel, style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink)
+                        }
                     }
                 }
             }
             if (leading != null && onBack == null) {
-                GlassCapsule(glass, Modifier.align(Alignment.CenterStart), content = leading)
+                GlassCapsule(glass, Modifier.align(Alignment.TopStart), content = leading)
             }
-            GlassCapsule(glass, Modifier.align(Alignment.CenterEnd), content = trailing)
+            GlassCapsule(glass, Modifier.align(Alignment.TopEnd), content = trailing)
         }
     }
 }
@@ -150,6 +170,8 @@ private val LocalInCapsule = staticCompositionLocalOf { false }
 /**
  * One floating liquid-glass pill for a group of top controls, same recipe as the tab bar's capsules
  * (vibrancy, light scatter, edge lens, ~40% film, soft drop shadow). Renders nothing when the group is empty.
+ * The node is [NavTouchTarget] tall so its controls can hit 48dp; the glass itself is drawn in the node's top
+ * [NavBarHeight], so the pill keeps exactly its old geometry and the extra 4dp is invisible touch room.
  */
 @Composable
 private fun GlassCapsule(backdrop: LayerBackdrop, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
@@ -161,11 +183,11 @@ private fun GlassCapsule(backdrop: LayerBackdrop, modifier: Modifier = Modifier,
             content = {
                 Row(
                     Modifier.padding(horizontal = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Top,
                     content = content,
                 )
             },
-            modifier = modifier.height(BarHeight).drawBackdrop(
+            modifier = modifier.height(NavTouchTarget).drawBackdrop(
                 backdrop = backdrop,
                 shape = { CapsuleShape },
                 effects = {
@@ -185,7 +207,11 @@ private fun GlassCapsule(backdrop: LayerBackdrop, modifier: Modifier = Modifier,
     }
 }
 
-/** Round line-icon button for nav actions: a 34dp raised disc on its own, a bare 40dp slot inside a [GlassCapsule]. */
+/**
+ * Round line-icon button for nav actions: a 34dp raised disc on its own, a bare glyph inside a [GlassCapsule].
+ * The node is [NavTouchTarget] square so a finger never has to find the 20dp glyph; the 40dp slot — icon, press
+ * veil and all — keeps its old size, centred in the pill's [NavBarHeight].
+ */
 @Composable
 fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val source = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -193,17 +219,32 @@ fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, m
     val haptics = rememberXpHaptics()
     val inCapsule = LocalInCapsule.current
     Box(
-        modifier.size(if (inCapsule) 40.dp else 34.dp).clip(CircleShape).pressableScale(source)
-            .graphicsLayer { alpha = if (pressed) 0.8f else 1f }
-            .then(if (inCapsule) Modifier else Modifier.background(XpColors.Ink.copy(alpha = 0.07f)))
-            .clickable(source, null) { haptics.select(); onClick() },
-        contentAlignment = Alignment.Center,
+        modifier.size(NavTouchTarget).clickable(source, null) { haptics.select(); onClick() },
+        contentAlignment = Alignment.TopCenter,
     ) {
-        Icon(icon, contentDescription = description, tint = XpColors.Ink, modifier = Modifier.size(if (inCapsule) 20.dp else 18.dp))
+        Box(Modifier.fillMaxWidth().height(NavBarHeight), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.size(if (inCapsule) 40.dp else 34.dp).clip(CircleShape).pressableScale(source)
+                    .graphicsLayer { alpha = if (pressed) 0.8f else 1f }
+                    .then(if (inCapsule) Modifier else Modifier.background(XpColors.Ink.copy(alpha = 0.07f))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = description, tint = XpColors.Ink, modifier = Modifier.size(if (inCapsule) 20.dp else 18.dp))
+            }
+        }
     }
 }
 
-private val CapsuleShape = androidx.compose.foundation.shape.RoundedCornerShape(50)
+/**
+ * The pill's outline, drawn in the top [NavBarHeight] of a [NavTouchTarget]-tall node: the glass keeps its old
+ * size while the node below it carries the taller touch areas.
+ */
+private val CapsuleShape = object : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val h = minOf(with(density) { NavBarHeight.toPx() }, size.height)
+        return Outline.Rounded(RoundRect(0f, 0f, size.width, h, CornerRadius(h / 2f)))
+    }
+}
 
 /** How far the edge fade reaches below the controls. */
 private val EdgeFade = 18.dp
