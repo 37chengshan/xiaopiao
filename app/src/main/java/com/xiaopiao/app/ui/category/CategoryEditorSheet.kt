@@ -166,14 +166,21 @@ internal fun CategoryEditorSheet(
             ) {
                 CategoryHue.pickable.forEach { option ->
                     val selected = option.key == hue.key
+                    val swatch = androidx.compose.ui.graphics.Color(if (XpColors.isDark) option.dark else option.light)
                     Box(
                         Modifier.size(32.dp).clip(CircleShape)
-                            .background(if (XpColors.isDark) androidx.compose.ui.graphics.Color(option.dark) else androidx.compose.ui.graphics.Color(option.light))
+                            .background(swatch)
                             .pressableClick(haptic = false, scaleDown = 0.9f) { hue = option },
                         contentAlignment = Alignment.Center,
                     ) {
                         if (selected) {
-                            Icon(Icons.Outlined.Check, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(16.dp))
+                            // The dark swatches are pastels; a white tick on them was unreadable.
+                            Icon(
+                                Icons.Outlined.Check,
+                                contentDescription = null,
+                                tint = if (XpColors.isDark) com.xiaopiao.app.ui.theme.Contrast.onAccent(swatch) else androidx.compose.ui.graphics.Color.White,
+                                modifier = Modifier.size(16.dp),
+                            )
                         }
                     }
                 }

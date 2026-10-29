@@ -21,7 +21,7 @@
 
 ### 2.1 底色（`ui/theme/Tokens.kt` → `LightPalette` / `DarkPalette`）
 
-系统灰阶：`Canvas` 白 / 黑，`CanvasGrouped` `#F5F5F7` / `#1C1C1E`，`Card`，`Fill`，`Ink` / `InkSecondary` / `InkTertiary`，`Hairline`，语义色 `Positive` / `Negative` / `Warning`，小票专用 `Paper*` / `Printer*`。**页面只用 token，零硬编码颜色**（玻璃膜、阴影的 alpha 也从 token 派生）。
+系统灰阶：`Canvas` 白 / 黑，`CanvasGrouped` `#F5F5F7` / **`#000000`**（2026-10-29 修正：深色下它原与 `Card` 同为 `#1C1C1E`，账单 / 统计 / 设置卡片失去边界，只剩一根发丝线；深色分组页应当是黑底 + `#1C1C1E` 卡片），`Card`，`Fill`，`Ink` / `InkSecondary` / `InkTertiary`，`Hairline`，语义色 `Positive` / `Negative` / `Warning`，小票专用 `Paper*` / `Printer*`。**页面只用 token，零硬编码颜色**（玻璃膜、阴影的 alpha 也从 token 派生）。
 
 ### 2.2 主题配色（`ui/theme/Accent.kt` → `ColorTheme`）
 

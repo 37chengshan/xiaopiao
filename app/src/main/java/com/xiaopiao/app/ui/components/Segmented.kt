@@ -61,7 +61,8 @@ fun Segmented(
                 .fillMaxHeight()
                 .graphicsLayer { translationX = pos * segment.toPx() }
                 .clip(RoundedCornerShape(8.dp))
-                .background(XpColors.Card),
+                // Raised, not Card: in dark the card tone is *below* the track and the thumb looked like a hole.
+                .background(XpColors.Raised),
         )
         Row(Modifier.fillMaxWidth().fillMaxHeight().padding(inset)) {
             options.forEachIndexed { i, label ->

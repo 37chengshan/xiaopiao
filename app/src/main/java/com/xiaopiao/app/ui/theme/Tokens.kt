@@ -44,6 +44,10 @@ data class XpPalette(
     /** Warm yellow for emphasis surfaces (e.g. the ledger's summary card). */
     val highlight: Color,
     val highlightSoft: Color,
+    /** A raised element inside a track (segmented thumb, toggle knob): always lighter than the track. */
+    val raised: Color,
+    /** Switch knob: white in both modes, as on iOS (a dark knob on the dark track is invisible). */
+    val knob: Color,
 )
 
 // One visual system (Apple-derived: system grays, SF-like type); colour themes in Accent.kt layer on top.
@@ -81,12 +85,16 @@ val LightPalette = XpPalette(
     warningSoft = Color(0xFFFFF4E5),
     highlight = Color(0xFFFFC93C),
     highlightSoft = Color(0xFFFFF6D6),
+    raised = Color(0xFFFFFFFF),
+    knob = Color(0xFFFFFFFF),
 )
 
 val DarkPalette = XpPalette(
     dark = true,
     canvas = Color(0xFF000000),
-    canvasGrouped = Color(0xFF1C1C1E),
+    // The grouped page is the black canvas and the card is #1C1C1E on top of it. When both were #1C1C1E the
+    // ledger / stats / settings cards had no edge at all in dark mode — only their hairline was left.
+    canvasGrouped = Color(0xFF000000),
     card = Color(0xFF1C1C1E),
     surface2 = Color(0xFF2C2C2E),
     fill = Color(0xFF3A3A3C),
@@ -117,6 +125,10 @@ val DarkPalette = XpPalette(
     warningSoft = Color(0xFF33260C),
     highlight = Color(0xFFFFD60A),
     highlightSoft = Color(0xFF3A3110),
+    // iOS dark segmented knob: lighter than the #3A3A3C track. Card (#1C1C1E) would sit *below* the track and
+    // read as a hole cut in it.
+    raised = Color(0xFF636366),
+    knob = Color(0xFFFFFFFF),
 )
 
 /** Current palette, swapped by [XiaopiaoTheme]. Snapshot state, so composition and draw scopes that read it update. */
@@ -192,6 +204,10 @@ object XpColors {
     val WarningSoft get() = p.warningSoft
     val Highlight get() = p.highlight
     val HighlightSoft get() = p.highlightSoft
+    /** Thumb/knob inside a Fill track (segmented control); darker themes raise it instead of lowering it. */
+    val Raised get() = p.raised
+    /** Switch knob — white in both modes. */
+    val Knob get() = p.knob
     /** Translucent bar background for nav / tab bars. */
     val Material get() = p.material
 

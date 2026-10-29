@@ -43,4 +43,20 @@ class ColorThemeTest {
             assertEquals(m.accent, merchantPalette(resolvePalette(dark, ColorTheme.Ink)).accent)
         }
     }
+
+    /**
+     * 2026-10-29 dark-mode regression: the page and the card used to be the same #1C1C1E, so every ledger /
+     * stat / settings card lost its edge and only the hairline was left.
+     */
+    @Test fun darkCardsStandOffTheirPage() {
+        assertTrue(Contrast.ratio(DarkPalette.card, DarkPalette.canvasGrouped) >= 1.15)
+        assertTrue(DarkPalette.card != DarkPalette.canvasGrouped)
+    }
+
+    /** Same regression, controls: the segmented thumb used to be darker than its track, the switch knob near-black. */
+    @Test fun darkControlsReadAgainstTheirTrack() {
+        assertTrue(Contrast.ratio(DarkPalette.raised, DarkPalette.fill) >= 1.4)
+        assertTrue(Contrast.ratio(DarkPalette.knob, DarkPalette.fill) >= 4.0)
+        assertTrue(Contrast.ratio(DarkPalette.knob, DarkPalette.accent) >= 2.5)
+    }
 }

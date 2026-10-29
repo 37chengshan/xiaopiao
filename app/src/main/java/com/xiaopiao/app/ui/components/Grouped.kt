@@ -226,8 +226,10 @@ fun XpSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Mod
         onCheckedChange = { haptics.select(); onCheckedChange(it) },
         modifier = modifier,
         colors = SwitchDefaults.colors(
-            checkedThumbColor = XpColors.OnAccent, checkedTrackColor = XpColors.Accent, checkedBorderColor = Color.Transparent,
-            uncheckedThumbColor = XpColors.OnAccent, uncheckedTrackColor = XpColors.Fill, uncheckedBorderColor = Color.Transparent,
+            // The knob is white in both modes: OnAccent turns dark in the dark palette, which made the knob
+            // disappear into the track exactly when the switch was off.
+            checkedThumbColor = XpColors.Knob, checkedTrackColor = XpColors.Accent, checkedBorderColor = Color.Transparent,
+            uncheckedThumbColor = XpColors.Knob, uncheckedTrackColor = XpColors.Fill, uncheckedBorderColor = Color.Transparent,
         ),
     )
 }

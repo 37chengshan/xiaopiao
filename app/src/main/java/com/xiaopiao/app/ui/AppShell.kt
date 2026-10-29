@@ -234,7 +234,15 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
             Modifier.fillMaxSize()
                 .layerBackdrop(glass)
                 // What shows behind the bar on pages that stop above it: match the page, never a grey band (tt).
-                .background(if (current == NavTab.Circle.route || current == NavTab.Games.route || current == NavTab.Chat.route) XpColors.Card else XpColors.CanvasGrouped)
+                // Light: the chat-like pages sit on card white. Dark: they must sit on the canvas, or every
+                // bubble / receipt card on them is the same #1C1C1E and the page reads as one flat slab.
+                .background(
+                    if (current == NavTab.Circle.route || current == NavTab.Games.route || current == NavTab.Chat.route) {
+                        if (XpColors.isDark) XpColors.Canvas else XpColors.Card
+                    } else {
+                        XpColors.CanvasGrouped
+                    },
+                )
                 .padding(top = top, bottom = if (underBar) 0.dp else padding.calculateBottomPadding()),
         ) {
             CompositionLocalProvider(
