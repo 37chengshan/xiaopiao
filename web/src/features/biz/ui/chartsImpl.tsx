@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useReducedMotion } from "framer-motion";
 import {
   Area,
   Bar,
@@ -38,6 +39,12 @@ function readColors(): ChartColors {
     ink3: pick("--d-ink-3", "#AEAEB2"),
     hairline: pick("--d-hairline", "#E5E5EA"),
   };
+}
+
+/** Charts grow on first paint unless the reader asked for less motion. */
+function useChartMotion(): { animate: boolean; duration: number } {
+  const reduce = useReducedMotion() ?? false;
+  return { animate: !reduce, duration: reduce ? 0 : 400 };
 }
 
 function useChartColors(): ChartColors {
@@ -105,6 +112,7 @@ export function RevenueOrdersChart({
   height?: number;
 }) {
   const colors = useChartColors();
+  const motion = useChartMotion();
   const axis = { fontSize: 11, fill: colors.ink3 };
   return (
     <div style={{ height }} className="w-full">
@@ -132,7 +140,9 @@ export function RevenueOrdersChart({
             fill={colors.accent}
             radius={[3, 3, 0, 0]}
             maxBarSize={28}
-            isAnimationActive={false}
+            isAnimationActive={motion.animate}
+            animationDuration={motion.duration}
+            animationEasing="ease-out"
           />
           <Line
             yAxisId="orders"
@@ -143,7 +153,9 @@ export function RevenueOrdersChart({
             strokeWidth={1.5}
             dot={false}
             activeDot={{ r: 3, fill: colors.ink2 }}
-            isAnimationActive={false}
+            isAnimationActive={motion.animate}
+            animationDuration={motion.duration}
+            animationEasing="ease-out"
           />
         </ComposedChart>
       </ResponsiveContainer>
@@ -164,6 +176,7 @@ export function TrendArea({
   height?: number;
 }) {
   const colors = useChartColors();
+  const motion = useChartMotion();
   const axis = { fontSize: 11, fill: colors.ink3 };
   const hasCompare = data.some((d) => typeof d.compareCents === "number");
   return (
@@ -189,7 +202,9 @@ export function TrendArea({
             strokeWidth={2}
             fill={colors.accent}
             fillOpacity={0.1}
-            isAnimationActive={false}
+            isAnimationActive={motion.animate}
+            animationDuration={motion.animate ? 500 : 0}
+            animationEasing="ease-out"
           />
           {hasCompare && (
             <Line
@@ -200,7 +215,9 @@ export function TrendArea({
               strokeWidth={1.5}
               strokeDasharray="4 3"
               dot={false}
-              isAnimationActive={false}
+              isAnimationActive={motion.animate}
+              animationDuration={motion.animate ? 500 : 0}
+              animationEasing="ease-out"
             />
           )}
         </ComposedChart>
@@ -220,6 +237,7 @@ export function WeekdayBars({
   height?: number;
 }) {
   const colors = useChartColors();
+  const motion = useChartMotion();
   const axis = { fontSize: 11, fill: colors.ink3 };
   const max = Math.max(1, ...data.map((d) => d.averageCents));
   return (
@@ -236,7 +254,15 @@ export function WeekdayBars({
             tickFormatter={(value: number) => moneyCompact(value)}
           />
           <Tooltip cursor={{ fill: colors.hairline, fillOpacity: 0.4 }} content={<TipBox format={(value) => money(value)} />} />
-          <Bar dataKey="averageCents" name={valueLabel} radius={[3, 3, 0, 0]} maxBarSize={36} isAnimationActive={false}>
+          <Bar
+            dataKey="averageCents"
+            name={valueLabel}
+            radius={[3, 3, 0, 0]}
+            maxBarSize={36}
+            isAnimationActive={motion.animate}
+            animationDuration={motion.duration}
+            animationEasing="ease-out"
+          >
             {data.map((row) => (
               <Cell key={row.label} fill={row.averageCents === max ? colors.accent : colors.ink3} />
             ))}
@@ -258,6 +284,7 @@ export function Histogram({
   height?: number;
 }) {
   const colors = useChartColors();
+  const motion = useChartMotion();
   const axis = { fontSize: 11, fill: colors.ink3 };
   return (
     <div style={{ height }} className="w-full">
@@ -267,7 +294,16 @@ export function Histogram({
           <XAxis dataKey="label" tick={axis} axisLine={false} tickLine={false} />
           <YAxis tick={axis} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
           <Tooltip cursor={{ fill: colors.hairline, fillOpacity: 0.4 }} content={<TipBox format={(value) => `${value}`} />} />
-          <Bar dataKey="days" name={valueLabel} fill={colors.accent} radius={[3, 3, 0, 0]} maxBarSize={44} isAnimationActive={false} />
+          <Bar
+            dataKey="days"
+            name={valueLabel}
+            fill={colors.accent}
+            radius={[3, 3, 0, 0]}
+            maxBarSize={44}
+            isAnimationActive={motion.animate}
+            animationDuration={motion.duration}
+            animationEasing="ease-out"
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>

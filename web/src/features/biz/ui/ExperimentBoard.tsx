@@ -27,6 +27,7 @@ export function ExperimentBoard({
     <div className="grid grid-cols-12 gap-5">
       <Card
         className="col-span-12 lg:col-span-6"
+        index={0}
         title={t("launch.pick")}
         action={
           <Chip tone={live ? "accent" : "neutral"}>
@@ -48,7 +49,7 @@ export function ExperimentBoard({
         <p className="mt-3 text-[11px] leading-4 text-d-ink-3">{live ? t("launch.locked") : t("decide.note")}</p>
       </Card>
 
-      <Card className="col-span-12 lg:col-span-6" title={t("launch.preview")}>
+      <Card className="col-span-12 lg:col-span-6" title={t("launch.preview")} index={1}>
         {template ? (
           <div className="rounded-xl bg-d-fill/60 px-5 py-5">
             <p className="text-[11px] font-medium uppercase tracking-wide text-d-ink-3">{t("launch.ask")}</p>

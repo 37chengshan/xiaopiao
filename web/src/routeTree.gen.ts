@@ -18,6 +18,7 @@ import { Route as AppLedgerRouteImport } from './routes/_app/ledger'
 import { Route as AppMerchantRouteImport } from './routes/_app/merchant'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppTodayRouteImport } from './routes/_app/today'
+import { Route as AppBizRouteImport } from './routes/app/biz'
 import { Route as AppBizIndexRouteImport } from './routes/app/biz/index'
 import { Route as AppBizAnalysisRouteImport } from './routes/app/biz/analysis'
 import { Route as AppBizInsightsRouteImport } from './routes/app/biz/insights'
@@ -68,30 +69,35 @@ const AppTodayRoute = AppTodayRouteImport.update({
   path: '/today',
   getParentRoute: () => AppRoute,
 } as any)
-const AppBizIndexRoute = AppBizIndexRouteImport.update({
-  id: '/app/biz/',
-  path: '/app/biz/',
+const AppBizRoute = AppBizRouteImport.update({
+  id: '/app/biz',
+  path: '/app/biz',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppBizIndexRoute = AppBizIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppBizRoute,
 } as any)
 const AppBizAnalysisRoute = AppBizAnalysisRouteImport.update({
-  id: '/app/biz/analysis',
-  path: '/app/biz/analysis',
-  getParentRoute: () => rootRouteImport,
+  id: '/analysis',
+  path: '/analysis',
+  getParentRoute: () => AppBizRoute,
 } as any)
 const AppBizInsightsRoute = AppBizInsightsRouteImport.update({
-  id: '/app/biz/insights',
-  path: '/app/biz/insights',
-  getParentRoute: () => rootRouteImport,
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => AppBizRoute,
 } as any)
 const AppBizReportRoute = AppBizReportRouteImport.update({
-  id: '/app/biz/report',
-  path: '/app/biz/report',
-  getParentRoute: () => rootRouteImport,
+  id: '/report',
+  path: '/report',
+  getParentRoute: () => AppBizRoute,
 } as any)
 const AppBizRevenueRoute = AppBizRevenueRouteImport.update({
-  id: '/app/biz/revenue',
-  path: '/app/biz/revenue',
-  getParentRoute: () => rootRouteImport,
+  id: '/revenue',
+  path: '/revenue',
+  getParentRoute: () => AppBizRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/merchant': typeof AppMerchantRoute
   '/settings': typeof AppSettingsRoute
   '/today': typeof AppTodayRoute
+  '/app/biz': typeof AppBizRouteWithChildren
   '/app/biz/analysis': typeof AppBizAnalysisRoute
   '/app/biz/insights': typeof AppBizInsightsRoute
   '/app/biz/report': typeof AppBizReportRoute
@@ -135,6 +142,7 @@ export interface FileRoutesById {
   '/_app/merchant': typeof AppMerchantRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/today': typeof AppTodayRoute
+  '/app/biz': typeof AppBizRouteWithChildren
   '/app/biz/analysis': typeof AppBizAnalysisRoute
   '/app/biz/insights': typeof AppBizInsightsRoute
   '/app/biz/report': typeof AppBizReportRoute
@@ -152,6 +160,7 @@ export interface FileRouteTypes {
     | '/merchant'
     | '/settings'
     | '/today'
+    | '/app/biz'
     | '/app/biz/analysis'
     | '/app/biz/insights'
     | '/app/biz/report'
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
     | '/_app/merchant'
     | '/_app/settings'
     | '/_app/today'
+    | '/app/biz'
     | '/app/biz/analysis'
     | '/app/biz/insights'
     | '/app/biz/report'
@@ -193,11 +203,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
-  AppBizAnalysisRoute: typeof AppBizAnalysisRoute
-  AppBizInsightsRoute: typeof AppBizInsightsRoute
-  AppBizReportRoute: typeof AppBizReportRoute
-  AppBizRevenueRoute: typeof AppBizRevenueRoute
-  AppBizIndexRoute: typeof AppBizIndexRoute
+  AppBizRoute: typeof AppBizRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -265,40 +271,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTodayRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/biz': {
+      id: '/app/biz'
+      path: '/app/biz'
+      fullPath: '/app/biz'
+      preLoaderRoute: typeof AppBizRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/biz/': {
       id: '/app/biz/'
-      path: '/app/biz'
+      path: '/'
       fullPath: '/app/biz/'
       preLoaderRoute: typeof AppBizIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AppBizRoute
     }
     '/app/biz/analysis': {
       id: '/app/biz/analysis'
-      path: '/app/biz/analysis'
+      path: '/analysis'
       fullPath: '/app/biz/analysis'
       preLoaderRoute: typeof AppBizAnalysisRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AppBizRoute
     }
     '/app/biz/insights': {
       id: '/app/biz/insights'
-      path: '/app/biz/insights'
+      path: '/insights'
       fullPath: '/app/biz/insights'
       preLoaderRoute: typeof AppBizInsightsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AppBizRoute
     }
     '/app/biz/report': {
       id: '/app/biz/report'
-      path: '/app/biz/report'
+      path: '/report'
       fullPath: '/app/biz/report'
       preLoaderRoute: typeof AppBizReportRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AppBizRoute
     }
     '/app/biz/revenue': {
       id: '/app/biz/revenue'
-      path: '/app/biz/revenue'
+      path: '/revenue'
       fullPath: '/app/biz/revenue'
       preLoaderRoute: typeof AppBizRevenueRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AppBizRoute
     }
   }
 }
@@ -325,14 +338,29 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
-const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AppRoute: AppRouteWithChildren,
+interface AppBizRouteChildren {
+  AppBizAnalysisRoute: typeof AppBizAnalysisRoute
+  AppBizInsightsRoute: typeof AppBizInsightsRoute
+  AppBizReportRoute: typeof AppBizReportRoute
+  AppBizRevenueRoute: typeof AppBizRevenueRoute
+  AppBizIndexRoute: typeof AppBizIndexRoute
+}
+
+const AppBizRouteChildren: AppBizRouteChildren = {
   AppBizAnalysisRoute: AppBizAnalysisRoute,
   AppBizInsightsRoute: AppBizInsightsRoute,
   AppBizReportRoute: AppBizReportRoute,
   AppBizRevenueRoute: AppBizRevenueRoute,
   AppBizIndexRoute: AppBizIndexRoute,
+}
+
+const AppBizRouteWithChildren =
+  AppBizRoute._addFileChildren(AppBizRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  AppBizRoute: AppBizRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

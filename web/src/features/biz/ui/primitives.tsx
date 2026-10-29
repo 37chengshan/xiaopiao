@@ -1,10 +1,11 @@
 import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Minus, X } from "lucide-react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { EASE_OUT } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import type { Change } from "@/logic/biz/book";
+import { CountUp, Reveal } from "./reveal";
 
 /**
  * Desktop console primitives (docs/WEB-SPEC.md §A.2 / §B): flat surfaces, hairlines, one accent.
@@ -26,15 +27,18 @@ export function Card({
   children,
   className,
   bodyClassName,
+  index,
 }: {
   title?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  /** position in the page, for the 40ms-apart first-entry lift */
+  index?: number;
 }) {
-  return (
-    <section className={cn("flex min-w-0 flex-col rounded-xl bg-d-surface", className)}>
+  const section = (
+    <section className="flex min-w-0 flex-1 flex-col rounded-xl bg-d-surface">
       {(title || action) && (
         <header className="flex min-h-[44px] items-center justify-between gap-3 px-5 pt-4">
           <h2 className="text-[13px] font-semibold leading-4 text-d-ink-2">{title}</h2>
@@ -44,6 +48,15 @@ export function Card({
       <div className={cn("min-w-0 flex-1 px-5 pb-5 pt-3", bodyClassName)}>{children}</div>
     </section>
   );
+  const body =
+    index === undefined ? (
+      section
+    ) : (
+      <Reveal index={index} className="min-w-0 flex-1">
+        {section}
+      </Reveal>
+    );
+  return className ? <div className={cn("flex min-w-0", className)}>{body}</div> : body;
 }
 
 /** Big number with its baseline comparison. */
@@ -55,9 +68,12 @@ export function Kpi({
   compareLabel,
   footer,
   className,
+  count,
 }: {
   label: string;
-  value: string;
+  /** static text, or `count` for a value that rolls up once on entry */
+  value?: string;
+  count?: { to: number; format: (value: number) => string };
   unit?: string;
   change?: Change | null;
   compareLabel?: string;
@@ -65,10 +81,15 @@ export function Kpi({
   className?: string;
 }) {
   return (
-    <div className={cn("flex min-w-0 flex-col justify-between rounded-xl bg-d-surface px-5 py-4", className)}>
+    <div
+      className={cn(
+        "flex min-w-0 flex-col justify-between rounded-xl bg-d-surface px-5 py-4 transition-transform duration-[120ms] hover:-translate-y-px",
+        className,
+      )}
+    >
       <p className="text-[12px] font-medium leading-4 text-d-ink-2">{label}</p>
       <p className="mt-2 flex items-baseline gap-1 text-[28px] font-semibold leading-8 tracking-[-0.02em] tabular-nums">
-        {value}
+        {count ? <CountUp cents={count.to} format={count.format} /> : value}
         {unit && <span className="text-[13px] font-normal leading-4 text-d-ink-2">{unit}</span>}
       </p>
       <div className="mt-2 flex min-h-[16px] flex-wrap items-center gap-x-1.5 text-[12px] leading-4">
@@ -149,7 +170,7 @@ export function Button({
       type="button"
       {...rest}
       className={cn(
-        "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-medium leading-4 transition-colors duration-150 disabled:opacity-40",
+        "biz-press inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-medium leading-4 disabled:opacity-40",
         tone === "solid" && "bg-d-ink text-d-canvas hover:opacity-90",
         tone === "fill" && "bg-d-fill text-d-ink hover:bg-d-hairline",
         tone === "quiet" && "text-d-accent hover:underline",
@@ -287,17 +308,27 @@ export function Modal({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
   return createPortal(
+    <AnimatePresence>
+      {open && (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center sm:p-6">
-      <div className="fixed inset-0 bg-black/25" onClick={onClose} aria-hidden />
+      <motion.div
+        className="fixed inset-0 bg-black/25"
+        onClick={onClose}
+        aria-hidden
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.14, ease: EASE_OUT }}
+      />
       <motion.div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.16, ease: EASE_OUT }}
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.98 }}
+        transition={{ duration: 0.18, ease: EASE_OUT }}
         className="relative my-auto w-full rounded-[14px] bg-d-surface shadow-[0_24px_60px_-24px_oklch(0_0_0/35%)]"
         style={{ maxWidth: width }}
       >
@@ -318,7 +349,9 @@ export function Modal({
         <div className="px-5 py-4">{children}</div>
         {footer && <footer className="flex items-center justify-end gap-2 border-t border-d-hairline px-5 py-3">{footer}</footer>}
       </motion.div>
-    </div>,
+    </div>
+      )}
+    </AnimatePresence>,
     document.body,
   );
 }

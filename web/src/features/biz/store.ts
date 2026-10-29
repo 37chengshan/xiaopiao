@@ -25,16 +25,23 @@ export interface BizBook {
   book: RevenueEntry[];
   /** the day the daily report is looking at */
   reportDay: number;
+  /** when the book last changed, for the "更新于 HH:mm" line */
+  updatedAt: number;
 }
 
 const TODAY = startOfDay(Date.now());
 
-let bookState: BizBook = { today: TODAY, book: seededBook(TODAY), reportDay: TODAY };
+let bookState: BizBook = {
+  today: TODAY,
+  book: seededBook(TODAY),
+  reportDay: TODAY,
+  updatedAt: Date.now(),
+};
 const bookListeners = new Set<() => void>();
 
 function setBook(next: BizBook) {
   if (next === bookState) return;
-  bookState = next;
+  bookState = { ...next, updatedAt: Date.now() };
   bookListeners.forEach((l) => l());
 }
 

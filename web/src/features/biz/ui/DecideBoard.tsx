@@ -84,6 +84,7 @@ export function DecideBoard({
           <Card
             key={option.id}
             className={cn("col-span-12 md:col-span-6 xl:col-span-4", chosen && "ring-1 ring-d-accent/40")}
+            index={index}
             title={chosen ? <span className="text-d-accent">{t("decide.chosen")}</span> : fill(t("decide.option"), `${index + 1}`)}
           >
             <p className="text-[14px] font-semibold leading-5 text-d-ink">{option.title}</p>

@@ -7,6 +7,7 @@ import { buildReceipt, type ReceiptMm } from "../receipt";
 import { WEEKDAY_KEYS, useBizStrings } from "../strings";
 import { bookActions, useBizBook } from "../store";
 import { reportLine } from "../summaryText";
+import { useNotify } from "./feedback";
 import { exportSlipPng, printSlip, ReceiptSlip } from "./ReceiptSlip";
 import { BizPage, Button, Card, Segmented } from "./primitives";
 import "../print.css";
@@ -23,7 +24,7 @@ export function ReportPage() {
   const [showTicket, setShowTicket] = useState(true);
   const [showWeek, setShowWeek] = useState(true);
   const [showSummary, setShowSummary] = useState(true);
-  const [notice, setNotice] = useState<string | null>(null);
+  const notify = useNotify();
 
   const entry = entryFor(book, reportDay);
   const day = reportDay;
@@ -67,7 +68,12 @@ export function ReportPage() {
   return (
     <BizPage>
       <div className="grid grid-cols-12 gap-5 print:hidden">
-        <Card className="col-span-12 lg:col-span-7" bodyClassName="flex items-center justify-center py-8" title={t("report.title")}>
+        <Card
+          className="col-span-12 lg:col-span-7"
+          index={0}
+          bodyClassName="flex items-center justify-center py-8"
+          title={t("report.title")}
+        >
           <div className="flex flex-col items-center gap-4">
             <div className="flex items-center gap-2">
               <button
@@ -102,7 +108,7 @@ export function ReportPage() {
         </Card>
 
         <div className="col-span-12 space-y-5 lg:col-span-5">
-          <Card title={t("report.settings")}>
+          <Card title={t("report.settings")} index={1}>
             <div className="space-y-4">
               <Row label={t("report.size")}>
                 <Segmented<`${ReceiptMm}`>
@@ -135,11 +141,14 @@ export function ReportPage() {
             </div>
           </Card>
 
-          <Card title={`${shortDate(day)} · ${money(entry?.revenueCents ?? 0)}`}>
+          <Card title={`${shortDate(day)} · ${money(entry?.revenueCents ?? 0)}`} index={2}>
             <div className="flex flex-wrap gap-2">
               <Button
                 tone="solid"
-                onClick={() => printSlip(spec)}
+                onClick={() => {
+                  printSlip(spec);
+                  notify.printed();
+                }}
               >
                 <Printer className="size-3.5" strokeWidth={1.75} aria-hidden />
                 {t("report.print")}
@@ -150,15 +159,14 @@ export function ReportPage() {
                   const svg = document.querySelector<SVGSVGElement>(".biz-slip");
                   if (!svg) return;
                   void exportSlipPng(svg, spec, `xiaopiao-report-${dateKey(day)}.png`).then(
-                    () => setNotice(t("report.saved")),
-                    () => setNotice(t("import.failed")),
+                    () => notify.imageSaved(),
+                    () => notify.failed(t("banner.importFailed")),
                   );
                 }}
               >
                 <Download className="size-3.5" strokeWidth={1.75} aria-hidden />
                 {t("report.export")}
               </Button>
-              {notice && <span className="self-center text-[12px] text-d-ink-2">{notice}</span>}
             </div>
             <p className="mt-3 text-[11px] leading-4 text-d-ink-3">{t("report.titleHint")}</p>
           </Card>

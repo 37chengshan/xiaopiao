@@ -1,4 +1,5 @@
 import { Suspense, lazy, type ComponentProps, type ReactNode } from "react";
+import { ChartSkeleton } from "./reveal";
 
 /**
  * Charts live in a lazily loaded module: recharts is the largest dependency in the console
@@ -13,7 +14,7 @@ const WeekdayBarsLazy = lazy(() => import("./chartsImpl").then((module) => ({ de
 const HistogramLazy = lazy(() => import("./chartsImpl").then((module) => ({ default: module.Histogram })));
 
 function Deferred({ height, children }: { height: number; children: ReactNode }) {
-  return <Suspense fallback={<div style={{ height }} aria-hidden />}>{children}</Suspense>;
+  return <Suspense fallback={<ChartSkeleton height={height} />}>{children}</Suspense>;
 }
 
 export function RevenueOrdersChart(props: ComponentProps<typeof RevenueOrdersChartLazy>) {

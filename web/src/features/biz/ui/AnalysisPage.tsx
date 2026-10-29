@@ -14,13 +14,14 @@ import { useBizBook } from "../store";
 import { factsToLines } from "../summaryText";
 import { Histogram, TrendArea, WeekdayBars } from "./charts";
 import { BizPage, Card, Segmented } from "./primitives";
+import { SummaryCard } from "./SummaryCard";
 
 type Grain = "week" | "month";
 
 /** `/app/biz/analysis` — the same book, looked at by weekday, by period and by ticket size. */
 export function AnalysisPage() {
   const t = useBizStrings();
-  const { book, today } = useBizBook();
+  const { book, today, updatedAt } = useBizBook();
   const [grain, setGrain] = useState<Grain>("week");
   const [compare, setCompare] = useState(true);
 
@@ -69,7 +70,7 @@ export function AnalysisPage() {
           </label>
         </div>
 
-        <Card className="col-span-12 xl:col-span-7" title={t("analysis.trend")}>
+        <Card className="col-span-12 xl:col-span-7" title={t("analysis.trend")} index={0}>
           <TrendArea
             data={view.trend.map((p) => ({
               label: p.label,
@@ -92,12 +93,12 @@ export function AnalysisPage() {
           </div>
         </Card>
 
-        <Card className="col-span-12 xl:col-span-5" title={t("analysis.ticket")}>
+        <Card className="col-span-12 xl:col-span-5" title={t("analysis.ticket")} index={1}>
           <Histogram data={view.histogram} valueLabel={t("unit.days")} height={212} />
           <p className="mt-3 border-t border-d-hairline pt-3 text-[11px] leading-4 text-d-ink-3">{t("analysis.ticketHint")}</p>
         </Card>
 
-        <Card className="col-span-12 xl:col-span-7" title={t("analysis.weekday")}>
+        <Card className="col-span-12 xl:col-span-7" title={t("analysis.weekday")} index={2}>
           {view.hasWeekday ? (
             <>
               <WeekdayBars data={view.weekdays} valueLabel={t("analysis.avg")} height={228} />
@@ -118,33 +119,7 @@ export function AnalysisPage() {
           )}
         </Card>
 
-        <Card className="col-span-12 xl:col-span-5" title={t("summary.title")} action={<span className="text-[11px] text-d-ink-3">{t("summary.honest")}</span>}>
-          {view.lines.length === 0 ? (
-            <p className="py-10 text-center text-[12px] leading-5 text-d-ink-2">{t("summary.empty")}</p>
-          ) : (
-            <ul className="space-y-3">
-              {view.lines.map((line) => (
-                <li key={line.text} className="flex gap-2.5 text-[12px] leading-5">
-                  <span
-                    className="mt-[7px] size-1.5 shrink-0 rounded-full"
-                    style={{
-                      backgroundColor:
-                        line.tone === "up"
-                          ? "var(--d-positive)"
-                          : line.tone === "down"
-                            ? "var(--d-negative)"
-                            : line.tone === "warn"
-                              ? "var(--d-warning)"
-                              : "var(--d-ink-3)",
-                    }}
-                    aria-hidden
-                  />
-                  <span className="text-d-ink-2">{line.text}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        <SummaryCard className="col-span-12 xl:col-span-5" index={3} lines={view.lines} updatedAt={updatedAt} />
       </div>
     </BizPage>
   );

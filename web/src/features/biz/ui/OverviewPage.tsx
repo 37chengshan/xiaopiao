@@ -17,11 +17,13 @@ import { useBizBook } from "../store";
 import { factsToLines } from "../summaryText";
 import { RevenueOrdersChart } from "./charts";
 import { BizPage, Card, Kpi } from "./primitives";
+import { Reveal } from "./reveal";
+import { SummaryCard } from "./SummaryCard";
 
 /** `/app/biz` — today's numbers, two weeks at a glance, and what the book says about them. */
 export function OverviewPage() {
   const t = useBizStrings();
-  const { book, today } = useBizBook();
+  const { book, today, updatedAt } = useBizBook();
 
   const view = useMemo(() => {
     const todayEntry = entryFor(book, today);
@@ -51,38 +53,47 @@ export function OverviewPage() {
   return (
     <BizPage>
       <div className="grid grid-cols-12 gap-5">
-        <Kpi
-          className="col-span-12 sm:col-span-6 xl:col-span-3"
-          label={t("kpi.today")}
-          value={money(view.revenue.nowCents)}
-          change={view.revenue}
-          compareLabel={t("vs.yesterday")}
-        />
-        <Kpi
-          className="col-span-12 sm:col-span-6 xl:col-span-3"
-          label={t("kpi.orders")}
-          value={`${view.orders.nowCents}`}
-          unit={t("unit.orders")}
-          change={view.orders}
-          compareLabel={t("vs.yesterday")}
-        />
-        <Kpi
-          className="col-span-12 sm:col-span-6 xl:col-span-3"
-          label={t("kpi.ticket")}
-          value={money(view.ticket)}
-          change={view.ticketChange}
-          compareLabel={t("vs.prior7")}
-        />
-        <Kpi
-          className="col-span-12 sm:col-span-6 xl:col-span-3"
-          label={t("kpi.week")}
-          value={money(view.week.nowCents)}
-          change={view.week}
-          compareLabel={t("vs.lastWeek")}
-        />
+        <Reveal index={0} className="col-span-12 sm:col-span-6 xl:col-span-3">
+          <Kpi
+            className="h-full w-full"
+            label={t("kpi.today")}
+            count={{ to: view.revenue.nowCents, format: money }}
+            change={view.revenue}
+            compareLabel={t("vs.yesterday")}
+          />
+        </Reveal>
+        <Reveal index={1} className="col-span-12 sm:col-span-6 xl:col-span-3">
+          <Kpi
+            className="h-full w-full"
+            label={t("kpi.orders")}
+            count={{ to: view.orders.nowCents, format: (value) => `${value}` }}
+            unit={t("unit.orders")}
+            change={view.orders}
+            compareLabel={t("vs.yesterday")}
+          />
+        </Reveal>
+        <Reveal index={2} className="col-span-12 sm:col-span-6 xl:col-span-3">
+          <Kpi
+            className="h-full w-full"
+            label={t("kpi.ticket")}
+            count={{ to: view.ticket, format: money }}
+            change={view.ticketChange}
+            compareLabel={t("vs.prior7")}
+          />
+        </Reveal>
+        <Reveal index={3} className="col-span-12 sm:col-span-6 xl:col-span-3">
+          <Kpi
+            className="h-full w-full"
+            label={t("kpi.week")}
+            count={{ to: view.week.nowCents, format: money }}
+            change={view.week}
+            compareLabel={t("vs.lastWeek")}
+          />
+        </Reveal>
 
         <Card
           className="col-span-12 xl:col-span-8"
+          index={4}
           title={`${t("chart.last14")} · ${t("chart.revenue")} / ${t("chart.orders")}`}
           action={
             <span className="flex items-center gap-3 text-[11px] text-d-ink-3">
@@ -105,40 +116,11 @@ export function OverviewPage() {
           />
         </Card>
 
-        <Card
-          className="col-span-12 xl:col-span-4"
-          title={t("summary.title")}
-          action={<span className="text-[11px] text-d-ink-3">{t("summary.honest")}</span>}
-        >
-          {view.lines.length === 0 ? (
-            <p className="py-8 text-center text-[12px] leading-5 text-d-ink-2">{t("summary.empty")}</p>
-          ) : (
-            <ul className="space-y-3">
-              {view.lines.map((line) => (
-                <li key={line.text} className="flex gap-2.5 text-[12px] leading-5">
-                  <span
-                    className="mt-[7px] size-1.5 shrink-0 rounded-full"
-                    style={{
-                      backgroundColor:
-                        line.tone === "up"
-                          ? "var(--d-positive)"
-                          : line.tone === "down"
-                            ? "var(--d-negative)"
-                            : line.tone === "warn"
-                              ? "var(--d-warning)"
-                              : "var(--d-ink-3)",
-                    }}
-                    aria-hidden
-                  />
-                  <span className="text-d-ink-2">{line.text}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        <SummaryCard className="col-span-12 xl:col-span-4" index={5} lines={view.lines} updatedAt={updatedAt} />
 
         <DayCard
           className="col-span-12 md:col-span-6"
+          index={6}
           title={t("best.title")}
           point={view.best}
           empty={t("best.none")}
@@ -147,6 +129,7 @@ export function OverviewPage() {
         />
         <DayCard
           className="col-span-12 md:col-span-6"
+          index={7}
           title={t("worst.title")}
           point={view.worst}
           empty={t("best.none")}
@@ -165,6 +148,7 @@ function DayCard({
   unit,
   weekday,
   className,
+  index,
 }: {
   title: string;
   point: { day: number; revenueCents: number; orders: number } | null;
@@ -172,9 +156,10 @@ function DayCard({
   unit: string;
   weekday: (day: number) => string;
   className?: string;
+  index?: number;
 }) {
   return (
-    <Card className={className} title={title}>
+    <Card className={className} index={index} title={title}>
       {point ? (
         <div className="flex items-end justify-between gap-3">
           <div>

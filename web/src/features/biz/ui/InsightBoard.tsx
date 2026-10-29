@@ -22,12 +22,12 @@ export function InsightBoard({
 
   return (
     <div className="grid grid-cols-12 gap-5">
-        <Card className="col-span-12 xl:col-span-8" title={t("insights.heat")}>
+        <Card className="col-span-12 xl:col-span-8" title={t("insights.heat")} index={0}>
           <Heatmap insights={insights} />
         </Card>
 
         <div className="col-span-12 space-y-5 xl:col-span-4">
-          <Card title={t("insights.crowd")}>
+          <Card title={t("insights.crowd")} index={1}>
             <div className="grid grid-cols-2 gap-4">
               <Stat value={`${insights.crowdSize}`} unit={t("unit.people")} label={t("insights.crowd")} />
               <Stat value={`${insights.drinkBuyers}`} unit={t("unit.people")} label={t("insights.buyers")} />
@@ -64,7 +64,7 @@ export function InsightBoard({
           </Button>
         </div>
 
-        <Card className="col-span-12 md:col-span-6" title={t("insights.price")}>
+        <Card className="col-span-12 md:col-span-6" title={t("insights.price")} index={2}>
           <div className="space-y-0.5">
             {insights.priceBands.map((cell) => (
               <ShareBar
@@ -78,7 +78,7 @@ export function InsightBoard({
           </div>
         </Card>
 
-        <Card className="col-span-12 md:col-span-6" title={t("insights.toppings")}>
+        <Card className="col-span-12 md:col-span-6" title={t("insights.toppings")} index={3}>
           <div className="space-y-0.5">
             {insights.toppings.map((cell) => (
               <ShareBar
@@ -93,7 +93,7 @@ export function InsightBoard({
           </div>
         </Card>
 
-        <Card className="col-span-12" title={t("insights.also")}>
+        <Card className="col-span-12" title={t("insights.also")} index={4}>
           <div className="space-y-0.5">
             {insights.categoryShare.slice(0, 6).map((cell) => (
               <ShareBar

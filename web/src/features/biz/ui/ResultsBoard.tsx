@@ -32,6 +32,7 @@ export function ResultsBoard({
     <div className="grid grid-cols-12 gap-5">
       <Card
         className="col-span-12 lg:col-span-8"
+        index={0}
         title={experiment.title}
         action={
           <span className="flex items-center gap-2">
@@ -83,7 +84,7 @@ export function ResultsBoard({
       </Card>
 
       <div className="col-span-12 space-y-5 lg:col-span-4">
-        <Card title={t("results.sample")}>
+        <Card title={t("results.sample")} index={1}>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-[22px] font-semibold leading-7 tabular-nums">{visible ? results.sampleSize : "—"}</p>
