@@ -1,46 +1,42 @@
+import { useLocale } from "@/lib/strings";
 import { s } from "../strings";
-
-export type ReceiptLineKey = "receipt.metro" | "receipt.lunch" | "receipt.coffee" | "receipt.dinner";
-
-export const DAY_LINES: { key: ReceiptLineKey; time: string; amount: string }[] = [
-  { key: "receipt.metro", time: "08:24", amount: "4.00" },
-  { key: "receipt.lunch", time: "12:30", amount: "28.00" },
-  { key: "receipt.coffee", time: "15:40", amount: "18.00" },
-  { key: "receipt.dinner", time: "19:20", amount: "86.00" },
-];
+import { dayDate, dayFacts, receiptAmount, type ShelfDay } from "../lib/days";
 
 /**
- * Today's receipt as the app prints it (a real interface fragment: `data-ui` keeps its own monospace and
- * dashed rules). [printed] lines are fed out one by one; [done] lands the total, the remark and the stamp.
+ * One day as the thermal printer renders it. Sizes are all in `em`, so the same component prints at
+ * shelf size (a 150px-wide front face) and at dialog size without a second layout.
  */
-export function Receipt({ printed, done }: { printed: number; done: boolean }) {
+export function ReceiptPaper({ day, className = "" }: { day: ShelfDay; className?: string }) {
+  const locale = useLocale();
+  const date = dayDate(day, locale);
+  const facts = dayFacts(day);
+
   return (
-    <div className="lp3-receipt" data-ui aria-label={s("receipt.title")}>
-      <div className="lp3-receipt__title">{s("receipt.title")}</div>
-      <div className="lp3-receipt__date">{s("receipt.date")}</div>
-      <div className="lp3-receipt__dash" />
-      {DAY_LINES.map((line, i) => (
-        <div key={line.key} className={`lp3-receipt__line${i < printed ? " is-on" : ""}`} aria-hidden={i >= printed}>
-          <div>
-            <span>
-              {line.time} {s(line.key)}
-            </span>
-            <span>{line.amount}</span>
-          </div>
+    <article className={`lx-receipt ${className}`} aria-label={`${s("shelf.receipt")} · ${date.full}`}>
+      <div className="lx-receipt__brand">{s("shelf.receipt")}</div>
+      <div className="lx-receipt__date">
+        {date.full}
+      </div>
+      <div className="lx-receipt__rule" />
+      {day.lines.length === 0 ? <div className="lx-receipt__quiet">{s("remark.zero")}</div> : null}
+      {day.lines.map((line, i) => (
+        <div className="lx-receipt__line" key={`${line.label}-${i}`}>
+          <span className="lx-receipt__time">{line.time}</span>
+          <span className="lx-receipt__what">{s(line.label as Parameters<typeof s>[0])}</span>
+          <span className="lx-receipt__amt">{receiptAmount(line.cents)}</span>
         </div>
       ))}
-      <div className="lp3-receipt__dash" />
-      <div className="lp3-receipt__total">
+      <div className="lx-receipt__rule" />
+      <div className="lx-receipt__total">
         <span>
-          {s("receipt.total")} · {s("receipt.count")}
+          {s("bento.stamp.total")} · {facts.count} {locale === "en" ? "" : "笔"}
         </span>
-        <span>¥136.00</span>
+        <span className="lx-receipt__amt">¥{receiptAmount(facts.total)}</span>
       </div>
-      <div className={`lp3-receipt__line${done ? " is-on" : ""}`}>
-        <div className="lp3-receipt__remark">{s("receipt.remark")}</div>
-      </div>
-      <div className={`lp3-receipt__stamp${done ? " is-on" : ""}`}>{s("receipt.stamp")}</div>
-      <div className="lp3-receipt__foot">{s("receipt.foot")}</div>
-    </div>
+      <div className="lx-receipt__remark">{s(facts.remark)}</div>
+      <div className="lx-receipt__code" aria-hidden="true" />
+      <div className="lx-receipt__title">{s(`title.${facts.title}` as Parameters<typeof s>[0])}</div>
+      <div className="lx-receipt__foot">{s("shelf.record")}</div>
+    </article>
   );
 }
