@@ -6,6 +6,8 @@ import com.xiaopiao.app.domain.LedgerRepository
 import com.xiaopiao.app.domain.Source
 import com.xiaopiao.app.domain.Txn
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 interface CaptureLogSink {
     suspend fun record(entry: CaptureLogEntry): Long
@@ -19,7 +21,10 @@ class CaptureProcessor(
     private val ledger: LedgerRepository,
     private val log: CaptureLogSink,
 ) {
-    suspend fun process(pkg: String, title: String, text: String, postedAt: Long): ParseResult {
+    /** Apps sometimes post the same payment twice within milliseconds; the read-then-write must not interleave. */
+    private val gate = Mutex()
+
+    suspend fun process(pkg: String, title: String, text: String, postedAt: Long): ParseResult = gate.withLock {
         val result = PaymentNotificationParser.parse(pkg, title, text)
         when (result) {
             ParseResult.Irrelevant -> Unit
@@ -27,7 +32,7 @@ class CaptureProcessor(
             is ParseResult.Ignored -> record(pkg, title, text, postedAt, "IGNORED:${result.reason}", null)
             is ParseResult.Parsed -> store(pkg, title, text, postedAt, result.payment)
         }
-        return result
+        result
     }
 
     private suspend fun store(pkg: String, title: String, text: String, postedAt: Long, p: ParsedPayment) {

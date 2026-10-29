@@ -4,6 +4,9 @@ import com.xiaopiao.app.data.CaptureLogEntry
 import com.xiaopiao.app.data.InMemoryLedgerRepository
 import com.xiaopiao.app.domain.Category
 import com.xiaopiao.app.domain.Source
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -56,6 +59,16 @@ class CaptureProcessorTest {
         assertEquals("青禾便利", txn.merchant)
         assertEquals(Source.NOTIFICATION, txn.source)
         assertTrue(log.entries.single().result.startsWith("PARSED:wechat.deferred"))
+    }
+
+    /** 微信/支付宝偶尔在毫秒级连发两条同样的账单：读-写必须串行，否则账本会多一行。 */
+    @Test fun concurrentDuplicatePostsStoreOneRow() = runBlocking {
+        (0 until 4).map { i ->
+            async(Dispatchers.Default) {
+                processor.process(PaymentApps.WECHAT, "微信支付", "已支付¥15.00", t + i * 300L)
+            }
+        }.awaitAll()
+        assertEquals(1, ledger.observeAll().first().size)
     }
 
     @Test fun chatterIsNeitherStoredNorLogged() = runBlocking {
