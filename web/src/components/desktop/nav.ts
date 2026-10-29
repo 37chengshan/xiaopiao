@@ -13,20 +13,56 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { s } from "./strings";
+import { appRouter } from "@/router";
 
 export type Segment = "personal" | "shop";
 
+/** Every destination the shell links to, so `go()` stays typed against the generated route tree. */
+export type NavPath =
+  | "/app"
+  | "/app/ledger"
+  | "/app/stats"
+  | "/app/ai"
+  | "/app/receipt"
+  | "/app/circle"
+  | "/app/cards"
+  | "/app/settings"
+  | "/app/biz"
+  | "/app/biz/revenue"
+  | "/app/biz/analysis"
+  | "/app/biz/report"
+  | "/app/biz/insights";
+
 export interface NavItem {
-  /** hash path, e.g. `/app/ledger` */
-  to: string;
+  to: NavPath;
   label: () => string;
   icon: LucideIcon;
 }
 
 /**
- * Nav targets are plain hash paths on purpose: the shop pages live on another branch, so typed
- * `Link`s would tie this shell to routes that do not exist yet. The router uses hash history,
- * so setting `location.hash` navigates without a reload.
+ * Nav rows are plain `<a href="#/app/…">` so a middle click, ⌘-click or "copy link" still works,
+ * but a normal click goes through the router: `router.navigate` writes the hash *and* commits the
+ * location in one step. Assigning `location.hash` instead relied on the `popstate` a fragment write
+ * emits — some engines only fire `hashchange` — and left `history.state` null, so every parse minted
+ * a fresh route key (broken scroll restoration, duplicated commits, a keyed page remount mid-flight).
+ */
+export function go(to: NavPath) {
+  void appRouter().navigate({ to });
+}
+
+/** Hash an anchor should carry for a path (the router uses hash history). */
+export function hrefOf(to: NavPath) {
+  return `#${to}`;
+}
+
+/** True when the click should stay native (new tab / new window / context menu). */
+export function isModifiedClick(e: { button?: number; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }) {
+  return (e.button ?? 0) !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey;
+}
+
+/**
+ * Nav targets are hash paths because the router runs on hash history, so every page is a plain
+ * fragment link that also works when copied into a new tab.
  */
 export const PERSONAL_NAV: readonly NavItem[] = [
   { to: "/app", label: () => s("nav.overview"), icon: LayoutGrid },
@@ -66,8 +102,3 @@ export function titleOf(pathname: string): string {
   return hit ? hit.label() : pathname.startsWith("/app/biz") ? s("seg.shop") : s("brand");
 }
 
-/** Navigate by hash (same-document), keeping the TanStack hash history in charge. */
-export function go(to: string) {
-  if (window.location.hash.replace(/^#/, "") === to) return;
-  window.location.hash = to;
-}

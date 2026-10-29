@@ -46,12 +46,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -493,17 +490,13 @@ private fun AiSummaryCard(title: String, line: String, onOpen: () -> Unit, modif
     ) {
         Text(title, style = Hint.copy(fontWeight = FontWeight.SemiBold), color = XpColors.InkSecondary)
         Spacer(Modifier.height(4.dp))
+        Text(line, style = Body13, color = XpColors.InkSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        // Its own line: inline after a 2-line clamp it was the first thing the ellipsis ate at 1.3×.
         Text(
-            buildAnnotatedString {
-                append(line)
-                withStyle(SpanStyle(color = XpColors.Accent, fontWeight = FontWeight.Medium)) {
-                    append(" 查看 AI 分析 ›")
-                }
-            },
-            style = Body13,
-            color = XpColors.InkSecondary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+            "查看 AI 分析 ›",
+            style = Body13.copy(fontWeight = FontWeight.Medium),
+            color = XpColors.Accent,
+            maxLines = 1,
         )
     }
 }
@@ -568,15 +561,19 @@ private fun KpiCellView(cell: KpiCell, modifier: Modifier = Modifier) {
     Column(modifier.padding(horizontal = XpSpace.l, vertical = 10.dp)) {
         Text(cell.label, style = KpiLabel, color = XpColors.InkSecondary, maxLines = 1)
         Spacer(Modifier.height(3.dp))
-        Text(
+        // One line that shrinks to fit (「¥ -1,234.56」 at 360dp × 1.3 used to wrap and show only 「¥」).
+        androidx.compose.foundation.text.BasicText(
             cell.value,
-            style = KpiValue,
-            color = when (cell.tone) {
-                Tone.Plain -> XpColors.Ink
-                Tone.Positive -> XpColors.Positive
-                Tone.Negative -> XpColors.Negative
-            },
+            style = KpiValue.copy(
+                color = when (cell.tone) {
+                    Tone.Plain -> XpColors.Ink
+                    Tone.Positive -> XpColors.Positive
+                    Tone.Negative -> XpColors.Negative
+                },
+            ),
             maxLines = 1,
+            softWrap = false,
+            autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 14.sp, maxFontSize = 26.sp, stepSize = 1.sp),
         )
     }
 }

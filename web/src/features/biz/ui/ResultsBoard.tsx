@@ -1,6 +1,7 @@
 import { computeResults, type Experiment } from "@/features/merchant/logic/experiment";
 import { gate } from "@/logic/biz/sample";
 import { useBizStrings } from "../strings";
+import { experimentCopy } from "../templates";
 import { Button, Card, Chip } from "./primitives";
 
 /** Step 3: what the game stances say, with the interval — and nothing at all under 20 answers. */
@@ -25,6 +26,7 @@ export function ResultsBoard({
   }
 
   const results = computeResults(experiment);
+  const copy = experimentCopy(t, experiment);
   const gated = gate(results.sampleSize, results);
   const visible = gated.visible && results.sampleSize > 0;
 
@@ -33,7 +35,7 @@ export function ResultsBoard({
       <Card
         className="col-span-12 lg:col-span-8"
         index={0}
-        title={experiment.title}
+        title={copy.title}
         action={
           <span className="flex items-center gap-2">
             <Chip>{t("insights.gameHint")}</Chip>
@@ -44,7 +46,7 @@ export function ResultsBoard({
         }
       >
         <div className="space-y-4">
-          {experiment.options.map((option) => {
+          {copy.options.map((option) => {
             const result = results.options.find((r) => r.optionId === option.id);
             const share = visible ? (result?.share ?? 0) : null;
             return (
@@ -95,6 +97,12 @@ export function ResultsBoard({
               <p className="text-[11px] text-d-ink-2">{t("results.players")}</p>
             </div>
           </div>
+          <p className="mt-3 border-t border-d-hairline pt-2 text-[11px] leading-4 text-d-ink-3">
+            {t("results.sourceNote")}
+          </p>
+          {results.playerCount === 0 && (
+            <p className="mt-1 text-[11px] leading-4 text-d-ink-3">{t("results.noPlayers")}</p>
+          )}
         </Card>
 
         <div className="flex flex-wrap gap-2">
@@ -112,3 +120,4 @@ export function ResultsBoard({
     </div>
   );
 }
+

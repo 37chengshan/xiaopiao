@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Plus, Printer, RefreshCw } from "lucide-react";
+import { Plus, Printer, RefreshCw, Sparkles } from "lucide-react";
 import { useLocale } from "@/lib/strings";
 import { AnimatePresence, motion } from "framer-motion";
 import { CATEGORIES, startOfDay, type Txn } from "@/domain/types";
@@ -173,6 +173,7 @@ export function OverviewPage() {
       key: "time",
       header: s("ledger.colTime"),
       width: "150px",
+      phoneHidden: true,
       cell: (t) => (
         <span className="text-[12px] text-d-ink-3">
           {relativeDay(startOfDay(t.occurredAt), now)} {hhmm(t.occurredAt)}
@@ -284,20 +285,23 @@ export function OverviewPage() {
               </Button>
             }
           >
-            <div className="min-h-[132px]">
+            <div className="flex h-full min-h-[168px] flex-col">
               <AnimatePresence mode="popLayout" initial={false}>
                 {data.mixTotal === 0 ? (
-                  <p key="empty" className="text-[13px] leading-[20px] text-d-ink-2">
-                    {s("ov.summaryEmpty")}
-                  </p>
+                  <div key="empty" className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+                    <span className="grid size-9 place-items-center rounded-full bg-d-fill text-d-ink-3">
+                      <Sparkles className="size-4" strokeWidth={1.6} aria-hidden />
+                    </span>
+                    <p className="max-w-[24rem] text-[13px] leading-[20px] text-d-ink-2">{s("ov.summaryEmpty")}</p>
+                  </div>
                 ) : (
                   <SummaryFacts key="facts" facts={facts} />
                 )}
               </AnimatePresence>
+              <p className="mt-auto pt-4 text-[11px] text-d-ink-3">
+                {s("ov.updated")} {hhmm(now)}
+              </p>
             </div>
-            <p className="mt-4 text-[11px] text-d-ink-3">
-              {s("ov.updated")} {hhmm(now)}
-            </p>
           </Card>
         </Stagger>
 

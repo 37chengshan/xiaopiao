@@ -1,5 +1,7 @@
 package com.xiaopiao.app.ui.chat
 
+import com.xiaopiao.app.ui.components.rememberWindowBlurBehind
+import com.xiaopiao.app.ui.components.glassSurface
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -196,8 +198,9 @@ fun ChatDrawer(
     // Rename: one field, one save — no nested sheets.
     renaming?.let { session ->
         Dialog(onDismissRequest = { renaming = null }) {
+            val blurred = rememberWindowBlurBehind()
             Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.l)).background(XpColors.Card)
+                Modifier.fillMaxWidth().glassSurface(RoundedCornerShape(XpRadius.l), blurred).clip(RoundedCornerShape(XpRadius.l))
                     .padding(XpSpace.l),
                 verticalArrangement = Arrangement.spacedBy(XpSpace.m),
             ) {

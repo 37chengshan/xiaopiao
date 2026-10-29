@@ -1,38 +1,41 @@
-import { ArrowUp, Check, ChevronDown, Copy, Plus, RotateCcw, Sparkles, Square, ThumbsDown, ThumbsUp, Trash2, Upload } from "lucide-react";
+import { ArrowUp, Check, ChevronDown, Copy, Layers, Plus, RotateCcw, Sparkles, Square, ThumbsDown, ThumbsUp, Trash2, Upload } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { templateAssistant } from "@/ai/assistant";
 import { CATEGORIES, type Category, type Txn, startOfDay } from "@/domain/types";
 import { categoryLabel } from "../labels";
-import { getLocale } from "@/lib/strings";
+import { useLocale } from "@/lib/strings";
 import { buildWeeklyReport } from "@/logic/weeklyReport";
 import { decodeBillBytes, parseBillCsv } from "@/logic/csv";
 import { cycleLabel, detectSubscriptions } from "@/logic/subscriptions";
 import { simulateRegret } from "@/logic/regret";
-import { addDays, hhmm, weekStartOf } from "@/logic/time";
+import { addDays, weekStartOf } from "@/logic/time";
 import { useLedger } from "@/services/LedgerProvider";
 import { cn } from "@/lib/utils";
-import { useLocale } from "@/lib/strings";
 import { ReceiptPaper } from "@/features/receipt/ReceiptPaper";
 import { type DraftTxn } from "@/logic/quickAdd";
 import { MiniBars, type Point } from "../charts";
 import { money } from "../format";
 import { useDayDoc } from "../receiptDoc";
 import { seriesOf } from "../statsModel";
-import { Button, Card, Hint, Kbd } from "../ui";
+import { Button, Card, Kbd, Skeleton } from "../ui";
 import { s } from "../strings";
 import { useShell } from "../Shell";
+import { DraftsCard } from "./aiDrafts";
+import { ImportPreview, type ImportPreviewState } from "./aiImport";
+import { s as ai } from "./copy/ai";
 
 type Card =
   | { kind: "drafts"; drafts: DraftTxn[]; saved: boolean }
   | { kind: "receipt" }
   | { kind: "weekly" }
   | { kind: "subs" }
+  | { kind: "month"; rows: { category: Category; cents: number }[] }
   | { kind: "regret"; targetCategory: Category | null; pct: number; months: 1 | 3 | 6 }
   | { kind: "import" };
 
-type RefSpec = { kind: "chart7" } | { kind: "chartWeek" } | { kind: "entries"; ids: string[] } | { kind: "receipt" } | { kind: "subs" } | { kind: "weekly" };
+type RefSpec = { kind: "chart7" } | { kind: "chartWeek" } | { kind: "chartMonth" } | { kind: "entries"; ids: string[] } | { kind: "receipt" } | { kind: "subs" } | { kind: "weekly" };
 
 /** Event phases mirror the agent protocol in docs/AGENT.md: tool_start / tool_end / token / card / done. */
 type Phase = "thinking" | "streaming" | "card" | "done" | "stopped" | "error";
@@ -54,10 +57,14 @@ interface Msg {
   tools?: ToolStep[];
   card?: Card;
   refs?: RefSpec[];
+  /** the user sentence that produced this answer, so regenerate can re-run it in place */
+  prompt?: string;
 }
 
+type Vote = "up" | "down";
+
 /** Chat survives page switches (module scope), same rule as the phone chat. */
-const store: { msgs: Msg[] } = { msgs: [] };
+const store: { msgs: Msg[]; votes: Record<string, Vote> } = { msgs: [], votes: {} };
 let seq = 0;
 const nid = () => `dm${Date.now()}-${++seq}`;
 
@@ -156,14 +163,19 @@ const fill = (template: string, ...vals: (string | number)[]) =>
   vals.reduce<string>((acc, v) => acc.replace("{}", String(v)), template);
 
 export function AiPage() {
-  useLocale();
-  const { txns, now, add } = useLedger();
+  const locale = useLocale();
+  const { txns, now, add, isLoading, isError, refetch } = useLedger();
   const shell = useShell();
   const today = startOfDay(now);
+  const monthStart = useMemo(() => {
+    const d = new Date(today);
+    return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  }, [today]);
   const todayDoc = useDayDoc(today);
   const fileRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
 
   const [msgs, setMsgs] = useState<Msg[]>(store.msgs);
@@ -171,25 +183,36 @@ export function AiPage() {
   const [busy, setBusy] = useState(false);
   const [showJump, setShowJump] = useState(false);
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
-  const [feedback, setFeedback] = useState<Record<string, "up" | "down">>({});
+  const [votes, setVotes] = useState<Record<string, Vote>>(store.votes);
   const [copied, setCopied] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  const turn = useRef<{ cancelled: boolean } | null>(null);
+  const [activeAnswerId, setActiveAnswerId] = useState<string | null>(null);
+  const [importPreview, setImportPreview] = useState<ImportPreviewState | null>(null);
+  const turn = useRef<{ cancelled: boolean; msgId: string } | null>(null);
+  /** the greeting alone may be rewritten in place when the language changes (it is also the only
+   * message a restored chat can hold) */
+  const openingId = useRef<string | null>(store.msgs.length === 1 && store.msgs[0].role === "ai" ? store.msgs[0].id : null);
 
   useEffect(() => {
     store.msgs = msgs;
   }, [msgs]);
 
-  // The assistant speaks first, once.
   useEffect(() => {
-    if (msgs.length > 0) return;
-    const o = templateAssistant.opening(txns, now);
-    if (getLocale() === "en") {
-      o.text = s("ai.opening");
-      o.chips = [s("ai.chip1"), s("ai.chip2"), s("ai.chip3")];
+    store.votes = votes;
+  }, [votes]);
+
+  // The assistant speaks first, once the ledger is readable, and re-speaks in the new language if
+  // the reader switches language before saying anything.
+  useEffect(() => {
+    if (isLoading || isError) return;
+    const text = locale === "en" ? s("ai.opening") : templateAssistant.opening(txns, now).text;
+    if (msgs.length === 0) {
+      openingId.current = nid();
+      setMsgs([{ id: openingId.current, role: "ai", phase: "done", chunks: [text], text }]);
+    } else if (msgs.length === 1 && msgs[0].id === openingId.current && msgs[0].text !== text) {
+      setMsgs([{ ...msgs[0], chunks: [text], text }]);
     }
-    setMsgs([{ id: nid(), role: "ai", phase: "done", chunks: [o.text], text: o.text }]);
-  }, [msgs.length, txns, now]);
+  }, [msgs, txns, now, isLoading, isError, locale]);
 
   const lastText = msgs[msgs.length - 1]?.chunks?.join("") ?? "";
 
@@ -199,6 +222,18 @@ export function AiPage() {
     if (!el || !stick.current) return;
     el.scrollTop = el.scrollHeight;
   }, [msgs.length, lastText]);
+
+  // Cards and charts grow after they mount; watch the content box, not just the token count.
+  useEffect(() => {
+    const el = contentRef.current;
+    const box = scrollRef.current;
+    if (!el || !box) return;
+    const ro = new ResizeObserver(() => {
+      if (stick.current) box.scrollTo({ top: box.scrollHeight });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isLoading, isError]);
 
   // Thinking longer than 1.5s shows elapsed seconds (§A.5 step 2).
   useEffect(() => {
@@ -222,22 +257,32 @@ export function AiPage() {
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   };
 
-  /** One turn: thinking → tool capsules → streamed tokens → card → done. */
+  /**
+   * One turn: thinking → tool capsules → streamed tokens → card → done.
+   * `replaceId` re-runs an existing answer in place (regenerate) instead of appending a new turn.
+   */
   const runTurn = useCallback(
-    async (raw: string) => {
+    async (raw: string, replaceId?: string) => {
       const text = raw.trim();
       if (!text || busy) return;
-      setInput("");
+      if (!replaceId) setInput("");
       stick.current = true;
       setShowJump(false);
       inputRef.current?.focus();
 
       const intent = templateAssistant.understand(text, now);
-      const userMsg: Msg = { id: nid(), role: "user", text };
-      const aiMsg: Msg = { id: nid(), role: "ai", phase: "thinking", chunks: [], tools: [] };
-      setMsgs((list) => [...list, userMsg, aiMsg]);
+      const answerId = replaceId ?? nid();
+      if (replaceId) {
+        patch(replaceId, (m) => ({ ...m, phase: "thinking", chunks: [], tools: [], card: undefined, refs: undefined, prompt: text }));
+      } else {
+        const userMsg: Msg = { id: nid(), role: "user", text };
+        const aiMsg: Msg = { id: answerId, role: "ai", phase: "thinking", chunks: [], tools: [], prompt: text };
+        setMsgs((list) => [...list, userMsg, aiMsg]);
+      }
+      // The panel follows whichever answer is being written.
+      setActiveAnswerId(answerId);
       setBusy(true);
-      const token = { cancelled: false };
+      const token = { cancelled: false, msgId: answerId };
       turn.current = token;
 
       try {
@@ -255,114 +300,143 @@ export function AiPage() {
         let refs: RefSpec[] = [];
         let summaries: string[] = [];
 
-        switch (intent.kind) {
-          case "ADD": {
-            tools.push({ id: "draft", label: s("tool.draft"), done: false });
-            summaries = [fill(s("ai.answer.count"), intent.drafts.length)];
-            answer = fill(s("ai.answer.drafts"), intent.drafts.length);
-            card = { kind: "drafts", drafts: intent.drafts, saved: false };
-            break;
-          }
-          case "TODAY_SPEND": {
-            tools.push({ id: "today", label: s("tool.today"), done: false });
-            summaries = [fill(s("ai.answer.count"), todaysOut.length)];
-            answer = todaysOut.length ? fill(s("ai.answer.today"), money(todayTotal), todaysOut.length) : s("ai.answer.todayNone");
-            refs = [{ kind: "chart7" }, { kind: "entries", ids: todaysOut.slice(-5).map((t) => t.id) }];
-            break;
-          }
-          case "RECEIPT": {
-            tools.push({ id: "receipt", label: s("tool.receipt"), done: false });
-            summaries = [s("ai.answer.receiptSummary")];
-            answer = s("ai.answer.receipt");
-            card = { kind: "receipt" };
-            refs = [{ kind: "receipt" }];
-            break;
-          }
-          case "WEEKLY": {
-            tools.push({ id: "week", label: s("tool.week"), done: false }, { id: "peak", label: s("tool.peak"), done: false });
-            summaries = [fill(s("ai.answer.count"), week.txnCount), week.topCategories[0] ? categoryLabel(week.topCategories[0].category) : "—"];
-            answer = fill(s("ai.answer.week"), money(week.totalCents), week.txnCount);
-            card = { kind: "weekly" };
-            refs = [{ kind: "weekly" }, { kind: "chartWeek" }];
-            break;
-          }
-          case "SUBSCRIPTIONS": {
-            tools.push({ id: "subs", label: s("tool.subs"), done: false });
-            summaries = [fill(s("ai.answer.subsCount"), subList.length)];
-            answer = subList.length ? s("ai.answer.subs") : s("ai.answer.subsNone");
-            if (subList.length) {
-              card = { kind: "subs" };
-              refs = [{ kind: "subs" }];
+        if (isLoading) {
+          // Never answer "nothing spent" off a ledger that has not arrived yet.
+          answer = ai("answer.loading");
+        } else if (isError) {
+          answer = ai("answer.offline");
+        } else {
+          switch (intent.kind) {
+            case "ADD": {
+              tools.push({ id: "draft", label: s("tool.draft"), done: false });
+              summaries = [fill(s("ai.answer.count"), intent.drafts.length)];
+              answer = fill(s("ai.answer.drafts"), intent.drafts.length);
+              card = { kind: "drafts", drafts: intent.drafts, saved: false };
+              break;
             }
-            break;
-          }
-          case "REGRET": {
-            tools.push({ id: "month", label: s("tool.month"), done: false });
-            const target = intent.target?.kind === "category" ? intent.target.category : null;
-            const result = simulateRegret({
-              txns,
-              now,
-              target: target ? { kind: "category", category: target } : { kind: "category", category: "DRINK" },
-              reductionPct: intent.reductionPct,
-              windowMonths: intent.months,
-            });
-            summaries = [fill(s("ai.monthExpected"), money(result.monthlyCents))];
-            answer = fill(s("ai.answer.regret"), intent.months, intent.reductionPct);
-            card = { kind: "regret", targetCategory: target, pct: intent.reductionPct, months: intent.months };
-            refs = [{ kind: "chart7" }];
-            break;
-          }
-          case "IMPORT": {
-            answer = s("ai.answer.import");
-            card = { kind: "import" };
-            break;
-          }
-          default: {
-            answer = s("ai.answer.fallback");
+            case "TODAY_SPEND": {
+              tools.push({ id: "today", label: s("tool.today"), done: false });
+              summaries = [fill(s("ai.answer.count"), todaysOut.length)];
+              answer = todaysOut.length ? fill(s("ai.answer.today"), money(todayTotal), todaysOut.length) : s("ai.answer.todayNone");
+              refs = [{ kind: "chart7" }, { kind: "entries", ids: todaysOut.slice(-5).map((t) => t.id) }];
+              break;
+            }
+            case "MONTH_SPEND": {
+              tools.push({ id: "month", label: s("tool.month"), done: false });
+              const inMonth = txns.filter((t) => t.direction === "OUT" && t.occurredAt >= monthStart && t.occurredAt < addDays(today, 1));
+              const byCategory = new Map<Category, number>();
+              for (const t of inMonth) byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + t.amountCents);
+              const rows = [...byCategory.entries()].map(([category, cents]) => ({ category, cents })).sort((a, b) => b.cents - a.cents);
+              const total = inMonth.reduce((sum, t) => sum + t.amountCents, 0);
+              summaries = [fill(s("ai.answer.count"), inMonth.length)];
+              if (rows.length === 0) {
+                answer = ai("answer.monthNone");
+              } else {
+                answer = fill(ai("answer.month"), money(total), inMonth.length, categoryLabel(rows[0].category), money(rows[0].cents));
+                card = { kind: "month", rows };
+              }
+              refs = [{ kind: "chartMonth" }];
+              break;
+            }
+            case "RECEIPT": {
+              tools.push({ id: "receipt", label: s("tool.receipt"), done: false });
+              summaries = [s("ai.answer.receiptSummary")];
+              answer = s("ai.answer.receipt");
+              card = { kind: "receipt" };
+              refs = [{ kind: "receipt" }];
+              break;
+            }
+            case "WEEKLY": {
+              tools.push({ id: "week", label: s("tool.week"), done: false }, { id: "peak", label: s("tool.peak"), done: false });
+              summaries = [fill(s("ai.answer.count"), week.txnCount), week.topCategories[0] ? categoryLabel(week.topCategories[0].category) : "—"];
+              answer = fill(s("ai.answer.week"), money(week.totalCents), week.txnCount);
+              card = { kind: "weekly" };
+              refs = [{ kind: "weekly" }, { kind: "chartWeek" }];
+              break;
+            }
+            case "SUBSCRIPTIONS": {
+              tools.push({ id: "subs", label: s("tool.subs"), done: false });
+              summaries = [fill(s("ai.answer.subsCount"), subList.length)];
+              answer = subList.length ? s("ai.answer.subs") : s("ai.answer.subsNone");
+              if (subList.length) {
+                card = { kind: "subs" };
+                refs = [{ kind: "subs" }];
+              }
+              break;
+            }
+            case "REGRET": {
+              tools.push({ id: "month", label: s("tool.month"), done: false });
+              const target = intent.target?.kind === "category" ? intent.target.category : null;
+              const result = simulateRegret({
+                txns,
+                now,
+                target: target ? { kind: "category", category: target } : { kind: "category", category: "DRINK" },
+                reductionPct: intent.reductionPct,
+                windowMonths: intent.months,
+              });
+              summaries = [fill(s("ai.monthExpected"), money(result.monthlyCents))];
+              answer = fill(s("ai.answer.regret"), intent.months, intent.reductionPct);
+              card = { kind: "regret", targetCategory: target, pct: intent.reductionPct, months: intent.months };
+              refs = [{ kind: "chart7" }];
+              break;
+            }
+            case "IMPORT": {
+              answer = s("ai.answer.import");
+              card = { kind: "import" };
+              break;
+            }
+            default: {
+              answer = s("ai.answer.fallback");
+            }
           }
         }
 
         // tool capsules: start, then finish with a one-line result
         for (let i = 0; i < tools.length; i++) {
           if (token.cancelled) return;
-          patch(aiMsg.id, (m) => ({ ...m, tools: [...(m.tools ?? []), tools[i]] }));
+          patch(answerId, (m) => ({ ...m, tools: [...(m.tools ?? []), tools[i]] }));
           await sleep(160 + Math.random() * 220);
           if (token.cancelled) return;
-          patch(aiMsg.id, (m) => ({ ...m, tools: (m.tools ?? []).map((t) => (t.id === tools[i].id ? { ...t, done: true, summary: summaries[i] } : t)) }));
+          patch(answerId, (m) => ({ ...m, tools: (m.tools ?? []).map((t) => (t.id === tools[i].id ? { ...t, done: true, summary: summaries[i] } : t)) }));
         }
 
         // tokens: 20–40ms each, with a little jitter
-        patch(aiMsg.id, (m) => ({ ...m, phase: "streaming" }));
+        patch(answerId, (m) => ({ ...m, phase: "streaming" }));
         for (const piece of tokenize(answer)) {
           if (token.cancelled) return;
-          patch(aiMsg.id, (m) => ({ ...m, chunks: [...(m.chunks ?? []), piece] }));
+          patch(answerId, (m) => ({ ...m, chunks: [...(m.chunks ?? []), piece] }));
           await sleep(20 + Math.random() * 20);
         }
         if (token.cancelled) return;
 
         await sleep(140);
         if (token.cancelled) return;
-        patch(aiMsg.id, (m) => ({ ...m, phase: "card", card, refs }));
+        patch(answerId, (m) => ({ ...m, phase: "card", card, refs }));
         await sleep(320);
         if (token.cancelled) return;
-        patch(aiMsg.id, (m) => ({ ...m, phase: "done" }));
+        patch(answerId, (m) => ({ ...m, phase: "done" }));
       } catch {
         // Cloud failures fall back to the local engine; if even that throws, offer a retry line.
-        patch(aiMsg.id, (m) => ({ ...m, phase: "error" }));
+        if (!token.cancelled) patch(answerId, (m) => ({ ...m, phase: "error" }));
       } finally {
-        if (!token.cancelled) setBusy(false);
-        turn.current = null;
+        // A stale turn must not unlock (or relock) the composer for the live one.
+        if (turn.current === token) {
+          turn.current = null;
+          setBusy(false);
+        }
         inputRef.current?.focus();
       }
     },
-    [busy, now, patch, today, txns],
+    [busy, isError, isLoading, monthStart, now, patch, today, txns],
   );
 
   const stop = () => {
-    if (!turn.current) return;
-    turn.current.cancelled = true;
+    const token = turn.current;
+    if (!token) return;
+    token.cancelled = true;
+    turn.current = null;
     setBusy(false);
-    setMsgs((list) => list.map((m) => (m.role === "ai" && (m.phase === "thinking" || m.phase === "streaming" || m.phase === "card") ? { ...m, phase: "stopped" } : m)));
+    patch(token.msgId, (m) => (m.phase === "thinking" || m.phase === "streaming" || m.phase === "card" ? { ...m, phase: "stopped" } : m));
   };
 
   const confirmDrafts = async (m: Msg) => {
@@ -377,6 +451,10 @@ export function AiPage() {
     }
   };
 
+  const editDrafts = (m: Msg, next: DraftTxn[]) => {
+    patch(m.id, (x) => (x.card?.kind === "drafts" ? { ...x, card: { ...x.card, drafts: next } } : x));
+  };
+
   const copyAnswer = async (m: Msg) => {
     const text = (m.chunks ?? []).join("");
     try {
@@ -388,34 +466,76 @@ export function AiPage() {
     }
   };
 
-  const lastAi = [...msgs].reverse().find((m) => m.role === "ai");
-  const lastUser = [...msgs].reverse().find((m) => m.role === "user");
+  /** Thumbs are a local tally the user can change; the badge stays on the answer that got it. */
+  const vote = (m: Msg, v: Vote) => {
+    const on = votes[m.id] !== v;
+    setVotes((prev) => {
+      const next = { ...prev };
+      if (on) next[m.id] = v;
+      else delete next[m.id];
+      return next;
+    });
+    if (on) toast(ai("action.feedbackThanks"));
+  };
+
   const weekly = useMemo(() => buildWeeklyReport(txns, weekStartOf(now)), [txns, now]);
+
+  const readBill = useCallback(
+    async (file: File) => {
+      try {
+        const parsed = parseBillCsv(decodeBillBytes(await file.arrayBuffer()));
+        if (parsed.txns.length === 0) {
+          toast(s("ledger.importEmpty"));
+          return;
+        }
+        const known = new Set(txns.map((t) => t.dedupeKey ?? t.id));
+        setImportPreview({
+          rows: parsed.txns,
+          failed: parsed.failed,
+          duplicates: parsed.txns.filter((t) => known.has(t.dedupeKey ?? t.id)).length,
+        });
+      } catch {
+        toast(s("ledger.importEmpty"));
+      }
+    },
+    [txns],
+  );
+
+  const confirmImport = async () => {
+    if (!importPreview) return;
+    const rows = importPreview.rows;
+    try {
+      const result = await add(rows);
+      setImportPreview(null);
+      if (result.added === 0) toast(s("ledger.importDupAll"));
+      else toast(`${s("ledger.importDone")} ${result.added}`);
+    } catch {
+      toast(s("common.error"));
+    }
+  };
+
+  // The panel follows the answer the reader last picked; otherwise the newest one.
+  const activeAnswer = useMemo(() => {
+    if (activeAnswerId) {
+      const picked = msgs.find((m) => m.id === activeAnswerId && m.role === "ai");
+      if (picked) return picked;
+    }
+    return [...msgs].reverse().find((m) => m.role === "ai") ?? null;
+  }, [msgs, activeAnswerId]);
 
   const cardNode = (m: Msg) => {
     const c = m.card;
     if (!c) return null;
     if (c.kind === "drafts") {
       return (
-        <div className="mt-2 rounded-lg bg-d-fill/50 p-2">
-          {c.drafts.map((d) => (
-            <div key={d.id} className="flex items-center gap-2 px-1 py-1 text-[12.5px]">
-              <span aria-hidden>{CATEGORIES[d.category].emoji}</span>
-              <span className="min-w-0 flex-1 truncate text-d-ink">{d.merchant}</span>
-              <span className="text-[11.5px] text-d-ink-3">{hhmm(d.occurredAt)}</span>
-              <span className="num text-d-ink">{money(d.amountCents)}</span>
-            </div>
-          ))}
-          <div className="mt-2 flex justify-end gap-2 px-1">
-            {c.saved ? (
-              <span className="text-[12px] text-d-positive">{s("ai.confirmed")}</span>
-            ) : (
-              <Button size="sm" variant="primary" onClick={() => void confirmDrafts(m)}>
-                {s("ai.confirm")}
-              </Button>
-            )}
-          </div>
-        </div>
+        <DraftsCard
+          drafts={c.drafts}
+          now={now}
+          saved={c.saved}
+          onChange={(d) => editDrafts(m, c.drafts.map((o) => (o.id === d.id ? d : o)))}
+          onRemove={(id) => editDrafts(m, c.drafts.filter((d) => d.id !== id))}
+          onConfirm={() => void confirmDrafts(m)}
+        />
       );
     }
     if (c.kind === "receipt") {
@@ -434,6 +554,16 @@ export function AiPage() {
             { label: s("stats.total"), value: money(weekly.totalCents) },
             { label: s("stats.previous"), value: money(weekly.prevTotalCents) },
             ...weekly.topCategories.map((row) => ({ label: categoryLabel(row.category), value: money(row.cents) })),
+          ]}
+        />
+      );
+    }
+    if (c.kind === "month") {
+      return (
+        <Facts
+          rows={[
+            { label: s("stats.total"), value: money(c.rows.reduce((sum, row) => sum + row.cents, 0)) },
+            ...c.rows.slice(0, 5).map((row) => ({ label: categoryLabel(row.category), value: money(row.cents) })),
           ]}
         />
       );
@@ -467,31 +597,36 @@ export function AiPage() {
     );
   };
 
-  const refContent = (ref: RefSpec, highlight: boolean) => {
-    const ring = highlight ? "ring-1 ring-d-accent/25" : "";
-    if (ref.kind === "chart7" || ref.kind === "chartWeek") {
-      const points: Point[] =
+  /** Every ref of the active answer keeps its ring, streaming or not: it is what the panel is following. */
+  const refContent = (ref: RefSpec) => {
+    if (ref.kind === "chart7" || ref.kind === "chartWeek" || ref.kind === "chartMonth") {
+      const [start, end, label] =
         ref.kind === "chartWeek"
-          ? seriesOf("week", { start: weekStartOf(now), end: addDays(weekStartOf(now), 7) }, txns, null)
-          : seriesOf("custom", { start: addDays(today, -6), end: addDays(today, 1) }, txns, null);
+          ? [weekStartOf(now), addDays(weekStartOf(now), 7), s("ci.weekly")]
+          : ref.kind === "chartMonth"
+            ? [monthStart, addDays(today, 1), ai("chart.month")]
+            : [addDays(today, -6), addDays(today, 1), s("ov.last7")];
+      const points: Point[] = seriesOf("custom", { start, end }, txns, null);
       const total = points.reduce((sum, p) => sum + p.value, 0);
       return (
-        <div key={ref.kind} className={cn("rounded-lg bg-d-fill/50 p-2.5 transition-shadow", ring)}>
+        <div key={ref.kind} className="rounded-lg bg-d-fill/50 p-2.5 ring-1 ring-d-accent/25">
           <p className="mb-1.5 flex items-baseline justify-between text-[11.5px] text-d-ink-2">
-            <span>{ref.kind === "chartWeek" ? s("ci.weekly") : s("ov.last7")}</span>
+            <span>{label}</span>
             <span className="num text-[11px] text-d-ink-3">{money(total)}</span>
           </p>
           {total === 0 ? (
             <p className="py-3 text-center text-[11.5px] text-d-ink-3">{s("ai.refsNoData")}</p>
           ) : (
-            <MiniBars points={points} />
+            <div role="img" aria-label={s("ai.tabChart")}>
+              <MiniBars points={points} />
+            </div>
           )}
         </div>
       );
     }
     if (ref.kind === "receipt") {
       return (
-        <div key="receipt" className={cn("flex justify-center rounded-lg bg-d-fill/50 p-2 transition-shadow", ring)}>
+        <div key="receipt" className="flex justify-center rounded-lg bg-d-fill/50 p-2 ring-1 ring-d-accent/25">
           <ReceiptPaper doc={todayDoc} stamp="shown" />
         </div>
       );
@@ -500,7 +635,7 @@ export function AiPage() {
       const rows = ref.ids.map((id) => txns.find((t) => t.id === id)).filter((t): t is Txn => Boolean(t));
       if (rows.length === 0) return null;
       return (
-        <div key="entries" className={cn("rounded-lg bg-d-fill/50 p-2 transition-shadow", ring)}>
+        <div key="entries" className="rounded-lg bg-d-fill/50 p-2 ring-1 ring-d-accent/25">
           <p className="px-1 pb-1 text-[11.5px] text-d-ink-2">{s("ai.tabList")}</p>
           {rows.map((t) => (
             <div key={t.id} className="flex items-center gap-2 px-1 py-1 text-[12px]">
@@ -514,7 +649,7 @@ export function AiPage() {
     }
     if (ref.kind === "weekly") {
       return (
-        <div key="weekly" className={cn("rounded-lg bg-d-fill/50 p-2.5 transition-shadow", ring)}>
+        <div key="weekly" className="rounded-lg bg-d-fill/50 p-2.5 ring-1 ring-d-accent/25">
           <Facts
             rows={[
               { label: s("stats.total"), value: money(weekly.totalCents) },
@@ -527,7 +662,7 @@ export function AiPage() {
     }
     const subs = detectSubscriptions(txns, now);
     return (
-      <div key="subs" className={cn("rounded-lg bg-d-fill/50 p-2 transition-shadow", ring)}>
+      <div key="subs" className="rounded-lg bg-d-fill/50 p-2 ring-1 ring-d-accent/25">
         {subs.slice(0, 5).map((sub) => (
           <div key={sub.merchant} className="flex items-center justify-between gap-2 px-1 py-1 text-[12px]">
             <span className="min-w-0 truncate text-d-ink">{sub.merchant}</span>
@@ -537,6 +672,33 @@ export function AiPage() {
         ))}
       </div>
     );
+  };
+
+  const refsPanel = () => {
+    const refs = activeAnswer?.refs ?? [];
+    if (refs.length > 0) return refs.map((ref) => refContent(ref));
+    if (activeAnswer && (activeAnswer.phase === "done" || activeAnswer.phase === "stopped" || activeAnswer.phase === "error")) {
+      return (
+        <div className="px-1 pt-1">
+          <p className="text-[12px] font-medium text-d-ink-2">{s("ai.refsEmptyTitle")}</p>
+          <p className="mt-1 text-[11.5px] leading-[16px] text-d-ink-3">{s("ai.refsEmpty")}</p>
+          <p className="mt-3 text-[11.5px] text-d-ink-3">{ai("refs.tryAsking")}</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {[s("ai.suggestion1"), s("ai.suggestion2"), s("ai.suggestion3")].map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => void runTurn(q)}
+                className="d-press rounded-full bg-d-fill px-2.5 py-1 text-[11.5px] text-d-ink-2 transition-colors hover:bg-d-hairline hover:text-d-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-d-accent-ink"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    return <LocalBook txns={txns} today={today} onRecord={() => shell.openEntry()} />;
   };
 
   const toolsRow = (m: Msg) => {
@@ -586,23 +748,31 @@ export function AiPage() {
     );
   };
 
-  const actionsRow = (m: Msg, last: boolean) => {
-    if (m.phase !== "done" || !last) return null;
-    const fb = feedback[m.id];
+  const actionButton = "d-press flex h-6 items-center gap-1 rounded-md px-1.5 hover:bg-d-fill hover:text-d-ink";
+
+  const actionsRow = (m: Msg) => {
+    if (m.phase !== "done") return null;
+    const fb = votes[m.id];
+    const picked = activeAnswer?.id === m.id;
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }} className="mt-2 flex items-center gap-1 text-[12px] text-d-ink-3">
-        <button type="button" onClick={() => void copyAnswer(m)} className="d-press flex h-6 items-center gap-1 rounded-md px-1.5 hover:bg-d-fill hover:text-d-ink">
+        <button type="button" aria-label={s("ai.copy")} onClick={() => void copyAnswer(m)} className={actionButton}>
           {copied === m.id ? <Check className="size-3" strokeWidth={2.2} aria-hidden /> : <Copy className="size-3" strokeWidth={1.9} aria-hidden />}
           {copied === m.id ? s("ai.copied") : s("ai.copy")}
         </button>
-        <button type="button" onClick={() => lastUser && void runTurn(lastUser.text ?? "")} className="d-press flex h-6 items-center gap-1 rounded-md px-1.5 hover:bg-d-fill hover:text-d-ink">
-          <RotateCcw className="size-3" strokeWidth={1.9} aria-hidden />
-          {s("ai.regenerate")}
+        {m.prompt && (
+          <button type="button" aria-label={s("ai.regenerate")} onClick={() => void runTurn(m.prompt ?? "", m.id)} className={actionButton}>
+            <RotateCcw className="size-3" strokeWidth={1.9} aria-hidden />
+            {s("ai.regenerate")}
+          </button>
+        )}
+        <button type="button" aria-label={ai("action.sources")} aria-pressed={picked} onClick={() => setActiveAnswerId(m.id)} className={cn(actionButton, picked && "text-d-accent-ink")}>
+          <Layers className="size-3" strokeWidth={1.9} aria-hidden />
         </button>
-        <button type="button" aria-pressed={fb === "up"} onClick={() => setFeedback((f) => ({ ...f, [m.id]: "up" }))} className={cn("d-press grid size-6 place-items-center rounded-md hover:bg-d-fill hover:text-d-ink", fb === "up" && "text-d-positive")}>
+        <button type="button" aria-label={s("ai.useful")} aria-pressed={fb === "up"} onClick={() => vote(m, "up")} className={cn("d-press grid size-6 place-items-center rounded-md hover:bg-d-fill hover:text-d-ink", fb === "up" && "text-d-positive")}>
           <ThumbsUp className="size-3" strokeWidth={1.9} aria-hidden />
         </button>
-        <button type="button" aria-pressed={fb === "down"} onClick={() => setFeedback((f) => ({ ...f, [m.id]: "down" }))} className={cn("d-press grid size-6 place-items-center rounded-md hover:bg-d-fill hover:text-d-ink", fb === "down" && "text-d-negative")}>
+        <button type="button" aria-label={s("ai.useless")} aria-pressed={fb === "down"} onClick={() => vote(m, "down")} className={cn("d-press grid size-6 place-items-center rounded-md hover:bg-d-fill hover:text-d-ink", fb === "down" && "text-d-negative")}>
           <ThumbsDown className="size-3" strokeWidth={1.9} aria-hidden />
         </button>
       </motion.div>
@@ -610,6 +780,7 @@ export function AiPage() {
   };
 
   const streaming = msgs.some((m) => m.role === "ai" && (m.phase === "thinking" || m.phase === "streaming" || m.phase === "card"));
+  const started = msgs.some((m) => m.role === "user");
 
   return (
     <div className="grid grid-cols-12 gap-5 xl:h-[calc(100dvh-var(--d-chrome,88px)-44px)] xl:min-h-[520px]">
@@ -619,7 +790,16 @@ export function AiPage() {
             <Sparkles className="size-3.5" strokeWidth={1.9} aria-hidden />
             {s("ai.title")}
           </h2>
-          <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setMsgs([])}>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={Trash2}
+            onClick={() => {
+              setMsgs([]);
+              setVotes({});
+              setActiveAnswerId(null);
+            }}
+          >
             {s("ai.clear")}
           </Button>
         </header>
@@ -636,14 +816,38 @@ export function AiPage() {
             className="d-scroll h-full overflow-y-auto px-5 py-4"
             aria-live="polite"
           >
-            <div className="mx-auto max-w-[680px] space-y-5">
-              {msgs.map((m, i) =>
+            <div ref={contentRef} className="mx-auto max-w-[680px] space-y-5">
+              {isError && msgs.length > 0 && (
+                <div className="flex items-center justify-between gap-3 rounded-lg bg-d-fill px-3 py-2 text-[12px] text-d-ink-2">
+                  <span>{ai("state.error")}</span>
+                  <button type="button" onClick={refetch} className="d-press shrink-0 font-medium text-d-accent-ink underline underline-offset-2">
+                    {s("common.retry")}
+                  </button>
+                </div>
+              )}
+
+              {msgs.length === 0 && isLoading && <Skeleton rows={3} className="pl-[34px]" />}
+
+              {msgs.length === 0 && isError && (
+                <div className="flex items-start gap-2.5">
+                  <Mark />
+                  <div>
+                    <p className="text-[13px] leading-[20px] text-d-ink-2">{ai("state.error")}</p>
+                    <Button size="sm" className="mt-2" onClick={refetch}>
+                      {s("common.retry")}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {msgs.map((m) =>
                 m.role === "user" ? (
                   <motion.div key={m.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }} className="flex justify-end">
                     <p className="max-w-[80%] rounded-[18px] bg-d-fill px-3.5 py-2 text-[14px] leading-[22px] text-d-ink">{m.text}</p>
                   </motion.div>
                 ) : (
-                  <div key={m.id}>
+                  // Clicking an answer points the sources column at it; the action row button does the same for keyboards.
+                  <div key={m.id} onClick={() => setActiveAnswerId(m.id)}>
                     <div className="flex items-start gap-2.5">
                       <Mark />
                       <div className="min-w-0 flex-1">
@@ -678,9 +882,11 @@ export function AiPage() {
                         {m.phase === "error" && (
                           <p className="mt-1 flex items-center gap-2 text-[12px] text-d-negative">
                             {s("ai.failed")}
-                            <button type="button" onClick={() => lastUser && void runTurn(lastUser.text ?? "")} className="d-press text-[12px] font-medium text-d-accent-ink underline underline-offset-2">
-                              {s("ai.retry")}
-                            </button>
+                            {m.prompt && (
+                              <button type="button" onClick={() => void runTurn(m.prompt ?? "", m.id)} className="d-press text-[12px] font-medium text-d-accent-ink underline underline-offset-2">
+                                {s("ai.retry")}
+                              </button>
+                            )}
                           </p>
                         )}
                         <AnimatePresence initial={false}>
@@ -690,13 +896,14 @@ export function AiPage() {
                             </motion.div>
                           )}
                         </AnimatePresence>
-                        {actionsRow(m, i === msgs.length - 1)}
+                        {actionsRow(m)}
                       </div>
                     </div>
                   </div>
                 ),
               )}
-              {!msgs.some((m) => m.role === "user") && (
+
+              {!started && !isLoading && !isError && (
                 <div className="flex flex-wrap gap-2 pl-[34px]">
                   {[s("ai.starter1"), s("ai.starter2"), s("ai.starter3")].map((q) => (
                     <button
@@ -767,20 +974,16 @@ export function AiPage() {
           </form>
           <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-d-ink-3">
             <Kbd>Enter</Kbd> {s("ai.send")}
-            <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd>
+            <span aria-hidden>·</span>
+            <Kbd>Shift</Kbd>
+            <span aria-hidden>+</span>
+            <Kbd>Enter</Kbd> {ai("hint.newline")}
           </p>
         </div>
       </Card>
 
       <Card className="col-span-12 flex h-[340px] min-h-0 flex-col xl:col-span-4 xl:h-auto" padded={false} fill title={s("ai.refs")}>
-        <div className="d-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-4">
-          {!lastAi?.refs || lastAi.refs.length === 0 ? (
-            <LocalBook txns={txns} today={today} onRecord={() => shell.openEntry()} />
-          ) : (
-            lastAi.refs.map((ref) => refContent(ref, lastAi.phase === "streaming" || lastAi.phase === "card"))
-          )}
-          <Hint className="pt-1">{s("st.storageBody")}</Hint>
-        </div>
+        <div className="d-scroll min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-4">{refsPanel()}</div>
       </Card>
 
       <input
@@ -788,19 +991,14 @@ export function AiPage() {
         type="file"
         accept=".csv,text/csv"
         className="hidden"
-        onChange={async (e) => {
+        onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = "";
-          if (!file) return;
-          const parsed = parseBillCsv(decodeBillBytes(await file.arrayBuffer()));
-          if (parsed.txns.length === 0) {
-            toast(s("ledger.importEmpty"));
-            return;
-          }
-          const result = await add(parsed.txns);
-          toast(`${s("ledger.importDone")} ${result.added}`);
+          if (file) void readBill(file);
         }}
       />
+
+      <ImportPreview preview={importPreview} onClose={() => setImportPreview(null)} onConfirm={() => void confirmImport()} />
     </div>
   );
 }

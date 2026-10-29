@@ -1,10 +1,11 @@
 import { Check } from "lucide-react";
-import { TEMPLATES, type Experiment, type ExperimentTemplate } from "@/features/merchant/logic/experiment";
+import { TEMPLATES, type Experiment } from "@/features/merchant/logic/experiment";
 import { cn } from "@/lib/utils";
 import { useBizStrings } from "../strings";
+import { templateCopy } from "../templates";
 import { Button, Card, Chip } from "./primitives";
 
-/** Step 2: pick one question, see exactly what the customer will see, then publish it. */
+/** Step 2: pick one question, see the game card, then start a round of game stances. */
 export function ExperimentBoard({
   templateId,
   experiment,
@@ -20,6 +21,7 @@ export function ExperimentBoard({
 }) {
   const t = useBizStrings();
   const template = TEMPLATES.find((item) => item.id === templateId) ?? null;
+  const copy = template ? templateCopy(t, template) : null;
   const status = experiment?.status ?? "draft";
   const live = status !== "draft";
 
@@ -39,7 +41,7 @@ export function ExperimentBoard({
           {TEMPLATES.map((item) => (
             <TemplateRow
               key={item.id}
-              template={item}
+              title={templateCopy(t, item).title}
               selected={item.id === templateId}
               locked={live}
               onSelect={() => onSelect(item.id)}
@@ -50,12 +52,12 @@ export function ExperimentBoard({
       </Card>
 
       <Card className="col-span-12 lg:col-span-6" title={t("launch.preview")} index={1}>
-        {template ? (
+        {template && copy ? (
           <div className="rounded-xl bg-d-fill/60 px-5 py-5">
             <p className="text-[11px] font-medium uppercase tracking-wide text-d-ink-3">{t("launch.ask")}</p>
-            <p className="mt-2 text-[15px] font-semibold leading-6 text-d-ink">{template.question}</p>
+            <p className="mt-2 text-[15px] font-semibold leading-6 text-d-ink">{copy.question}</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              {template.options.map((option) => (
+              {copy.options.map((option) => (
                 <div key={option.id} className="rounded-lg bg-d-surface px-3 py-2.5">
                   <p className="text-[13px] font-medium text-d-ink">
                     {option.emoji} {option.label}
@@ -83,18 +85,19 @@ export function ExperimentBoard({
             </Button>
           )}
         </div>
+        {!live && <p className="mt-3 text-[11px] leading-4 text-d-ink-3">{t("launch.noLink")}</p>}
       </Card>
     </div>
   );
 }
 
 function TemplateRow({
-  template,
+  title,
   selected,
   locked,
   onSelect,
 }: {
-  template: ExperimentTemplate;
+  title: string;
   selected: boolean;
   locked: boolean;
   onSelect: () => void;
@@ -112,7 +115,7 @@ function TemplateRow({
         locked && !selected && "opacity-50",
       )}
     >
-      <span className="min-w-0 flex-1 text-[13px] font-medium leading-5 text-d-ink">{template.title}</span>
+      <span className="min-w-0 flex-1 text-[13px] font-medium leading-5 text-d-ink">{title}</span>
       {selected && <Check className="size-4 text-d-accent-ink" strokeWidth={2.25} aria-hidden />}
     </button>
   );

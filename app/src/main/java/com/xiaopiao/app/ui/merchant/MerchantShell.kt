@@ -32,6 +32,11 @@ import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.components.LocalTabBarInset
+import com.xiaopiao.app.ui.components.NavBarGeometry
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -50,6 +56,10 @@ import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.merchant.ExperimentEngine
 import com.xiaopiao.app.merchant.MerchantStore
 import com.xiaopiao.app.merchant.RevenueBook
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.xiaopiao.app.ui.components.LocalTopBarHost
+import com.xiaopiao.app.ui.components.TopBarHost
 import com.xiaopiao.app.ui.components.NavBarItem
 import com.xiaopiao.app.ui.components.NavBarSpec
 import com.xiaopiao.app.ui.components.XpNavBar
@@ -119,6 +129,7 @@ private val MerchantNavSpec = NavBarSpec(
 fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: () -> Unit = {}) {
     val palette = remember(XpColors.isDark) { merchantPalette(paletteFor(XpColors.isDark)) }
     XpPaletteOverride(palette) {
+    CompositionLocalProvider(LocalTopBarHost provides TopBarHost(openSettings = onOpenSettings)) {
         val store = remember { MerchantStore.get(container.appContext) }
         val state by store.state.collectAsState()
         val today = remember { RevenueBook.startOfDay(System.currentTimeMillis()) }
@@ -130,6 +141,8 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
         var recordOpen by remember { mutableStateOf(false) }
         var recordDay by remember { mutableStateOf(today) }
         var csvOpen by remember { mutableStateOf(false) }
+        var deleteDay by remember { mutableStateOf<Long?>(null) }
+        val pageBlur by androidx.compose.animation.core.animateDpAsState(if (deleteDay != null) 18.dp else 0.dp, tween(220), label = "pageBlur")
         var privacyOpen by remember { mutableStateOf(false) }
 
         val experiment = state.experiment
@@ -156,9 +169,19 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
             }
         }
 
-        Column(Modifier.fillMaxSize().background(XpColors.Canvas)) {
+        // Liquid-glass source (DESIGN §3/§4.3): the page is recorded here, the bar is its sibling and samples it,
+        // so lists run under the bar instead of stopping above an opaque band.
+        val glass = rememberLayerBackdrop()
+        val barVisible = sub != MerchantSub.Receipt && sub != MerchantSub.Game
+        // The bar floats over the page: its height (nav-bar inset + capsule + 8dp) is what pages must pad their last row by.
+        val barInset = if (barVisible) {
+            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                (NavBarGeometry.HEIGHT + NavBarGeometry.TOP).dp + XpSpace.s
+        } else 0.dp
+        Box(Modifier.fillMaxSize().background(XpColors.CanvasGrouped).blur(pageBlur)) {
+          CompositionLocalProvider(LocalTabBarInset provides barInset) {
             Box(
-                Modifier.weight(1f).fillMaxWidth()
+                Modifier.fillMaxSize().layerBackdrop(glass).background(XpColors.CanvasGrouped)
                     .then(if (sub == MerchantSub.Receipt) Modifier.windowInsetsPadding(WindowInsets.navigationBars) else Modifier),
             ) {
                 if (sub == null) {
@@ -175,7 +198,6 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
                                 onEditDay = ::openRecord,
                                 onOpenReceipt = ::openReceipt,
                                 onOpenRevenue = { tab = MerchantTab.Revenue },
-                                onOpenSettings = onOpenSettings,
                             )
                             MerchantTab.Revenue -> MerchantRevenueScreen(
                                 entries = state.revenue,
@@ -184,7 +206,6 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
                                 onRecord = { openRecord(today) },
                                 onEditDay = ::openRecord,
                                 onOpenReceipt = ::openReceipt,
-                                onOpenSettings = onOpenSettings,
                             )
                             MerchantTab.Analysis -> MerchantAnalysisScreen(
                                 entries = state.revenue,
@@ -192,7 +213,7 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
                                 onRecord = { openRecord(today) },
                                 onOpenCrowd = { sub = MerchantSub.Crowd },
                                 onOpenRevenue = { tab = MerchantTab.Revenue },
-                                onOpenSettings = onOpenSettings,
+                                onOpenReceipt = ::openReceipt,
                             )
                             MerchantTab.Mine -> MerchantMineScreen(
                                 state = state,
@@ -200,7 +221,7 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
                                 onOpenSub = ::openSub,
                                 onPrivacy = { privacyOpen = true },
                                 onExit = onExit,
-                                onOpenSettings = onOpenSettings,
+                                onOpenReceipt = ::openReceipt,
                             )
                         }
                     }
@@ -226,8 +247,9 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
                     }
                 }
             }
+          }
             // Receipt and the game own the screen; everywhere else the bar stays, with the flow's step lighting 人群 / 实验.
-            if (sub != MerchantSub.Receipt && sub != MerchantSub.Game) {
+            if (barVisible) {
                 XpNavBar(
                     spec = MerchantNavSpec,
                     social = MerchantNav.isSocial(tab, sub),
@@ -241,6 +263,8 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
                     },
                     onFold = { tab = lastLedgerTab; sub = null },
                     onPlus = { openRecord(today) },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    backdrop = glass,
                 )
             }
         }
@@ -254,11 +278,17 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
                     store.update { it.recordRevenue(entry) }
                     recordOpen = false
                 },
-                onDelete = {
-                    store.update { it.removeRevenue(recordDay) }
-                    recordOpen = false
-                },
+                onDelete = { deleteDay = recordDay; recordOpen = false },
                 onDismiss = { recordOpen = false },
+            )
+        }
+        deleteDay?.let { day ->
+            MerchantConfirmDialog(
+                title = bi("删除这天的记录？", "Delete this day?"),
+                message = bi("${RevenueBook.dayLabel(day)} 的营收会从本机移除。", "${RevenueBook.dayLabel(day)} will be removed from this phone."),
+                confirmLabel = bi("删除", "Delete"),
+                onConfirm = { store.update { it.removeRevenue(day) }; deleteDay = null },
+                onDismiss = { deleteDay = null },
             )
         }
         if (csvOpen) {
@@ -273,5 +303,6 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
             )
         }
         if (privacyOpen) PrivacySheet { privacyOpen = false }
+    }
     }
 }

@@ -3,6 +3,7 @@ import {
   applyPreview,
   buildPreview,
   classifyRows,
+  decideRow,
   exportRevenueCsv,
   parseRevenueCsv,
   previewImport,
@@ -100,6 +101,38 @@ describe("dedupe against the book", () => {
   it("keeps an error row out of the changes but in the preview", () => {
     const parsed: ParsedRow[] = [{ line: 1, raw: "x", day: null, revenueCents: null, orders: 0, note: "", error: "date" }];
     expect(classifyRows(parsed, existing, "replace")[0].outcome).toBe("skip");
+  });
+});
+
+describe("seeded days and per-day decisions", () => {
+  const seeded: RevenueEntry[] = normalize([
+    { day: new Date(2026, 9, 27).getTime(), revenueCents: 120_000, orders: 50, note: "", source: "SEED" },
+  ]);
+
+  it("counts a seeded day as 新增, not 覆盖", () => {
+    const preview = buildPreview(parseRevenueCsv("2026-10-27,1300,90", TODAY), seeded, "replace");
+    expect(preview.rows[0]).toMatchObject({ status: "new", outcome: "add", existing: { source: "SEED" } });
+    expect(preview.counts).toEqual({ add: 1, overwrite: 0, skip: 0, error: 0 });
+    expect(applyPreview(seeded, preview)[0]).toMatchObject({ revenueCents: 130_000, source: "CSV" });
+  });
+
+  it("lets one day of the file overrule the global policy", () => {
+    const manual = book([["2026-10-27", 128_050, 86]]);
+    const preview = previewImport("2026-10-27,1300,90\n2026-10-26,2650,40", manual, TODAY, "keep");
+    expect(preview.counts).toMatchObject({ add: 1, overwrite: 0, skip: 1 });
+
+    const forced = decideRow(preview, 1, "overwrite");
+    expect(forced.rows[0].outcome).toBe("overwrite");
+    expect(forced.counts).toMatchObject({ add: 1, overwrite: 1, skip: 0 });
+    expect(forced.changes.map((entry) => entry.revenueCents).sort((a, b) => a - b)).toEqual([130_000, 265_000]);
+  });
+
+  it("lets a new day be skipped after the fact", () => {
+    const preview = previewImport("2026-10-26,2650,40\n2026-10-25,900,20", book([]), TODAY, "replace");
+    const skipped = decideRow(preview, 2, "skip");
+    expect(skipped.rows[1].outcome).toBe("skip");
+    expect(skipped.counts).toMatchObject({ add: 1, overwrite: 0, skip: 1 });
+    expect(skipped.changes).toHaveLength(1);
   });
 });
 

@@ -1,5 +1,8 @@
 package com.xiaopiao.app.ui.circle
 
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.WindowInsets
+import com.xiaopiao.app.ui.components.LocalTabBarInset
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,12 +70,6 @@ import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 
 private val ComposerHeight = 88.dp
-/**
- * The shell currently reserves the tab-bar height for this route, so the composer only needs the
- * composer's own height. If Circle is added to AppShell's `underBar`, set this to 92.dp and drop the
- * reserved padding — the feed and composer are already written for that layout.
- */
-private val BottomGlassInset = 0.dp
 
 /**
  * 圈子 tab: several family/roommate circles, each its own group chat (docs/APP-DESIGN.md §5).
@@ -80,8 +77,11 @@ private val BottomGlassInset = 0.dp
  * leaderboards / awards / games) and “share to circle”, which posts today’s receipt into the
  * chosen circles instead of copying text. Everything is local demo state.
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenGames: () -> Unit = {}) {
+    // The feed runs under the glass tab bar; the composer floats above it (0 once the keyboard covers the bar).
+    val BottomGlassInset = if (WindowInsets.isImeVisible) 0.dp else LocalTabBarInset.current
     val now = remember { System.currentTimeMillis() }
     var book by remember { mutableStateOf(CircleDemo.book(now)) }
     val circle = book.current()

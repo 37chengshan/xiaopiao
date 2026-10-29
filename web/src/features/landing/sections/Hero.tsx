@@ -16,10 +16,12 @@ const NAV_EASE = "cubic-bezier(.2,.8,.2,1)";
 export function Hero() {
   const reduce = usePrefersReducedMotion();
   useLocale();
+  const pinRef = useRef<HTMLDivElement | null>(null);
   const sectionRef = useRef<HTMLElement | null>(null);
   const pillRef = useRef<HTMLDivElement | null>(null);
   const clipRef = useRef<HTMLDivElement | null>(null);
   const lineRef = useRef<HTMLSpanElement | null>(null);
+  const paperRef = useRef<HTMLDivElement | null>(null);
   const rowRef = useRef<HTMLDivElement | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
   const footRef = useRef<HTMLDivElement | null>(null);
@@ -55,7 +57,10 @@ export function Hero() {
     if (clipRef.current) clipRef.current.style.clipPath = "inset(0 0 0 0)";
     if (lineRef.current) lineRef.current.style.opacity = "0";
     if (navRef.current) navRef.current.style.transform = "none";
-    if (footRef.current) footRef.current.style.transform = "none";
+    if (footRef.current) {
+      footRef.current.style.transform = "none";
+      footRef.current.style.opacity = "1";
+    }
     if (ruleRef.current) ruleRef.current.style.transform = "scaleX(1)";
   }, [finalGeometry]);
 
@@ -72,7 +77,10 @@ export function Hero() {
     if (clipRef.current) clipRef.current.style.clipPath = geo.mobile ? "inset(0 50% 0 50%)" : "inset(50% 0 50% 0)";
     if (lineRef.current) lineRef.current.style.opacity = "1";
     if (navRef.current) navRef.current.style.transform = "translateY(-140%)";
-    if (footRef.current) footRef.current.style.transform = "translateY(160%)";
+    if (footRef.current) {
+      footRef.current.style.transform = "translateY(160%)";
+      footRef.current.style.opacity = "0";
+    }
     if (ruleRef.current) ruleRef.current.style.transform = "scaleX(0)";
   }, [finalGeometry]);
 
@@ -189,8 +197,10 @@ export function Hero() {
       const line = lineRef.current;
       if (!geo || !section || !pill || !clip || !line) return;
 
-      const travel = Math.max(240, section.clientHeight * 0.62);
-      const p = Math.min(1, Math.max(0, window.scrollY / travel));
+      const pin = pinRef.current;
+      if (!pin) return;
+      const travel = Math.max(1, pin.offsetHeight - window.innerHeight);
+      const p = Math.min(1, Math.max(0, (window.scrollY - pin.offsetTop) / travel));
       // The slit cracks in the first eighth of the scroll, then the capsule opens with an ease-out.
       const grow = p <= 0.1 ? 0 : Math.min(1, (p - 0.1) / 0.78);
       const eased = 1 - Math.pow(1 - grow, 3);
@@ -206,6 +216,25 @@ export function Hero() {
         clip.style.clipPath = `inset(${50 - 50 * Math.min(1, grow * 2.2)}% 0 ${50 - 50 * Math.min(1, grow * 2.2)}% 0)`;
       }
       line.style.opacity = grow > 0.02 ? String(Math.max(0, 1 - grow * 6)) : "1";
+
+      // The lede and buttons arrive only once the slot has finished printing, so the wheel first
+      // plays the opening and then reveals what the page is for.
+      const foot = footRef.current;
+      if (foot) {
+        const show = Math.min(1, Math.max(0, (p - 0.72) / 0.24));
+        foot.style.opacity = String(show);
+        foot.style.transform = `translateY(${(1 - show) * 10}px)`;
+      }
+
+      // The receipt prints with the wheel: the paper slides out of the slot line by line, then
+      // stays put. (The old 8s CSS loop could sit on its blank frame exactly when someone looked.)
+      const paper = paperRef.current;
+      if (paper) {
+        const reveal = Math.max(0, (eased - 0.12) / 0.88);
+        paper.style.clipPath = `inset(0 0 ${(1 - reveal) * 100}% 0)`;
+        paper.style.transform = `translateX(-50%) translateY(${(1 - reveal) * -8}px) rotate(-4.2deg) perspective(560px) rotateX(3.5deg)`;
+        paper.style.opacity = reveal > 0.001 ? "1" : "0";
+      }
       if (ruleRef.current) ruleRef.current.style.transform = `scaleX(${Math.min(1, grow * 1.4)})`;
     };
 
@@ -256,6 +285,7 @@ export function Hero() {
   };
 
   return (
+    <div ref={pinRef} className="lp-hero-pin">
     <section ref={sectionRef} id="top" className="lp-hero lp-grain">
       <div className="lp-hero-sky" aria-hidden />
       <svg className="lp-hero-art" viewBox="0 0 1440 900" preserveAspectRatio="none" aria-hidden>
@@ -302,7 +332,7 @@ export function Hero() {
             <img src="/img/landing-printer-slot-macro-v2.webp" alt="" aria-hidden loading="eager" />
             <div className="lp-pill-shade" aria-hidden />
             <div className="lp-pill-slot" aria-hidden />
-            <div className="lp-hero-paper" aria-hidden>
+            <div ref={paperRef} className="lp-hero-paper" aria-hidden>
               <p className="lp-hero-paper-brand">{s("brand")}</p>
               <p className="lp-hero-paper-date">{landingDate(2026, 10, 27)}</p>
               <span className="rule" />
@@ -377,5 +407,6 @@ export function Hero() {
         <p className="hidden text-right text-[13px] text-[var(--lp-ink-3)] sm:block">{s("hero.scroll")} ↓</p>
       </div>
     </section>
+    </div>
   );
 }

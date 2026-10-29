@@ -97,6 +97,8 @@ push 进入：左 = 返回（`onBack`），右 = 最多一个与本页相关的�
 
 规则：同一类操作只用一种形态（tt：预算是抽屉，不是页面）。
 
+材质（tt 2026-10-29：抽屉弹窗都要液态玻璃）：弹层是独立窗口，Kyant 玻璃采样不到背后页面，所以用系统跨窗口模糊——`rememberWindowBlurBehind()`（`components/GlassWindow.kt`）给弹层窗口开 blur-behind 28dp，表面 `glassSurface` / `glassRim`（Card 74% + 顶部高光描边），抽屉内填充读 `LocalSheetGlass` 保持半透明；设备不支持或省电模式关闭模糊时自动回到不透明。新弹窗一律照此做。
+
 ## 7. 记一笔 = 编辑账单（同一个面板）
 
 - 唯一实现：`ui/record/ManualRecordPane.kt`（1:1 参考 041431）。新建和编辑都用它：`mode = New | Edit(txn)`。
@@ -156,9 +158,9 @@ push 进入：左 = 返回（`onBack`），右 = 最多一个与本页相关的�
 |---|---|---|
 | 1 | ~~小票、统计页顶栏左侧缺卡包 + 搜索，右侧缺小票；三页不一致~~ 记账 / 小票 / 统计 / AI 已换 `components/TopActions.kt`（2026-10-29）；圈子 / 游戏 / 小店待 worker 交付后替换 | Claude |
 | 2 | ~~编辑账单用旧 `AddSheet`，和记一笔不同~~ 已改为 `RecordSheetState.openEdit` + `ManualRecordPane(editing)`，`AddSheet.kt` 已删（2026-10-29）；AI 确认卡「改一下」仍是退回输入框（未入账草稿，另议） | Claude（§7） |
-| 3 | 统计页文字重叠 | Claude（§10） |
+| 3 | ~~统计页文字重叠~~ 柱图/环形图标签按格宽缩字（`TrendCharts.kt` 的 `fit`）、环形图居中两行标签、KPI 单行 autoSize、AI 小结链接独占一行、小票条字号不随系统放大（2026-10-29） | Claude（§10） |
 | 4 | 小票页：打印机在上、出纸口朝下，**吐出来的纸就是设置面板**（tt） | Claude |
-| 5 | 圈子 / 游戏页没有玻璃感（内容不过顶栏 / 底栏）、功能缺失、游戏简陋、分享改成选择圈子 | omp（`ui/circle-v8`） |
-| 6 | 小店版按本规范对齐（底栏动画已接，页面框架 / 玻璃 / 弹层 / 空态未对齐） | Sonnet 子代理 |
+| 5 | ~~圈子 / 游戏页没有玻璃感、功能缺失、游戏简陋、分享改成选择圈子~~ circle-v8 已合；AI / 圈子 / 游戏进 `underBar`，底部用 `LocalTabBarInset`（2026-10-29） | omp |
+| 6 | ~~小店版按本规范对齐~~ merchant-v8 已合（2026-10-29）；遗留：`MerchantConfirmDialog` 待收进 `XpBlurDialog`、`FitText`/`MerchantHeroCard` 等可上收、`bi()` 待 App i18n 后换 strings | Sonnet 子代理 |
 | 7 | 卡包展开动效未照参考录屏 16.2–16.8s 还原 | Claude |
 | 8 | App 中英文切换 | 待定（Claude 或 Sonnet 子代理） |

@@ -19,7 +19,7 @@ import { WEEKDAY_KEYS, useBizStrings } from "../strings";
 import { useBizBook } from "../store";
 import { factsToLines } from "../summaryText";
 import { RevenueOrdersChart, WeekdayBars } from "./charts";
-import { BizPage, Button, Card, Kpi } from "./primitives";
+import { BizPage, Button, Card, Delta, Kpi } from "./primitives";
 import { Reveal } from "./reveal";
 import { SummaryCard } from "./SummaryCard";
 
@@ -78,6 +78,7 @@ export function OverviewPage() {
             count={{ to: view.revenue.nowCents, format: money }}
             change={view.revenue}
             compareLabel={t("vs.yesterday")}
+            extra={<Delta change={view.sameWeekday} compareLabel={t("vs.sameWeekday")} />}
           />
         </Reveal>
         <Reveal index={1} className="col-span-12 sm:col-span-6 xl:col-span-3">

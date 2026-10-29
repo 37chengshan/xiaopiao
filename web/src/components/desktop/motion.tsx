@@ -17,31 +17,43 @@ export function Stagger({ index = 0, disabled = false, className, children }: { 
   const reduce = useReducedMotion() ?? false;
   if (disabled || reduce) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }} className={className}>
+      <motion.div initial={{ opacity: 0.85 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }} className={className}>
         {children}
       </motion.div>
     );
   }
   // 40ms apart, but the whole entrance never exceeds 400ms (delay 200 + 200 duration).
   const delay = Math.min(index * 0.04, 0.2);
+  // Cards settle in rather than fade up from nothing: a navigation must never paint blank frames, and a
+  // page is remounted on every visit, so opacity 0 here would re-flash the whole page each time.
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: EASE_OUT, delay }} className={className}>
+    <motion.div initial={{ opacity: 0.85, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: EASE_OUT, delay }} className={className}>
       {children}
     </motion.div>
   );
 }
 
-/** KPI numbers roll from 0 once, 600ms ease-out (starting again only when the value type changes). */
-export function useCountUp(value: number, ms = 600): number {
+/**
+ * KPI numbers roll from 0 once, 600ms ease-out (starting again only when the value type changes).
+ * Passing `key` remembers the last target for that KPI, so navigating away and back continues from
+ * the number the user last saw instead of replaying the roll-up.
+ */
+const lastTargets = new Map<string, number>();
+
+export function useCountUp(value: number, ms = 600, key?: string): number {
   const reduce = useReducedMotion() ?? false;
-  const [shown, setShown] = useState(reduce ? value : 0);
+  const remembered = key ? lastTargets.get(key) : undefined;
+  const [shown, setShown] = useState(reduce ? value : (remembered ?? 0));
   const first = useRef(true);
+  useEffect(() => {
+    if (key) lastTargets.set(key, value);
+  }, [key, value]);
   useEffect(() => {
     if (reduce) {
       setShown(value);
       return;
     }
-    const from = first.current ? 0 : shown;
+    const from = first.current ? (remembered ?? 0) : shown;
     first.current = false;
     const controls = animate(from, value, {
       duration: ms / 1000,
@@ -51,7 +63,7 @@ export function useCountUp(value: number, ms = 600): number {
     return () => controls.stop();
     // `shown` is read once on purpose: the animation should start where the last one ended, not restart on every tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, ms, reduce]);
+  }, [value, ms, reduce, key]);
   return shown;
 }
 
@@ -67,7 +79,7 @@ export function Loadable({ loading, skeleton, children, className }: { loading: 
           {skeleton}
         </motion.div>
       ) : (
-        <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }}>
+        <motion.div key="content" initial={{ opacity: 0.85 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }}>
           {children}
         </motion.div>
       )}

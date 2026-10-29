@@ -77,6 +77,25 @@ export const bookActions = {
   setReportDay: (day: number) => setBook({ ...bookState, reportDay: startOfDay(day) }),
 };
 
+/**
+ * A day another page wants the owner to fill in: the report sets it and navigates to
+ * `/app/biz/revenue`, which reads it on mount and opens its 补录 dialog on that day. Kept as a
+ * module cell (like the book) because the router here carries no search state between pages.
+ */
+let pendingAddDay: number | null = null;
+
+export function requestAddDay(day: number): void {
+  pendingAddDay = startOfDay(day);
+}
+
+export function peekPendingAddDay(): number | null {
+  return pendingAddDay;
+}
+
+export function clearPendingAddDay(): void {
+  pendingAddDay = null;
+}
+
 // ---- customer insights wizard ---------------------------------------------------------------
 
 export type StepIndex = 0 | 1 | 2 | 3;

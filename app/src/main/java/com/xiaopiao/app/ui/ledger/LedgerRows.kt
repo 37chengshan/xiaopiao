@@ -1,5 +1,21 @@
 package com.xiaopiao.app.ui.ledger
 
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
+import com.xiaopiao.app.ui.components.pressableClick
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -25,10 +41,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,6 +66,7 @@ import com.xiaopiao.app.domain.sourceChipLabel
 import com.xiaopiao.app.domain.yuanGrouped
 import com.xiaopiao.app.ui.category.CategoryTile
 import com.xiaopiao.app.ui.components.rememberXpHaptics
+import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpRadius
@@ -155,8 +169,23 @@ private fun DayFigure(prefix: String, cents: Long, hidden: Boolean) {
     )
 }
 
-/** Swipe left to delete: Negative fill behind the row, then the row collapses and the host offers undo. */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+/** Which row has its delete action open; one at a time, and the list closes it when it scrolls. */
+class SwipeRows {
+    var openId by mutableStateOf<Long?>(null)
+}
+
+val LocalSwipeRows = staticCompositionLocalOf<SwipeRows?> { null }
+
+private val SwipeActionWidth = 80.dp
+
+/** Past this share of the row width a swipe deletes straight away (iOS-style full swipe). */
+private const val FullSwipe = 0.55f
+
+/**
+ * Swipe left to delete (tt: 左滑删除): the row stops with an 80dp 删除 button showing; tap it, or keep going past
+ * 55% to delete in one move (a tick when that arms). Delete slides the row out and folds its height away, then
+ * the host removes it and offers undo. One row open at a time; tapping an open row only closes it.
+ */
 @Composable
 private fun SwipeableRow(
     txn: Txn,
@@ -167,39 +196,103 @@ private fun SwipeableRow(
     onDelete: () -> Unit,
 ) {
     val haptics = rememberXpHaptics()
-    var gone by remember(txn.id) { mutableStateOf(false) }
-    val state = rememberSwipeToDismissBoxState(
-        positionalThreshold = { it * 0.4f },
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) { haptics.thud(); gone = true; true } else false
-        },
-    )
-    LaunchedEffect(gone) {
-        if (gone) {
-            delay(180)
+    val reduced = rememberReducedMotion()
+    val scope = rememberCoroutineScope()
+    val rows = LocalSwipeRows.current ?: remember { SwipeRows() }
+    val actionPx = with(LocalDensity.current) { SwipeActionWidth.toPx() }
+    var width by remember { mutableFloatStateOf(1f) }
+    val offset = remember(txn.id) { Animatable(0f) }
+    val fold = remember(txn.id) { Animatable(1f) }
+    var armed by remember(txn.id) { mutableStateOf(false) }
+    var deleting by remember(txn.id) { mutableStateOf(false) }
+    val settle = spring<Float>(dampingRatio = 0.86f, stiffness = 520f)
+
+    fun close() = scope.launch { if (reduced) offset.snapTo(0f) else offset.animateTo(0f, settle) }
+    fun delete() {
+        if (deleting) return
+        deleting = true
+        haptics.thud()
+        scope.launch {
+            if (!reduced) {
+                offset.animateTo(-width, tween(160, easing = XpEase.out))
+                fold.animateTo(0f, tween(200, easing = XpEase.out))
+            }
+            if (rows.openId == txn.id) rows.openId = null
             onDelete()
         }
     }
-    SwipeToDismissBox(
-        state = state,
-        enableDismissFromStartToEnd = false,
-        backgroundContent = {
+    // Another row opened (or the list scrolled): fold this one back.
+    LaunchedEffect(rows.openId) { if (rows.openId != txn.id && offset.value != 0f && !deleting) close() }
+
+    Box(
+        Modifier.fillMaxWidth()
+            .onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                val h = (placeable.height * fold.value).roundToInt()
+                layout(placeable.width, h) { placeable.place(0, 0) }
+            }
+            .clipToBounds()
+            .semantics { customActions = listOf(CustomAccessibilityAction("删除") { delete(); true }) },
+    ) {
+        // The action behind the row: red from the row's trailing edge, 删除 centred in whatever is revealed.
+        val revealed = (-offset.value).coerceAtLeast(0f)
+        if (revealed > 0.5f) {
             Box(
-                Modifier.fillMaxSize().background(XpColors.Negative),
-                contentAlignment = Alignment.CenterEnd,
+                Modifier.matchParentSize().background(XpColors.Negative)
+                    .pressableClick(haptic = false) { delete() },
             ) {
-                Row(Modifier.padding(end = XpSpace.page), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(XpSpace.xs))
-                    Text("删除", style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                Row(
+                    Modifier.align(Alignment.CenterEnd)
+                        .layout { measurable, constraints ->
+                            val placeable = measurable.measure(constraints.copy(minWidth = 0))
+                            // Centred in the revealed strip; once armed it rides the row's edge (iOS full swipe).
+                            val strip = if (armed) revealed else maxOf(revealed, actionPx)
+                            val x = if (armed) (constraints.maxWidth - revealed).roundToInt() + 16
+                            else (constraints.maxWidth - strip / 2f - placeable.width / 2f).roundToInt()
+                            layout(constraints.maxWidth, placeable.height) { placeable.place(x, 0) }
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("删除", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = Color.White, maxLines = 1)
                 }
             }
-        },
-    ) {
-        LedgerRowContent(
-            txn = txn, defs = defs, hidden = hidden, selected = null,
-            onToggle = {}, onLongPress = onLongPress, onClick = onClick,
-        )
+        }
+        Box(
+            Modifier.fillMaxWidth()
+                .graphicsLayer { translationX = offset.value }
+                .pointerInput(txn.id) {
+                    // Accumulate here: snapTo runs in a coroutine, so reading offset.value per event drops movement.
+                    var x = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { x = offset.value; rows.openId = txn.id },
+                        onDragEnd = {
+                            val pulled = -x
+                            when {
+                                pulled > width * FullSwipe -> delete()
+                                pulled > actionPx / 2f -> scope.launch { offset.animateTo(-actionPx, settle) }
+                                else -> { close(); if (rows.openId == txn.id) rows.openId = null }
+                            }
+                        },
+                        onDragCancel = { close() },
+                    ) { change, dx ->
+                        change.consume()
+                        x = (x + dx).coerceIn(-width, 0f)
+                        val nowArmed = -x > width * FullSwipe
+                        if (nowArmed != armed) { armed = nowArmed; haptics.tick() }
+                        val next = x
+                        scope.launch { offset.snapTo(next) }
+                    }
+                },
+        ) {
+            LedgerRowContent(
+                txn = txn, defs = defs, hidden = hidden, selected = null,
+                onToggle = {}, onLongPress = onLongPress,
+                onClick = { if (offset.value != 0f) { close(); rows.openId = null } else onClick() },
+            )
+        }
     }
 }
 

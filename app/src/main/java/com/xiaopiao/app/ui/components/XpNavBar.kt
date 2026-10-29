@@ -146,6 +146,12 @@ class NavBarSpec(
 private fun lerpF(a: Float, b: Float, t: Float) = a + (b - a) * t
 
 /**
+ * How much of the bottom edge the floating tab bar covers on a page that runs underneath it (docs/DESIGN.md §4.3).
+ * 0 when the page stops above the bar. Pages pad their last row / float their input by this much.
+ */
+val LocalTabBarInset = androidx.compose.runtime.compositionLocalOf { 0.dp }
+
+/**
  * The floating tab bar (docs/APP-DESIGN.md §2): five icons, always. One spring progress carries the whole 记账 ⇄ 社交
  * change, so ⊕ is a single element that shrinks, loses its fill and slides sideways rather than fading out and back in.
  * Selection is an accent colour and a small independent pop on the icon — no pill, no ripple.
