@@ -305,6 +305,15 @@
   letter-spacing: -0.02em;
 }
 
+/*
+ * Category marks on the thermal paper: the mono stack has no emoji, so the browser falls back to a
+ * monochrome outline glyph. Force the colour emoji families for just that character.
+ */
+.emoji {
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-variant-emoji: emoji;
+}
+
 /* Suppressed (k<20) heatmap cell: empty with a fine diagonal hatch, no text */
 .hatch {
   background-image: repeating-linear-gradient(135deg, var(--hairline) 0 1px, transparent 1px 6px);

@@ -35,7 +35,7 @@ export const s = defineStrings(
     "import.skippedRest": "{} more rows skipped for the same reason",
     "import.readFail": "Could not read that file — try another CSV",
 
-    "hint.edit": "Click a row to edit · Delete removes",
+    "hint.edit": "Click a row to edit · ⌫ deletes",
   },
 );
 

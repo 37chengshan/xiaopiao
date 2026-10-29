@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import type { Ref } from "react";
+import type { ReactNode, Ref } from "react";
 import { EASE_OUT, SPRING_LAND } from "@/lib/motion";
 import { NumberTicker } from "./NumberTicker";
 import { fmtMoney, type DocGroup, type ReceiptDoc } from "./receiptModel";
@@ -51,7 +51,7 @@ function Stamp({ text, state }: { text: string; state: StampState }) {
   );
 }
 
-function Line({ left, right, strong, dim }: { left: string; right: string; strong?: boolean; dim?: boolean }) {
+function Line({ left, right, strong, dim }: { left: ReactNode; right: string; strong?: boolean; dim?: boolean }) {
   return (
     <div className={`flex items-baseline justify-between gap-3 text-[12.5px] leading-[20px] ${strong ? "font-medium" : ""} ${dim ? "text-paper-ink/70" : ""}`} data-row>
       <span className="min-w-0 truncate">{left}</span>
@@ -63,7 +63,15 @@ function Line({ left, right, strong, dim }: { left: string; right: string; stron
 function Group({ g, sign = "" }: { g: DocGroup; sign?: string }) {
   return (
     <>
-      <Line left={`${g.emoji} ${g.label}`} right={`${sign}${fmtMoney(g.subtotalCents)}`} strong />
+      <Line
+        left={
+          <>
+            <span className="emoji">{g.emoji}</span> {g.label}
+          </>
+        }
+        right={`${sign}${fmtMoney(g.subtotalCents)}`}
+        strong
+      />
       {g.lines.map((l, i) => (
         <div key={i} className="pl-[22px]">
           <Line left={l.merchant} right={`${sign}${fmtMoney(l.cents)}`} dim />
