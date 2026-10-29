@@ -92,7 +92,7 @@ push 进入：左 = 返回（`onBack`），右 = 最多一个与本页相关的�
 |---|---|---|
 | 少量选项的选择 / 确认（打印哪些分类、删除确认） | 居中窗口，背后页面虚化 18dp | `Dialog` + 页面 `Modifier.blur`（今后收为 `XpBlurDialog`） |
 | 任务型编辑（记一笔、编辑账单、预算、筛选、选日期、选时间） | 底部抽屉，顶角 32dp，有 grabber，可下滑关 | `XpSheet` |
-| 独立功能（设置、AI 会话抽屉、卡包） | 设置 = push 页；会话 = 左侧抽屉（底栏让位）；卡包 = 全屏面板 | — |
+| 独立功能（设置、AI 会话抽屉、卡包） | 设置 = push 页；会话 = 左侧抽屉（底栏让位）；卡包 = **浮层卡片**（12dp 留边、底部留 96dp 露出页面、从卡包按钮长出、点外面或下滑关闭，tt 2026-10-29） | `WalletPanel` |
 | 结果反馈 | toast / 可撤销 toast，不挡按键 | `rememberXpToast` / `UndoToastHost` |
 
 规则：同一类操作只用一种形态（tt：预算是抽屉，不是页面）。
@@ -109,7 +109,7 @@ push 进入：左 = 返回（`onBack`），右 = 最多一个与本页相关的�
 
 | 组件 | 文件 | 用于 | 不要 |
 |---|---|---|---|
-| `NavScaffold` | `components/NavHeader.kt` | 所有带顶栏的页 | 自己画顶栏 |
+| `NavScaffold` | `components/NavHeader.kt` | 所有带顶栏的页（含分类管理、引导页、游戏、小店） | 自己画顶栏 |
 | `AppTopActions` / `LedgerSideLeading` | `components/TopActions.kt`（动作来自 shell 提供的 `LocalTopBarHost`） | §4.1 固定槽位 | 单独放齿轮 |
 | `XpNavBar` + `NavGlyph` | `components/XpNavBar.kt`、`NavGlyphs.kt` | 底栏 | 静态图标 tab |
 | `GroupedSection` / `GroupedRow` | `components/Grouped.kt` | 设置类列表 | 每行一张阴影卡 |
