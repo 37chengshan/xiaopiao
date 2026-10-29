@@ -108,6 +108,8 @@ fun LedgerScreen(
     val prefs = remember(context) { LedgerPrefs(context.applicationContext) }
     val hidden by prefs.observeHidden().collectAsStateWithLifecycle(initialValue = false)
     val recent by prefs.observeRecent().collectAsStateWithLifecycle(initialValue = emptyList<String>())
+    // null = not read yet; the one-time 左滑 hint must never fire on a guess.
+    val swipeHintShown by prefs.observeSwipeHintShown().collectAsStateWithLifecycle(initialValue = null)
 
     var query by remember { mutableStateOf("") }
     var searching by remember { mutableStateOf(false) }
@@ -267,6 +269,10 @@ fun LedgerScreen(
                 listState = listState,
                 reduceMotion = reduceMotion,
                 onClearConditions = { clearConditions() },
+                // One peek per install, only on a plain ledger with bills, never while picking rows or searching.
+                showSwipeHint = swipeHintShown == false && !reduceMotion &&
+                    selection == null && !searching && query.isBlank() && groups.isNotEmpty(),
+                onSwipeHintShown = { scope.launch { prefs.markSwipeHintShown() } },
             )
         }
 
@@ -327,6 +333,8 @@ private fun LedgerList(
     listState: androidx.compose.foundation.lazy.LazyListState,
     reduceMotion: Boolean,
     onClearConditions: () -> Unit,
+    showSwipeHint: Boolean,
+    onSwipeHintShown: () -> Unit,
 ) {
     // One open swipe row at a time; scrolling the list folds it back.
     val swipeRows = remember { SwipeRows() }
@@ -372,6 +380,8 @@ private fun LedgerList(
                     onLongPress = onLongPress,
                     onEdit = onEdit,
                     onDelete = onDelete,
+                    hintFirstRow = showSwipeHint && index == 0,
+                    onHintShown = onSwipeHintShown,
                 )
             }
         }

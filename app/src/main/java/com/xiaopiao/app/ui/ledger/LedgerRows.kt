@@ -107,6 +107,9 @@ fun LedgerDayCard(
     onDelete: (Txn) -> Unit,
     modifier: Modifier = Modifier,
     swipeToDelete: Boolean = true,
+    /** Once per install: this card holds the row that peeks its 删除 action (see [SwipeableRow]). */
+    hintFirstRow: Boolean = false,
+    onHintShown: () -> Unit = {},
 ) {
     // Reference `041428`: the day header sits inside the white card, a hairline above the first row.
     Column(
@@ -151,6 +154,8 @@ fun LedgerDayCard(
                     SwipeableRow(
                         txn = txn, defs = defs, hidden = hidden,
                         onClick = { onEdit(txn) }, onLongPress = { onLongPress(txn) }, onDelete = { onDelete(txn) },
+                        hint = hintFirstRow && index == 0,
+                        onHintShown = onHintShown,
                     )
                 }
             }
@@ -177,6 +182,9 @@ val LocalSwipeRows = staticCompositionLocalOf<SwipeRows?> { null }
 
 private val SwipeActionWidth = 80.dp
 
+/** How far the first row peeks on its own the first time (mobile rules §5: a gesture nobody has seen needs one hint). */
+private val SwipeHintPeek = 56.dp
+
 /** Past this share of the row width a swipe deletes straight away (iOS-style full swipe). */
 private const val FullSwipe = 0.55f
 
@@ -184,6 +192,9 @@ private const val FullSwipe = 0.55f
  * Swipe left to delete (tt: 左滑删除): the row stops with an 80dp 删除 button showing; tap it, or keep going past
  * 55% to delete in one move (a tick when that arms). Delete slides the row out and folds its height away, then
  * the host removes it and offers undo. One row open at a time; tapping an open row only closes it.
+ *
+ * [hint] plays the one-time discovery gesture: the row peeks [SwipeHintPeek] to the left, holds ~600ms, then
+ * springs back. It is marked as shown up front (via [onHintShown]) so leaving the page mid-peek cannot repeat it.
  */
 @Composable
 private fun SwipeableRow(
@@ -193,6 +204,8 @@ private fun SwipeableRow(
     onClick: () -> Unit,
     onLongPress: () -> Unit,
     onDelete: () -> Unit,
+    hint: Boolean = false,
+    onHintShown: () -> Unit = {},
 ) {
     val haptics = rememberXpHaptics()
     val reduced = rememberReducedMotion()
@@ -223,6 +236,25 @@ private fun SwipeableRow(
     // Another row opened (or the list scrolled): fold this one back.
     LaunchedEffect(rows.openId) { if (rows.openId != txn.id && offset.value != 0f && !deleting) close() }
 
+    // The discovery peek: nothing is open, nothing is deleting, the row has never done this before.
+    var hinted by remember(txn.id) { mutableStateOf(false) }
+    val peekPx = with(LocalDensity.current) { SwipeHintPeek.toPx() }
+    // Keyed on the hint flag only: writing [hinted] must not restart (and so cancel) this effect, and the
+    // animation runs in the row's own scope so a later recomposition cannot cut it off mid-peek either.
+    LaunchedEffect(hint, reduced) {
+        if (!hint || hinted || reduced || deleting) return@LaunchedEffect
+        hinted = true
+        // Marked before the animation: a page left mid-peek must not replay it on the next visit.
+        onHintShown()
+        scope.launch {
+            delay(320) // let the card's entrance land first, so the peek reads as its own gesture
+            rows.openId = null
+            offset.animateTo(-peekPx, tween(220, easing = XpEase.out))
+            delay(600)
+            offset.animateTo(0f, settle)
+        }
+    }
+
     Box(
         Modifier.fillMaxWidth()
             .onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }
@@ -245,10 +277,10 @@ private fun SwipeableRow(
                     Modifier.align(Alignment.CenterEnd)
                         .layout { measurable, constraints ->
                             val placeable = measurable.measure(constraints.copy(minWidth = 0))
-                            // Centred in the revealed strip; once armed it rides the row's edge (iOS full swipe).
-                            val strip = if (armed) revealed else maxOf(revealed, actionPx)
+                            // Centred in whatever is actually revealed (a 56dp peek still shows the whole 删除);
+                            // once armed it rides the row's edge (iOS full swipe).
                             val x = if (armed) (constraints.maxWidth - revealed).roundToInt() + 16
-                            else (constraints.maxWidth - strip / 2f - placeable.width / 2f).roundToInt()
+                            else (constraints.maxWidth - revealed / 2f - placeable.width / 2f).roundToInt()
                             layout(constraints.maxWidth, placeable.height) { placeable.place(x, 0) }
                         },
                     verticalAlignment = Alignment.CenterVertically,
