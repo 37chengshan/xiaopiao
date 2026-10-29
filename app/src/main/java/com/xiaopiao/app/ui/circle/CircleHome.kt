@@ -51,8 +51,6 @@ import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.components.pressableClick
-import com.xiaopiao.app.ui.motion.XpPushHost
-import com.xiaopiao.app.ui.games.GamesHub
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -66,13 +64,12 @@ private val ComposerHeight = 64.dp
  */
 @Suppress("UNUSED_PARAMETER")
 @Composable
-fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGames: Boolean = false, onGamesConsumed: () -> Unit = {}) {
+fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenGames: () -> Unit = {}) {
     val now = remember { System.currentTimeMillis() }
     var members by remember { mutableStateOf(CircleDemo.members()) }
     var posts by remember { mutableStateOf(CircleDemo.feed(now)) }
     var mineReactions by remember { mutableStateOf(emptySet<String>()) }
     var shareSheetFor by rememberSaveable { mutableStateOf<String?>(null) }
-    var gamesOpen by rememberSaveable { mutableStateOf(false) }
     var openedPost by remember { mutableStateOf<ReceiptPost?>(null) }
     var draft by rememberSaveable { mutableStateOf("") }
     var localSeq by rememberSaveable { mutableStateOf(0) }
@@ -105,19 +102,10 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGam
         sendTick += 1
     }
 
-    // The nav's 游戏 cell opens the hub directly (tt#37). One-shot: consumed here, so entering 圈子 never opens it by itself.
-    LaunchedEffect(openGames) { if (openGames) { gamesOpen = true; onGamesConsumed() } }
-
     LaunchedEffect(sendTick) {
         if (sendTick > 0 && rows.isNotEmpty()) listState.animateScrollToItem(rows.size)
     }
 
-    // 游戏 hub is a pushed page, not a swap: it slides in over the feed (220ms) and pops back in 180ms.
-    XpPushHost(
-        page = if (gamesOpen) { { GamesHub(onBack = { gamesOpen = false }, onOpenSettings = onOpenSettings) } } else null,
-        onBack = { gamesOpen = false },
-        modifier = Modifier.fillMaxSize(),
-    ) {
     NavScaffold(
         title = CircleDemo.CIRCLE_NAME,
         scroll = NavScrollNone,
@@ -181,7 +169,7 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGam
                 item(key = "circle-games") {
                     CircleGamesCard(
                         modifier = Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m),
-                        onClick = { gamesOpen = true },
+                        onClick = onOpenGames,
                     )
                 }
                 item(key = "circle-tail") {
@@ -201,7 +189,6 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, openGam
                 modifier = Modifier.align(Alignment.BottomCenter).imePadding(),
             )
         }
-    }
     }
 
     shareSheetFor?.let { selectedId ->
