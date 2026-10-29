@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -43,16 +44,13 @@ import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 
-private val donutColors = listOf(XpColors.Accent, XpColors.Warning, XpColors.Positive, XpColors.InkSecondary, XpColors.InkTertiary)
+private val donutColors = listOf(XpColors.Accent, XpColors.Highlight, XpColors.Positive, XpColors.InkSecondary, XpColors.InkTertiary)
 
 @Composable
 fun InsightsStep(crowd: List<CrowdMember>, onNext: () -> Unit, onPrivacy: () -> Unit) {
     var age by remember { mutableStateOf<AgeBand?>(null) }
     val stats = remember(crowd, age) { Aggregator.compute(crowd, age) }
-    Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(bottom = XpSpace.xl),
-        verticalArrangement = Arrangement.spacedBy(XpSpace.m),
-    ) {
+    FlowPage {
         Reveal(0) {
             Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                 KpiRow(stats)
@@ -65,11 +63,16 @@ fun InsightsStep(crowd: List<CrowdMember>, onNext: () -> Unit, onPrivacy: () -> 
         Reveal(5) { SectionCard("爱加什么料", "每人只算一个最爱") { ToppingDonut(stats) } }
         Reveal(6) {
             Column(Modifier.padding(horizontal = XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                Text(
-                    "🔒 这里只有聚合数字，看不到任何一个人。点「数据怎么来的」了解细节。",
-                    style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
-                    modifier = Modifier.clickable(onClick = onPrivacy),
-                )
+                Row(Modifier.clickable(onClick = onPrivacy), verticalAlignment = Alignment.Top) {
+                    androidx.compose.material3.Icon(
+                        androidx.compose.material.icons.Icons.Outlined.Lock, contentDescription = null,
+                        tint = XpColors.InkTertiary, modifier = Modifier.padding(top = 2.dp, end = XpSpace.xs).size(14.dp),
+                    )
+                    Text(
+                        bi("这里只有聚合数字，看不到任何一个人。点右上角的 ⓘ 了解细节。", "Aggregates only; no single person is visible. Tap ⓘ for details."),
+                        style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
+                    )
+                }
                 MerchantButton("下一步：发起一个小实验", onNext)
             }
         }
@@ -156,7 +159,7 @@ private fun KindBars(stats: CohortStats) {
 private fun PriceBars(stats: CohortStats) {
     val max = stats.priceBands.maxOfOrNull { it.share ?: 0f } ?: 0f
     Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-        stats.priceBands.forEachIndexed { i, c -> CellBar(c, max, XpColors.Warning, i) }
+        stats.priceBands.forEachIndexed { i, c -> CellBar(c, max, XpColors.Highlight, i) }
         val avg = stats.avgPriceCents
         if (avg != null) Row(verticalAlignment = Alignment.CenterVertically) {
             Text("平均每杯约 ", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)

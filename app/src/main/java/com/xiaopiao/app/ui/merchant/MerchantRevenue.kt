@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.merchant.MonthGroup
 import com.xiaopiao.app.merchant.RevenueBook
 import com.xiaopiao.app.merchant.RevenueEntry
+import com.xiaopiao.app.ui.components.EmptyState
+import com.xiaopiao.app.ui.components.EmptyState
 import com.xiaopiao.app.ui.components.MiniBars
 import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
@@ -56,130 +58,104 @@ fun MerchantRevenueScreen(
     onRecord: () -> Unit,
     onEditDay: (Long) -> Unit,
     onOpenReceipt: (Long) -> Unit,
-    onOpenSettings: () -> Unit = {},
 ) {
     val book = remember(entries) { RevenueBook.normalize(entries) }
     val months = remember(book) { RevenueBook.groupByMonth(book) }
     val currentMonth = remember(months, today) {
         months.firstOrNull { it.key == RevenueBook.monthKey(today) } ?: months.firstOrNull()
     }
-    val demo = book.any { it.seeded }
     val scroll = rememberScrollState()
 
     NavScaffold(
-        title = "营收",
+        title = bi("营收", "Revenue"),
         scroll = NavScrollNone,
-        demo = demo,
-        trailing = {
-            NavIconButton(Icons.Outlined.UploadFile, "导入 CSV", onClick = onImportCsv)
-            NavIconButton(Icons.AutoMirrored.Outlined.ReceiptLong, "经营日报小票", onClick = { onOpenReceipt(today) })
-            NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onClick = onOpenSettings)
-        },
+        trailing = { MerchantTopActions(onOpenReceipt = { onOpenReceipt(today) }) },
     ) { top ->
+        if (currentMonth == null) {
+            Column(Modifier.fillMaxSize().padding(top = top), verticalArrangement = Arrangement.Center) {
+                EmptyState(
+                    icon = Icons.Outlined.PointOfSale,
+                    title = bi("还没有营收记录", "No revenue yet"),
+                    body = bi("记下今天的营业额，或导入一份「日期,营收,订单」的 CSV。", "Log today's takings, or import a CSV of date, revenue, orders."),
+                    actionLabel = bi("记今天一笔", "Record today"),
+                    onAction = onRecord,
+                )
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    LinkText(bi("导入 CSV", "Import CSV"), onClick = onImportCsv)
+                }
+            }
+            return@NavScaffold
+        }
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl)
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top + XpSpace.m, bottom = MerchantBottomInset)
                 .xpRevealLayer(index = 0),
             verticalArrangement = Arrangement.spacedBy(XpSpace.s),
         ) {
-            if (currentMonth == null) {
-                EmptyState(
-                    icon = Icons.Outlined.PointOfSale,
-                    title = "还没有营收记录",
-                    body = "记下今天的营业额，或者导入一份「日期,营收,订单」的 CSV。",
-                    action = "导入 CSV",
-                    onAction = onImportCsv,
-                )
-                Column(Modifier.padding(horizontal = XpSpace.l)) {
-                    XpButton(
-                        "先记今天一笔", onRecord,
-                        modifier = Modifier.fillMaxWidth(),
-                        style = XpButtonStyle.Secondary, size = XpButtonSize.Large,
-                    )
-                }
-            } else {
-                Column(Modifier.padding(horizontal = XpSpace.l)) {
-                    XpCard {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "${currentMonth.label}合计",
-                                style = MaterialTheme.typography.titleMedium, color = XpColors.Ink,
-                            )
-                        }
-                        Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = XpSpace.s)) {
-                            RevenueMoney(currentMonth.totalCents, style = MaterialTheme.typography.headlineLarge, animateChange = true)
-                        }
-                        Row(
-                            Modifier.fillMaxWidth().padding(top = XpSpace.m),
-                            horizontalArrangement = Arrangement.spacedBy(XpSpace.xl),
-                        ) {
-                            MetricCell("已记") {
-                                Text("${currentMonth.days} 天", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                            }
-                            MetricCell("平均每天") {
-                                RevenueMoney(currentMonth.totalCents / currentMonth.days.coerceAtLeast(1), style = MaterialTheme.typography.titleMedium)
-                            }
-                            MetricCell("订单") {
-                                Text(
-                                    if (currentMonth.orders > 0) "${currentMonth.orders} 单" else "—",
-                                    style = MaterialTheme.typography.titleMedium, color = XpColors.Ink,
-                                )
-                            }
-                        }
+            Column(Modifier.padding(horizontal = XpSpace.page)) {
+                MerchantHeroCard(
+                    label = bi("${currentMonth.label}合计", "${currentMonth.label} total"),
+                    corner = { HeroPill(bi("导入 CSV", "Import CSV"), Icons.Outlined.UploadFile, onImportCsv) },
+                    number = { RevenueMoney(currentMonth.totalCents, style = MerchantHeroNumber, animateChange = true) },
+                    columns = {
+                        StatCell(bi("已记", "Days"), bi("${currentMonth.days} 天", "${currentMonth.days}"), Modifier.weight(1f))
+                        StatCell(
+                            bi("平均每天", "Daily avg."),
+                            RevenueBook.money(currentMonth.totalCents / currentMonth.days.coerceAtLeast(1)),
+                            Modifier.weight(1.4f),
+                        )
+                        StatCell(
+                            bi("订单", "Orders"),
+                            if (currentMonth.orders > 0) bi("${currentMonth.orders} 单", "${currentMonth.orders}") else "—",
+                            Modifier.weight(1.1f),
+                        )
+                    },
+                    strip = {
                         MiniBars(
                             values = currentMonth.entries.asReversed().map { it.revenueCents.toFloat() },
-                            modifier = Modifier.padding(top = XpSpace.l),
-                            height = 44.dp,
+                            height = 52.dp,
+                            color = XpColors.Ink,
                         )
                         Row(Modifier.fillMaxWidth().padding(top = XpSpace.xs)) {
                             Text(
                                 RevenueBook.shortDate(currentMonth.entries.last().dayStart),
-                                style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary,
+                                style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary, maxLines = 1,
                             )
                             Spacer(Modifier.weight(1f))
                             Text(
                                 RevenueBook.shortDate(currentMonth.entries.first().dayStart),
-                                style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary,
+                                style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary, maxLines = 1,
                             )
                         }
-                    }
-                }
+                    },
+                )
+            }
 
-                Row(
-                    Modifier.padding(horizontal = XpSpace.l).padding(top = XpSpace.s),
-                    horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
-                ) {
-                    XpButton("导入 CSV", onImportCsv, style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
-                    XpButton("记一笔", onRecord, style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
-                }
-
-                months.forEach { group ->
-                    MonthHeader(group)
-                    Column(Modifier.padding(horizontal = XpSpace.l)) {
-                        Column(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.m)).background(XpColors.Card),
-                        ) {
-                            group.entries.forEachIndexed { index, entry ->
-                                if (index > 0) {
-                                    Box(
-                                        Modifier.fillMaxWidth()
-                                            .padding(start = 56.dp + XpSpace.l)
-                                            .height(0.5.dp).background(XpColors.Hairline),
-                                    )
-                                }
-                                RevenueRow(entry) { onEditDay(entry.dayStart) }
+            months.forEach { group ->
+                MonthHeader(group)
+                Column(Modifier.padding(horizontal = XpSpace.page)) {
+                    Column(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.m)).background(XpColors.Card),
+                    ) {
+                        group.entries.forEachIndexed { index, entry ->
+                            if (index > 0) {
+                                Box(
+                                    Modifier.fillMaxWidth()
+                                        .padding(start = 56.dp + XpSpace.l)
+                                        .height(0.5.dp).background(XpColors.Hairline),
+                                )
                             }
+                            RevenueRow(entry) { onEditDay(entry.dayStart) }
                         }
                     }
                 }
-
-                Text(
-                    "本机保存 · 不读你的个人账单",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XpColors.InkSecondary,
-                    modifier = Modifier.padding(horizontal = XpSpace.l).padding(top = XpSpace.l),
-                )
             }
-            NavBottomSpace()
+
+            Text(
+                bi("本机保存 · 不读你的个人账单", "Stored on this phone · never reads your personal ledger"),
+                style = MaterialTheme.typography.labelSmall,
+                color = XpColors.InkSecondary,
+                modifier = Modifier.padding(horizontal = XpSpace.page).padding(top = XpSpace.l),
+            )
         }
     }
 }
@@ -187,14 +163,16 @@ fun MerchantRevenueScreen(
 @Composable
 private fun MonthHeader(group: MonthGroup) {
     Row(
-        Modifier.fillMaxWidth().padding(start = XpSpace.l, end = XpSpace.l, top = XpSpace.xl, bottom = XpSpace.s),
+        Modifier.fillMaxWidth().padding(start = XpSpace.page, end = XpSpace.page, top = XpSpace.xl, bottom = XpSpace.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(group.label, style = MaterialTheme.typography.titleSmall, color = XpColors.Ink)
+        Text(group.label, style = MaterialTheme.typography.titleSmall, color = XpColors.Ink, maxLines = 1)
         Spacer(Modifier.weight(1f))
         Text(
-            "合计 ${RevenueBook.money(group.totalCents)}",
+            bi("合计 ", "Total ") + RevenueBook.money(group.totalCents),
             style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
+            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
     }
 }
@@ -209,7 +187,7 @@ private fun RevenueRow(entry: RevenueEntry, onClick: () -> Unit) {
         DateTile(entry.dayStart)
         RailGap()
         Column(Modifier.weight(1f)) {
-            Text(RevenueBook.dayLabel(entry.dayStart), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
+            Text(RevenueBook.dayLabel(entry.dayStart), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(XpSpace.xs),
@@ -218,6 +196,8 @@ private fun RevenueRow(entry: RevenueEntry, onClick: () -> Unit) {
                 Text(
                     if (entry.orders > 0) "${entry.orders} 单 · 客单 ${RevenueBook.money(entry.averageTicketCents)}" else "订单数未填",
                     style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary,
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
                 SourcePill(entry.source)
             }

@@ -6,7 +6,9 @@ import kotlin.math.roundToInt
 enum class InsightTone { Up, Down, Flat, Warn }
 
 /** One sentence the 分析 screen shows. Every number is computed locally from the revenue book. */
-data class MerchantInsight(val emoji: String, val title: String, val body: String, val tone: InsightTone)
+enum class InsightKind { Decline, Week, Weekday, Ticket, Best }
+
+data class MerchantInsight(val kind: InsightKind, val title: String, val body: String, val tone: InsightTone)
 
 /**
  * Template-driven shop analysis. Offline by design: it reads [RevenueBook] numbers and writes sentences,
@@ -28,7 +30,7 @@ object MerchantAi {
         if (streak >= 2) {
             val range = RevenueBook.declineRange(entries, today, streak)
             out += MerchantInsight(
-                emoji = "⚠️",
+                kind = InsightKind.Decline,
                 title = "连续下滑",
                 body = if (range != null) {
                     "已经连续 $streak 天比前一天少，从 ${money(range.first)} 落到 ${money(range.second)}。"
@@ -43,7 +45,7 @@ object MerchantAi {
         val weekDays = RevenueBook.window(entries, RevenueBook.weekStart(today), today).size
         if (week.nowCents > 0 || week.beforeCents > 0) {
             out += MerchantInsight(
-                emoji = "📈",
+                kind = InsightKind.Week,
                 title = "本周进度",
                 body = "本周 $weekDays 天共 ${money(week.nowCents)}，" +
                     (if (week.hasBase) "比上周同期${relative(week)}。" else "上周同期还没有记录。"),
@@ -58,7 +60,7 @@ object MerchantAi {
             val low = known.minBy { it.averageCents }
             val ratio = if (low.averageCents > 0) high.averageCents.toFloat() / low.averageCents else null
             out += MerchantInsight(
-                emoji = "🗓️",
+                kind = InsightKind.Weekday,
                 title = "哪天最旺",
                 body = "${high.label}平均 ${money(high.averageCents)} 最高，${low.label}平均 ${money(low.averageCents)} 最低" +
                     (ratio?.let { "，差 ${oneDecimal(it)} 倍。" } ?: "。"),
@@ -70,7 +72,7 @@ object MerchantAi {
         if (ticket.nowCents > 0) {
             val diff = ticket.diffCents
             out += MerchantInsight(
-                emoji = "🧾",
+                kind = InsightKind.Ticket,
                 title = "客单价",
                 body = "近 7 天客单价 ${money(ticket.nowCents)}，" + when {
                     !ticket.hasBase -> "前 7 天没有可比的订单数。"
@@ -87,7 +89,7 @@ object MerchantAi {
         val worst = RevenueBook.worstDay(entries, today, WINDOW_DAYS)
         if (best != null && best.revenueCents > 0) {
             out += MerchantInsight(
-                emoji = "🏆",
+                kind = InsightKind.Best,
                 title = "最好的一天",
                 body = "${dayWords(best.dayStart)}卖了 ${money(best.revenueCents)}，是近 $WINDOW_DAYS 天最高的一天。" +
                     (worst?.takeIf { it.dayStart != best.dayStart && it.revenueCents < best.revenueCents }

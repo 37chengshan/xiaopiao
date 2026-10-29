@@ -22,11 +22,14 @@ class TopBarHost(
 
 val LocalTopBarHost = staticCompositionLocalOf { TopBarHost(openSettings = {}) }
 
-/** Top-right of every root page: the resident receipt, then the gear. Same order, size and spacing everywhere. */
+/**
+ * Top-right of every root page: the resident receipt, then the gear. Same order, size and spacing everywhere.
+ * [receipt] swaps the receipt slot for an edition's own button (小店版 passes its 经营小票); null = the resident strip.
+ */
 @Composable
-fun RowScope.AppTopActions() {
+fun RowScope.AppTopActions(receipt: (@Composable () -> Unit)? = null) {
     val host = LocalTopBarHost.current
-    ReceiptStrip()
+    if (receipt != null) receipt() else ReceiptStrip()
     NavIconButton(Icons.Outlined.Settings, "设置", onClick = host.openSettings)
 }
 
