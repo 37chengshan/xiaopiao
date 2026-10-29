@@ -252,6 +252,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         container,
                         searchRequested = ledgerSearch,
                         onSearchConsumed = { ledgerSearch = false },
+                        onRecord = { record.openManual() },
+                        onEdit = { txn, onDelete -> record.openEdit(txn, onDelete) },
                     )
                 }
                 composable(NavTab.Insights.route) {

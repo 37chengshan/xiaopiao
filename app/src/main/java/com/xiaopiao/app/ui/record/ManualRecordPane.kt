@@ -82,6 +82,9 @@ import java.util.Calendar
  * 4×4 keypad whose last row is 再记一笔 · 0 · . · 保存.
  *
  * [onSubmit] gets `keepOpen = true` from 再记一笔 (the sheet stays and clears) and `false` from 保存.
+ *
+ * Editing a row is the same pane (docs/DESIGN.md §7): [editing] pre-fills every field, 再记一笔 becomes
+ * 删除 ([onDelete]) and 保存 submits the row with its id kept.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,18 +93,22 @@ internal fun ManualRecordPane(
     onSubmit: (Txn, Boolean) -> Unit,
     onClose: () -> Unit = {},
     onOpenCategoryManager: () -> Unit = {},
+    editing: Txn? = null,
+    onDelete: () -> Unit = {},
 ) {
     val openedAt = remember { System.currentTimeMillis() }
     val opened = remember(openedAt) {
-        Calendar.getInstance().apply { timeInMillis = openedAt }
+        Calendar.getInstance().apply { timeInMillis = editing?.occurredAt ?: openedAt }
     }
-    var draft by remember { mutableStateOf(RecordDraft()) }
-    var merchant by rememberSaveable { mutableStateOf("") }
-    var direction by remember { mutableStateOf(Direction.OUT) }
-    var dayStart by remember { mutableStateOf(startOfDay(openedAt)) }
+    var draft by remember { mutableStateOf(RecordDraft(amount = editing?.let { draftAmountOf(it.amountCents) }.orEmpty())) }
+    var merchant by rememberSaveable { mutableStateOf(editing?.merchant.orEmpty()) }
+    var direction by remember { mutableStateOf(editing?.direction ?: Direction.OUT) }
+    var dayStart by remember { mutableStateOf(startOfDay(editing?.occurredAt ?: openedAt)) }
     var hour by rememberSaveable { mutableIntStateOf(opened.get(Calendar.HOUR_OF_DAY)) }
     var minute by rememberSaveable { mutableIntStateOf(opened.get(Calendar.MINUTE)) }
-    var chosenId by rememberSaveable { mutableStateOf("") }
+    var chosenId by rememberSaveable {
+        mutableStateOf(editing?.let { it.categoryId.ifBlank { CategoryDefaults.idFor(it.category) } }.orEmpty())
+    }
     var calendarOpen by remember { mutableStateOf(false) }
     var timeOpen by remember { mutableStateOf(false) }
     val toast = rememberXpToast()
@@ -124,7 +131,14 @@ internal fun ManualRecordPane(
             at = atDayAndTime(dayStart, hour, minute),
         ) ?: return
         if (keepOpen) haptics.select() else haptics.confirm()
-        onSubmit(txn, keepOpen)
+        // An edit keeps the row's identity and capture metadata; only what the pane shows changes.
+        onSubmit(
+            editing?.copy(
+                amountCents = txn.amountCents, direction = txn.direction, merchant = txn.merchant,
+                category = txn.category, categoryId = txn.categoryId, occurredAt = txn.occurredAt,
+            ) ?: txn,
+            keepOpen,
+        )
         if (keepOpen) {
             draft = RecordDraft()
             merchant = ""
@@ -180,8 +194,9 @@ internal fun ManualRecordPane(
             Keypad(
                 canSave = canSave,
                 onKey = { key -> draft = RecordDraftMath.press(draft, key) },
-                onRepeat = { save(keepOpen = true) },
+                onRepeat = { if (editing != null) onDelete() else save(keepOpen = true) },
                 onSave = { save(keepOpen = false) },
+                editing = editing != null,
             )
         }
         }
@@ -432,6 +447,8 @@ private fun Keypad(
     onKey: (String) -> Unit,
     onRepeat: () -> Unit,
     onSave: () -> Unit,
+    /** Edit mode: the bottom-left key deletes the row instead of 再记一笔, and is always enabled. */
+    editing: Boolean = false,
 ) {
     val haptics = rememberXpHaptics()
     Column(Modifier.fillMaxWidth().padding(top = XpSpace.xs, bottom = XpSpace.m)) {
@@ -453,16 +470,20 @@ private fun Keypad(
         Row(Modifier.fillMaxWidth().height(49.dp), verticalAlignment = Alignment.CenterVertically) {
             KeyCell(Modifier.weight(1f)) {
                 Box(
-                    Modifier.fillMaxWidth().height(49.dp).pressableClick(enabled = canSave, scaleDown = 0.94f) {
+                    Modifier.fillMaxWidth().height(49.dp).pressableClick(enabled = editing || canSave, scaleDown = 0.94f) {
                         haptics.select()
                         onRepeat()
                     },
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     Text(
-                        "再记一笔",
+                        if (editing) "删除" else "再记一笔",
                         fontSize = 15.sp,
-                        color = if (canSave) XpColors.InkSecondary else XpColors.InkTertiary,
+                        color = when {
+                            editing -> XpColors.Negative
+                            canSave -> XpColors.InkSecondary
+                            else -> XpColors.InkTertiary
+                        },
                         maxLines = 1,
                     )
                 }
@@ -500,7 +521,7 @@ private fun KeyGlyph(key: String, size: Int, onClick: () -> Unit) {
         if (key == RecordAmount.BACKSPACE) {
             Icon(
                 Icons.AutoMirrored.Outlined.Backspace,
-                contentDescription = "删除",
+                contentDescription = "退格",
                 tint = XpColors.Ink,
                 modifier = Modifier.size(22.dp),
             )
@@ -548,6 +569,10 @@ private fun TimePickerSheet(
 }
 
 /** 「今天 / 昨天 / 10月26日」 for the date pill. */
+/** Cents back into what the keypad would have typed: 1250 → "12.5", 3000 → "30". */
+internal fun draftAmountOf(cents: Long): String =
+    if (cents % 100 == 0L) "${cents / 100}" else "%d.%02d".format(cents / 100, cents % 100).trimEnd('0')
+
 internal fun dayLabelOf(dayStart: Long, now: Long): String {
     val today = startOfDay(now)
     val diff = Math.round((today - dayStart) / 86_400_000.0).toInt()

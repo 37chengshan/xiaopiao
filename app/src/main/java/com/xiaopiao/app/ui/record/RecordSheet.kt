@@ -32,9 +32,23 @@ class RecordSheetState {
         private set
     var textPrefill by mutableStateOf<String?>(null)
         private set
+    /** Set while the manual pane is editing an existing row (docs/DESIGN.md §7). */
+    var editing by mutableStateOf<Txn?>(null)
+        private set
+    internal var onDeleteEditing: (Txn) -> Unit = {}
+        private set
 
     fun openManual() {
         textPrefill = null
+        editing = null
+        mode = RecordMode.Manual
+    }
+
+    /** 编辑账单 = the same 记一笔 pane, pre-filled; delete goes back to the caller (it owns the undo toast). */
+    fun openEdit(txn: Txn, onDelete: (Txn) -> Unit) {
+        textPrefill = null
+        editing = txn
+        onDeleteEditing = onDelete
         mode = RecordMode.Manual
     }
 
@@ -49,6 +63,7 @@ class RecordSheetState {
     fun dismiss() {
         mode = null
         textPrefill = null
+        editing = null
     }
 }
 
@@ -71,17 +86,23 @@ fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
     XpSheet(onDismiss = state::dismiss) {
         Box(Modifier.fillMaxWidth()) {
         when (mode) {
-            RecordMode.Manual -> ManualRecordPane(
-                defs = defs,
-                onClose = state::dismiss,
-                onOpenCategoryManager = { managerOpen = true },
-                onSubmit = { txn, keepOpen ->
-                    scope.launch {
-                        container.ledger.add(txn)
-                        if (keepOpen) toast.show("已记 1 笔") else state.dismiss()
-                    }
-                },
-            )
+            // Keyed by the row so switching from one edit to another (or to 记一笔) starts a fresh draft.
+            RecordMode.Manual -> androidx.compose.runtime.key(state.editing?.id) {
+                val editing = state.editing
+                ManualRecordPane(
+                    defs = defs,
+                    onClose = state::dismiss,
+                    onOpenCategoryManager = { managerOpen = true },
+                    editing = editing,
+                    onDelete = { editing?.let { state.onDeleteEditing(it) }; state.dismiss() },
+                    onSubmit = { txn, keepOpen ->
+                        scope.launch {
+                            if (editing != null) container.ledger.update(txn) else container.ledger.add(txn)
+                            if (keepOpen) toast.show("已记 1 笔") else state.dismiss()
+                        }
+                    },
+                )
+            }
             // Voice is handled inline by the dock; if it ever lands here it expects a transcript.
             RecordMode.Text, RecordMode.Voice -> TextRecordPane(
                 prefill = state.textPrefill,
