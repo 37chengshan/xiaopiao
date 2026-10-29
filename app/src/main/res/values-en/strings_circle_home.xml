@@ -49,4 +49,6 @@
     <string name="circle_home_invite_full">This circle is full — make another one</string>
     <string name="circle_home_invite_scan">Have them scan this</string>
     <string name="circle_home_send">Send</string>
+    <string name="circle_home_award_line">%1$d titles · View</string>
+    <string name="circle_home_award_stub">THIS WEEK · for fun</string>
 </resources>

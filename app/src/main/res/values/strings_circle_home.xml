@@ -50,4 +50,6 @@
     <string name="circle_home_invite_full">这个圈子满了，另建一个吧</string>
     <string name="circle_home_invite_scan">让对方扫这个码</string>
     <string name="circle_home_send">发送</string>
+    <string name="circle_home_award_line">%1$d 枚头衔 · 查看</string>
+    <string name="circle_home_award_stub">本周头衔 · 娱乐标签</string>
 </resources>

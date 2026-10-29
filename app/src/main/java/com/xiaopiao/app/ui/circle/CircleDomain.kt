@@ -80,6 +80,23 @@ fun inviteCode(seed: Long): String {
 
 fun newInvite(now: Long, seed: Long): CircleInvite = CircleInvite(code = inviteCode(seed), createdAt = now)
 
+/** Creates an empty circle with the viewer as owner; ids stay local and deterministic. */
+fun createCircle(book: CircleBook, rawName: String, owner: CircleMember, now: Long): CircleResult {
+    val name = rawName.trim()
+    if (name.isEmpty()) return CircleResult(book, CircleError.EmptyName)
+    if (name.length > CIRCLE_MAX_NAME) return CircleResult(book, CircleError.NameTooLong)
+    val id = "c-${now}-${book.circles.size}"
+    val circle = Circle(
+        id = id,
+        name = name,
+        ownerId = owner.id,
+        members = listOf(owner.copy(role = CircleRole.Owner)),
+        posts = emptyList(),
+        invite = newInvite(now, now / 1000),
+    )
+    return CircleResult(book.copy(circles = book.circles + circle, currentId = id))
+}
+
 fun renameCircle(book: CircleBook, circleId: String, rawName: String): CircleResult {
     val name = rawName.trim()
     if (name.isEmpty()) return CircleResult(book, CircleError.EmptyName)

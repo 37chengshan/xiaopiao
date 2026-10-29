@@ -169,4 +169,7 @@
 
     <string name="circle_menu_share">分享到圈子</string>
     <string name="circle_menu_share_sub">把小票发进选中的圈子</string>
+    <string name="circle_lb_stub">家庭账本 · 本周</string>
+    <string name="circle_lb_total">共 %1$d 人上榜</string>
+    <string name="circle_lb_scope">只排总额</string>
 </resources>

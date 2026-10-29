@@ -169,4 +169,7 @@
 
     <string name="circle_menu_share">Share to a circle</string>
     <string name="circle_menu_share_sub">Post a receipt into the circles you pick</string>
+    <string name="circle_lb_stub">HOUSE LEDGER · THIS WEEK</string>
+    <string name="circle_lb_total">%1$d on the board</string>
+    <string name="circle_lb_scope">totals only</string>
 </resources>

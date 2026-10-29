@@ -206,12 +206,13 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
                     }
                 } else {
                     when (sub) {
-                        MerchantSub.Receipt -> MerchantReceiptScreen(
+                        MerchantSub.Receipt -> MerchantReceiptPage(
                             entries = state.revenue,
                             today = today,
                             initialDay = receiptDay,
                             onBack = { sub = null },
                             onRecordDay = ::openRecord,
+                            onOpenSettings = onOpenSettings,
                         )
                         else -> MerchantExperimentScreen(
                             sub = sub!!,
