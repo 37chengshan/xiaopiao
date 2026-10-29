@@ -70,10 +70,7 @@ fun SetupStep(current: Experiment?, onPublish: (ExperimentTemplate) -> Unit) {
     }
 
     Box(Modifier.fillMaxSize()) {
-        Column(
-            Modifier.verticalScroll(rememberScrollState()).padding(bottom = XpSpace.xl),
-            verticalArrangement = Arrangement.spacedBy(XpSpace.m),
-        ) {
+        FlowPage {
             if (current != null && current.status != ExperimentStatus.ENDED) RunningBanner(current)
             Column(Modifier.padding(horizontal = XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                 Text("选一个二选一模板", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)

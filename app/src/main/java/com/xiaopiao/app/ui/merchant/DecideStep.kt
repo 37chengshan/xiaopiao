@@ -58,7 +58,7 @@ fun DecideStep(
     onSetup: () -> Unit,
 ) {
     if (experiment == null) {
-        EmptyState(Icons.Outlined.Lightbulb, "先做个实验再决定", "有了实验结果，这里会给你 3 个可以试试的选择。", "去发起实验", onSetup)
+        FlowEmpty(Icons.Outlined.Lightbulb, "先做个实验再决定", "有了实验结果，这里会给你 3 个可以试试的选择。", "去发起实验", onSetup)
         return
     }
     AnimatedContent(
@@ -77,10 +77,7 @@ fun DecideStep(
 private fun Picker(suggestions: List<Suggestion>, onAdopt: (Suggestion) -> Unit) {
     var pickedId by remember { mutableStateOf<String?>(null) }
     val picked = suggestions.firstOrNull { it.id == pickedId }
-    Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = XpSpace.l).padding(bottom = XpSpace.xl),
-        verticalArrangement = Arrangement.spacedBy(XpSpace.s),
-    ) {
+    FlowPage(horizontal = XpSpace.l, spacing = XpSpace.s) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
             Text(
                 "基于这轮结果，有 3 个可以试试的方向。选哪个、要不要选，都由你决定。",
@@ -122,11 +119,7 @@ private fun Confirmed(d: Decision, onNewExperiment: () -> Unit) {
     val pop = remember { Animatable(0f) }
     LaunchedEffect(Unit) { pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow)) }
     val fmt = remember { SimpleDateFormat("M月d日", Locale.CHINA) }
-    Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = XpSpace.l).padding(bottom = XpSpace.xl),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(XpSpace.m),
-    ) {
+    FlowPage(horizontal = XpSpace.l, spacing = XpSpace.m, alignment = Alignment.CenterHorizontally) {
         IconTile(Icons.Outlined.Check, Modifier.scale(pop.value).padding(top = XpSpace.l), size = 64.dp, selected = true)
         Text("你做了决定", style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
         XpCard {

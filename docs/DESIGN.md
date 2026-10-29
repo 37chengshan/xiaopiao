@@ -160,7 +160,7 @@ push 进入：左 = 返回（`onBack`），右 = 最多一个与本页相关的�
 | 2 | ~~编辑账单用旧 `AddSheet`，和记一笔不同~~ 已改为 `RecordSheetState.openEdit` + `ManualRecordPane(editing)`，`AddSheet.kt` 已删（2026-10-29）；AI 确认卡「改一下」仍是退回输入框（未入账草稿，另议） | Claude（§7） |
 | 3 | ~~统计页文字重叠~~ 柱图/环形图标签按格宽缩字（`TrendCharts.kt` 的 `fit`）、环形图居中两行标签、KPI 单行 autoSize、AI 小结链接独占一行、小票条字号不随系统放大（2026-10-29） | Claude（§10） |
 | 4 | 小票页：打印机在上、出纸口朝下，**吐出来的纸就是设置面板**（tt） | Claude |
-| 5 | 圈子 / 游戏页没有玻璃感（内容不过顶栏 / 底栏）、功能缺失、游戏简陋、分享改成选择圈子 | omp（`ui/circle-v8`） |
-| 6 | 小店版按本规范对齐（底栏动画已接，页面框架 / 玻璃 / 弹层 / 空态未对齐） | Sonnet 子代理 |
+| 5 | ~~圈子 / 游戏页没有玻璃感、功能缺失、游戏简陋、分享改成选择圈子~~ circle-v8 已合；AI / 圈子 / 游戏进 `underBar`，底部用 `LocalTabBarInset`（2026-10-29） | omp |
+| 6 | ~~小店版按本规范对齐~~ merchant-v8 已合（2026-10-29）；遗留：`MerchantConfirmDialog` 待收进 `XpBlurDialog`、`FitText`/`MerchantHeroCard` 等可上收、`bi()` 待 App i18n 后换 strings | Sonnet 子代理 |
 | 7 | 卡包展开动效未照参考录屏 16.2–16.8s 还原 | Claude |
 | 8 | App 中英文切换 | 待定（Claude 或 Sonnet 子代理） |
