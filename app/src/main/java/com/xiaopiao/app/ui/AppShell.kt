@@ -102,6 +102,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.outlined.Add
 import androidx.activity.compose.BackHandler
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.ui.draw.drawBehind
 import com.xiaopiao.app.ui.theme.XpEase
 
@@ -193,6 +195,12 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     // System back from 游戏 returns to 圈子, not to the start of the stack.
     BackHandler(enabled = current == NavTab.Games.route) { go(NavTab.Circle) }
 
+    // Liquid-glass source: the page is recorded here and the tab bar (a sibling, never inside it) samples it.
+    val glass = rememberLayerBackdrop()
+    // Ledger-side tabs pad their own lists past the bar, so they can run underneath it and show through the glass.
+    // The rest (circle chat input, games…) still stop above it.
+    val underBar = current == NavTab.Ledger.route || current == NavTab.Receipt.route || current == NavTab.Insights.route
+
     CompositionLocalProvider(LocalReceiptHost provides receiptHost) {
     Box(Modifier.fillMaxSize()) {
     Scaffold(
@@ -209,6 +217,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 onPlus = { record.openDefault(recordMethod) },
                 onPlusLongPress = { voiceHost.request() },
                 hidden = navBarHidden && current == NavTab.Chat.route,
+                backdrop = glass,
             )
         },
     ) { padding ->
@@ -217,8 +226,9 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         val top = if (current == null) statusTop else 0.dp
         Box(
             Modifier.fillMaxSize()
+                .layerBackdrop(glass)
                 .background(XpColors.CanvasGrouped)
-                .padding(top = top, bottom = padding.calculateBottomPadding()),
+                .padding(top = top, bottom = if (underBar) 0.dp else padding.calculateBottomPadding()),
         ) {
             // Tab switches are instant: it is the most frequent navigation in the app (docs/APP-DESIGN.md §7).
             NavHost(

@@ -46,7 +46,7 @@ class NavBarGeometryTest {
     @Test fun capsulesKeepRoomyAirBetweenThemAtPhoneWidths() {
         listOf(360f, 411f).forEach { w ->
             val g = NavBarGeometry.layout(w)
-            assertTrue("ledger gap at $w", g.rightCap0.start - g.leftCap0.end >= 14f - 0.001f)
+            assertTrue("ledger gap at $w", g.rightCap0.start - g.leftCap0.end >= NavBarGeometry.GAP - 0.001f)
         }
     }
 

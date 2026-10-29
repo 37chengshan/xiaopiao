@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.compose.animation)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons)
+    implementation(libs.backdrop)
     implementation(libs.activity.compose)
     implementation(libs.core.splashscreen)
     implementation(libs.lifecycle.runtime.compose)
