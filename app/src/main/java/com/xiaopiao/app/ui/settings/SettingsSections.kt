@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.settings
 
+import com.xiaopiao.app.R
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.components.XpSheet
 import androidx.compose.material3.Text
@@ -20,9 +21,11 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.ui.components.GroupedRow
@@ -81,19 +84,36 @@ fun ReceiptSection(soundOn: Boolean, onSound: (Boolean) -> Unit) {
 @Composable
 fun CaptureSection(
     listenerEnabled: Boolean,
+    listenerConnected: Boolean,
     postGranted: Boolean,
     onOpenListenerSettings: () -> Unit,
     onRequestPost: () -> Unit,
+    onReconnect: () -> Unit,
 ) {
     GroupedSection(header = "自动记账", dividerInset = IconInset) {
         item {
             GroupedRow(
                 title = "通知读取",
-                value = if (listenerEnabled) "已开启" else "去开启",
+                value = when {
+                    !listenerEnabled -> stringResource(R.string.capture_off)
+                    listenerConnected -> stringResource(R.string.capture_connected)
+                    else -> stringResource(R.string.capture_disconnected)
+                },
                 leading = { IconTile(Icons.Outlined.Notifications, tint = XpColors.Positive, background = XpColors.PositiveSoft) },
                 chevron = true,
                 onClick = onOpenListenerSettings,
             )
+        }
+        if (listenerEnabled && !listenerConnected) {
+            item {
+                GroupedRow(
+                    title = stringResource(R.string.capture_reconnect),
+                    value = stringResource(R.string.capture_reconnect_hint),
+                    leading = { IconTile(Icons.Outlined.Refresh, tint = XpColors.Warning, background = XpColors.WarningSoft) },
+                    chevron = true,
+                    onClick = onReconnect,
+                )
+            }
         }
         item {
             GroupedRow(

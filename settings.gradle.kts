@@ -14,3 +14,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = "xiaopiao"
 include(":app")
+// Test-only fake notification app (spoofed package names); never part of :app.
+include(":notifake")

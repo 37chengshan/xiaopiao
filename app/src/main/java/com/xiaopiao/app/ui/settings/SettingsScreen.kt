@@ -24,6 +24,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
+import com.xiaopiao.app.capture.PaymentListenerService
 import com.xiaopiao.app.data.CaptureLogEntry
 import com.xiaopiao.app.importer.ImportSummary
 import com.xiaopiao.app.ui.components.NavScaffold
@@ -65,6 +66,7 @@ fun SettingsScreen(
     var sub by rememberSaveable { mutableStateOf<SettingsSub?>(null) }
     val logFlow = remember(container) { container.captureLog.observeRecent() }
     val log: List<CaptureLogEntry> by logFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val listenerConnected by PaymentListenerService.isConnected.collectAsStateWithLifecycle()
 
     val themePrefs = remember(context) { ThemePrefs(context.applicationContext) }
     val mode by themePrefs.observeMode().collectAsState(initial = ThemeMode.System)
@@ -154,9 +156,12 @@ fun SettingsScreen(
                 }
                 Box(Modifier.xpRevealLayer(index = 3)) {
                     CaptureSection(
-                        listenerEnabled = listenerOn, postGranted = postGranted,
+                        listenerEnabled = listenerOn,
+                        listenerConnected = listenerConnected,
+                        postGranted = postGranted,
                         onOpenListenerSettings = { NotificationAccess.openListenerSettings(context) },
                         onRequestPost = { postLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                        onReconnect = { PaymentListenerService.reconnect(context) },
                     )
                 }
                 Box(Modifier.xpRevealLayer(index = 4)) {
