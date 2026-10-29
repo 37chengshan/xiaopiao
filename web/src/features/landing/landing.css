@@ -3,17 +3,6 @@
  * shared token file stays untouched by parallel features.
  */
 
-/* L.1 — the landing hides the system pointer while the halo is mounted; inputs keep theirs. */
-.landing-halo-on,
-.landing-halo-on * {
-  cursor: none;
-}
-.landing-halo-on input,
-.landing-halo-on textarea,
-.landing-halo-on select,
-.landing-halo-on [contenteditable="true"] {
-  cursor: text;
-}
 /* Keyboard users always keep a visible focus ring, halo or not. */
 .landing-root :focus-visible {
   outline: 2px solid var(--d-accent);

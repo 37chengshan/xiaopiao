@@ -1,84 +1,74 @@
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 /**
- * L.1 — damped cursor halo.
+ * L.1 — damped glow halo (tt 2026-10-28: no colour inversion, just a soft trailing glow).
  *
- * A white disc with `mix-blend-mode: difference`, so text and art behind it invert. It grows to
- * 72px and shows a short uppercase label when the pointer is over a `[data-cursor]` element
- * (`data-cursor-label` holds the copy), and pinches to 0.85 while pressed.
- *
- * Both layers are `position: fixed` and carry the blend mode themselves — wrapping them in a
- * positioned container would create an isolation group and kill the inversion. The label sits
- * above the disc in paint order, so it comes out in the page's own colour.
- * Only the label uses React state; position and size are motion values (no re-render while moving).
+ * A large warm radial glow trails the system pointer on a soft spring, so it lags and settles
+ * instead of snapping. Over a `[data-cursor]` element it swells and brightens a little; while
+ * pressed it pinches. The system pointer stays visible. Position, size and strength are motion
+ * values only (transform + opacity, no re-render while moving).
  */
-const SPRING = { stiffness: 170, damping: 22, mass: 0.6 } as const;
+const SPRING = { stiffness: 90, damping: 18, mass: 0.9 } as const;
+const HOVER_SPRING = { stiffness: 200, damping: 24, mass: 0.6 } as const;
 const PRESS_SPRING = { stiffness: 420, damping: 28, mass: 0.4 } as const;
-const DIAMETER = 72;
-const IDLE_SCALE = 28 / DIAMETER;
+const DIAMETER = 280;
 
 export function CursorHalo() {
-  const x = useMotionValue(-200);
-  const y = useMotionValue(-200);
+  const x = useMotionValue(-DIAMETER);
+  const y = useMotionValue(-DIAMETER);
   const hover = useMotionValue(0);
   const press = useMotionValue(1);
-  const [label, setLabel] = useState("");
+  const seen = useMotionValue(0);
 
   const sx = useSpring(x, SPRING);
   const sy = useSpring(y, SPRING);
-  const grown = useSpring(hover, SPRING);
+  const grown = useSpring(hover, HOVER_SPRING);
   const pressed = useSpring(press, PRESS_SPRING);
-  const scale = useTransform(
-    [grown, pressed],
-    ([g, p]: number[]) => (IDLE_SCALE + (1 - IDLE_SCALE) * g) * p,
-  );
+  const shown = useSpring(seen, HOVER_SPRING);
+  const scale = useTransform([grown, pressed], ([g, p]: number[]) => (0.8 + 0.35 * g) * p);
+  const opacity = useTransform([shown, grown], ([s, g]: number[]) => s * (0.7 + 0.3 * g));
 
   useEffect(() => {
     const onMove = (event: PointerEvent) => {
       x.set(event.clientX);
       y.set(event.clientY);
+      seen.set(1);
       const target = event.target instanceof Element ? event.target.closest("[data-cursor]") : null;
       hover.set(target ? 1 : 0);
-      setLabel(target?.getAttribute("data-cursor-label") ?? "");
     };
-    const onDown = () => press.set(0.85);
+    const onLeave = () => seen.set(0);
+    const onDown = () => press.set(0.88);
     const onUp = () => press.set(1);
 
     window.addEventListener("pointermove", onMove, { passive: true });
+    document.documentElement.addEventListener("pointerleave", onLeave);
     window.addEventListener("pointerdown", onDown, { passive: true });
     window.addEventListener("pointerup", onUp, { passive: true });
     return () => {
       window.removeEventListener("pointermove", onMove);
+      document.documentElement.removeEventListener("pointerleave", onLeave);
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [x, y, hover, press]);
+  }, [x, y, hover, press, seen]);
 
   return (
-    <>
-      <motion.div
-        aria-hidden="true"
-        style={{
-          x: sx,
-          y: sy,
-          scale,
-          width: DIAMETER,
-          height: DIAMETER,
-          marginLeft: -DIAMETER / 2,
-          marginTop: -DIAMETER / 2,
-        }}
-        className="pointer-events-none fixed top-0 left-0 z-[80] rounded-full bg-white mix-blend-difference"
-      />
-      <motion.div
-        aria-hidden="true"
-        style={{ x: sx, y: sy, marginLeft: -40, marginTop: -8, width: 80 }}
-        animate={{ opacity: label ? 1 : 0 }}
-        transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-        className="pointer-events-none fixed top-0 left-0 z-[81] text-center text-[11px] leading-4 font-semibold tracking-[0.08em] whitespace-nowrap text-white uppercase mix-blend-difference"
-      >
-        {label}
-      </motion.div>
-    </>
+    <motion.div
+      aria-hidden="true"
+      style={{
+        x: sx,
+        y: sy,
+        scale,
+        opacity,
+        width: DIAMETER,
+        height: DIAMETER,
+        marginLeft: -DIAMETER / 2,
+        marginTop: -DIAMETER / 2,
+        background:
+          "radial-gradient(circle, rgb(255 138 0 / 0.18) 0%, rgb(255 170 60 / 0.09) 34%, rgb(255 200 120 / 0) 68%)",
+      }}
+      className="pointer-events-none fixed top-0 left-0 z-[80] rounded-full"
+    />
   );
 }

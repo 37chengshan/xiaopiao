@@ -1,9 +1,10 @@
-import { PanelLeftClose, PanelLeftOpen, ReceiptText, Store, Users } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Store, Users } from "lucide-react";
 import { useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { SPRING_THUMB } from "@/lib/motion";
 import { SPRING_SLIDE } from "./motion";
 import { cn } from "@/lib/utils";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { PERSONAL_NAV, SETTINGS_ITEM, SHOP_NAV, go, isActive, segmentOf, type NavItem, type Segment } from "./nav";
 import { s } from "./strings";
 import { IconButton } from "./ui";
@@ -104,9 +105,7 @@ export function Sidebar({ collapsed, pathname, onToggle, toggleLabel }: { collap
           className="d-press flex min-w-0 items-center gap-2 rounded-md text-d-ink"
           title={s("brand")}
         >
-          <span className="grid size-6 shrink-0 place-items-center rounded-md bg-d-ink text-d-canvas">
-            <ReceiptText className="size-3.5" strokeWidth={2} aria-hidden />
-          </span>
+          <BrandMark className="size-6 shrink-0" />
           {!collapsed && <span className="truncate text-[13px] font-semibold tracking-[-0.01em]">{s("brand")}</span>}
         </a>
       </div>

@@ -1,5 +1,4 @@
 import { useLocale } from "@/lib/strings";
-import { cn } from "@/lib/utils";
 import "./landing.css";
 import { CursorHalo } from "./cursor/CursorHalo";
 import { LandingToaster } from "./components/LandingToast";
@@ -23,10 +22,7 @@ export function LandingPage() {
 
   return (
     <div
-      className={cn(
-        "landing-root min-h-svh overflow-x-clip bg-d-canvas text-d-ink antialiased",
-        halo && "landing-halo-on",
-      )}
+      className="landing-root min-h-svh overflow-x-clip bg-d-canvas text-d-ink antialiased"
     >
       <TopNav />
       <main>

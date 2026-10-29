@@ -4,6 +4,7 @@ import { setLocale, useLocale } from "@/lib/strings";
 import { Pill } from "../components/Pill";
 import { landingToast } from "../components/LandingToast";
 import { landingStrings } from "../strings";
+import { BrandMark } from "@/components/brand/BrandMark";
 
 /**
  * Floating capsule nav (§L.2). Hides on scroll down, returns on scroll up — a 200ms y translation.
@@ -42,18 +43,7 @@ export function TopNav() {
         className="flex h-[52px] w-full max-w-[1000px] items-center gap-1 rounded-full border border-d-hairline bg-d-canvas/80 pr-2 pl-4 backdrop-blur-xl"
       >
         <a href="#top" className="flex items-center gap-2 text-d-ink" data-cursor="link">
-          <svg
-            viewBox="0 0 20 24"
-            aria-hidden="true"
-            className="h-[17px] w-[15px]"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-          >
-            <path d={`M2 3h16v14${"l-1.33 3l-1.33 -3".repeat(6)}Z`} />
-            <path d="M5.6 8h8.8M5.6 12h5.6" strokeLinecap="round" />
-          </svg>
+          <BrandMark className="size-[22px]" />
           <span className="text-[14px] font-semibold tracking-[-0.01em]">{s("nav.brand")}</span>
         </a>
 
