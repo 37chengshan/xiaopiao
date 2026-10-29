@@ -31,6 +31,10 @@ import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.motion.XpPushHost
 import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.ThemeMode
+import com.xiaopiao.app.ui.LaunchSide
+import com.xiaopiao.app.ui.NavPrefs
+import com.xiaopiao.app.ui.navStore
+import com.xiaopiao.app.ui.theme.AccentChoice
 import com.xiaopiao.app.ui.theme.DesignStyle
 import com.xiaopiao.app.ui.theme.ThemePrefs
 import com.xiaopiao.app.ui.record.RecordMethod
@@ -63,6 +67,9 @@ fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}, onB
     val themePrefs = remember(context) { ThemePrefs(context.applicationContext) }
     val mode by themePrefs.observeMode().collectAsState(initial = ThemeMode.System)
     val designStyle by themePrefs.observeStyle().collectAsState(initial = DesignStyle.Apple)
+    val accent by themePrefs.observeAccent().collectAsState(initial = AccentChoice.Default)
+    val navPrefs = remember(context) { NavPrefs(context.applicationContext.navStore) }
+    val launchSide by navPrefs.observeLaunch().collectAsState(initial = LaunchSide.Ledger)
     val soundPrefs = remember(context) { ReceiptSoundPrefs(context.applicationContext) }
     val soundOn by soundPrefs.observeEnabled().collectAsState(initial = true)
     val methodPrefs = remember(context) { RecordMethodPrefs(context.recordMethodStore) }
@@ -97,6 +104,8 @@ fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}, onB
                         style = designStyle,
                         onMode = { scope.launch { themePrefs.setMode(it) } },
                         onStyle = { scope.launch { themePrefs.setStyle(it) } },
+                        accent = accent,
+                        onAccent = { scope.launch { themePrefs.setAccent(it) } },
                         onBack = { sub = null },
                     )
 
@@ -144,25 +153,28 @@ fun SettingsScreen(container: AppContainer, onOpenMerchant: () -> Unit = {}, onB
                     RecordMethodSection(recordMethod) { scope.launch { methodPrefs.set(it) } }
                 }
                 Box(Modifier.xpRevealLayer(index = 2)) {
-                    ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }
+                    LaunchSideSection(launchSide) { scope.launch { navPrefs.setLaunch(it) } }
                 }
                 Box(Modifier.xpRevealLayer(index = 3)) {
+                    ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }
+                }
+                Box(Modifier.xpRevealLayer(index = 4)) {
                     CaptureSection(
                         listenerEnabled = listenerOn, postGranted = postGranted,
                         onOpenListenerSettings = { NotificationAccess.openListenerSettings(context) },
                         onRequestPost = { postLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
                     )
                 }
-                Box(Modifier.xpRevealLayer(index = 4)) {
+                Box(Modifier.xpRevealLayer(index = 5)) {
                     DataNavSection(onOpen = { sub = SettingsSub.Data })
                 }
-                Box(Modifier.xpRevealLayer(index = 5)) {
+                Box(Modifier.xpRevealLayer(index = 6)) {
                     MerchantSwitchSection(onOpenMerchant)
                 }
-                Box(Modifier.xpRevealLayer(index = 6)) {
+                Box(Modifier.xpRevealLayer(index = 7)) {
                     ReplayOnboardingSection { scope.launch { com.xiaopiao.app.ui.onboarding.OnboardingPrefs(context.applicationContext).reset() } }
                 }
-                Box(Modifier.xpRevealLayer(index = 7)) {
+                Box(Modifier.xpRevealLayer(index = 8)) {
                     AboutNavSection(onOpen = { sub = SettingsSub.About })
                 }
             }

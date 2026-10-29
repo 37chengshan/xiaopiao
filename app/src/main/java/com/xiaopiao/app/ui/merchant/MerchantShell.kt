@@ -24,7 +24,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Science
+import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PointOfSale
@@ -50,7 +52,9 @@ import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.merchant.ExperimentEngine
 import com.xiaopiao.app.merchant.MerchantStore
 import com.xiaopiao.app.merchant.RevenueBook
-import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.components.NavBarItem
+import com.xiaopiao.app.ui.components.NavBarSpec
+import com.xiaopiao.app.ui.components.XpNavBar
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpPaletteOverride
 import com.xiaopiao.app.ui.theme.merchantPalette
@@ -74,6 +78,38 @@ enum class MerchantSub(val order: Int, val title: String) {
     Game(4, "二选一大作战"),
 }
 
+/** Which half of the 小店 bar is open and which icon is lit — pure, so the mapping is unit-tested. */
+object MerchantNav {
+    /** 我的 and every experiment step sit on the social half; 今日 / 营收 / 分析 on the ledger half. */
+    fun isSocial(tab: MerchantTab, sub: MerchantSub?): Boolean = tab == MerchantTab.Mine || sub != null
+
+    fun selectedId(tab: MerchantTab, sub: MerchantSub?): String = when (sub) {
+        MerchantSub.Crowd -> "crowd"
+        MerchantSub.Setup, MerchantSub.Results, MerchantSub.Decide -> "lab"
+        else -> tab.name.lowercase()
+    }
+
+    /** 实验 opens the results once there is an experiment, the setup before that. */
+    fun labStep(hasExperiment: Boolean): MerchantSub = if (hasExperiment) MerchantSub.Results else MerchantSub.Setup
+
+    fun tabFor(id: String): MerchantTab? = MerchantTab.entries.firstOrNull { it.name.lowercase() == id }
+}
+
+/**
+ * 小店版 bar, same component and the same five-icon rule as the user edition: `今日 · 营收 · ⊕ · 分析 | 我的`, and once
+ * 我的 is open `经营 · ⊕ | 人群 · 我的 · 实验` (the experiment flow's steps stay inside 人群 / 实验).
+ */
+private val MerchantNavSpec = NavBarSpec(
+    a = NavBarItem("today", "今日", Icons.Outlined.Today),
+    b = NavBarItem("revenue", "营收", Icons.Outlined.PointOfSale),
+    c = NavBarItem("analysis", "分析", Icons.Outlined.Insights),
+    fold = NavBarItem("fold", "经营", Icons.Outlined.Storefront),
+    entry = NavBarItem("mine", "我的", Icons.Outlined.Person),
+    sa = NavBarItem("crowd", "人群", Icons.Outlined.Groups),
+    sb = NavBarItem("lab", "实验", Icons.Outlined.Science),
+    plusLabel = "记营收", plusDescription = "记营收",
+)
+
 /**
  * 小店版 is a whole-product mode (docs/APP-DESIGN.md §6): its own palette, its own navigation,
  * its own home. Entered from 我的 in the user edition, left through 我的 → 切换到用户版.
@@ -89,6 +125,7 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
         val state by store.state.collectAsState()
         val today = remember { RevenueBook.startOfDay(System.currentTimeMillis()) }
         var tab by rememberSaveable { mutableStateOf(MerchantTab.Today) }
+        var lastLedgerTab by rememberSaveable { mutableStateOf(MerchantTab.Today) }
         var sub by rememberSaveable { mutableStateOf<MerchantSub?>(null) }
         var gameReturn by rememberSaveable { mutableStateOf(MerchantSub.Results) }
         var receiptDay by rememberSaveable { mutableStateOf(today) }
@@ -98,6 +135,7 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
         var privacyOpen by remember { mutableStateOf(false) }
 
         val experiment = state.experiment
+        androidx.compose.runtime.SideEffect { if (tab != MerchantTab.Mine) lastLedgerTab = tab }
         val result = remember(experiment, store.crowd) { experiment?.let { ExperimentEngine.result(it, store.crowd) } }
 
         fun openReceipt(day: Long) { receiptDay = day; sub = MerchantSub.Receipt }
@@ -123,7 +161,7 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
         Column(Modifier.fillMaxSize().background(XpColors.Canvas)) {
             Box(
                 Modifier.weight(1f).fillMaxWidth()
-                    .then(if (sub != null && sub != MerchantSub.Game) Modifier.windowInsetsPadding(WindowInsets.navigationBars) else Modifier),
+                    .then(if (sub == MerchantSub.Receipt) Modifier.windowInsetsPadding(WindowInsets.navigationBars) else Modifier),
             ) {
                 if (sub == null) {
                     AnimatedContent(
@@ -189,8 +227,22 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
                     }
                 }
             }
-            if (sub == null) {
-                MerchantNavBar(tab, onSelect = { tab = it }, onRecord = { openRecord(today) })
+            // Receipt and the game own the screen; everywhere else the bar stays, with the flow's step lighting 人群 / 实验.
+            if (sub != MerchantSub.Receipt && sub != MerchantSub.Game) {
+                XpNavBar(
+                    spec = MerchantNavSpec,
+                    social = MerchantNav.isSocial(tab, sub),
+                    selectedId = MerchantNav.selectedId(tab, sub),
+                    onSelect = { id ->
+                        when (id) {
+                            "crowd" -> sub = MerchantSub.Crowd
+                            "lab" -> sub = MerchantNav.labStep(experiment != null)
+                            else -> MerchantNav.tabFor(id)?.let { tab = it; sub = null }
+                        }
+                    },
+                    onFold = { tab = lastLedgerTab; sub = null },
+                    onPlus = { openRecord(today) },
+                )
             }
         }
 
@@ -222,56 +274,5 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
             )
         }
         if (privacyOpen) PrivacySheet { privacyOpen = false }
-    }
-}
-
-@Composable
-private fun MerchantNavBar(current: MerchantTab, onSelect: (MerchantTab) -> Unit, onRecord: () -> Unit) {
-    val capsule = RoundedCornerShape(32.dp)
-    Box(
-        Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 16.dp).padding(bottom = 8.dp),
-    ) {
-        Box(
-            Modifier.fillMaxWidth().padding(top = 16.dp).height(64.dp)
-                .then(
-                    if (XpColors.isDark) Modifier
-                    else Modifier.shadow(24.dp, capsule),
-                )
-                .clip(capsule)
-                .background(if (XpColors.isDark) XpColors.Surface2.copy(alpha = 0.94f) else XpColors.Card.copy(alpha = 0.94f)),
-        )
-        Row(Modifier.fillMaxWidth().padding(top = 16.dp).height(64.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f)) {
-                MerchantTab.entries.take(2).forEach { NavItem(it, current, Modifier.weight(1f), onSelect) }
-            }
-            Spacer(Modifier.size(78.dp))
-            Row(Modifier.weight(1f)) {
-                MerchantTab.entries.drop(2).forEach { NavItem(it, current, Modifier.weight(1f), onSelect) }
-            }
-        }
-        Box(
-            Modifier.align(Alignment.TopCenter).size(66.dp)
-                .background(XpColors.Canvas, CircleShape).padding(4.dp)
-                .clip(CircleShape).background(XpColors.Primary)
-                .pressableClick(scaleDown = 0.92f, onClick = onRecord),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Outlined.Add, contentDescription = "记营收", tint = XpColors.OnPrimary, modifier = Modifier.size(28.dp))
-        }
-    }
-}
-
-@Composable
-private fun NavItem(tab: MerchantTab, current: MerchantTab, modifier: Modifier, onSelect: (MerchantTab) -> Unit) {
-    val selected = current == tab
-    val color = if (selected) XpColors.Accent else XpColors.InkSecondary
-    Column(
-        modifier.fillMaxHeight().pressableClick(haptic = false, scaleDown = 0.94f) { onSelect(tab) },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(tab.icon, contentDescription = tab.label, tint = color, modifier = Modifier.size(24.dp))
-        Text(tab.label, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium, color = color)
     }
 }

@@ -23,6 +23,7 @@ import com.xiaopiao.app.ui.components.IconTile
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.motion.XpReveal
+import com.xiaopiao.app.ui.theme.AccentChoice
 import com.xiaopiao.app.ui.theme.DesignStyle
 import com.xiaopiao.app.ui.theme.ThemeMode
 import com.xiaopiao.app.ui.theme.XpColors
@@ -87,13 +88,17 @@ fun AppearancePage(
     style: DesignStyle,
     onMode: (ThemeMode) -> Unit,
     onStyle: (DesignStyle) -> Unit,
+    accent: AccentChoice,
+    onAccent: (AccentChoice) -> Unit,
     onBack: () -> Unit,
 ) {
     val scroll = rememberScrollState()
     NavScaffold("外观", rememberNavScroll(scroll), onBack = onBack) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             XpReveal(index = 0) { AppearanceSection(mode, style, onMode, onStyle) }
-            XpReveal(index = 1) {
+            // Accent is an Apple-skin choice; Claude keeps its terracotta.
+            if (style == DesignStyle.Apple) XpReveal(index = 1) { AccentSection(accent, onAccent) }
+            XpReveal(index = 2) {
                 Text(
                     "切换只换颜色与字体，不改布局。深色跟随系统时可以手动覆盖。",
                     style = MaterialTheme.typography.labelMedium,
