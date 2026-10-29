@@ -25,15 +25,15 @@ function NavRow({ item, active, collapsed }: { item: NavItem; active: boolean; c
         "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent-ink",
         collapsed ? "mx-auto size-10 justify-center rounded-[11px]" : "gap-2.5 pl-3 pr-2.5",
         active ? "text-d-ink" : "text-d-ink-2 hover:bg-d-fill/50 hover:text-d-ink",
-        active && collapsed && "bg-d-fill",
+        active && collapsed && "bg-d-accent/12 text-d-accent-ink",
       )}
     >
-      {active && !collapsed && <motion.span aria-hidden layoutId="side-nav-active" transition={SPRING_SLIDE} className="absolute inset-0 rounded-lg bg-d-fill" />}
+      {active && !collapsed && <motion.span aria-hidden layoutId="side-nav-active" transition={SPRING_SLIDE} className="absolute inset-0 rounded-lg bg-d-accent/12" />}
       {/* 2px warm bar marks the current page; it slides between rows with the same spring. */}
       {active && !collapsed && (
         <motion.span aria-hidden layoutId="side-nav-bar" transition={SPRING_SLIDE} className="absolute left-1.5 top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-d-accent" />
       )}
-      <Icon className={cn("relative shrink-0", collapsed ? "size-[18px]" : "size-[17px]", active && "text-d-ink")} strokeWidth={active ? 2 : 1.75} aria-hidden />
+      <Icon className={cn("relative shrink-0", collapsed ? "size-[18px]" : "size-[17px]", active && (collapsed ? "text-d-accent-ink" : "text-d-accent-ink"))} strokeWidth={active ? 2 : 1.75} aria-hidden />
       <motion.span animate={{ opacity: collapsed ? 0 : 1 }} transition={{ duration: 0.1 }} className="relative truncate whitespace-nowrap">
         {item.label()}
       </motion.span>
@@ -59,7 +59,7 @@ function SegmentSwitch({ segment, collapsed }: { segment: Segment; collapsed: bo
               aria-label={o.label}
               title={o.label}
               onClick={() => go(o.to)}
-              className={cn("d-press grid size-10 place-items-center rounded-[11px] transition-colors", segment === o.value ? "bg-d-fill text-d-ink" : "text-d-ink-3 hover:text-d-ink")}
+              className={cn("d-press grid size-10 place-items-center rounded-[11px] transition-colors", segment === o.value ? "bg-d-accent/12 text-d-accent-ink" : "text-d-ink-3 hover:text-d-ink")}
             >
               <Icon className="size-[18px]" strokeWidth={segment === o.value ? 2 : 1.75} aria-hidden />
             </button>
@@ -81,8 +81,8 @@ function SegmentSwitch({ segment, collapsed }: { segment: Segment; collapsed: bo
             onClick={() => go(o.to)}
             className={cn("d-press relative h-[26px] flex-1 rounded-lg text-[12px] font-medium", on ? "text-d-ink" : "text-d-ink-2 hover:text-d-ink")}
           >
-            {on && <motion.span aria-hidden layoutId="side-seg" transition={SPRING_THUMB} className="absolute inset-0 rounded-lg bg-d-surface shadow-[0_1px_2px_oklch(0_0_0/8%)]" />}
-            <span className="relative">{o.label}</span>
+            {on && <motion.span aria-hidden layoutId="side-seg" transition={SPRING_THUMB} className="absolute inset-0 rounded-lg bg-d-accent/12" />}
+            <span className={cn("relative", on && "text-d-accent-ink")}>{o.label}</span>
           </button>
         );
       })}
