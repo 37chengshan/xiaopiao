@@ -118,7 +118,7 @@ export function StatsPage() {
             <Card className="h-full" title={s("stats.trend")} action={compare ? <span className="text-[11px] text-d-ink-3">{s("stats.previous")}</span> : null}>
               {view.summary.totalCents === 0 && view.summary.count === 0 ? (
                 <EmptyState
-                  art="/img/app-empty-ledger.webp"
+                  art="/img/app-empty-ledger.jpg"
                   title={s("stats.empty")}
                   hint={s("stats.emptyHint")}
                   action={
@@ -157,7 +157,7 @@ export function StatsPage() {
           <Stagger index={5} className="col-span-12 xl:col-span-4">
           <Card className="h-full" title={s("stats.mix")}>
             {view.summary.totalCents === 0 ? (
-              <EmptyState art="/img/app-empty-shop.webp" title={s("stats.empty")} className="py-4" />
+              <EmptyState art="/img/app-empty-shop.jpg" title={s("stats.empty")} className="py-4" />
             ) : (
               <div className="flex flex-col items-center gap-3">
                 <Donut slices={view.mix} size={172} centerValue={money(view.summary.totalCents)} centerLabel={s("stats.total")} />
@@ -170,7 +170,7 @@ export function StatsPage() {
           <Stagger index={6} className="col-span-12 xl:col-span-8">
           <Card className="h-full" title={s("stats.ranking")}>
             {view.summary.byCategory.length === 0 ? (
-              <EmptyState art="/img/app-empty-shop.webp" title={s("stats.empty")} className="py-4" />
+              <EmptyState art="/img/app-empty-shop.jpg" title={s("stats.empty")} className="py-4" />
             ) : (
               <ul className="space-y-2.5">
                 {view.summary.byCategory.map((row) => {

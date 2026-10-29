@@ -4,7 +4,11 @@ import { cn } from "@/lib/utils";
 /** Landing motion primitives (WEB-SPEC §L). Everything is transform/opacity only. */
 
 export function usePrefersReducedMotion(): boolean {
-  const [reduce, setReduce] = useState(false);
+  // Read the query during the first render: starting at `false` and correcting in an effect made a
+  // scroll-driven hero flash its closed state before settling.
+  const [reduce, setReduce] = useState(() =>
+    typeof window === "undefined" ? false : window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const on = () => setReduce(mq.matches);

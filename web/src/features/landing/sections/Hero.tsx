@@ -43,9 +43,14 @@ export function Hero() {
     animations.current.forEach((a) => a.cancel());
     animations.current = [];
     timers.current.forEach((t) => window.clearTimeout(t));
-    if (pillRef.current && geo) {
-      pillRef.current.style.width = `${geo.finalW}px`;
-      pillRef.current.style.height = `${geo.finalH}px`;
+    if (pillRef.current) {
+      if (geo) {
+        pillRef.current.style.width = `${geo.finalW}px`;
+        pillRef.current.style.height = `${geo.finalH}px`;
+      } else {
+        pillRef.current.style.width = "3.62em";
+        pillRef.current.style.height = "1.81em";
+      }
     }
     if (clipRef.current) clipRef.current.style.clipPath = "inset(0 0 0 0)";
     if (lineRef.current) lineRef.current.style.opacity = "0";
@@ -292,7 +297,6 @@ export function Hero() {
           className="lp-pill"
           role="img"
           aria-label={s("hero.slot")}
-          style={{ width: 2, height: 2 }}
         >
           <div ref={clipRef} className="lp-pill-clip">
             <img src="/img/landing-printer-slot-macro-v2.webp" alt="" aria-hidden loading="eager" />
@@ -303,11 +307,11 @@ export function Hero() {
               <p className="lp-hero-paper-date">{landingDate(2026, 10, 27)}</p>
               <span className="rule" />
               <b>
-                <span>便利店</span>
+                <span>{s("hero.paper.row1")}</span>
                 <span>11.50</span>
               </b>
               <b>
-                <span>地铁</span>
+                <span>{s("hero.paper.row2")}</span>
                 <span>4.00</span>
               </b>
               <span className="rule" />
@@ -327,9 +331,9 @@ export function Hero() {
       <aside className="lp-hero-float lp-hero-float--left" aria-hidden>
         <div className="lp-float-card">
           <p className="lp-float-kicker">{landingDate(2026, 10, 27)}</p>
-          <p className="lp-float-row"><span>面馆 · 午饭</span><span>32.00</span></p>
-          <p className="lp-float-row"><span>地铁</span><span>5.00</span></p>
-          <p className="lp-float-row"><span>咖啡</span><span>18.00</span></p>
+          <p className="lp-float-row"><span>{s("hero.prop1")}</span><span>32.00</span></p>
+          <p className="lp-float-row"><span>{s("hero.prop2")}</span><span>5.00</span></p>
+          <p className="lp-float-row"><span>{s("hero.prop3")}</span><span>18.00</span></p>
           <span className="lp-float-rule" />
           <p className="lp-float-row lp-float-total"><span>{s("mini.total")}</span><span>55.00</span></p>
           <span className="lp-float-stamp">{s("mini.recorded")}</span>

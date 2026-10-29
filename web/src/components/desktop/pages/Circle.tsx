@@ -87,7 +87,7 @@ export function CirclePage() {
 
         <div className="d-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {room.length === 0 ? (
-            <EmptyState art="/img/app-empty-circle.webp" title={s("ci.empty")} className="py-8" />
+            <EmptyState art="/img/app-empty-circle.jpg" title={s("ci.empty")} className="py-8" />
           ) : (
             room.map((m) => {
               const member = memberOf(circle, m.memberId);

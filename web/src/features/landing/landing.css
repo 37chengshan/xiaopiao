@@ -168,7 +168,7 @@
   flex: none;
   height: 1.81em;
   font-size: var(--fs);
-  width: 3.62em;
+  width: 2px;
   margin: 0 0.085em;
   border-radius: 999px;
   overflow: hidden;
@@ -339,6 +339,15 @@
   line-height: 0.86;
   font-weight: 650;
   padding-right: 0.12em;
+}
+
+/* A drop cap on "It reads…" is just a black bar in Latin; keep the paragraph flush. */
+html[data-locale="en"] .lp-dropcap::first-letter {
+  float: none;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  padding-right: 0;
 }
 
 /* Latin sets the same two words with far more glyphs, so the wordmark shrinks to leave the floating

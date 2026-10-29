@@ -258,7 +258,7 @@ export function OverviewPage() {
           <Card className="h-full" title={s("ov.trend")} action={<Hint>{s("ov.trendHint")}</Hint>}>
             {data.mixTotal === 0 && data.trend30.every((point) => point.value === 0) ? (
               <EmptyState
-                art="/img/app-empty-ledger.webp"
+                art="/img/app-empty-ledger.jpg"
                 title={s("ov.emptyTrendTitle")}
                 hint={s("ov.emptyTrendHint")}
                 action={
@@ -322,7 +322,7 @@ export function OverviewPage() {
               maxHeight="360px"
               empty={
                 <EmptyState
-                  art="/img/app-empty-ledger.webp"
+                  art="/img/app-empty-ledger.jpg"
                   title={s("empty.ledgerTitle")}
                   hint={s("empty.ledgerHint")}
                   action={

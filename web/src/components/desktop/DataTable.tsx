@@ -138,6 +138,16 @@ export function DataTable<T>({
 
   const allSelected = rows.length > 0 && rows.every((r) => selected?.has(rowKey(r)));
 
+  // An empty table is a contradiction on a phone: the empty state gets the surface, full width,
+  // instead of sitting inside a 540px-wide column and being clipped.
+  if (rows.length === 0 && empty) {
+    return (
+      <div role="group" aria-label={label} className="rounded-xl bg-d-surface">
+        {empty}
+      </div>
+    );
+  }
+
   return (
     <div
       ref={scrollRef}
@@ -149,11 +159,14 @@ export function DataTable<T>({
       style={maxHeight ? { maxHeight } : undefined}
       className={cn(
         "relative overflow-auto overscroll-contain rounded-xl bg-d-surface outline-none",
+        // Phones: the table keeps its columns and scrolls sideways instead of squeezing headers; the
+        // soft right edge says "there is more", and the scrollbar itself stays out of the way.
+        "hide-scrollbar max-sm:after:pointer-events-none max-sm:after:absolute max-sm:after:inset-y-0 max-sm:after:right-0 max-sm:after:w-7 max-sm:after:bg-gradient-to-l max-sm:after:from-d-surface max-sm:after:to-transparent",
         "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent-ink",
         maxHeight && "min-h-0",
       )}
     >
-      <table className="w-full border-collapse text-left text-[13px]">
+      <table className="w-full min-w-[540px] border-collapse text-left text-[13px] sm:min-w-0">
         <colgroup>
           {selectable && <col style={{ width: 36 }} />}
           {columns.map((c) => (

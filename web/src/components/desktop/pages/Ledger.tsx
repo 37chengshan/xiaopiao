@@ -460,7 +460,7 @@ export function LedgerPage() {
               rows.length === 0 ? (
                 txns.length === 0 ? (
                   <EmptyState
-                    art="/img/app-empty-ledger.webp"
+                    art="/img/app-empty-ledger.jpg"
                     title={s("empty.ledgerTitle")}
                     hint={s("empty.ledgerHint")}
                     action={<Button variant="primary" icon={Plus} onClick={() => shell.openEntry()}>{s("cm.record")}</Button>}
