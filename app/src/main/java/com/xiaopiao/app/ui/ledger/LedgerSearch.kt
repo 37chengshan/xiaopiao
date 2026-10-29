@@ -16,7 +16,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
@@ -40,54 +39,6 @@ import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 
 private val FieldShape = RoundedCornerShape(XpRadius.pill)
-
-/**
- * The row under the summary card: a 40dp capsule that opens the search page, plus 「筛选」 as a text link
- * (with a count when conditions are on). Not an input — tapping it switches the screen into search mode.
- */
-@Composable
-fun LedgerSearchRow(
-    activeFilterCount: Int,
-    onOpenSearch: () -> Unit,
-    onFilter: () -> Unit,
-    onCalendar: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier.fillMaxWidth().padding(top = XpSpace.cardGap, bottom = XpSpace.xs),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(XpSpace.m),
-    ) {
-        Row(
-            Modifier.weight(1f).height(40.dp).clip(FieldShape).background(XpColors.Fill)
-                .pressableClick(haptic = false, onClick = onOpenSearch)
-                .padding(horizontal = XpSpace.m),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Outlined.Search, contentDescription = null, tint = XpColors.InkTertiary, modifier = Modifier.size(18.dp))
-            Text(
-                "搜索商户、备注、金额",
-                style = MaterialTheme.typography.bodyMedium,
-                color = XpColors.InkTertiary,
-                maxLines = 1,
-                modifier = Modifier.padding(start = XpSpace.s),
-            )
-        }
-        // 按天跳转 lives here (grey-fill square, same family as the search field), not in the top bar (tt#69).
-        Box(
-            Modifier.size(40.dp).clip(FieldShape).background(XpColors.Fill).pressableClick(haptic = false, onClick = onCalendar),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Outlined.CalendarMonth, contentDescription = "按天跳转", tint = XpColors.Ink, modifier = Modifier.size(20.dp))
-        }
-        Text(
-            if (activeFilterCount > 0) "筛选 $activeFilterCount" else "筛选",
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (activeFilterCount > 0) XpColors.Accent else XpColors.Ink,
-            modifier = Modifier.clip(FieldShape).pressableClick(haptic = false, onClick = onFilter).padding(horizontal = XpSpace.s, vertical = XpSpace.s),
-        )
-    }
-}
 
 /** Editable capsule used inside the search page; focuses itself on entry. */
 @Composable

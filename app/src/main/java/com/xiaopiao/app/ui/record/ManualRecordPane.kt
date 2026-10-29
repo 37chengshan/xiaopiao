@@ -2,11 +2,12 @@ package com.xiaopiao.app.ui.record
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,15 +17,27 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Backspace
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,15 +55,20 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xiaopiao.app.domain.Category
+import com.xiaopiao.app.domain.CategoryDefaults
+import com.xiaopiao.app.domain.CategoryDef
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.startOfDay
-import com.xiaopiao.app.ui.components.icon
+import com.xiaopiao.app.ui.category.CategoryTile
+import com.xiaopiao.app.ui.components.XpToastHost
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberXpHaptics
+import com.xiaopiao.app.ui.components.rememberXpToast
+import com.xiaopiao.app.ui.ledger.LedgerCalendarSheet
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpRadius
@@ -58,20 +76,42 @@ import com.xiaopiao.app.ui.theme.XpSpace
 import java.util.Calendar
 
 /**
- * 记一笔 (v6, docs/APP-DESIGN.md §4.1 + the wallet reference): direction + date row, big amount with a
- * cursor, 5-column category grid, note pill, and a 4×4 keypad whose last row is 再记一笔 · 0 · . · 保存.
+ * 记一笔, 1:1 with the wallet reference `041431` (docs/APP-DESIGN.md §4.1): × close, 支出/收入 segmented
+ * on the left with 今天 ▾ / 19:14 ▾ on the right, ¥ + 30sp amount over a hairline, a 5-column category
+ * grid (coloured icons, ＋ 自定义 at the end of the grid), the note pill with the camera slot, and a
+ * 4×4 keypad whose last row is 再记一笔 · 0 · . · 保存.
  *
  * [onSubmit] gets `keepOpen = true` from 再记一笔 (the sheet stays and clears) and `false` from 保存.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ManualRecordPane(onSubmit: (Txn, Boolean) -> Unit) {
+internal fun ManualRecordPane(
+    defs: List<CategoryDef>,
+    onSubmit: (Txn, Boolean) -> Unit,
+    onClose: () -> Unit = {},
+    onOpenCategoryManager: () -> Unit = {},
+) {
     val openedAt = remember { System.currentTimeMillis() }
+    val opened = remember(openedAt) {
+        Calendar.getInstance().apply { timeInMillis = openedAt }
+    }
     var draft by remember { mutableStateOf(RecordDraft()) }
     var merchant by rememberSaveable { mutableStateOf("") }
     var direction by remember { mutableStateOf(Direction.OUT) }
-    var daysAgo by rememberSaveable { mutableIntStateOf(0) }
-    var category by remember { mutableStateOf(Category.MEAL) }
+    var dayStart by remember { mutableStateOf(startOfDay(openedAt)) }
+    var hour by rememberSaveable { mutableIntStateOf(opened.get(Calendar.HOUR_OF_DAY)) }
+    var minute by rememberSaveable { mutableIntStateOf(opened.get(Calendar.MINUTE)) }
+    var chosenId by rememberSaveable { mutableStateOf("") }
+    var calendarOpen by remember { mutableStateOf(false) }
+    var timeOpen by remember { mutableStateOf(false) }
+    val toast = rememberXpToast()
     val haptics = rememberXpHaptics()
+
+    // The grid only offers what fits the current direction; hidden categories never show here.
+    val offered = remember(defs, direction) {
+        defs.filter { !it.hidden && it.fits(direction) }.ifEmpty { CategoryDefaults.all }
+    }
+    val category = offered.firstOrNull { it.id == chosenId } ?: offered.first()
     val cents = RecordDraftMath.cents(draft)
     val canSave = cents > 0L
 
@@ -81,7 +121,7 @@ internal fun ManualRecordPane(onSubmit: (Txn, Boolean) -> Unit) {
             direction = direction,
             category = category,
             merchant = merchant,
-            at = offsetDayStart(openedAt, daysAgo),
+            at = atDayAndTime(dayStart, hour, minute),
         ) ?: return
         if (keepOpen) haptics.select() else haptics.confirm()
         onSubmit(txn, keepOpen)
@@ -91,79 +131,138 @@ internal fun ManualRecordPane(onSubmit: (Txn, Boolean) -> Unit) {
         }
     }
 
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = XpSpace.l),
-        verticalArrangement = Arrangement.spacedBy(XpSpace.s),
-    ) {
-        DirectionAndDateRow(
-            direction = direction,
-            daysAgo = daysAgo,
-            onDirection = { direction = it; haptics.select() },
-            onDaysAgo = { daysAgo = it; haptics.select() },
-        )
+    Box(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.page)) {
+            // × on its own line, top right (reference: 24dp icon, 16dp from the sheet top).
+            Row(Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.weight(1f))
+                Box(
+                    Modifier.size(32.dp).clip(CircleShape).pressableClick(haptic = false, onClick = onClose),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Outlined.Close, contentDescription = "关闭", tint = XpColors.Ink, modifier = Modifier.size(22.dp))
+                }
+            }
 
-        AmountRow(draft = draft, cents = cents)
+            DirectionAndTimeRow(
+                direction = direction,
+                onDirection = { direction = it; haptics.select() },
+                dayLabel = dayLabelOf(dayStart, openedAt),
+                timeLabel = "%02d:%02d".format(hour, minute),
+                onDate = { calendarOpen = true },
+                onTime = { timeOpen = true },
+            )
 
-        Box(Modifier.fillMaxWidth().height(1.dp).background(XpColors.Hairline))
+            AmountRow(draft = draft, cents = cents)
 
-        CategoryGrid(category) { category = it; haptics.select() }
+            // Reference: a 4dp rounded grey bar under the amount, not a hairline.
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill))
 
-        NoteField(merchant) { merchant = it.take(30) }
+            CategoryArea(
+                offered = offered,
+                selected = category.id,
+                onSelect = { chosenId = it; haptics.select() },
+                onCustom = onOpenCategoryManager,
+            )
+        }
+        // Reference: from the note row down, the sheet turns grey edge to edge.
+        Column(
+            Modifier.fillMaxWidth().background(XpColors.CanvasGrouped)
+                .padding(horizontal = XpSpace.page).padding(bottom = XpSpace.xs),
+        ) {
+            NoteRow(
+                value = merchant,
+                onValueChange = { merchant = it.take(30) },
+                onCamera = { toast.show("拍照记账即将支持") },
+            )
 
-        Keypad(
-            canSave = canSave,
-            onKey = { key -> draft = RecordDraftMath.press(draft, key) },
-            onRepeat = { save(keepOpen = true) },
-            onSave = { save(keepOpen = false) },
+            Keypad(
+                canSave = canSave,
+                onKey = { key -> draft = RecordDraftMath.press(draft, key) },
+                onRepeat = { save(keepOpen = true) },
+                onSave = { save(keepOpen = false) },
+            )
+        }
+        }
+        // Feedback sits under the × so it never covers the keys (§7.7 in-sheet placement).
+        XpToastHost(toast, Modifier.align(Alignment.TopCenter).padding(top = 40.dp))
+    }
+
+    if (calendarOpen) {
+        LedgerCalendarSheet(
+            anchor = dayStart,
+            selected = dayStart,
+            today = startOfDay(openedAt),
+            onPick = { dayStart = startOfDay(it); calendarOpen = false },
+            onDismiss = { calendarOpen = false },
         )
     }
+    if (timeOpen) TimePickerSheet(
+        hour = hour,
+        minute = minute,
+        onPick = { h, m -> hour = h; minute = m; timeOpen = false },
+        onDismiss = { timeOpen = false },
+    )
 }
 
-/** 支出 / 收入 on the left, the date pill on the right — one row, 32dp tall. */
+/** 支出 / 收入 segmented on the left, 今天 ▾ and 19:14 ▾ on the right (reference: 30dp pills). */
 @Composable
-private fun DirectionAndDateRow(
+private fun DirectionAndTimeRow(
     direction: Direction,
-    daysAgo: Int,
     onDirection: (Direction) -> Unit,
-    onDaysAgo: (Int) -> Unit,
+    dayLabel: String,
+    timeLabel: String,
+    onDate: () -> Unit,
+    onTime: () -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(top = XpSpace.xs),
+        Modifier.fillMaxWidth().padding(bottom = XpSpace.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DirectionChip("支出", direction == Direction.OUT) { onDirection(Direction.OUT) }
-        Spacer(Modifier.width(XpSpace.s))
-        DirectionChip("收入", direction == Direction.IN) { onDirection(Direction.IN) }
+        Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
+            DirectionChip("支出", direction == Direction.OUT) { onDirection(Direction.OUT) }
+            DirectionChip("收入", direction == Direction.IN) { onDirection(Direction.IN) }
+        }
         Spacer(Modifier.weight(1f))
-        val label = when (daysAgo) {
-            0 -> "今天"
-            1 -> "昨天"
-            else -> "前天"
-        }
-        Box(
-            Modifier.height(32.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill)
-                .pressableClick(scaleDown = 0.96f) { onDaysAgo((daysAgo + 1) % 3) }
-                .padding(horizontal = XpSpace.m),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("$label ▾", style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = XpColors.Ink)
-        }
+        PillButton(dayLabel, onDate)
+        Spacer(Modifier.width(XpSpace.xs))
+        PillButton(timeLabel, onTime)
     }
 }
 
 @Composable
 private fun DirectionChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    val bg by animateColorAsState(if (selected) XpColors.Fill else XpColors.Canvas, tween(160, easing = XpEase.out), label = "dirBg")
+    val bg by animateColorAsState(if (selected) XpColors.AccentSoft else XpColors.Fill, tween(160, easing = XpEase.out), label = "dirBg")
     Box(
-        Modifier.height(32.dp).clip(RoundedCornerShape(XpRadius.pill)).background(bg)
+        Modifier.height(30.dp).clip(RoundedCornerShape(XpRadius.pill)).background(bg)
             .pressableClick(scaleDown = 0.96f, onClick = onClick)
-            .padding(horizontal = XpSpace.m),
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             label,
-            style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
-            color = if (selected) XpColors.Ink else XpColors.InkTertiary,
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+            color = if (selected) XpColors.Accent else XpColors.InkSecondary,
+            maxLines = 1,
+        )
+    }
+}
+
+/** 30dp grey pill with a caret — the reference's 今天 ▾ / 19:14 ▾. */
+@Composable
+private fun PillButton(text: String, onClick: () -> Unit) {
+    Box(
+        Modifier.height(30.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill)
+            .pressableClick(haptic = false, scaleDown = 0.96f, onClick = onClick)
+            .padding(horizontal = XpSpace.m),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            "$text ▾",
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp),
+            color = XpColors.Ink,
+            maxLines = 1,
         )
     }
 }
@@ -181,13 +280,14 @@ private fun AmountRow(draft: RecordDraft, cents: Long) {
         }
     }
     Row(
-        Modifier.fillMaxWidth().padding(top = XpSpace.m, bottom = XpSpace.xs),
+        Modifier.fillMaxWidth().height(64.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("¥", fontSize = 22.sp, fontWeight = FontWeight.Medium, color = XpColors.InkSecondary)
+        Text("¥", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = XpColors.Ink)
         Text(
-            draft.expression,
-            modifier = Modifier.padding(start = XpSpace.xs),
+            // Reference: an untouched amount is just ¥ and the caret, no grey 0.
+            if (draft.isEmpty) "" else draft.expression,
+            modifier = Modifier.padding(start = 6.dp),
             fontSize = 30.sp,
             fontWeight = FontWeight.SemiBold,
             color = if (cents == 0L) XpColors.InkTertiary else XpColors.Ink,
@@ -195,89 +295,128 @@ private fun AmountRow(draft: RecordDraft, cents: Long) {
             maxLines = 1,
         )
         Box(
-            Modifier.padding(start = 2.dp).width(2.dp).height(26.dp)
+            Modifier.padding(start = 2.dp).width(2.dp).height(28.dp)
                 .graphicsLayer { alpha = caret.value }
                 .background(XpColors.Accent),
         )
     }
 }
 
-/** 5 columns: 34dp tile + 12sp label; selection fills the tile with ink and flips the icon to canvas. */
+/**
+ * Five columns of coloured cells, 65dp each (reference), scrolling once the user has more categories.
+ * The fixed height keeps the keypad on screen at every font scale; the last cell opens 分类管理.
+ */
 @Composable
-private fun CategoryGrid(selected: Category, onSelect: (Category) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(XpSpace.xs)) {
-        Category.entries.chunked(5).forEach { row ->
-            Row(Modifier.fillMaxWidth()) {
-                row.forEach { category ->
-                    Column(
-                        Modifier.weight(1f).clip(RoundedCornerShape(XpRadius.s))
-                            .pressableClick(haptic = false, scaleDown = 0.94f) { onSelect(category) }
-                            .padding(vertical = 2.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        CategoryTile(category, selected = category == selected)
-                        Text(
-                            category.label,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                            maxLines = 1,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(top = 3.dp),
-                            color = if (category == selected) XpColors.Ink else XpColors.InkSecondary,
-                        )
-                    }
-                }
-                repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
+private fun CategoryArea(
+    offered: List<CategoryDef>,
+    selected: String,
+    onSelect: (String) -> Unit,
+    onCustom: () -> Unit,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(5),
+        modifier = Modifier.fillMaxWidth().height(64.dp * 3 + 8.dp).padding(top = XpSpace.xs),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        userScrollEnabled = true,
+    ) {
+        items(offered, key = { it.id }) { def ->
+            Column(
+                Modifier.clip(RoundedCornerShape(XpRadius.s))
+                    .pressableClick(haptic = false, scaleDown = 0.94f) { onSelect(def.id) }
+                    .padding(vertical = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                CategoryTile(def, size = 36.dp, selected = def.id == selected)
+                // Five columns at 360dp × 1.3 font: shrink the label to fit before ever ellipsizing it.
+                BasicText(
+                    def.label,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        color = if (def.id == selected) XpColors.Ink else XpColors.InkSecondary,
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 12.sp, stepSize = 0.5.sp),
+                    modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp),
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun CategoryTile(category: Category, selected: Boolean) {
-    val pop = remember { Animatable(1f) }
-    LaunchedEffect(selected) {
-        if (selected) {
-            pop.snapTo(0.9f)
-            pop.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 420f))
-        }
-    }
-    val bg by animateColorAsState(if (selected) XpColors.Primary else XpColors.Fill, tween(160, easing = XpEase.out), label = "tileBg")
-    val fg by animateColorAsState(if (selected) XpColors.OnPrimary else XpColors.InkSecondary, tween(160, easing = XpEase.out), label = "tileFg")
-    Box(
-        Modifier.size(34.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value }
-            .clip(RoundedCornerShape(10.dp)).background(bg),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(category.icon(), contentDescription = null, tint = fg, modifier = Modifier.size(19.dp))
-    }
-}
-
-/** Note pill: one line, no border, camera stays out until OCR exists. */
-@Composable
-private fun NoteField(value: String, onValueChange: (String) -> Unit) {
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth().height(36.dp).clip(RoundedCornerShape(XpRadius.pill))
-            .background(XpColors.Fill).padding(horizontal = XpSpace.m),
-        textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, color = XpColors.Ink),
-        cursorBrush = SolidColor(XpColors.Accent),
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { }),
-        decorationBox = { inner ->
-            Box(contentAlignment = Alignment.CenterStart) {
-                if (value.isEmpty()) {
-                    Text(
-                        "点击填写备注",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                        color = XpColors.InkTertiary,
+        item(key = "custom") {
+            Column(
+                Modifier.pressableClick(haptic = false, scaleDown = 0.94f, onClick = onCustom)
+                    .padding(vertical = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    Modifier.size(36.dp).clip(RoundedCornerShape(36.dp * 0.28f))
+                        .background(XpColors.Fill),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.Add,
+                        contentDescription = null,
+                        tint = XpColors.InkSecondary,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
-                inner()
+                Text(
+                    "自定义",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                    maxLines = 1,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 4.dp),
+                    color = XpColors.InkSecondary,
+                )
             }
-        },
-    )
+        }
+    }
+}
+
+/** Note pill + the camera slot (36dp each, reference). The camera is an OCR entry that is not wired yet. */
+@Composable
+private fun NoteRow(value: String, onValueChange: (String) -> Unit, onCamera: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = XpSpace.s),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(XpRadius.pill))
+                .background(XpColors.Fill).padding(horizontal = XpSpace.m),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, color = XpColors.Ink),
+            cursorBrush = SolidColor(XpColors.Accent),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { }),
+            decorationBox = { inner ->
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (value.isEmpty()) {
+                        Text(
+                            "点击填写备注",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                            color = XpColors.InkTertiary,
+                        )
+                    }
+                    inner()
+                }
+            },
+        )
+        Spacer(Modifier.width(XpSpace.s))
+        Box(
+            Modifier.size(36.dp).clip(CircleShape).background(XpColors.Fill)
+                .pressableClick(haptic = false, onClick = onCamera),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Outlined.PhotoCamera,
+                contentDescription = "拍照记账",
+                tint = XpColors.InkSecondary,
+                modifier = Modifier.size(19.dp),
+            )
+        }
+    }
 }
 
 private val keypadRows = listOf(
@@ -286,7 +425,7 @@ private val keypadRows = listOf(
     listOf("1", "2", "3", RecordDraftMath.PLUS),
 )
 
-/** 4×4 keypad, 49dp rows. Flat keys (no fills), one ink save button, one quiet 再记一笔. */
+/** 4×4 keypad, 49dp rows (reference). Flat keys, one accent save button, one quiet 再记一笔. */
 @Composable
 private fun Keypad(
     canSave: Boolean,
@@ -295,7 +434,7 @@ private fun Keypad(
     onSave: () -> Unit,
 ) {
     val haptics = rememberXpHaptics()
-    Column(Modifier.fillMaxWidth().padding(top = XpSpace.xs)) {
+    Column(Modifier.fillMaxWidth().padding(top = XpSpace.xs, bottom = XpSpace.m)) {
         keypadRows.forEach { row ->
             Row(Modifier.fillMaxWidth().height(49.dp), verticalAlignment = Alignment.CenterVertically) {
                 row.forEach { key ->
@@ -322,8 +461,9 @@ private fun Keypad(
                 ) {
                     Text(
                         "再记一笔",
-                        fontSize = 14.sp,
-                        color = if (canSave) XpColors.Ink else XpColors.InkTertiary,
+                        fontSize = 15.sp,
+                        color = if (canSave) XpColors.InkSecondary else XpColors.InkTertiary,
+                        maxLines = 1,
                     )
                 }
             }
@@ -370,19 +510,65 @@ private fun KeyGlyph(key: String, size: Int, onClick: () -> Unit) {
     }
 }
 
-/** 86×48, radius 12: ink solid when there is an amount, grey fill when there is not. */
+/** 86×48, radius 12: accent solid when there is an amount, grey fill when there is not (reference). */
 @Composable
 private fun SaveButton(enabled: Boolean, onSave: () -> Unit) {
-    val bg by animateColorAsState(if (enabled) XpColors.Primary else XpColors.Fill, tween(160, easing = XpEase.out), label = "saveBg")
-    val fg by animateColorAsState(if (enabled) XpColors.OnPrimary else XpColors.InkTertiary, tween(160, easing = XpEase.out), label = "saveFg")
+    val bg by animateColorAsState(if (enabled) XpColors.Accent else XpColors.Accent.copy(alpha = 0.35f), tween(160, easing = XpEase.out), label = "saveBg")
+    val fg = XpColors.OnAccent
     Box(
         Modifier.size(width = 86.dp, height = 48.dp).clip(RoundedCornerShape(12.dp)).background(bg)
             .pressableClick(enabled = enabled, scaleDown = 0.95f, haptic = true) { onSave() },
         contentAlignment = Alignment.Center,
     ) {
-        Text("保存", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = fg)
+        Text("保存", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1)
     }
 }
+
+/** Hour/minute picker for the 19:14 pill; 24h dial, defaults to the current minute. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickerSheet(
+    hour: Int,
+    minute: Int,
+    onPick: (Int, Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val state = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = true)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onPick(state.hour, state.minute) }) { Text("确定", color = XpColors.Accent) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消", color = XpColors.InkSecondary) }
+        },
+        text = { TimePicker(state = state) },
+        containerColor = XpColors.Card,
+    )
+}
+
+/** 「今天 / 昨天 / 10月26日」 for the date pill. */
+internal fun dayLabelOf(dayStart: Long, now: Long): String {
+    val today = startOfDay(now)
+    val diff = Math.round((today - dayStart) / 86_400_000.0).toInt()
+    return when (diff) {
+        0 -> "今天"
+        1 -> "昨天"
+        2 -> "前天"
+        else -> Calendar.getInstance().apply { timeInMillis = dayStart }
+            .let { "${it.get(Calendar.MONTH) + 1}月${it.get(Calendar.DAY_OF_MONTH)}日" }
+    }
+}
+
+/** Combines a day (midnight) with the picked clock time; DST-safe through Calendar. */
+internal fun atDayAndTime(dayStart: Long, hour: Int, minute: Int): Long =
+    Calendar.getInstance().apply {
+        timeInMillis = dayStart
+        set(Calendar.HOUR_OF_DAY, hour)
+        set(Calendar.MINUTE, minute)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
 
 /** Start of the day [daysAgo] days before [now], DST-safe through Calendar. */
 internal fun offsetDayStart(now: Long, daysAgo: Int): Long {

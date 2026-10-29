@@ -25,12 +25,17 @@ data class TxnEntity(
     val note: String,
     @ColumnInfo(name = "cardLast4", defaultValue = "") val cardLast4: String,
     @ColumnInfo(name = "dedupeKey") val dedupeKey: String?,
+    /** Id in `categories` (tt#70); blank on rows written before v3 — they resolve through the enum. */
+    @ColumnInfo(name = "categoryId", defaultValue = "") val categoryId: String,
+    /** `alipay` / `wechat` / blank: which app the payment came from (§4.4). */
+    @ColumnInfo(name = "channel", defaultValue = "") val channel: String,
 )
 
 fun Txn.toEntity() = TxnEntity(
     id = id, amountCents = amountCents, direction = direction.name, merchant = merchant,
     category = category.name, occurredAt = occurredAt, source = source.name, note = note,
     cardLast4 = cardLast4, dedupeKey = dedupeKey.ifEmpty { null },
+    categoryId = categoryId, channel = channel,
 )
 
 fun TxnEntity.toDomain() = Txn(
@@ -41,6 +46,7 @@ fun TxnEntity.toDomain() = Txn(
     occurredAt = occurredAt,
     source = runCatching { Source.valueOf(source) }.getOrDefault(Source.MANUAL),
     note = note, cardLast4 = cardLast4, dedupeKey = dedupeKey.orEmpty(),
+    categoryId = categoryId, channel = channel,
 )
 
 /** Raw captured notification, kept on device only. */

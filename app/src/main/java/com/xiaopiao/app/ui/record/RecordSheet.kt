@@ -70,12 +70,17 @@ fun rememberRecordSheetState(): RecordSheetState = remember { RecordSheetState()
 fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
     val mode = state.mode ?: return
     val scope = rememberCoroutineScope()
+    val defs = com.xiaopiao.app.ui.category.rememberCategoryDefs(container.categories)
+    var managerOpen by remember { mutableStateOf(false) }
 
     val toast = com.xiaopiao.app.ui.components.rememberXpToast()
     XpSheet(onDismiss = state::dismiss) {
         Box(Modifier.fillMaxWidth()) {
         when (mode) {
             RecordMode.Manual -> ManualRecordPane(
+                defs = defs,
+                onClose = state::dismiss,
+                onOpenCategoryManager = { managerOpen = true },
                 onSubmit = { txn, keepOpen ->
                     scope.launch {
                         container.ledger.add(txn)
@@ -101,6 +106,10 @@ fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
                 Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 24.dp),
             )
         }
+    }
+
+    if (managerOpen) {
+        com.xiaopiao.app.ui.category.CategoryManagerDialog(container.categories) { managerOpen = false }
     }
 }
 
