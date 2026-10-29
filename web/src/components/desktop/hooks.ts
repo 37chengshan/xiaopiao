@@ -125,19 +125,19 @@ export function useNoticeDismissed(): boolean {
  * True while the first skeleton must stay up: at least `minMs` from mount, and while data is loading.
  * Keeps the first paint honest instead of flashing a spinner for 40ms.
  */
-export function useFirstPaint(loading: boolean, minMs = 200, maxWaitMs = 1400): boolean {
-  // Hold the skeleton for at least `minMs` so it never flashes, but never longer than `maxWaitMs`:
-  // a hung ledger (offline, cloud unavailable) must degrade to the page's empty state, not a skeleton.
-  const [tick, setTick] = useState(0);
+export function useFirstPaint(loading: boolean, delayMs = 60, maxWaitMs = 1400): boolean {
+  // The skeleton is a fallback for genuinely slow data, never a designed frame: it only appears if
+  // loading is still true after `delayMs`, and gives up after `maxWaitMs` so a hung ledger reaches
+  // the page's empty state instead of an endless skeleton.
+  const [late, setLate] = useState(false);
+  const [expired, setExpired] = useState(false);
   useEffect(() => {
-    const min = window.setTimeout(() => setTick(1), minMs);
-    const max = window.setTimeout(() => setTick(2), maxWaitMs);
+    const slow = window.setTimeout(() => setLate(true), delayMs);
+    const max = window.setTimeout(() => setExpired(true), maxWaitMs);
     return () => {
-      window.clearTimeout(min);
+      window.clearTimeout(slow);
       window.clearTimeout(max);
     };
-  }, [minMs, maxWaitMs]);
-  if (tick === 0) return true;
-  if (tick === 1) return loading;
-  return false;
+  }, [delayMs, maxWaitMs]);
+  return loading && late && !expired;
 }

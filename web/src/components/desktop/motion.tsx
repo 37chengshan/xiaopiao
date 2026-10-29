@@ -62,15 +62,7 @@ export function useCountUp(value: number, ms = 600): number {
 export function Loadable({ loading, skeleton, children, className }: { loading: boolean; skeleton: ReactNode; children: ReactNode; className?: string }) {
   return (
     <div className={cn("relative", className)}>
-      {loading ? (
-        <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
-          {skeleton}
-        </motion.div>
-      ) : (
-        <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }}>
-          {children}
-        </motion.div>
-      )}
+      {loading ? <div key="skeleton">{skeleton}</div> : <div key="content">{children}</div>}
     </div>
   );
 }

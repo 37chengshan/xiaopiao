@@ -105,9 +105,17 @@
 
 /* ------------------------------------------------------------------- hero */
 
+/* The opening is a scrubbed timeline: the hero stays pinned while the wheel prints the receipt,
+   and only when that finishes does the page move on to the demo (tt 2026-10-29). */
+.lp-hero-pin {
+  position: relative;
+  height: 190svh;
+}
 .lp-hero {
   --fs: min(17svh, 11.6vw);
-  position: relative;
+  position: sticky;
+  top: 0;
+  height: 100svh;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -270,29 +278,9 @@
     0 2px 3px -2px rgba(20, 15, 10, 0.4),
     0 18px 30px -20px rgba(20, 15, 10, 0.6);
   transform-origin: 50% 0;
-  animation: lp-print 8s cubic-bezier(0.33, 0, 0.2, 1) infinite;
-  will-change: clip-path, opacity;
-}
-@keyframes lp-print {
-  0% {
-    clip-path: inset(0 0 100% 0);
-    opacity: 0;
-  }
-  6% {
-    opacity: 1;
-  }
-  58% {
-    clip-path: inset(0 0 14% 0);
-    opacity: 1;
-  }
-  90% {
-    clip-path: inset(0 0 14% 0);
-    opacity: 1;
-  }
-  100% {
-    clip-path: inset(0 0 100% 0);
-    opacity: 0;
-  }
+  clip-path: inset(0 0 100% 0);
+  opacity: 0;
+  will-change: clip-path, opacity, transform;
 }
 .lp-hero-paper::after {
   content: "";
@@ -327,6 +315,7 @@
 }
 .lp-hero-foot {
   position: relative;
+  opacity: 0; /* revealed by the scroll timeline, or immediately with reduced motion */
   z-index: 5;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -543,6 +532,17 @@ html[data-locale="en"] .lp-float-stamp {
 @media (prefers-reduced-motion: reduce) {
   .lp-hero-float {
     animation: none;
+  }
+  /* No dead scroll when the timeline is skipped. */
+  .lp-hero-foot {
+    opacity: 1;
+  }
+  .lp-hero-pin {
+    height: auto;
+  }
+  .lp-hero {
+    position: relative;
+    height: auto;
   }
 }
 
