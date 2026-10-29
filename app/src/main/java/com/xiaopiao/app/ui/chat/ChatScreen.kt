@@ -460,14 +460,14 @@ fun ChatScreen(
         val barInset = if (imeUp) 0.dp else LocalTabBarInset.current
         val density = LocalDensity.current
         var composerH by remember { mutableStateOf(72.dp) }
-        Box(Modifier.fillMaxSize().background(chatBackdrop()).padding(top = top).imePadding()) {
+        Box(Modifier.fillMaxSize().background(chatBackdrop()).imePadding()) {
             Box(Modifier.fillMaxSize()) {
                 when {
                     conversation.isEmpty() -> ChatEmptyState(
                         hint = emptyHint(stats, hello),
                         onSuggestion = { question -> send(question) },
                         onManual = onRecordManual,
-                        modifier = Modifier.fillMaxSize().padding(bottom = composerH + barInset),
+                        modifier = Modifier.fillMaxSize().padding(top = top, bottom = composerH + barInset),
                     )
 
                     else -> ConversationList(
@@ -479,6 +479,9 @@ fun ChatScreen(
                         onEdit = ::edit,
                         onImportCsv = ::importCsv,
                         onCancelCsv = ::cancelCsv,
+                        // The conversation runs under the glass bar: the bar's height is a padding of the list,
+                        // so messages slide behind the capsules instead of stopping under them.
+                        topPadding = top,
                         bottomPadding = composerH + barInset,
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -644,12 +647,13 @@ private fun ConversationList(
     onImportCsv: (ChatItem.CsvAttachment) -> Unit,
     onCancelCsv: (ChatItem.CsvAttachment) -> Unit,
     modifier: Modifier = Modifier,
+    topPadding: Dp = 0.dp,
     bottomPadding: Dp = 0.dp,
 ) {
     LazyColumn(
         modifier,
         state = listState,
-        contentPadding = PaddingValues(top = XpSpace.s, bottom = XpSpace.l + bottomPadding),
+        contentPadding = PaddingValues(top = topPadding + XpSpace.s, bottom = XpSpace.l + bottomPadding),
         verticalArrangement = Arrangement.spacedBy(XpSpace.s),
     ) {
         if (reminder != null) item(key = "reminder") { ReminderLine(reminder) }

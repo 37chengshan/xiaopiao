@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -89,6 +90,10 @@ fun BudgetPage(
     onOpenSettings: () -> Unit = {},
     /** tt: opened from the ledger it is a bottom drawer, not a page — no nav bar, its own title row. */
     inSheet: Boolean = false,
+    /** Drawn inside another page's [com.xiaopiao.app.ui.components.NavScaffold] (统计 → 预算): no bar of its own. */
+    embedded: Boolean = false,
+    /** Height the outer bar reserves; only scrolls with the content, so the page can run under the capsules. */
+    topPad: Dp = 0.dp,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -102,11 +107,12 @@ fun BudgetPage(
     val statuses = remember(settings, txns, now) { BudgetMath.statuses(settings, txns, now) }
     val categories = remember(settings, txns, now) { BudgetMath.categoryBudgets(settings, txns, now) }
 
-    val body: @Composable (Modifier) -> Unit = { frame ->
+    val body: @Composable (Modifier, Dp) -> Unit = { frame, pad ->
         Column(
+            // verticalScroll first: the padding below it belongs to the content and scrolls away under the bar.
             frame.verticalScroll(rememberScrollState())
                 .padding(horizontal = XpSpace.page)
-                .padding(top = XpSpace.m, bottom = if (inSheet) XpSpace.xl else 120.dp),
+                .padding(top = pad + XpSpace.m, bottom = if (inSheet) XpSpace.xl else 120.dp),
             verticalArrangement = Arrangement.spacedBy(XpSpace.cardGap),
         ) {
             Text(
@@ -135,8 +141,10 @@ fun BudgetPage(
                 "预算", style = MaterialTheme.typography.titleLarge, color = XpColors.Ink,
                 modifier = Modifier.padding(horizontal = XpSpace.page),
             )
-            body(Modifier.fillMaxWidth())
+            body(Modifier.fillMaxWidth(), 0.dp)
         }
+    } else if (embedded) {
+        body(Modifier.fillMaxSize(), topPad)
     } else {
         NavScaffold(
             "预算",
@@ -144,7 +152,7 @@ fun BudgetPage(
             onBack = onBack,
             backLabel = "返回",
             trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
-        ) { top -> body(Modifier.fillMaxSize().padding(top = top)) }
+        ) { top -> body(Modifier.fillMaxSize(), top) }
     }
 
     val target = editing
