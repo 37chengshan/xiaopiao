@@ -79,7 +79,7 @@ private fun Centered(line: ReceiptLine, modifier: Modifier, c: PaperColors) {
         LineKind.NOTICE -> ReceiptRow.copy(fontSize = 11.sp, color = c.inkFaint)
         LineKind.BIG -> ReceiptRow.copy(fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, color = c.ink)
         LineKind.FOOTER -> ReceiptRow.copy(fontSize = 11.sp, color = c.inkFaint, letterSpacing = 0.5.sp)
-        LineKind.COMMENT -> if (LocalReceiptFont.current == ReceiptFont.Thermal) ReceiptHandwriting.copy(color = c.ink) else ReceiptRow.copy(fontSize = 13.sp, color = c.ink)
+        LineKind.COMMENT -> if (LocalReceiptFont.current == ReceiptFont.Thermal) ReceiptHandwriting.copy(color = c.ink, fontSize = 13.sp) else ReceiptRow.copy(fontSize = 12.sp, color = c.ink)
         LineKind.MORE -> ReceiptRow.copy(fontSize = 11.sp, color = c.inkSoft)
         else -> ReceiptRow.copy(color = c.ink)
     }

@@ -109,7 +109,7 @@ fun CircleAwardSheet(circle: Circle, now: Long, viewerId: String, onClose: () ->
                 circle.members.forEach { member ->
                     val badge = weeklyTitle(circle, member, now)
                     Row(
-                        Modifier.fillMaxWidth().padding(vertical = 9.dp),
+                        Modifier.fillMaxWidth().padding(vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
                     ) {
@@ -129,14 +129,6 @@ fun CircleAwardSheet(circle: Circle, now: Long, viewerId: String, onClose: () ->
                                 "${badge.emoji} ${badge.title}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = XpColors.InkSecondary,
-                            )
-                        }
-                        if (member.id == viewerId) {
-                            Text(
-                                stringResource(R.string.circle_home_me),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = XpColors.Ink,
-                                modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.AccentSoft).padding(horizontal = 8.dp, vertical = 2.dp),
                             )
                         }
                     }
