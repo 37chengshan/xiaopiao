@@ -204,8 +204,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     // Ledger-side tabs pad their own lists past the bar, so they can run underneath it and show through the glass.
     // The rest (circle chat input, games…) still stop above it.
     val underBar = current == NavTab.Ledger.route || current == NavTab.Receipt.route || current == NavTab.Insights.route ||
-        // The AI session drawer covers the whole screen, including where the (hidden) bar sat.
-        (navBarHidden && current == NavTab.Chat.route)
+        // AI floats its input above the bar and lets the conversation scroll under the glass.
+        current == NavTab.Chat.route
 
     CompositionLocalProvider(LocalReceiptHost provides receiptHost, LocalTopBarHost provides topBarHost) {
     Box(Modifier.fillMaxSize()) {
@@ -237,6 +237,10 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 .background(if (current == NavTab.Circle.route || current == NavTab.Games.route || current == NavTab.Chat.route) XpColors.Card else XpColors.CanvasGrouped)
                 .padding(top = top, bottom = if (underBar) 0.dp else padding.calculateBottomPadding()),
         ) {
+            CompositionLocalProvider(
+                com.xiaopiao.app.ui.components.LocalTabBarInset provides
+                    if (underBar && !navBarHidden) padding.calculateBottomPadding() else 0.dp,
+            ) {
             // Tab switches are instant: it is the most frequent navigation in the app (docs/APP-DESIGN.md §7).
             NavHost(
                 nav, startDestination = start,
@@ -297,6 +301,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 // 游戏 is its own tab of the social side, not a state inside 圈子: nothing saved can reopen it by itself.
                 composable(NavTab.Games.route) { GamesHub(onBack = { go(NavTab.Circle) }, onOpenSettings = { nav.navigate("settings") }) }
 
+            }
             }
         }
     }

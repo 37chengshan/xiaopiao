@@ -1,5 +1,11 @@
 package com.xiaopiao.app.ui.chat
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.isImeVisible
+import com.xiaopiao.app.ui.components.LocalTabBarInset
 import com.xiaopiao.app.ui.components.AppTopActions
 import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
@@ -111,7 +117,7 @@ private val DrawerPagePush = 24.dp
  * (voice → send → stop) and a ＋ that stages images / CSV files. Everything stays on this device: OCR and
  * CSV parsing happen locally, the ledger only receives the rows the user confirms.
  */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun ChatScreen(
     container: AppContainer,
@@ -448,14 +454,20 @@ fun ChatScreen(
             leading = { NavIconButton(Icons.Outlined.Menu, "会话", onClick = { drawerOpen = true }) },
             trailing = { AppTopActions() },
         ) { top ->
-        Column(Modifier.fillMaxSize().background(chatBackdrop()).padding(top = top).imePadding()) {
-            Box(Modifier.weight(1f)) {
+        // The conversation runs under the floating input and the glass tab bar (docs/DESIGN.md §4.3); with the
+        // keyboard up the bar is covered, so only the input's own height is reserved.
+        val imeUp = WindowInsets.isImeVisible
+        val barInset = if (imeUp) 0.dp else LocalTabBarInset.current
+        val density = LocalDensity.current
+        var composerH by remember { mutableStateOf(72.dp) }
+        Box(Modifier.fillMaxSize().background(chatBackdrop()).padding(top = top).imePadding()) {
+            Box(Modifier.fillMaxSize()) {
                 when {
                     conversation.isEmpty() -> ChatEmptyState(
                         hint = emptyHint(stats, hello),
                         onSuggestion = { question -> send(question) },
                         onManual = onRecordManual,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().padding(bottom = composerH + barInset),
                     )
 
                     else -> ConversationList(
@@ -467,6 +479,7 @@ fun ChatScreen(
                         onEdit = ::edit,
                         onImportCsv = ::importCsv,
                         onCancelCsv = ::cancelCsv,
+                        bottomPadding = composerH + barInset,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -493,6 +506,8 @@ fun ChatScreen(
                 attachments = attachments,
                 onRemoveAttachment = { attachments.remove(it) },
                 focusRequester = focusRequester,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = barInset)
+                    .onSizeChanged { composerH = with(density) { it.height.toDp() } },
             )
         }
         }
@@ -629,11 +644,12 @@ private fun ConversationList(
     onImportCsv: (ChatItem.CsvAttachment) -> Unit,
     onCancelCsv: (ChatItem.CsvAttachment) -> Unit,
     modifier: Modifier = Modifier,
+    bottomPadding: Dp = 0.dp,
 ) {
     LazyColumn(
         modifier,
         state = listState,
-        contentPadding = PaddingValues(top = XpSpace.s, bottom = XpSpace.l),
+        contentPadding = PaddingValues(top = XpSpace.s, bottom = XpSpace.l + bottomPadding),
         verticalArrangement = Arrangement.spacedBy(XpSpace.s),
     ) {
         if (reminder != null) item(key = "reminder") { ReminderLine(reminder) }
