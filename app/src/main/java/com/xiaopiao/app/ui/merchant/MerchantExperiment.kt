@@ -131,13 +131,11 @@ private fun FlowFrame(
         onBack = onBack,
         backLabel = "返回",
         demo = false,
-        trailing = { NavIconButton(Icons.Outlined.Info, "数据怎么来的", onClick = onPrivacy) },
+        trailing = { NavIconButton(Icons.Outlined.Info, bi("数据怎么来的", "Where the data comes from"), onClick = onPrivacy) },
     ) { top ->
-        Column(Modifier.fillMaxSize().padding(top = top)) {
-            Column(Modifier.padding(horizontal = XpSpace.l)) {
-                StepBar(route, hasExperiment, onJump)
-            }
-            Box(Modifier.weight(1f).padding(top = XpSpace.s)) { content() }
+        // The step bar scrolls with the page so the whole flow can run under the glass bar (DESIGN §4.3).
+        FlowChromeHost(FlowChrome(top = top + XpSpace.s) { StepBar(route, hasExperiment, onJump) }) {
+            Box(Modifier.fillMaxSize()) { content() }
         }
     }
 }

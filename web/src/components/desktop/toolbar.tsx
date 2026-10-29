@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Bell, Menu, Printer, Search, UserRound } from "lucide-react";
+import { Bell, Menu, PanelLeftClose, PanelLeftOpen, Printer, Search, UserRound } from "lucide-react";
 import { useMemo } from "react";
 import { useLedger } from "@/services/LedgerProvider";
 import { startOfDay } from "@/domain/types";
@@ -48,6 +48,8 @@ export function Toolbar({
   onSearch,
   onPrint,
   onOpenSidebar,
+  onToggleSidebar,
+  sidebarCollapsed,
   onMessages,
   unread,
 }: {
@@ -55,11 +57,25 @@ export function Toolbar({
   onSearch: () => void;
   onPrint: () => void;
   onOpenSidebar?: () => void;
+  /** Desktop: collapse/expand the rail from the toolbar as well as the rail footer. */
+  onToggleSidebar?: () => void;
+  sidebarCollapsed?: boolean;
   onMessages: () => void;
   unread: boolean;
 }) {
   return (
     <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-d-hairline px-4 lg:px-6">
+      {onToggleSidebar && (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          aria-label={s(sidebarCollapsed ? "nav.expand" : "nav.collapse")}
+          aria-pressed={sidebarCollapsed}
+          className="d-press hidden size-8 place-items-center rounded-lg text-d-ink-2 hover:bg-d-fill md:grid"
+        >
+          {sidebarCollapsed ? <PanelLeftOpen className="size-4" strokeWidth={1.75} aria-hidden /> : <PanelLeftClose className="size-4" strokeWidth={1.75} aria-hidden />}
+        </button>
+      )}
       {onOpenSidebar && (
         <button type="button" onClick={onOpenSidebar} aria-label={s("nav.open")} className="d-press grid size-8 place-items-center rounded-lg text-d-ink-2 hover:bg-d-fill md:hidden">
           <Menu className="size-4" strokeWidth={1.75} aria-hidden />

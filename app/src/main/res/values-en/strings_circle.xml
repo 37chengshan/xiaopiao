@@ -1,0 +1,172 @@
+<resources>
+
+    <!-- Shared chrome -->
+    <string name="circle_sheet_back">Back</string>
+    <string name="circle_sheet_done">Done</string>
+    <string name="circle_sheet_cancel">Cancel</string>
+    <string name="circle_sheet_save">Save</string>
+    <string name="circle_sheet_meta">%1$s · %2$s</string>
+    <string name="circle_count">%1$d/%2$d people</string>
+    <string name="circle_sheet_local_note">On-device demo: circles and invite codes never leave this phone.</string>
+    <string name="circle_me_name">Me</string>
+
+    <!-- Circle menu -->
+    <string name="circle_menu_title">Circles</string>
+    <string name="circle_menu_subtitle">Switch, invite and manage</string>
+    <string name="circle_menu_circles">My circles</string>
+    <string name="circle_menu_new">New circle</string>
+    <string name="circle_menu_manage">Manage</string>
+    <string name="circle_menu_members">Members and visibility</string>
+    <string name="circle_menu_invite">Invite family</string>
+    <string name="circle_menu_leaderboard">Leaderboards</string>
+    <string name="circle_menu_award">Weekly awards</string>
+    <string name="circle_menu_award_sub">Post this week’s titles to the chat</string>
+    <string name="circle_menu_games">Mini games</string>
+    <string name="circle_menu_games_sub">Play a round, just for fun</string>
+    <string name="circle_menu_owner">Owner settings</string>
+    <string name="circle_menu_rename">Rename circle</string>
+    <string name="circle_menu_dissolve">Delete circle</string>
+
+    <!-- Create / rename / delete -->
+    <string name="circle_new_title">New circle</string>
+    <string name="circle_new_placeholder">Circle name (max 12)</string>
+    <string name="circle_new_confirm">Create</string>
+    <string name="circle_rename_title">Rename circle</string>
+    <string name="circle_rename_placeholder">New name (max 12)</string>
+    <string name="circle_dissolve_title">Delete this circle?</string>
+    <string name="circle_dissolve_body">Its messages are removed from this phone and other members stop seeing them.</string>
+    <string name="circle_dissolve_confirm">Delete</string>
+
+    <!-- Weekly awards -->
+    <string name="circle_award_title">Weekly awards</string>
+    <string name="circle_award_body">Post this week’s family titles to the chat?</string>
+    <string name="circle_award_confirm">Post</string>
+    <string name="circle_award_post_title">Weekly family awards</string>
+
+    <!-- Members -->
+    <string name="circle_members_title">Members and visibility</string>
+    <string name="circle_members_subtitle">%1$d of %2$d · nicknames and roles</string>
+    <string name="circle_members_header">Members</string>
+    <string name="circle_members_me_tag">Me</string>
+    <string name="circle_members_view_shares">View sharing</string>
+    <string name="circle_members_my_shares">My sharing</string>
+    <string name="circle_members_nickname_action">Circle nickname</string>
+    <string name="circle_members_remark_action">Private note</string>
+    <string name="circle_members_make_admin">Make admin</string>
+    <string name="circle_members_unmake_admin">Remove admin</string>
+    <string name="circle_members_remove">Remove</string>
+    <string name="circle_members_admin_limit">Up to 3 admins</string>
+    <string name="circle_members_nickname_prefix">Nickname: %1$s</string>
+    <string name="circle_members_remove_title">Remove this member?</string>
+    <string name="circle_members_remove_body">Their past receipts stay but are masked once they leave the circle.</string>
+    <string name="circle_members_footer">Everyone owns their own sharing; admins cannot change it for them.</string>
+    <string name="circle_nickname_title">Circle nickname</string>
+    <string name="circle_nickname_placeholder">The name your family sees (max 8)</string>
+    <string name="circle_remark_title">Private note</string>
+    <string name="circle_remark_placeholder">Only you see this (max 8)</string>
+    <string name="circle_role_owner">Owner</string>
+    <string name="circle_role_admin">Admin</string>
+    <string name="circle_role_member">Member</string>
+
+    <!-- Visibility -->
+    <string name="circle_vis_title">Who sees what</string>
+    <string name="circle_vis_subtitle">Per-item consent, aggregates only by default</string>
+    <string name="circle_vis_self_header">What your family sees</string>
+    <string name="circle_vis_other_header">What %1$s shares</string>
+    <string name="circle_vis_readonly">Only %1$s can change this; you and other admins can only look.</string>
+    <string name="circle_vis_shared">Shared</string>
+    <string name="circle_vis_not_shared">Not shared</string>
+    <string name="circle_vis_footer">Turning an item off re-masks past receipts at once. Admins cannot change a member’s sharing.</string>
+    <string name="circle_share_today_total">Today total</string>
+    <string name="circle_share_today_total_hint">Just how much the day came to, no shop names</string>
+    <string name="circle_share_category_mix">Category mix</string>
+    <string name="circle_share_category_mix_hint">Category shares, no shop names</string>
+    <string name="circle_share_weekly_titles">Weekly titles</string>
+    <string name="circle_share_weekly_titles_hint">Your title can appear in the family weekly</string>
+    <string name="circle_share_txn_detail">Single purchases</string>
+    <string name="circle_share_txn_detail_hint">Amount, shop and time of each item</string>
+    <string name="circle_share_receipt_full">Full receipt</string>
+    <string name="circle_share_receipt_full_hint">Send the receipt text itself to the chat</string>
+
+    <!-- Invite -->
+    <string name="circle_invite_title">Invite family</string>
+    <string name="circle_invite_subtitle">6-character code, valid for 24 hours</string>
+    <string name="circle_invite_remaining">%1$d joins left</string>
+    <string name="circle_invite_expires">Expires in %1$s</string>
+    <string name="circle_invite_expired">Expired. Generate a new code.</string>
+    <string name="circle_invite_used_up">All uses taken. Generate a new code.</string>
+    <string name="circle_invite_copy">Copy code</string>
+    <string name="circle_invite_copied">Copied</string>
+    <string name="circle_invite_refresh">New code</string>
+    <string name="circle_invite_qr_desc">Invite QR code</string>
+    <string name="circle_invite_qr_hint">Scan to join the same circle</string>
+    <string name="circle_invite_members">%1$d of %2$d members</string>
+    <string name="circle_invite_join">Join a circle</string>
+    <string name="circle_invite_join_title">Join a circle</string>
+    <string name="circle_invite_join_placeholder">Enter the 6-character code</string>
+    <string name="circle_invite_join_confirm">Join</string>
+    <string name="circle_invite_joined">Joined %1$s</string>
+    <string name="circle_invite_joiner_name">New member</string>
+    <string name="circle_invite_footer">The code only works in this on-device demo; nothing is sent anywhere.</string>
+    <string name="circle_dur_hm">%1$dh %2$dm</string>
+    <string name="circle_dur_m">%1$dm</string>
+
+    <!-- Errors -->
+    <string name="circle_err_empty_name">Name cannot be empty</string>
+    <string name="circle_err_name_too_long">Max %1$d characters</string>
+    <string name="circle_err_too_long">Too long</string>
+    <string name="circle_err_full">A circle holds %1$d people. Make another.</string>
+    <string name="circle_err_invalid_code">That code is not valid</string>
+    <string name="circle_err_expired_code">That code has expired</string>
+    <string name="circle_err_used_up">That code has been used up</string>
+    <string name="circle_err_not_allowed">Not allowed</string>
+    <string name="circle_err_already_member">Already in this circle</string>
+    <string name="circle_err_last_circle">Keep at least one circle</string>
+
+    <!-- Badges -->
+    <string name="circle_badge_first_day">First day</string>
+    <string name="circle_badge_three_receipts">Three in a row</string>
+    <string name="circle_badge_regular_meals">Steady meals</string>
+    <string name="circle_badge_coffee">Coffee lifeline</string>
+    <string name="circle_badge_stock_up">Stock-up pro</string>
+    <string name="circle_badge_commute">Commute warrior</string>
+    <string name="circle_badge_early_night">Early nights</string>
+    <string name="circle_badge_budget_guard">Budget guard</string>
+    <string name="circle_badge_cool_head">Cool head</string>
+    <string name="circle_badge_best_life">Best householder</string>
+
+    <!-- Leaderboards -->
+    <string name="circle_lb_title">Leaderboards</string>
+    <string name="circle_lb_week">%1$s · week %2$s</string>
+    <string name="circle_lb_least">Lowest spend</string>
+    <string name="circle_lb_most">Highest spend</string>
+    <string name="circle_lb_streak">Streaks</string>
+    <string name="circle_lb_badges">Badges</string>
+    <string name="circle_lb_gate">Only %1$d have data this week — three make a board.</string>
+    <string name="circle_lb_invite">Invite family</string>
+    <string name="circle_lb_unshared">%1$d not sharing totals, left out of the ranking</string>
+    <string name="circle_lb_count">%1$d purchases</string>
+    <string name="circle_lb_best_streak">Best %1$d days</string>
+    <string name="circle_lb_dormant">Wallet asleep</string>
+    <string name="circle_lb_streak_unit">%1$d days</string>
+    <string name="circle_lb_badge_unit">%1$d</string>
+    <string name="circle_lb_empty_week">The week just started. Log one first.</string>
+    <string name="circle_lb_badge_caption">Badges earned this week, just for fun</string>
+    <string name="circle_lb_footer">Boards rank totals and streaks only: never single items or someone else’s shops.</string>
+
+    <!-- Share to a circle -->
+    <string name="circle_send_title">Share to a circle</string>
+    <string name="circle_send_subtitle">Pick one or more circles</string>
+    <string name="circle_send_members">%1$d people</string>
+    <string name="circle_send_public">Shared: %1$s</string>
+    <string name="circle_send_nothing">Nothing shared: just “logged something today”</string>
+    <string name="circle_send_hidden">; not shared: %1$s</string>
+    <string name="circle_send_separator">", "</string>
+    <string name="circle_send_confirm">Post to %1$d circles</string>
+    <string name="circle_send_confirm_empty">Pick a circle</string>
+    <string name="circle_send_no_circles">No circles yet. Make one from the menu.</string>
+    <string name="circle_send_footer">Bills are parsed on this phone; family only sees what you allow.</string>
+
+    <string name="circle_menu_share">Share to a circle</string>
+    <string name="circle_menu_share_sub">Post a receipt into the circles you pick</string>
+</resources>

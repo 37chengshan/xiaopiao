@@ -328,6 +328,10 @@ private fun LedgerList(
     reduceMotion: Boolean,
     onClearConditions: () -> Unit,
 ) {
+    // One open swipe row at a time; scrolling the list folds it back.
+    val swipeRows = remember { SwipeRows() }
+    LaunchedEffect(listState.isScrollInProgress) { if (listState.isScrollInProgress) swipeRows.openId = null }
+    androidx.compose.runtime.CompositionLocalProvider(LocalSwipeRows provides swipeRows) {
     LazyColumn(
         Modifier.fillMaxSize(),
         state = listState,
@@ -371,6 +375,7 @@ private fun LedgerList(
                 )
             }
         }
+    }
     }
 }
 

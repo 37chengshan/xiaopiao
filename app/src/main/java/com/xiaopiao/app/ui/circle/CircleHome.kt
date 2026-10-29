@@ -1,5 +1,8 @@
 package com.xiaopiao.app.ui.circle
 
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.WindowInsets
+import com.xiaopiao.app.ui.components.LocalTabBarInset
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,14 +25,15 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,16 +41,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.AppContainer
+import com.xiaopiao.app.R
+import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.games.GameContent
+import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.ui.components.EmptyState
+import com.xiaopiao.app.ui.components.AppTopActions
 import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
@@ -58,45 +67,57 @@ import com.xiaopiao.app.ui.theme.XpSpace
 private val ComposerHeight = 64.dp
 
 /**
- * 圈子 tab: one family = one group chat (docs/APP-DESIGN.md §5). Every member, message and amount is
- * local demo data — no account, no network, no ledger reads — so the whole tab is marked 演示数据 and
- * each receipt card carries its own marker.
+ * 圈子 tab: several family/roommate circles, each its own group chat (docs/APP-DESIGN.md §5).
+ * The header holds two things: the menu (switch / create / invite / members & visibility /
+ * leaderboards / awards / games) and “share to circle”, which posts today’s receipt into the
+ * chosen circles instead of copying text. Everything is local demo state.
  */
-@Suppress("UNUSED_PARAMETER")
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenGames: () -> Unit = {}) {
+    // The feed runs under the glass tab bar; the composer floats above it (0 once the keyboard covers the bar).
+    val BottomGlassInset = if (WindowInsets.isImeVisible) 0.dp else LocalTabBarInset.current
     val now = remember { System.currentTimeMillis() }
-    var members by remember { mutableStateOf(CircleDemo.members()) }
-    var posts by remember { mutableStateOf(CircleDemo.feed(now)) }
-    var mineReactions by remember { mutableStateOf(emptySet<String>()) }
-    var shareSheetFor by rememberSaveable { mutableStateOf<String?>(null) }
+    var book by remember { mutableStateOf(CircleDemo.book(now)) }
+    val circle = book.current()
+    val viewerId = CircleDemo.MY_ID
+    var sheet by rememberSaveable { mutableStateOf<String?>(null) }
+    var mineReactions by remember(book.currentId) { mutableStateOf(emptySet<String>()) }
     var openedPost by remember { mutableStateOf<ReceiptPost?>(null) }
     var draft by rememberSaveable { mutableStateOf("") }
     var localSeq by rememberSaveable { mutableStateOf(0) }
     var sendTick by remember { mutableStateOf(0) }
 
-    val rows = remember(posts) { circleFeedRows(posts) }
-    val byId = remember(members) { members.associateBy { it.id } }
+    val txns by remember { container.ledger.observeAll() }.collectAsState(initial = emptyList())
+
+    val rows = remember(circle.posts) { circleFeedRows(circle.posts) }
+    val byId = remember(circle.members) { circle.members.associateBy { it.id } }
     val listState = rememberLazyListState()
 
-    fun toggleShare(item: CircleShare, visible: Boolean) {
-        members = members.map { if (it.isMe) it.withShare(item, visible) else it }
+    fun update(block: (CircleBook) -> CircleBook) {
+        book = block(book)
+    }
+
+    fun toggleShare(memberId: String, item: CircleShare, visible: Boolean) {
+        book = setShare(book, book.currentId, memberId, item, visible).book
     }
 
     fun toggleReaction(postId: String, emoji: String) {
         mineReactions = toggleReaction(mineReactions, postId, emoji)
     }
 
+    fun addPost(post: CirclePost) {
+        update { current ->
+            current.copy(circles = current.circles.map { c ->
+                if (c.id == current.currentId) c.copy(posts = c.posts + post) else c
+            })
+        }
+    }
+
     fun send() {
         val text = draft.trim()
         if (text.isEmpty()) return
-        posts = posts + TextPost(
-            id = "local-$localSeq",
-            at = System.currentTimeMillis(),
-            authorId = CircleDemo.MY_ID,
-            text = text,
-            localOnly = true,
-        )
+        addPost(TextPost("local-$localSeq", System.currentTimeMillis(), viewerId, text, localOnly = true))
         localSeq += 1
         draft = ""
         sendTick += 1
@@ -107,13 +128,13 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
     }
 
     NavScaffold(
-        title = CircleDemo.CIRCLE_NAME,
+        title = circle.name,
         scroll = NavScrollNone,
         demo = true,
-        trailing = {
-            com.xiaopiao.app.ui.today.ReceiptStrip()
-            NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onOpenSettings)
+        leading = {
+            NavIconButton(Icons.Outlined.Groups, stringResource(R.string.circle_home_switch), onClick = { sheet = "menu" })
         },
+        trailing = { AppTopActions() },
     ) { top ->
         Box(Modifier.fillMaxSize()) {
             val feedIn = remember { androidx.compose.animation.core.Animatable(0f) }
@@ -126,14 +147,24 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                     alpha = feedIn.value
                     translationY = (1f - feedIn.value) * 10.dp.toPx()
                 },
-                contentPadding = PaddingValues(top = top + XpSpace.xs, bottom = ComposerHeight + XpSpace.l),
+                // Runs under the glass header; the composer floats above the bar.
+                contentPadding = PaddingValues(top = top + XpSpace.xs, bottom = ComposerHeight + BottomGlassInset + XpSpace.s),
             ) {
+                item(key = "circle-award") {
+                    CircleAwardCard(
+                        circle = circle,
+                        now = now,
+                        viewerId = viewerId,
+                        modifier = Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.m),
+                        onOpen = { sheet = "menu" },
+                    )
+                }
                 if (rows.isEmpty()) {
                     item(key = "circle-empty") {
                         EmptyState(
                             icon = Icons.Outlined.Forum,
-                            title = "群里还很安静",
-                            body = "家人发出第一张小票后，这里就会热闹起来。",
+                            title = stringResource(R.string.circle_home_empty_title),
+                            body = stringResource(R.string.circle_home_empty_body),
                         )
                     }
                 }
@@ -145,25 +176,25 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                             fadeOutSpec = androidx.compose.animation.core.tween(140),
                         ),
                     ) {
-                    when (row) {
-                        is CircleFeedRow.Day -> CircleDayDivider(row.dayStart, now)
-                        is CircleFeedRow.Post -> {
-                            val authorId = when (val post = row.post) {
-                                is ReceiptPost -> post.authorId
-                                is TextPost -> post.authorId
-                                is SystemPost -> null
+                        when (row) {
+                            is CircleFeedRow.Day -> CircleDayDivider(row.dayStart, now)
+                            is CircleFeedRow.Post -> {
+                                val authorId = when (val post = row.post) {
+                                    is ReceiptPost -> post.authorId
+                                    is TextPost -> post.authorId
+                                    is SystemPost -> null
+                                }
+                                CirclePostRow(
+                                    post = row.post,
+                                    author = authorId?.let(byId::get),
+                                    now = now,
+                                    mineReactions = mineReactions,
+                                    onToggleReaction = ::toggleReaction,
+                                    onMemberClick = { id -> sheet = "member:$id" },
+                                    onReceiptOpen = { openedPost = it },
+                                )
                             }
-                            CirclePostRow(
-                                post = row.post,
-                                author = authorId?.let(byId::get),
-                                now = now,
-                                mineReactions = mineReactions,
-                                onToggleReaction = ::toggleReaction,
-                                onMemberClick = { shareSheetFor = it },
-                                onReceiptOpen = { openedPost = it },
-                            )
                         }
-                    }
                     }
                 }
                 item(key = "circle-games") {
@@ -174,7 +205,7 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                 }
                 item(key = "circle-tail") {
                     Text(
-                        "这个群只在这台手机上，发出去的消息不会离开设备。",
+                        stringResource(R.string.circle_home_local_note),
                         style = MaterialTheme.typography.labelSmall,
                         color = XpColors.InkTertiary,
                         textAlign = TextAlign.Center,
@@ -186,20 +217,45 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                 draft = draft,
                 onDraftChange = { draft = it },
                 onSend = ::send,
-                modifier = Modifier.align(Alignment.BottomCenter).imePadding(),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = BottomGlassInset).imePadding(),
             )
         }
     }
 
-    shareSheetFor?.let { selectedId ->
-        CircleShareSheet(
-            members = members,
-            selectedId = selectedId,
-            onSelect = { shareSheetFor = it },
-            onToggle = ::toggleShare,
-            onDismiss = { shareSheetFor = null },
+    when {
+        sheet == "menu" -> CircleMenuSheet(
+            book = book,
+            onBookChange = { book = it },
+            onOpenGames = onOpenGames,
+            onClose = { sheet = null },
+            viewerId = viewerId,
+            onShare = { sheet = "send" },
         )
+        sheet == "send" -> {
+            val today = startOfDay(now)
+            val items = txns
+                .filter { it.occurredAt >= today && it.direction == Direction.OUT }
+                .map { CircleItem(it.merchant, it.amountCents, it.category) }
+            CircleSendSheet(
+                book = book,
+                viewerId = viewerId,
+                onBookChange = { book = it },
+                onClose = { sheet = null },
+                post = ReceiptPost("share-${System.currentTimeMillis()}", System.currentTimeMillis(), viewerId, today, items),
+            )
+        }
+        sheet?.startsWith("member:") == true -> {
+            val memberId = sheet!!.removePrefix("member:")
+            CircleVisibilitySheet(
+                book = book,
+                onBookChange = { book = it },
+                onClose = { sheet = null },
+                viewerId = viewerId,
+                initialMemberId = memberId,
+            )
+        }
     }
+
     // Tapping a receipt opens it (tt#27): the day's items, masked exactly like the card.
     openedPost?.let { post ->
         val author = byId[post.authorId]
@@ -227,9 +283,9 @@ private fun CircleGamesCard(modifier: Modifier = Modifier, onClick: () -> Unit) 
             Text("🎲", style = MaterialTheme.typography.titleLarge)
         }
         Column(Modifier.weight(1f).padding(start = XpSpace.m)) {
-            Text("游戏", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+            Text(stringResource(R.string.circle_home_games_title), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
             Text(
-                "${GameContent.games.size} 个小游戏 · 娱乐，不构成建议",
+                stringResource(R.string.circle_home_games_meta, GameContent.games.size),
                 style = MaterialTheme.typography.labelSmall,
                 color = XpColors.InkSecondary,
                 modifier = Modifier.padding(top = 2.dp),
@@ -248,7 +304,8 @@ private fun CircleComposer(
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     val enabled = draft.isNotBlank()
-    Column(modifier.fillMaxWidth().background(XpColors.CanvasGrouped)) {
+    // Glass, not a slab: the feed keeps scrolling under it and the bar under that.
+    Column(modifier.fillMaxWidth().background(XpColors.Material.copy(alpha = 0.82f))) {
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpColors.Hairline))
         Row(
             Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s),
@@ -257,7 +314,7 @@ private fun CircleComposer(
             Box(
                 Modifier.weight(1f)
                     .clip(RoundedCornerShape(XpRadius.pill))
-                    .background(XpColors.Fill)
+                    .background(XpColors.Fill.copy(alpha = 0.9f))
                     .padding(horizontal = XpSpace.m + 2.dp, vertical = XpSpace.s + 2.dp),
             ) {
                 BasicTextField(
@@ -273,7 +330,7 @@ private fun CircleComposer(
                         Box {
                             if (draft.isEmpty()) {
                                 Text(
-                                    "说点什么… 只保存在本机",
+                                    stringResource(R.string.circle_home_composer),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = XpColors.InkSecondary,
                                     maxLines = 1,
@@ -297,7 +354,7 @@ private fun CircleComposer(
             ) {
                 Icon(
                     Icons.AutoMirrored.Outlined.Send,
-                    contentDescription = "发送",
+                    contentDescription = stringResource(R.string.circle_home_send),
                     tint = if (enabled) XpColors.OnPrimary else XpColors.InkTertiary,
                     modifier = Modifier.size(18.dp),
                 )

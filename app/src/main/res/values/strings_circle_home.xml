@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 圈子首页 / 圈子管理（ui/circle） -->
+    <string name="circle_home_switch">切换圈子</string>
+    <string name="circle_home_new">新建圈子</string>
+    <string name="circle_home_menu">圈子菜单</string>
+    <string name="circle_home_members">成员与可见度</string>
+    <string name="circle_home_invite">邀请家人</string>
+    <string name="circle_home_leaderboard">排行榜</string>
+    <string name="circle_home_award">本周颁奖</string>
+    <string name="circle_home_rename">改名字</string>
+    <string name="circle_home_disband">解散圈子</string>
+    <string name="circle_home_disband_confirm">解散后这台手机上的记录会删除，确定吗？</string>
+    <string name="circle_home_name_hint">圈子名字（最多 12 字）</string>
+    <string name="circle_home_create">创建</string>
+    <string name="circle_home_cancel">取消</string>
+    <string name="circle_home_save">保存</string>
+    <string name="circle_home_empty_title">群里还很安静</string>
+    <string name="circle_home_empty_body">家人发出第一张小票后，这里就会热闹起来。</string>
+    <string name="circle_home_composer">说点什么… 只保存在本机</string>
+    <string name="circle_home_local_note">这个群只在这台手机上，发出去的消息不会离开设备。</string>
+    <string name="circle_home_games_title">游戏</string>
+    <string name="circle_home_games_meta">%1$d 个小游戏 · 娱乐，不构成建议</string>
+    <string name="circle_home_share">分享到圈子</string>
+    <string name="circle_home_share_receipt">分享今天的小票</string>
+    <string name="circle_home_award_title">本周颁奖</string>
+    <string name="circle_home_award_sub">头衔是娱乐标签，不构成建议</string>
+    <string name="circle_home_award_body">%1$s · 每个人一枚</string>
+    <string name="circle_home_role_owner">圈主</string>
+    <string name="circle_home_role_admin">管理员</string>
+    <string name="circle_home_role_member">成员</string>
+    <string name="circle_home_me">我</string>
+    <string name="circle_home_member_count">%1$d / %2$d 人</string>
+    <string name="circle_home_permission_admin_note">管理员可以改可见度规则、移除成员，但不能替别人改共享范围。</string>
+    <string name="circle_home_week">本周</string>
+    <string name="circle_home_shared_none">未共享</string>
+    <string name="circle_home_dormant">钱包休眠</string>
+    <string name="circle_home_insufficient">本周只有 %1$d 人记账，凑够 3 人再发榜</string>
+    <string name="circle_home_new_week">本周刚开始，先记一笔</string>
+    <string name="circle_home_record">去记一笔</string>
+    <string name="circle_home_error">这一步没成功，再试一次</string>
+    <string name="circle_home_invite_remaining">还可加入 %1$d 次</string>
+    <string name="circle_home_invite_expires">%1$s 后失效</string>
+    <string name="circle_home_invite_refresh">刷新邀请码</string>
+    <string name="circle_home_invite_join">加入圈子</string>
+    <string name="circle_home_invite_code_hint">输入 6 位邀请码</string>
+    <string name="circle_home_invite_invalid">邀请码无效</string>
+    <string name="circle_home_invite_expired">邀请码已过期</string>
+    <string name="circle_home_invite_used">邀请码已用尽</string>
+    <string name="circle_home_invite_full">这个圈子满了，另建一个吧</string>
+    <string name="circle_home_invite_scan">让对方扫这个码</string>
+    <string name="circle_home_send">发送</string>
+</resources>

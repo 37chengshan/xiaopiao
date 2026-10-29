@@ -85,24 +85,6 @@ fun MerchantButton(
     )
 }
 
-/** Designed empty state: big emoji, friendly line, optional action. */
-@Composable
-fun EmptyState(icon: ImageVector, title: String, body: String, action: String? = null, onAction: () -> Unit = {}) {
-    val t = rememberEnter()
-    Column(
-        Modifier.fillMaxWidth().padding(XpSpace.xl).scale(0.9f + 0.1f * t),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(XpSpace.s),
-    ) {
-        IconTile(icon, size = 56.dp)
-        Text(title, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary, textAlign = TextAlign.Center)
-        if (action != null) {
-            Box(Modifier.padding(top = XpSpace.m)) { MerchantButton(action, onAction) }
-        }
-    }
-}
-
 @Composable
 fun SelectableCard(selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
