@@ -1,5 +1,7 @@
 package com.xiaopiao.app.ui.today
 
+import com.xiaopiao.app.ui.components.rememberWindowBlurBehind
+import com.xiaopiao.app.ui.components.glassSurface
 import com.xiaopiao.app.ui.components.AppTopActions
 import com.xiaopiao.app.ui.components.LedgerSideLeading
 import com.xiaopiao.app.ui.components.XpButton
@@ -228,8 +230,9 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
 
     if (categoriesOpen) {
         Dialog(onDismissRequest = { categoriesOpen = false }) {
+            val blurred = rememberWindowBlurBehind()
             Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.xl)).background(XpColors.Card)
+                Modifier.fillMaxWidth().glassSurface(RoundedCornerShape(XpRadius.xl), blurred).clip(RoundedCornerShape(XpRadius.xl))
                     .padding(vertical = XpSpace.l),
             ) {
                 Text(

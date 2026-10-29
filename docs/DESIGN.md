@@ -97,6 +97,8 @@ push 进入：左 = 返回（`onBack`），右 = 最多一个与本页相关的�
 
 规则：同一类操作只用一种形态（tt：预算是抽屉，不是页面）。
 
+材质（tt 2026-10-29：抽屉弹窗都要液态玻璃）：弹层是独立窗口，Kyant 玻璃采样不到背后页面，所以用系统跨窗口模糊——`rememberWindowBlurBehind()`（`components/GlassWindow.kt`）给弹层窗口开 blur-behind 28dp，表面 `glassSurface` / `glassRim`（Card 74% + 顶部高光描边），抽屉内填充读 `LocalSheetGlass` 保持半透明；设备不支持或省电模式关闭模糊时自动回到不透明。新弹窗一律照此做。
+
 ## 7. 记一笔 = 编辑账单（同一个面板）
 
 - 唯一实现：`ui/record/ManualRecordPane.kt`（1:1 参考 041431）。新建和编辑都用它：`mode = New | Edit(txn)`。

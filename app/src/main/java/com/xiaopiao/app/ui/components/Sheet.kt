@@ -1,5 +1,10 @@
 package com.xiaopiao.app.ui.components
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,19 +60,28 @@ fun XpSheet(
     containerColor: androidx.compose.ui.graphics.Color = XpColors.Card,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    // Frosted glass (tt: 抽屉弹窗都要液态玻璃): the page behind is blurred by the system, the sheet turns
+    // translucent with a light rim. The blur is only known from inside the sheet's window, hence the state.
+    var blurred by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(topStart = XpRadius.sheet, topEnd = XpRadius.sheet)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        modifier = modifier,
-        shape = RoundedCornerShape(topStart = XpRadius.sheet, topEnd = XpRadius.sheet),
-        containerColor = containerColor,
-        scrimColor = XpColors.Scrim,
+        modifier = if (blurred) modifier.glassRim(shape) else modifier,
+        shape = shape,
+        containerColor = if (blurred) containerColor.copy(alpha = GlassSurfaceAlpha) else containerColor,
+        // The blur already separates the sheet from the page, so the scrim can be lighter.
+        scrimColor = if (blurred) XpColors.Scrim.copy(alpha = XpColors.Scrim.alpha * 0.55f) else XpColors.Scrim,
         dragHandle = { Grabber() },
     ) {
+        val on = rememberWindowBlurBehind()
+        SideEffect { blurred = on }
+        androidx.compose.runtime.CompositionLocalProvider(LocalSheetGlass provides on) {
         Column(
             Modifier.fillMaxWidth().imePadding().navigationBarsPadding()
                 .xpRevealLayer(index = 0, riseDp = 6.dp, durationMs = 200),
             content = content,
         )
+        }
     }
 }

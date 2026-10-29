@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.record
 
+import com.xiaopiao.app.ui.components.LocalSheetGlass
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -182,7 +183,8 @@ internal fun ManualRecordPane(
         }
         // Reference: from the note row down, the sheet turns grey edge to edge.
         Column(
-            Modifier.fillMaxWidth().background(XpColors.CanvasGrouped)
+            // Over a blurred page the grey keeps the sheet's glass rather than going solid (DESIGN §3).
+            Modifier.fillMaxWidth().background(XpColors.CanvasGrouped.copy(alpha = if (LocalSheetGlass.current) 0.55f else 1f))
                 .padding(horizontal = XpSpace.page).padding(bottom = XpSpace.xs),
         ) {
             NoteRow(
