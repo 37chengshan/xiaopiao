@@ -125,11 +125,19 @@ export function useNoticeDismissed(): boolean {
  * True while the first skeleton must stay up: at least `minMs` from mount, and while data is loading.
  * Keeps the first paint honest instead of flashing a spinner for 40ms.
  */
-export function useFirstPaint(loading: boolean, minMs = 200): boolean {
-  const [elapsed, setElapsed] = useState(false);
+export function useFirstPaint(loading: boolean, minMs = 200, maxWaitMs = 1400): boolean {
+  // Hold the skeleton for at least `minMs` so it never flashes, but never longer than `maxWaitMs`:
+  // a hung ledger (offline, cloud unavailable) must degrade to the page's empty state, not a skeleton.
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    const id = window.setTimeout(() => setElapsed(true), minMs);
-    return () => window.clearTimeout(id);
-  }, [minMs]);
-  return loading || !elapsed;
+    const min = window.setTimeout(() => setTick(1), minMs);
+    const max = window.setTimeout(() => setTick(2), maxWaitMs);
+    return () => {
+      window.clearTimeout(min);
+      window.clearTimeout(max);
+    };
+  }, [minMs, maxWaitMs]);
+  if (tick === 0) return true;
+  if (tick === 1) return loading;
+  return false;
 }

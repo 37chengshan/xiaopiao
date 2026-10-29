@@ -1,0 +1,277 @@
+/*
+ * 404 — "卡纸了。" (tt 2026-10-28)
+ * Composition follows the reference: full-bleed background, brand mark centred at the top, one huge
+ * Geist Mono 404 with a white vertical gradient, a 1px rule, one sentence. Two text links were added
+ * because a dead end is not usable, and they sit inside the message block where the reference's copy
+ * ends. No overlay: the photo is already dark, and the measured white-on-image contrast is > 4.5:1.
+ */
+
+@import "@fontsource-variable/geist-mono/wght.css";
+
+.nf {
+  --nf-ink: #fff;
+  --nf-ink-soft: rgb(255 255 255 / 72%);
+  --nf-rule: rgb(255 255 255 / 88%);
+
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100svh;
+  overflow: hidden;
+  background: #000;
+  color: var(--nf-ink);
+  font-family: "Geist Mono Variable", ui-monospace, "SF Mono", "PingFang SC", "Hiragino Sans GB", monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------- background */
+
+.nf-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  /* Placeholder until the frame paints (or if the file never lands): a night-desk radial, no flat black. */
+  background:
+    radial-gradient(120% 90% at 72% 26%, #241a0c 0%, #120e08 42%, #050505 100%),
+    #000;
+}
+
+.nf-bg img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* A 26s breath — the photo is the only thing moving on the page. */
+  animation: nf-drift 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes nf-drift {
+  from {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.055) translate3d(-0.8%, -0.6%, 0);
+  }
+}
+
+/*
+ * A local vignette behind the numeral only. The photo's upper-right is a white printer, and the right
+ * half of "404" crosses it; measuring showed ~1.3:1 there. This ellipse lifts the numeral back above
+ * 4.5:1 without tinting the whole photograph (the reference forbids a full-screen overlay).
+ */
+.nf-stage::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: min(1200px, 98vw);
+  height: min(760px, 78vh);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, rgb(0 0 0 / 92%) 0%, rgb(0 0 0 / 80%) 62%, transparent 92%);
+  filter: blur(8px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ---------------------------------------------------------------- brand row */
+
+.nf-brand {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 40px;
+  margin: 80px auto 0;
+  width: max-content;
+  color: var(--nf-ink);
+}
+
+.nf-brand svg {
+  width: 34px;
+  height: 34px;
+  --mark-paper: #0a0a0b;
+}
+
+.nf-wordmark {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 40px;
+}
+
+/* ------------------------------------------------------------- 404 + message */
+
+.nf-stage {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 20px 96px;
+}
+
+.nf-num,
+.nf-rule,
+.nf-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.nf-num {
+  margin: 0;
+  /* Reference proportions scaled to the viewport: 295.75px at 1440 wide, never taller than the screen. */
+  font-size: min(295.751px, 30vw);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.083em;
+  /* Mono numerals have no descender, but the box must never clip them on short viewports. */
+  padding-bottom: 0.06em;
+  background-image: linear-gradient(247.33deg, #fff 2.53%, rgb(255 255 255 / 96%) 93.61%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.nf-rule {
+  width: 425px;
+  max-width: 100%;
+  height: 1px;
+  margin-top: 44px;
+  background: var(--nf-rule);
+}
+
+.nf-copy {
+  max-width: 483px;
+  margin-top: 44px;
+}
+
+.nf-lead {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.06em;
+}
+
+.nf-body {
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+  color: var(--nf-ink-soft);
+  /* The zh sentence is shorter than the en one; keep both inside the reference's 483px column. */
+  text-wrap: balance;
+}
+
+.nf-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 22px;
+  margin-top: 26px;
+}
+
+.nf-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--nf-ink);
+  text-decoration: none;
+  border-radius: 4px;
+  padding: 4px 2px;
+  /* 2026-10-28 audit: every interactive element gets a visible keyboard ring. */
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.nf-link:hover {
+  opacity: 0.78;
+}
+
+.nf-link:active {
+  transform: translateY(1px);
+}
+
+.nf-link:focus-visible {
+  outline: 2px solid #ffb340;
+  outline-offset: 3px;
+}
+
+.nf-link span {
+  transition: transform 160ms ease;
+}
+
+.nf-link:hover span {
+  transform: translateX(2px);
+}
+
+/* ---------------------------------------------------------------- responsive */
+
+@media (max-width: 640px) {
+  .nf-brand {
+    margin-top: 32px;
+    transform: scale(0.75);
+    transform-origin: center top;
+  }
+
+  .nf-stage {
+    padding: 0 20px 64px;
+  }
+
+  .nf-num {
+    font-size: clamp(140px, 52vw, 200px);
+    letter-spacing: -0.09em;
+    height: auto;
+    min-height: 0;
+  }
+
+  .nf-rule,
+  .nf-copy {
+    width: min(100% - 0px, 360px);
+    max-width: min(100%, 360px);
+  }
+
+  .nf-rule {
+    margin-top: 28px;
+  }
+
+  .nf-copy {
+    margin-top: 28px;
+  }
+
+  .nf-lead {
+    font-size: 20px;
+  }
+
+  .nf-body {
+    font-size: clamp(16px, 4.5vw, 20px);
+    letter-spacing: -1.3px;
+    line-height: 1.45;
+  }
+
+  .nf-links {
+    gap: 6px 18px;
+    margin-top: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nf-bg img {
+    animation: none;
+    transform: none;
+  }
+
+  .nf-link,
+  .nf-link span {
+    transition: none;
+  }
+}

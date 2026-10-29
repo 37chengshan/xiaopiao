@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { Plus } from "lucide-react";
+import { go } from "@/components/desktop/nav";
 import { addDays, money, shortDate, weekdayIndex } from "@/logic/biz/format";
 import {
   averageTicketOf,
@@ -9,14 +11,15 @@ import {
   todayVsYesterday,
   weekToDateChange,
   entriesBetween,
+  weekdayAverages,
   worstDay,
 } from "@/logic/biz/book";
 import { overviewFacts } from "@/logic/biz/summary";
 import { WEEKDAY_KEYS, useBizStrings } from "../strings";
 import { useBizBook } from "../store";
 import { factsToLines } from "../summaryText";
-import { RevenueOrdersChart } from "./charts";
-import { BizPage, Card, Kpi } from "./primitives";
+import { RevenueOrdersChart, WeekdayBars } from "./charts";
+import { BizPage, Button, Card, Kpi } from "./primitives";
 import { Reveal } from "./reveal";
 import { SummaryCard } from "./SummaryCard";
 
@@ -46,6 +49,11 @@ export function OverviewPage() {
       })),
       best: bestDay(book, today),
       worst: worstDay(book, today),
+      weekdays: weekdayAverages(book, today, 8).map((w) => ({
+        label: t(WEEKDAY_KEYS[w.index]),
+        averageCents: w.averageCents,
+        days: w.days,
+      })),
       lines: factsToLines(overviewFacts(book, today), t),
     };
   }, [book, today, t]);
@@ -53,6 +61,16 @@ export function OverviewPage() {
   return (
     <BizPage>
       <div className="grid grid-cols-12 gap-5">
+        <div className="col-span-12 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[12px] text-d-ink-3">
+            {t("overview.updated").replace("{}", new Date(updatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }))}
+          </p>
+          <Button tone="fill" onClick={() => go("/app/biz/revenue")}>
+            <Plus className="size-3.5" strokeWidth={2} aria-hidden />
+            {t("overview.manage")}
+          </Button>
+        </div>
+
         <Reveal index={0} className="col-span-12 sm:col-span-6 xl:col-span-3">
           <Kpi
             className="h-full w-full"
@@ -118,24 +136,33 @@ export function OverviewPage() {
 
         <SummaryCard className="col-span-12 xl:col-span-4" index={5} lines={view.lines} updatedAt={updatedAt} />
 
-        <DayCard
-          className="col-span-12 md:col-span-6"
+        <Card
+          className="col-span-12 xl:col-span-8"
           index={6}
-          title={t("best.title")}
-          point={view.best}
-          empty={t("best.none")}
-          unit={t("unit.orders")}
-          weekday={(day) => t(WEEKDAY_KEYS[weekdayIndex(day)])}
-        />
-        <DayCard
-          className="col-span-12 md:col-span-6"
-          index={7}
-          title={t("worst.title")}
-          point={view.worst}
-          empty={t("best.none")}
-          unit={t("unit.orders")}
-          weekday={(day) => t(WEEKDAY_KEYS[weekdayIndex(day)])}
-        />
+          title={t("chart.weekday")}
+          action={<span className="text-[11px] text-d-ink-3">{t("chart.weekdayHint")}</span>}
+        >
+          <WeekdayBars data={view.weekdays} valueLabel={t("analysis.avg")} height={196} />
+        </Card>
+
+        <div className="col-span-12 flex min-w-0 flex-col gap-5 xl:col-span-4">
+          <DayCard
+            index={7}
+            title={t("best.title")}
+            point={view.best}
+            empty={t("best.none")}
+            unit={t("unit.orders")}
+            weekday={(day) => t(WEEKDAY_KEYS[weekdayIndex(day)])}
+          />
+          <DayCard
+            index={8}
+            title={t("worst.title")}
+            point={view.worst}
+            empty={t("best.none")}
+            unit={t("unit.orders")}
+            weekday={(day) => t(WEEKDAY_KEYS[weekdayIndex(day)])}
+          />
+        </div>
       </div>
     </BizPage>
   );

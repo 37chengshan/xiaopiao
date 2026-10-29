@@ -64,7 +64,7 @@ export function AnalysisPage() {
               type="checkbox"
               checked={compare}
               onChange={(e) => setCompare(e.target.checked)}
-              className="size-3.5 accent-[var(--d-accent)]"
+              className="size-3.5 accent-[var(--d-accent-ink)]"
             />
             {t("analysis.compare")}
           </label>

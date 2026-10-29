@@ -209,7 +209,7 @@ function Toggle({
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
-        className="size-3.5 accent-[var(--d-accent)] disabled:opacity-40"
+        className="size-3.5 accent-[var(--d-accent-ink)] disabled:opacity-40"
       />
     </label>
   );

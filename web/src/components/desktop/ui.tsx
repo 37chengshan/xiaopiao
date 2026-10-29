@@ -113,7 +113,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 const BUTTON_FILL = {
   primary: "bg-d-ink text-d-canvas hover:bg-d-ink/90",
   quiet: "bg-d-fill text-d-ink hover:bg-d-hairline",
-  ghost: "text-d-accent hover:bg-d-fill/70",
+  ghost: "text-d-accent-ink hover:bg-d-fill/70",
   danger: "bg-d-negative text-white hover:opacity-90",
 } as const;
 
@@ -126,7 +126,7 @@ export function Button({ variant = "quiet", size = "md", icon: Icon, className, 
         "d-press inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg font-medium transition-colors",
         size === "sm" ? "h-8 px-3 text-[12.5px]" : "h-9 px-3.5 text-[13px]",
         BUTTON_FILL[variant],
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-d-accent disabled:opacity-40",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-d-accent-ink disabled:opacity-40",
         className,
       )}
     >
@@ -152,7 +152,7 @@ export function IconButton({
       className={cn(
         "d-press grid size-8 shrink-0 place-items-center rounded-lg text-d-ink-2 transition-colors hover:bg-d-fill hover:text-d-ink",
         active && "bg-d-fill text-d-ink",
-        "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent",
+        "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent-ink",
         className,
       )}
     >
@@ -227,7 +227,7 @@ export function Field({ label, children, hint }: { label: string; children: Reac
 }
 
 export const inputClass =
-  "h-9 w-full min-w-0 rounded-lg bg-d-fill px-3 text-[13px] text-d-ink outline-none placeholder:text-d-ink-3 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent";
+  "h-9 w-full min-w-0 rounded-lg bg-d-fill px-3 text-[13px] text-d-ink outline-none placeholder:text-d-ink-3 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent-ink";
 
 export function TextInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...rest} className={cn(inputClass, className)} />;
@@ -242,7 +242,7 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
       className={cn(
         "relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors duration-200 ease-[var(--ease-out)]",
         checked ? "bg-d-accent" : "bg-d-hairline",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-d-accent",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-d-accent-ink",
       )}
     >
       <SwitchPrimitive.Thumb className="block size-[18px] translate-x-[2px] rounded-full bg-white shadow-sm transition-transform duration-200 ease-[var(--ease-out)] data-[state=checked]:translate-x-[18px]" />
@@ -255,7 +255,7 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 export function Chip({ children, onRemove, onClick, active }: { children: ReactNode; onRemove?: () => void; onClick?: () => void; active?: boolean }) {
   const base = cn(
     "inline-flex h-6 items-center gap-1 rounded-md px-2 text-[12px]",
-    active ? "bg-d-accent/10 text-d-accent" : "bg-d-fill text-d-ink-2",
+    active ? "bg-d-accent/10 text-d-accent-ink" : "bg-d-fill text-d-ink-2",
   );
   if (onClick) {
     return (
@@ -278,12 +278,37 @@ export function Chip({ children, onRemove, onClick, active }: { children: ReactN
 
 /* ------------------------------------------------------------------ states */
 
-export function EmptyState({ icon: Icon, title, hint, action, className }: { icon: LucideIcon; title: string; hint?: string; action?: ReactNode; className?: string }) {
+export function EmptyState({
+  icon: Icon,
+  title,
+  hint,
+  action,
+  art,
+  className,
+}: {
+  icon?: LucideIcon;
+  title: string;
+  hint?: string;
+  action?: ReactNode;
+  /** photo/illustration under `public/img`; the frame keeps its crop consistent across pages */
+  art?: string;
+  className?: string;
+}) {
   return (
-    <div className={cn("flex flex-col items-center justify-center px-8 py-14 text-center", className)}>
-      <div className="relative mb-4 grid size-14 place-items-center rounded-full bg-d-fill">
-        <Icon className="size-6 text-d-ink-3" strokeWidth={1.5} aria-hidden />
-      </div>
+    <div className={cn("flex flex-col items-center justify-center px-8 py-12 text-center", className)}>
+      {art ? (
+        <img
+          src={art}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          className="mb-4 h-[104px] w-[184px] rounded-xl object-cover ring-1 ring-d-hairline"
+        />
+      ) : Icon ? (
+        <div className="relative mb-4 grid size-14 place-items-center rounded-full bg-d-fill">
+          <Icon className="size-6 text-d-ink-3" strokeWidth={1.5} aria-hidden />
+        </div>
+      ) : null}
       <p className="text-[15px] font-semibold text-d-ink">{title}</p>
       {hint && <p className="mt-1.5 max-w-[22rem] text-[13px] leading-[20px] text-d-ink-2">{hint}</p>}
       {action && <div className="mt-5">{action}</div>}

@@ -115,7 +115,7 @@ export function UndoSnackbar({
             fired.current = true;
             onUndo();
           }}
-          className="text-d-accent transition-opacity hover:opacity-80"
+          className="text-d-accent-ink transition-opacity hover:opacity-80"
         >
           {t("revenue.undo")}
         </button>

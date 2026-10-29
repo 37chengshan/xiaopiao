@@ -115,7 +115,7 @@ export function ReceiptPage() {
                 onClick={() => setTheme(g.id)}
                 className={cn(
                   "d-press grid size-9 place-items-center rounded-lg ring-offset-2 ring-offset-d-surface",
-                  theme === g.id && "ring-2 ring-d-accent",
+                  theme === g.id && "ring-2 ring-d-accent-ink",
                 )}
                 style={{ background: cssGradient(g) }}
               >

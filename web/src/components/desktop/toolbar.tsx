@@ -24,7 +24,7 @@ function ReceiptWidget({ onPrint }: { onPrint: () => void }) {
       onClick={onPrint}
       title={`${s("toolbar.receipt")} · ${money(total)}`}
       aria-label={s("toolbar.receipt")}
-      className="d-press relative grid h-[34px] w-[28px] shrink-0 place-items-center bg-d-paper text-d-ink shadow-[0_1px_2px_oklch(0_0_0/12%)] hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-d-accent"
+      className="d-press relative grid h-[34px] w-[28px] shrink-0 place-items-center bg-d-paper text-d-ink shadow-[0_1px_2px_oklch(0_0_0/12%)] hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-d-accent-ink"
       style={{ clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 4px), 87.5% 100%, 75% calc(100% - 4px), 62.5% 100%, 50% calc(100% - 4px), 37.5% 100%, 25% calc(100% - 4px), 12.5% 100%, 0 calc(100% - 4px))" }}
     >
       <motion.span

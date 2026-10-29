@@ -260,7 +260,7 @@ export function EntryDialog({ open, onOpenChange, initial }: { open: boolean; on
                   onClick={() => setCategory(key)}
                   className={cn(
                     "d-press flex h-7 items-center gap-1 truncate rounded-lg px-2 text-[12px] transition-colors",
-                    on ? "bg-d-accent/10 text-d-accent" : "bg-d-fill text-d-ink-2 hover:text-d-ink",
+                    on ? "bg-d-accent/10 text-d-accent-ink" : "bg-d-fill text-d-ink-2 hover:text-d-ink",
                   )}
                 >
                   <span aria-hidden>{CATEGORIES[key].emoji}</span>

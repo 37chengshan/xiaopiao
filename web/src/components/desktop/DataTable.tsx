@@ -149,7 +149,7 @@ export function DataTable<T>({
       style={maxHeight ? { maxHeight } : undefined}
       className={cn(
         "relative overflow-auto overscroll-contain rounded-xl bg-d-surface outline-none",
-        "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent",
+        "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent-ink",
         maxHeight && "min-h-0",
       )}
     >
@@ -169,7 +169,7 @@ export function DataTable<T>({
                   aria-label={s("ledger.selected")}
                   checked={allSelected}
                   onChange={() => onSelected?.(toggleAll(selected ?? new Set(), ids))}
-                  className="size-4 cursor-pointer rounded-[4px] accent-[var(--d-accent)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent"
+                  className="size-4 cursor-pointer rounded-[4px] accent-[var(--d-accent-ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent-ink"
                 />
               </th>
             )}
@@ -243,7 +243,7 @@ export function DataTable<T>({
                       aria-label={id}
                       checked={isSelected}
                       onChange={() => onSelected?.(toggleSelected(selected ?? new Set(), id))}
-                      className="size-4 cursor-pointer rounded-[4px] accent-[var(--d-accent)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent"
+                      className="size-4 cursor-pointer rounded-[4px] accent-[var(--d-accent-ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent-ink"
                     />
                   </td>
                 )}

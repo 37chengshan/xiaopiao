@@ -48,13 +48,20 @@ export function CardsPage() {
 
   return (
     <div className="grid grid-cols-12 gap-5">
-      <Card className="col-span-12 self-start xl:col-span-7">
-        <div className="flex flex-col items-center py-4">
+      <Card className="col-span-12 self-start xl:col-span-7" padded={false}>
+        <div className="relative flex flex-col items-center overflow-hidden rounded-xl px-5 pb-7 pt-8">
+          {/* Warm ground under the stack: the cards are black/bone, so the scene needs its own light. */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 -top-24 h-[260px] opacity-70"
+            style={{ background: "radial-gradient(120% 100% at 50% 0%, color-mix(in oklab, var(--d-highlight) 60%, transparent), transparent 72%)" }}
+          />
           <motion.div layout transition={{ duration: 0.24, ease: [0.23, 1, 0.32, 1] }} className="w-full max-w-[320px]">
             <CardFace card={active} active />
           </motion.div>
+          <p className="relative mt-5 text-[11.5px] text-d-ink-3">{s("cd.stageCaption")}</p>
           {behind.length > 0 && (
-            <div className="mt-2 flex flex-col items-center gap-2">
+            <div className="relative mt-3 flex flex-col items-center gap-2">
               {behind.map((card, i) => (
                 <button
                   key={card.id}
@@ -100,6 +107,7 @@ export function CardsPage() {
 
         <Card title={s("cd.privacy")} action={<Lock className="size-3.5 text-d-ink-3" strokeWidth={1.8} aria-hidden />}>
           <p className="text-[12.5px] leading-[20px] text-d-ink-2">{s("cd.privacyBody")}</p>
+          <Hint className="mt-2">{s("cd.stageHint")}</Hint>
         </Card>
 
 

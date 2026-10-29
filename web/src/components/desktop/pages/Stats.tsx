@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { CATEGORIES, startOfDay } from "@/domain/types";
@@ -11,6 +11,7 @@ import { Stagger } from "../motion";
 import { previousWindow, seriesOf, shiftAnchor, summarize, windowLabel, windowOf, type CustomRange, type Period } from "../statsModel";
 import { Button, Card, EmptyState, Kpi, Segmented, Skeleton, Toggle } from "../ui";
 import { s } from "../strings";
+import { useShell } from "../Shell";
 
 const PERIODS: { value: Period; label: () => string }[] = [
   { value: "week", label: () => s("stats.week") },
@@ -21,6 +22,7 @@ const PERIODS: { value: Period; label: () => string }[] = [
 
 export function StatsPage() {
   const { txns, now, isLoading, isError, refetch } = useLedger();
+  const shell = useShell();
   const skeleton = useFirstPaint(isLoading);
 
   const [period, setPeriod] = useState<Period>("month");
@@ -107,16 +109,21 @@ export function StatsPage() {
             <Skeleton rows={4} />
           </div>
         </>
-      ) : isError ? (
-        <Card className="col-span-12" padded={false}>
-          <EmptyState icon={ChevronRight} title={s("common.error")} action={<Button variant="primary" onClick={refetch}>{s("common.retry")}</Button>} />
-        </Card>
       ) : (
         <>
           <Stagger index={0} className="col-span-12 xl:col-span-8">
             <Card className="h-full" title={s("stats.trend")} action={compare ? <span className="text-[11px] text-d-ink-3">{s("stats.previous")}</span> : null}>
               {view.summary.totalCents === 0 && view.summary.count === 0 ? (
-                <EmptyState icon={ChevronRight} title={s("stats.empty")} className="py-10" />
+                <EmptyState
+                  art="/img/app-empty-ledger.webp"
+                  title={s("stats.empty")}
+                  hint={s("stats.emptyHint")}
+                  action={
+                    <Button variant="primary" icon={Plus} onClick={() => shell.openEntry()}>
+                      {s("stats.emptyAction")}
+                    </Button>
+                  }
+                />
               ) : (
                 <motion.div key={`${period}-${view.label}-${compare}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }}>
                   {period === "week" ? (
@@ -147,7 +154,7 @@ export function StatsPage() {
           <Stagger index={5} className="col-span-12 xl:col-span-4">
           <Card className="h-full" title={s("stats.mix")}>
             {view.summary.totalCents === 0 ? (
-              <p className="py-8 text-center text-[13px] text-d-ink-3">{s("stats.empty")}</p>
+              <EmptyState art="/img/app-empty-shop.webp" title={s("stats.empty")} className="py-4" />
             ) : (
               <div className="flex flex-col items-center gap-3">
                 <Donut slices={view.mix} size={172} centerValue={money(view.summary.totalCents)} centerLabel={s("stats.total")} />
@@ -160,7 +167,7 @@ export function StatsPage() {
           <Stagger index={6} className="col-span-12 xl:col-span-8">
           <Card className="h-full" title={s("stats.ranking")}>
             {view.summary.byCategory.length === 0 ? (
-              <p className="py-8 text-center text-[13px] text-d-ink-3">{s("stats.empty")}</p>
+              <EmptyState art="/img/app-empty-shop.webp" title={s("stats.empty")} className="py-4" />
             ) : (
               <ul className="space-y-2.5">
                 {view.summary.byCategory.map((row) => {

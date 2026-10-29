@@ -25,6 +25,7 @@ import { money, moneyCompact } from "@/logic/biz/format";
  * are read off the document as real colours and re-read whenever the theme class changes. */
 interface ChartColors {
   accent: string;
+  accentInk: string;
   ink2: string;
   ink3: string;
   hairline: string;
@@ -34,7 +35,8 @@ function readColors(): ChartColors {
   const style = getComputedStyle(document.documentElement);
   const pick = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
   return {
-    accent: pick("--d-accent", "#0066CC"),
+    accent: pick("--d-accent", "#FF8A00"),
+    accentInk: pick("--d-accent-ink", "#B45309"),
     ink2: pick("--d-ink-2", "#6E6E73"),
     ink3: pick("--d-ink-3", "#AEAEB2"),
     hairline: pick("--d-hairline", "#E5E5EA"),
@@ -45,6 +47,31 @@ function readColors(): ChartColors {
 function useChartMotion(): { animate: boolean; duration: number } {
   const reduce = useReducedMotion() ?? false;
   return { animate: !reduce, duration: reduce ? 0 : 400 };
+}
+
+/**
+ * Bars grow from the baseline through CSS, not recharts' rAF animation: a throttled or occluded
+ * window never advances that animation and leaves the bars at zero height (the "empty chart" that
+ * 2026-10-28 shipped on 经营总览). CSS keyframes run on the compositor, so the last frame always paints.
+ */
+function GrowBar({ x = 0, y = 0, width = 0, height = 0, fill, index = 0 }: {
+  x?: number; y?: number; width?: number; height?: number; fill?: string; index?: number;
+}) {
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      fill={fill}
+      rx={3}
+      style={{
+        transformBox: "fill-box",
+        transformOrigin: "bottom",
+        animation: `d-bar-grow 380ms ${index * 26}ms both var(--ease-out)`,
+      }}
+    />
+  );
 }
 
 function useChartColors(): ChartColors {
@@ -140,9 +167,8 @@ export function RevenueOrdersChart({
             fill={colors.accent}
             radius={[3, 3, 0, 0]}
             maxBarSize={28}
-            isAnimationActive={motion.animate}
-            animationDuration={motion.duration}
-            animationEasing="ease-out"
+            isAnimationActive={false}
+            shape={motion.animate ? <GrowBar /> : undefined}
           />
           <Line
             yAxisId="orders"
@@ -198,10 +224,10 @@ export function TrendArea({
             type="monotone"
             dataKey="revenueCents"
             name={label}
-            stroke={colors.accent}
+            stroke={colors.accentInk}
             strokeWidth={2}
             fill={colors.accent}
-            fillOpacity={0.1}
+            fillOpacity={0.12}
             isAnimationActive={motion.animate}
             animationDuration={motion.animate ? 500 : 0}
             animationEasing="ease-out"
@@ -259,9 +285,8 @@ export function WeekdayBars({
             name={valueLabel}
             radius={[3, 3, 0, 0]}
             maxBarSize={36}
-            isAnimationActive={motion.animate}
-            animationDuration={motion.duration}
-            animationEasing="ease-out"
+            isAnimationActive={false}
+            shape={motion.animate ? <GrowBar /> : undefined}
           >
             {data.map((row) => (
               <Cell key={row.label} fill={row.averageCents === max ? colors.accent : colors.ink3} />
@@ -300,9 +325,8 @@ export function Histogram({
             fill={colors.accent}
             radius={[3, 3, 0, 0]}
             maxBarSize={44}
-            isAnimationActive={motion.animate}
-            animationDuration={motion.duration}
-            animationEasing="ease-out"
+            isAnimationActive={false}
+            shape={motion.animate ? <GrowBar /> : undefined}
           />
         </BarChart>
       </ResponsiveContainer>
