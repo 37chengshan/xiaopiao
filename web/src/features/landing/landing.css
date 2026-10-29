@@ -234,6 +234,13 @@
   font-size: 7px;
   opacity: 0.58;
 }
+.lp-hero-paper-thanks {
+  margin: 5px 0 0;
+  text-align: center;
+  font-size: 6.5px;
+  letter-spacing: 0.12em;
+  opacity: 0.5;
+}
 .lp-hero-paper .total {
   margin-top: 1px;
   font-size: 10px;
@@ -591,7 +598,7 @@ html[data-locale="en"] .lp-float-stamp {
   padding: 20px 22px;
 }
 .lp-ticket .lp-mini {
-  transform: rotate(-0.35deg);
+  transform: rotate(-0.55deg);
   transform-origin: 50% 0;
 }
 .lp-ticket {
@@ -685,6 +692,30 @@ html[data-locale="en"] .lp-float-stamp {
 .lp-mini-rule {
   border-top: 1px dashed rgba(42, 37, 29, 0.35);
   margin: 6px 0;
+}
+/* The small print of a real thermal receipt: one thank-you line and a fake barcode. */
+.lp-mini-sub {
+  margin: 2px 0 0;
+  text-align: center;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  opacity: 0.45;
+}
+.lp-mini-thanks {
+  margin: 9px 0 0;
+  text-align: center;
+  font-size: 7.5px;
+  letter-spacing: 0.16em;
+  opacity: 0.5;
+}
+.lp-mini-barcode {
+  margin: 7px auto 0;
+  width: 118px;
+  height: 20px;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(42, 37, 29, 0.82) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(42, 37, 29, 0.55) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(90deg, rgba(42, 37, 29, 0.35) 0 1px, transparent 1px 4px);
 }
 .lp-stamp {
   display: inline-block;
@@ -955,11 +986,12 @@ html[data-locale="en"] .lp-float-stamp {
 
 /* ----------------------------------------------------------------- outro */
 
+/* The close reads like a section heading now, not a second billboard (tt 2026-10-28). */
 .lp-outro-title {
-  font-size: clamp(44px, 7.4vw, 128px);
-  line-height: 0.94;
-  letter-spacing: -0.05em;
-  font-weight: 900;
+  font-size: clamp(24px, 3.2vw, 44px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  font-weight: 800;
 }
 
 /* ------------------------------------------------------------------ bits */

@@ -319,6 +319,7 @@ export function Hero() {
                 <span>{s("mini.total")}</span>
                 <span>15.50</span>
               </b>
+              <p className="lp-hero-paper-thanks">{s("mini.thanks")}</p>
             </div>
           </div>
           <span ref={lineRef} className="lp-pill-line" aria-hidden />
