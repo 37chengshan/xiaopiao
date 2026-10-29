@@ -65,6 +65,9 @@ object PaymentNotificationParser {
     /** Greedy variant for names at the end of a phrase (nothing after it to stop a lazy match). */
     private const val NAME_END = """(?<merchant>[^\s,，。:：¥￥]{1,24})"""
 
+    /** English merchant names may contain spaces ("Green Cafe"); greedy so the tail is kept. */
+    private const val EN_NAME = """(?<merchant>[A-Za-z][A-Za-z0-9 &'.\-]{0,23})"""
+
     private fun rule(id: String, pkgs: Set<String>, template: String, dir: Direction = Direction.OUT) =
         PaymentRule(id, pkgs, template, dir)
 
@@ -93,8 +96,28 @@ object PaymentNotificationParser {
         rule("wechat.pay.to", WX, """向${NAME}(?:付款|转账)\s*{YEN}{AMT}"""),
         rule("wechat.paid", WX, """(?:已支付|支付成功|支付金额)[:：]?\s*{YEN}{AMT}"""),
         rule("wechat.voucher", WX, """微信支付凭证.{0,30}?[¥￥]\s*{AMT}"""),
+        // 微信支付凭证里的「收款方：山野咖啡」+「支付金额 12.00」两行式正文
+        rule("wechat.pay.amount-label", WX, """支付金额[:：]?\s*{YEN}{AMT}\s*元?"""),
+
+        // ---- 微信「先享后付 / 微信支付分」（docs/research/wechat-deferred-pay.md）----
+        // 只在文本明确出现服务名时记账；纯「扣款成功」分不清是亲属卡 / 免密 / 自动续费，不猜。
+        rule("wechat.deferred.deduct", WX, """(?:先享后付|先用后付|支付分)[^。\n]{0,24}(?:扣款|扣费|付款|补缴)[^。\n\d¥￥]{0,10}[¥￥]?\s*{AMT}"""),
+        rule("wechat.deferred.keyword", WX, """(?:先享后付|先用后付|支付分)[^。\n]{0,24}?{YEN}{AMT}\s*元?"""),
+
+        // ---- English UI（金额强制带 ¥/￥ 或 yuan/rmb：英文里 `A123` 这种订单号不能被当成钱）（文案取自两个 App 自带 en_US 词条，见 docs/research/wechat-deferred-pay.md §2.2）----
+        // 支付宝收银台 en_US: "Payment amount: #val# yuan" / "amount paid #val# Yuan."
+        rule("generic.en.amount", BOTH, """(?i)(?:payment amount|amount paid)[:：]?\s*{YEN}{AMT}\s*(?:yuan|rmb|元)"""),
+        rule("alipay.en.pay-to", ALI, """(?i)paid\s*[¥￥]\s*{AMT}(?:\s*(?:yuan|rmb))?\s+to\s+${EN_NAME}"""),
+        rule("alipay.en.payment-of", ALI, """(?i)payment of[:：]?\s*[¥￥]\s*{AMT}\s*(?:yuan|rmb)?"""),
+        // 微信 en_US: "Payment successful" / "Payment successful ¥15.00"
+        rule("wechat.en.success", WX, """(?i)payment successful[,!.]?\s*[¥￥]\s*{AMT}"""),
+        rule("wechat.en.paid", WX, """(?i)(?:paid|payment of)[:：]?\s*{YEN}{AMT}\s*(?:yuan|rmb)"""),
+        // 先享后付（EN）：deferred payment / pay-after-use / pay later
+        rule("wechat.deferred.en", WX, """(?i)(?:deferred payment|pay[- ]?after[- ]?use|pay later)[^.\n]{0,32}?[¥￥]\s*{AMT}"""),
 
         // ---- Generic fallback: explicit pay verb + currency symbol ----
+        rule("generic.en.paid", BOTH, """(?i)(?:payment successful|paid)[,!:：]?\s*[¥￥]\s*{AMT}\s*(?:yuan|rmb)?"""),
+        rule("generic.en.refund", BOTH, """(?i)refund(?:ed)?[:：]?\s*[¥￥]\s*{AMT}\s*(?:yuan|rmb)?""", Direction.IN),
         rule("generic.paid.symbol", BOTH, """(?:已支付|支付成功|付款成功|消费)[^\d¥￥]{0,12}[¥￥]\s*{AMT}"""),
     )
 
@@ -103,33 +126,53 @@ object PaymentNotificationParser {
         Regex("""(?:商户|商家|收款方|付款方|交易对象|对方)[:：]\s*(?<merchant>[^\s,，。]{1,24})"""),
         Regex("""向(?<merchant>[^\s,，。:：¥￥]{1,24}?)(?:付款|转账|支付)"""),
         Regex("""在(?<merchant>[^\s,，。:：¥￥]{1,24}?)(?:消费|支付)"""),
-        Regex("""[¥￥]\d[\d,]*(?:\.\d{1,2})?\s*[·•|｜-]\s*(?<merchant>[^\s,，。]{1,24})"""),
+        // 分隔符后面允许空格：「¥8.80 · Green Cafe」
+        Regex("""[¥￥]\d[\d,]*(?:\.\d{1,2})?\s*[·•|｜-]\s*(?<merchant>[^\s,，。][^,，。;；|]{0,23})"""),
+        Regex("""(?i)paid\s*[¥￥]?[\d,]+(?:\.\d{1,2})?\s*(?:yuan|rmb)?\s+to\s+(?<merchant>[^,.;\n]{1,24})"""),
+        Regex("""(?i)\bat\s+(?<merchant>[A-Z][A-Za-z0-9 &'.\-]{1,23})"""),
     )
 
     private val adKeywords = listOf(
         "优惠", "立减", "满减", "抽奖", "限时", "福利", "领取", "领券", "红包雨", "集福", "补贴", "活动", "特价", "折扣",
         "推荐", "邀请", "试用", "免费", "月度账单", "账单已出", "年度账单", "可用额度", "提额", "奖励", "签到", "到店", "抢购",
+        // 支付分 / 先享后付的非交易文案（开通、提额、评分、关闭服务）
+        "开通", "额度", "评分", "已关闭", "自动续费", "免密",
+        // English marketing / non-transaction copy
+        "coupon", "cashback", "discount", "offer", "enabled", "limit",
     )
 
     /** Phrases that prove a real transaction even when marketing words are also present. */
-    private val strongPayment = Regex("""付款成功|成功付款|已支付|支付成功|的支出|的收入|收款到账|已收款|成功收款|向你转账""")
+    private val strongPayment = Regex(
+        """付款成功|成功付款|已支付|支付成功|的支出|的收入|收款到账|已收款|成功收款|向你转账|扣款成功|扣费成功|payment successful|amount paid|payment amount|refund""",
+        RegexOption.IGNORE_CASE,
+    )
 
-    private val relatedWords = listOf("支付", "付款", "收款", "红包", "转账", "到账", "支出", "收入", "退款", "消费", "¥", "￥", "元")
+    private val relatedWords = listOf(
+        "支付", "付款", "收款", "红包", "转账", "到账", "支出", "收入", "退款", "消费", "扣款", "扣费", "¥", "￥", "元",
+    )
+
+    /**
+     * English wording the two apps use when the phone is in an English locale.
+     * Kept narrow on purpose: a bare "pay" would match ordinary chat lines.
+     */
+    private val relatedEn = Regex(
+        """(?i)payment\s+(?:successful|amount|of|sent|received)|amount\s+paid|paid\s*[¥￥]|\b(?:yuan|rmb)\b|\brefund(?:ed)?\b""",
+    )
 
     fun normalize(title: String, text: String): String =
         "$title $text".replace(Regex("[\\u200b-\\u200f\\u00a0\\ufeff]"), " ").replace(Regex("\\s+"), " ").trim()
 
-    fun isPaymentRelated(title: String, text: String): Boolean {
-        val t = normalize(title, text)
-        return relatedWords.any { t.contains(it) }
-    }
+    private fun isRelated(t: String): Boolean = relatedWords.any { t.contains(it) } || relatedEn.containsMatchIn(t)
+
+    fun isPaymentRelated(title: String, text: String): Boolean = isRelated(normalize(title, text))
 
     fun parse(pkg: String, title: String, text: String): ParseResult {
         if (pkg !in PaymentApps.all) return ParseResult.Irrelevant
         val t = normalize(title, text)
-        if (relatedWords.none { t.contains(it) }) return ParseResult.Irrelevant
+        if (!isRelated(t)) return ParseResult.Irrelevant
         if (!strongPayment.containsMatchIn(t)) {
-            adKeywords.firstOrNull { t.contains(it) }?.let { return ParseResult.Ignored("营销通知（$it）") }
+            adKeywords.firstOrNull { t.contains(it, ignoreCase = true) }
+                ?.let { return ParseResult.Ignored("营销通知（$it）") }
         }
         for (rule in rules) {
             if (pkg !in rule.packages) continue

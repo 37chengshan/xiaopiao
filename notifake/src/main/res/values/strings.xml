@@ -1,0 +1,4 @@
+<resources>
+    <string name="fake_app_title">通知样本</string>
+    <string name="fake_app_hint">点一下发一条通知（只在模拟器上用）</string>
+</resources>
