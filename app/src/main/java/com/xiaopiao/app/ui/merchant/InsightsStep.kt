@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -43,16 +44,13 @@ import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 
-private val donutColors = listOf(XpColors.Accent, XpColors.Warning, XpColors.Positive, XpColors.InkSecondary, XpColors.InkTertiary)
+private val donutColors = listOf(XpColors.Accent, XpColors.Highlight, XpColors.Positive, XpColors.InkSecondary, XpColors.InkTertiary)
 
 @Composable
 fun InsightsStep(crowd: List<CrowdMember>, onNext: () -> Unit, onPrivacy: () -> Unit) {
     var age by remember { mutableStateOf<AgeBand?>(null) }
     val stats = remember(crowd, age) { Aggregator.compute(crowd, age) }
-    Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(bottom = XpSpace.xl),
-        verticalArrangement = Arrangement.spacedBy(XpSpace.m),
-    ) {
+    FlowPage {
         Reveal(0) {
             Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                 KpiRow(stats)
@@ -65,11 +63,16 @@ fun InsightsStep(crowd: List<CrowdMember>, onNext: () -> Unit, onPrivacy: () -> 
         Reveal(5) { SectionCard("爱加什么料", "每人只算一个最爱") { ToppingDonut(stats) } }
         Reveal(6) {
             Column(Modifier.padding(horizontal = XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                Text(
-                    "🔒 这里只有聚合数字，看不到任何一个人。点「数据怎么来的」了解细节。",
-                    style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
-                    modifier = Modifier.clickable(onClick = onPrivacy),
-                )
+                Row(Modifier.clickable(onClick = onPrivacy), verticalAlignment = Alignment.Top) {
+                    androidx.compose.material3.Icon(
+                        androidx.compose.material.icons.Icons.Outlined.Lock, contentDescription = null,
+                        tint = XpColors.InkTertiary, modifier = Modifier.padding(top = 2.dp, end = XpSpace.xs).size(14.dp),
+                    )
+                    Text(
+                        bi("这里只有聚合数字，看不到任何一个人。点右上角的 ⓘ 了解细节。", "Aggregates only; no single person is visible. Tap ⓘ for details."),
+                        style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
+                    )
+                }
                 MerchantButton("下一步：发起一个小实验", onNext)
             }
         }
@@ -124,7 +127,13 @@ private fun Kpi(label: String, value: Float?, unit: String, modifier: Modifier) 
 private fun AgeChips(selected: AgeBand?, onSelect: (AgeBand?) -> Unit) {
     Column(Modifier.padding(horizontal = XpSpace.l)) {
         Text("看哪群人", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
-        Row(Modifier.padding(top = XpSpace.xs), horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
+        // Wraps to a second line at 360dp x 1.3 instead of clipping the last chip.
+        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+        androidx.compose.foundation.layout.FlowRow(
+            Modifier.padding(top = XpSpace.xs),
+            horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+            verticalArrangement = Arrangement.spacedBy(XpSpace.xs),
+        ) {
             Chip("全部", selected == null) { onSelect(null) }
             AgeBand.entries.forEach { Chip(it.label, selected == it) { onSelect(it) } }
         }
@@ -137,7 +146,7 @@ private fun Chip(label: String, on: Boolean, onClick: () -> Unit) {
     val fg by animateColorAsState(if (on) XpColors.Accent else XpColors.Ink, label = "chipfg")
     val haptic = LocalHapticFeedback.current
     Text(
-        label, style = MaterialTheme.typography.labelMedium, color = fg,
+        label, style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1, softWrap = false,
         modifier = Modifier.clip(RoundedCornerShape(50)).background(bg)
             .clickable { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onClick() }
             .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -156,7 +165,7 @@ private fun KindBars(stats: CohortStats) {
 private fun PriceBars(stats: CohortStats) {
     val max = stats.priceBands.maxOfOrNull { it.share ?: 0f } ?: 0f
     Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-        stats.priceBands.forEachIndexed { i, c -> CellBar(c, max, XpColors.Warning, i) }
+        stats.priceBands.forEachIndexed { i, c -> CellBar(c, max, XpColors.Highlight, i) }
         val avg = stats.avgPriceCents
         if (avg != null) Row(verticalAlignment = Alignment.CenterVertically) {
             Text("平均每杯约 ", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)

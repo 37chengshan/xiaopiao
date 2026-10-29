@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,7 +62,7 @@ fun MerchantMineScreen(
     onOpenSub: (MerchantSub) -> Unit,
     onPrivacy: () -> Unit,
     onExit: () -> Unit,
-    onOpenSettings: () -> Unit = {},
+    onOpenReceipt: (Long) -> Unit = {},
 ) {
     val experiment = state.experiment
     val decision = remember(experiment, state.decisions) { experiment?.let { state.decisionFor(it.id) } }
@@ -71,55 +72,43 @@ fun MerchantMineScreen(
     val scroll = rememberScrollState()
 
     NavScaffold(
-        title = "我的", scroll = NavScrollNone, demo = book.any { it.seeded },
-        trailing = { NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
+        title = bi("我的", "Me"),
+        scroll = NavScrollNone,
+        trailing = { MerchantTopActions(onOpenReceipt = { onOpenReceipt(today) }) },
     ) { top ->
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl)
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top + XpSpace.m, bottom = merchantBottomInset())
                 .xpRevealLayer(index = 0),
         ) {
-            Column(Modifier.padding(horizontal = XpSpace.l)) {
-                Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.m))
-                        .background(XpColors.Card).padding(XpSpace.l),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconTile(Icons.Outlined.Storefront, size = 40.dp, tint = XpColors.Accent, background = XpColors.AccentSoft)
-                        Column(Modifier.weight(1f).padding(start = XpSpace.m)) {
-                            Text(DEMO_SHOP_NAME, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                            Text("小店版", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
-                        }
-                    }
-                    Row(
-                        Modifier.fillMaxWidth().padding(top = XpSpace.l),
-                        horizontalArrangement = Arrangement.spacedBy(XpSpace.xl),
-                    ) {
-                        MetricCell("营收天数") {
-                            Text("${book.size} 天", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-                        }
-                        MetricCell("本周营收") {
-                            Text(
-                                RevenueBook.money(weekCents),
-                                style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-                                color = XpColors.Ink,
-                            )
-                        }
-                    }
-                }
+            Column(Modifier.padding(horizontal = XpSpace.page)) {
+                MerchantHeroCard(
+                    label = bi("小店版", "Shop edition"),
+                    corner = { IconTile(Icons.Outlined.Storefront, size = 36.dp, tint = XpColors.Accent, background = XpColors.Card.copy(alpha = 0.6f)) },
+                    number = {
+                        Text(
+                            DEMO_SHOP_NAME, style = MaterialTheme.typography.titleLarge, color = XpColors.Ink,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    columns = {
+                        StatCell(bi("营收天数", "Days logged"), bi("${book.size} 天", "${book.size}"), Modifier.weight(1f))
+                        StatCell(bi("本周营收", "This week"), RevenueBook.money(weekCents), Modifier.weight(1.4f))
+                    },
+                )
             }
 
-            SectionHeading("顾客实验")
-            GroupedSection(dividerInset = 58.dp) {
+            SectionHeading(bi("顾客实验", "Customer experiments"))
+            GroupedSection(dividerInset = 58.dp, margin = XpSpace.page) {
                 item("crowd") {
                     GroupedRow(
-                        "人群洞察", value = "本机生成的人群", chevron = true,
+                        "人群洞察", value = "本机人群", chevron = true,
                         leading = { StepBadge(1, done = true, icon = Icons.Outlined.Insights) },
                     ) { onOpenSub(MerchantSub.Crowd) }
                 }
                 item("setup") {
                     GroupedRow(
                         "发起实验",
-                        value = experiment?.let { "「${it.template.title}」" } ?: "还没发布",
+                        value = experiment?.status?.label ?: "还没发布",
                         chevron = true,
                         leading = { StepBadge(2, done = experiment != null, icon = Icons.Outlined.Science) },
                     ) { onOpenSub(MerchantSub.Setup) }
@@ -146,8 +135,8 @@ fun MerchantMineScreen(
                 }
             }
 
-            SectionHeading("数据")
-            GroupedSection(dividerInset = 58.dp) {
+            SectionHeading(bi("数据", "Data"))
+            GroupedSection(dividerInset = 58.dp, margin = XpSpace.page) {
                 item("privacy") {
                     GroupedRow(
                         "数据说明", subtitle = "这些数字怎么来的、谁能看到", chevron = true,
@@ -156,8 +145,8 @@ fun MerchantMineScreen(
                 }
             }
 
-            SectionHeading("账户")
-            GroupedSection(dividerInset = 58.dp) {
+            SectionHeading(bi("账户", "Account"))
+            GroupedSection(dividerInset = 58.dp, margin = XpSpace.page) {
                 item("exit") {
                     GroupedRow(
                         "切换回用户版", subtitle = "回到记账版，经营数字留在这里", chevron = true,
@@ -169,9 +158,8 @@ fun MerchantMineScreen(
             Text(
                 "小店版只在本机保存经营数字，不读你的个人账单。",
                 style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary,
-                modifier = Modifier.padding(horizontal = XpSpace.l).padding(top = XpSpace.l),
+                modifier = Modifier.padding(horizontal = XpSpace.page).padding(top = XpSpace.l),
             )
-            NavBottomSpace()
         }
     }
 }

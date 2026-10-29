@@ -148,7 +148,7 @@ fun LinkText(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, c
 @Composable
 fun SectionHeading(title: String, modifier: Modifier = Modifier, trailing: @Composable (() -> Unit)? = null) {
     Row(
-        modifier.padding(start = XpSpace.l, end = XpSpace.l, top = XpSpace.xl, bottom = XpSpace.s),
+        modifier.padding(start = XpSpace.page, end = XpSpace.page, top = XpSpace.xl, bottom = XpSpace.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(title, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))

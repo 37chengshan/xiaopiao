@@ -38,15 +38,12 @@ fun ResultsStep(
     onSetup: () -> Unit,
 ) {
     if (experiment == null || result == null) {
-        EmptyState(Icons.Outlined.Science, "还没有实验", "先发起一个二选一小实验，邻居玩过之后这里就会出现结果。", "去发起实验", onSetup)
+        FlowEmpty(Icons.Outlined.Science, "还没有实验", "先发起一个二选一小实验，邻居玩过之后这里就会出现结果。", "去发起实验", onSetup)
         return
     }
     val a = result.stats[0]
     val b = result.stats[1]
-    Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(bottom = XpSpace.xl),
-        verticalArrangement = Arrangement.spacedBy(XpSpace.m),
-    ) {
+    FlowPage {
         Reveal(0) {
             Column(Modifier.padding(horizontal = XpSpace.l)) {
                 XpCard {

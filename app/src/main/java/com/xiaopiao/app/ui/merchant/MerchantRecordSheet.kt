@@ -66,7 +66,6 @@ fun RevenueEntrySheet(
     var amountText by remember(dayStart) { mutableStateOf(existing?.let { revenueText(it.revenueCents) } ?: "") }
     var orders by remember(dayStart) { mutableStateOf(existing?.orders ?: 0) }
     var note by remember(dayStart) { mutableStateOf(existing?.note ?: "") }
-    var confirmDelete by remember { mutableStateOf(false) }
     // Editing a demo row makes it the owner's own number; an imported row stays marked as imported.
     val source = if (existing?.source == RevenueSource.CSV) RevenueSource.CSV else RevenueSource.MANUAL
     val cents = RecordAmount.toCents(amountText)
@@ -79,7 +78,7 @@ fun RevenueEntrySheet(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        if (existing == null) "记营收" else "修改营收",
+                        if (existing == null) bi("记营收", "Record revenue") else bi("修改营收", "Edit revenue"),
                         style = MaterialTheme.typography.headlineMedium, color = XpColors.Ink,
                     )
                     Text(
@@ -165,15 +164,14 @@ fun RevenueEntrySheet(
                 enabled = amountText.isNotEmpty(),
             )
             if (existing != null) {
+                // The confirmation is a window over a blurred page, owned by the shell (DESIGN §6).
                 Text(
-                    if (confirmDelete) "再点一下，删除这天的记录" else "删除这天的记录",
+                    bi("删除这天的记录", "Delete this day"),
                     style = MaterialTheme.typography.labelMedium,
                     color = XpColors.Negative,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(top = XpSpace.l)
-                        .pressableClick(scaleDown = 0.97f) {
-                            if (confirmDelete) onDelete() else { confirmDelete = true; haptics.reject() }
-                        }
+                        .pressableClick(scaleDown = 0.97f) { haptics.reject(); onDelete() }
                         .padding(vertical = XpSpace.s),
                 )
             }

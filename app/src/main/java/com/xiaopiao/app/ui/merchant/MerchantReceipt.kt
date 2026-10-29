@@ -90,7 +90,6 @@ fun MerchantReceiptScreen(
         scroll = NavScrollNone,
         onBack = onBack,
         backLabel = "返回",
-        demo = entry?.seeded == true,
     ) { top ->
         Column(
             Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl),
@@ -191,8 +190,8 @@ private fun PaperCard(entries: List<RevenueEntry>, day: Long) {
     val entry = RevenueBook.entryFor(entries, day)
     val paper = XpColors.PaperInk
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.l)).background(XpColors.Paper)
-            .padding(horizontal = XpSpace.xl, vertical = 22.dp),
+        Modifier.fillMaxWidth().clip(TornEdge).background(XpColors.Paper)
+            .padding(start = XpSpace.xl, end = XpSpace.xl, top = 22.dp, bottom = 34.dp),
     ) {
         Text(
             "小店经营日报",
@@ -245,12 +244,6 @@ private fun PaperCard(entries: List<RevenueEntry>, day: Long) {
             Text("本机生成 · 不上传", style = ReceiptRow.copy(fontSize = 10.sp, letterSpacing = 0.5.sp), color = paper.copy(alpha = 0.45f))
             Text("非正式票据", style = ReceiptRow.copy(fontSize = 10.sp, letterSpacing = 0.5.sp), color = paper.copy(alpha = 0.45f))
         }
-        if (entry?.seeded == true) {
-            Box(
-                Modifier.fillMaxWidth().padding(top = XpSpace.l),
-                contentAlignment = Alignment.CenterEnd,
-            ) { DemoStamp() }
-        }
     }
 }
 
@@ -280,25 +273,6 @@ private fun DashedRule() {
     }
 }
 
-@Composable
-private fun DemoStamp() {
-    val ink = XpColors.Stamp.copy(alpha = 0.85f)
-    Box(Modifier.graphicsLayer { rotationZ = -8f }.padding(4.dp)) {
-        Canvas(Modifier.matchParentSize()) {
-            drawRoundRect(
-                ink, cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()),
-            )
-        }
-        Text(
-            "",
-            style = ReceiptRow.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp),
-            color = ink,
-            modifier = Modifier.padding(horizontal = XpSpace.m + 2.dp, vertical = 3.dp),
-        )
-    }
-}
-
 /** The shareable text version of the paper — what a shop owner would paste into a group chat. */
 private fun receiptText(entries: List<RevenueEntry>, day: Long): String {
     val entry = RevenueBook.entryFor(entries, day)
@@ -317,4 +291,18 @@ private fun receiptText(entries: List<RevenueEntry>, day: Long): String {
     sb.append("本机生成 · 仅记录（非正式票据）")
     
     return sb.toString()
+}
+
+/** Rounded top, saw-tooth bottom: the paper has just been torn off the roll. */
+private val TornEdge = androidx.compose.foundation.shape.GenericShape { size, _ ->
+    val r = 18f * 2.6f
+    val tooth = 10f * 2.6f
+    moveTo(0f, r); quadraticBezierTo(0f, 0f, r, 0f); lineTo(size.width - r, 0f); quadraticBezierTo(size.width, 0f, size.width, r)
+    lineTo(size.width, size.height - tooth)
+    val n = (size.width / (tooth * 1.6f)).toInt().coerceAtLeast(6)
+    val step = size.width / n
+    for (i in n downTo 1) {
+        lineTo(i * step - step / 2f, size.height); lineTo((i - 1) * step, size.height - tooth)
+    }
+    close()
 }
