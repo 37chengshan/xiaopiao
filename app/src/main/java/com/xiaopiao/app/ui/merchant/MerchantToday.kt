@@ -87,7 +87,7 @@ fun MerchantTodayScreen(
             return@NavScaffold
         }
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top + XpSpace.m, bottom = MerchantBottomInset),
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top + XpSpace.m, bottom = merchantBottomInset()),
             verticalArrangement = Arrangement.spacedBy(XpSpace.cardGap),
         ) {
             Column(Modifier.padding(horizontal = XpSpace.page).xpRevealLayer(index = 0)) {

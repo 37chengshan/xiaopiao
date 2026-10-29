@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalConfiguration
 import com.xiaopiao.app.ui.components.AppTopActions
+import com.xiaopiao.app.ui.components.LocalTabBarInset
 import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.theme.XpColors
@@ -47,8 +48,12 @@ import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import java.util.Locale
 
-/** DESIGN §4.3: a first-level page's list runs under the glass bar and ends at least this far below its last row. */
-val MerchantBottomInset: Dp = 128.dp
+/**
+ * DESIGN §4.3: a first-level page's list runs under the glass bar; its last row ends [LocalTabBarInset] (the bar's
+ * height, provided by [MerchantShell]) plus 16dp above the screen edge so nothing is ever hidden behind the bar.
+ */
+@Composable
+fun merchantBottomInset(): Dp = LocalTabBarInset.current + XpSpace.l
 
 /**
  * New copy ships in both languages from the start (DESIGN §12). The app-wide language switch is someone else's
@@ -241,7 +246,7 @@ fun FlowPage(
     val chrome = LocalFlowChrome.current
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(top = chrome.top, bottom = MerchantBottomInset).padding(horizontal = horizontal),
+            .padding(top = chrome.top, bottom = merchantBottomInset()).padding(horizontal = horizontal),
         verticalArrangement = Arrangement.spacedBy(spacing),
         horizontalAlignment = alignment,
     ) {

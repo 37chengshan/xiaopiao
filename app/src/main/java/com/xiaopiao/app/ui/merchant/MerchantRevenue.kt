@@ -87,7 +87,7 @@ fun MerchantRevenueScreen(
             return@NavScaffold
         }
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top + XpSpace.m, bottom = MerchantBottomInset)
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top + XpSpace.m, bottom = merchantBottomInset())
                 .xpRevealLayer(index = 0),
             verticalArrangement = Arrangement.spacedBy(XpSpace.s),
         ) {

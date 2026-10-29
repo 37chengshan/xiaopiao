@@ -77,7 +77,7 @@ fun MerchantMineScreen(
         trailing = { MerchantTopActions(onOpenReceipt = { onOpenReceipt(today) }) },
     ) { top ->
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top + XpSpace.m, bottom = MerchantBottomInset)
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top + XpSpace.m, bottom = merchantBottomInset())
                 .xpRevealLayer(index = 0),
         ) {
             Column(Modifier.padding(horizontal = XpSpace.page)) {
@@ -101,7 +101,7 @@ fun MerchantMineScreen(
             GroupedSection(dividerInset = 58.dp, margin = XpSpace.page) {
                 item("crowd") {
                     GroupedRow(
-                        "人群洞察", value = "本机生成的人群", chevron = true,
+                        "人群洞察", value = "本机人群", chevron = true,
                         leading = { StepBadge(1, done = true, icon = Icons.Outlined.Insights) },
                     ) { onOpenSub(MerchantSub.Crowd) }
                 }

@@ -32,6 +32,11 @@ import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.components.LocalTabBarInset
+import com.xiaopiao.app.ui.components.NavBarGeometry
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -124,7 +129,7 @@ private val MerchantNavSpec = NavBarSpec(
 fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: () -> Unit = {}) {
     val palette = remember(XpColors.isDark) { merchantPalette(paletteFor(XpColors.isDark)) }
     XpPaletteOverride(palette) {
-    androidx.compose.runtime.CompositionLocalProvider(LocalTopBarHost provides TopBarHost(openSettings = onOpenSettings)) {
+    CompositionLocalProvider(LocalTopBarHost provides TopBarHost(openSettings = onOpenSettings)) {
         val store = remember { MerchantStore.get(container.appContext) }
         val state by store.state.collectAsState()
         val today = remember { RevenueBook.startOfDay(System.currentTimeMillis()) }
@@ -168,7 +173,13 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
         // so lists run under the bar instead of stopping above an opaque band.
         val glass = rememberLayerBackdrop()
         val barVisible = sub != MerchantSub.Receipt && sub != MerchantSub.Game
+        // The bar floats over the page: its height (nav-bar inset + capsule + 8dp) is what pages must pad their last row by.
+        val barInset = if (barVisible) {
+            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                (NavBarGeometry.HEIGHT + NavBarGeometry.TOP).dp + XpSpace.s
+        } else 0.dp
         Box(Modifier.fillMaxSize().background(XpColors.CanvasGrouped).blur(pageBlur)) {
+          CompositionLocalProvider(LocalTabBarInset provides barInset) {
             Box(
                 Modifier.fillMaxSize().layerBackdrop(glass).background(XpColors.CanvasGrouped)
                     .then(if (sub == MerchantSub.Receipt) Modifier.windowInsetsPadding(WindowInsets.navigationBars) else Modifier),
@@ -235,6 +246,7 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
                     }
                 }
             }
+          }
             // Receipt and the game own the screen; everywhere else the bar stays, with the flow's step lighting 人群 / 实验.
             if (barVisible) {
                 XpNavBar(

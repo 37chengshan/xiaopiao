@@ -100,7 +100,7 @@ fun MerchantAnalysisScreen(
             return@NavScaffold
         }
         Column(
-            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top + XpSpace.m, bottom = MerchantBottomInset)
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top + XpSpace.m, bottom = merchantBottomInset())
                 .xpRevealLayer(index = 0),
             verticalArrangement = Arrangement.spacedBy(XpSpace.cardGap),
         ) {
@@ -203,7 +203,7 @@ private fun WeekdayBars(stats: List<WeekdayAverage>, modifier: Modifier = Modifi
                 Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
                     if (peak) {
                         FitText(
-                            RevenueBook.money(stat.averageCents),
+                            RevenueBook.money((stat.averageCents + 50) / 100 * 100),
                             Modifier.padding(bottom = 3.dp),
                             MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
                             XpColors.Accent, minSize = 7.sp, textAlign = TextAlign.Center,

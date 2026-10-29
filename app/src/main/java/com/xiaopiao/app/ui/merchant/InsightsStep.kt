@@ -127,7 +127,13 @@ private fun Kpi(label: String, value: Float?, unit: String, modifier: Modifier) 
 private fun AgeChips(selected: AgeBand?, onSelect: (AgeBand?) -> Unit) {
     Column(Modifier.padding(horizontal = XpSpace.l)) {
         Text("看哪群人", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
-        Row(Modifier.padding(top = XpSpace.xs), horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
+        // Wraps to a second line at 360dp x 1.3 instead of clipping the last chip.
+        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+        androidx.compose.foundation.layout.FlowRow(
+            Modifier.padding(top = XpSpace.xs),
+            horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+            verticalArrangement = Arrangement.spacedBy(XpSpace.xs),
+        ) {
             Chip("全部", selected == null) { onSelect(null) }
             AgeBand.entries.forEach { Chip(it.label, selected == it) { onSelect(it) } }
         }
@@ -140,7 +146,7 @@ private fun Chip(label: String, on: Boolean, onClick: () -> Unit) {
     val fg by animateColorAsState(if (on) XpColors.Accent else XpColors.Ink, label = "chipfg")
     val haptic = LocalHapticFeedback.current
     Text(
-        label, style = MaterialTheme.typography.labelMedium, color = fg,
+        label, style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1, softWrap = false,
         modifier = Modifier.clip(RoundedCornerShape(50)).background(bg)
             .clickable { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onClick() }
             .padding(horizontal = 12.dp, vertical = 6.dp),
