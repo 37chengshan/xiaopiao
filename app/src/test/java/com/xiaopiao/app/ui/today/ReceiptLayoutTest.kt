@@ -93,4 +93,15 @@ class ReceiptLayoutTest {
         assertTrue(text.contains("今日支出"))
         assertTrue(text.contains("今日小票"))
     }
+
+    @Test fun dayWithoutBadgeIsOnlyDormantWhenNothingWasSpent() {
+        fun out(cents: Long, cat: com.xiaopiao.app.domain.Category) =
+            com.xiaopiao.app.domain.Txn(amountCents = cents, merchant = "x", category = cat, occurredAt = 0L, source = Source.MANUAL)
+        assertEquals(ReceiptLayout.DEFAULT_STAMP, ReceiptLayout.dayTitle(emptyList()))
+        // tt: 「为什么花了 99 还是钱包休眠者」
+        assertEquals("干饭人", ReceiptLayout.dayTitle(listOf(out(60_00, com.xiaopiao.app.domain.Category.MEAL), out(39_00, com.xiaopiao.app.domain.Category.DRINK))))
+        assertEquals("一笔入魂", ReceiptLayout.dayTitle(listOf(out(99_00, com.xiaopiao.app.domain.Category.SHOPPING))))
+        assertEquals("小确幸日", ReceiptLayout.dayTitle(listOf(out(8_00, com.xiaopiao.app.domain.Category.SNACK))))
+        assertEquals("豪横的一天", ReceiptLayout.dayTitle(listOf(out(800_00, com.xiaopiao.app.domain.Category.SHOPPING))))
+    }
 }

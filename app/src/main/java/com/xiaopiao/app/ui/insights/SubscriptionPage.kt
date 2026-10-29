@@ -8,6 +8,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.Icons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -54,7 +56,7 @@ import kotlinx.coroutines.launch
 
 /** 订阅侦探: finds quiet auto-renewals, shows the yearly bill, guides cancelling (never cancels itself). */
 @Composable
-fun SubscriptionPage(input: InsightsInput, onBack: () -> Unit) {
+fun SubscriptionPage(input: InsightsInput) {
     val context = LocalContext.current
     val prefs = remember { InsightsPrefs(context) }
     val scope = rememberCoroutineScope()
@@ -73,9 +75,9 @@ fun SubscriptionPage(input: InsightsInput, onBack: () -> Unit) {
         } else scope.launch { prefs.setCancelled(merchant, value) }
     }
 
-    InsightsPage("订阅侦探", "揪出悄悄扣钱的自动续费", onBack) {
+    InsightsPage("揪出悄悄扣钱的自动续费") {
         if (all.isEmpty()) {
-            InsightsEmpty("🕵️", "暂时没抓到自动续费", "账本里还没有规律重复的扣款。多记几个月，侦探会自己出动～")
+            InsightsEmpty(Icons.Outlined.Search, "暂时没抓到自动续费", "账本里还没有规律重复的扣款。多记几个月，侦探会自己出动～")
             return@InsightsPage
         }
         XpCard {
@@ -85,7 +87,7 @@ fun SubscriptionPage(input: InsightsInput, onBack: () -> Unit) {
             BigMoney(yearly)
             Text("共 ${active.size} 项 · 只做提醒，关不关由你决定", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         }
-        if (active.isEmpty()) InsightsEmpty("🎉", "全部标记为已取消", "清爽！下面可以随时撤销标记。")
+        if (active.isEmpty()) InsightsEmpty(Icons.Outlined.CheckCircle, "全部标记为已取消", "清爽！下面可以随时撤销标记。")
         active.forEach { SubscriptionCard(it, input.now, cancelled = false) { mark(it.subscription.merchant, true) } }
         if (done.isNotEmpty()) {
             Text("已标记取消", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)

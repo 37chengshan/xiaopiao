@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.merchant
 
+import com.xiaopiao.app.ui.components.NavGlyph
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -24,9 +25,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Groups
-import androidx.compose.material.icons.outlined.Science
-import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PointOfSale
@@ -100,13 +98,13 @@ object MerchantNav {
  * 我的 is open `经营 · ⊕ | 人群 · 我的 · 实验` (the experiment flow's steps stay inside 人群 / 实验).
  */
 private val MerchantNavSpec = NavBarSpec(
-    a = NavBarItem("today", "今日", Icons.Outlined.Today),
-    b = NavBarItem("revenue", "营收", Icons.Outlined.PointOfSale),
-    c = NavBarItem("analysis", "分析", Icons.Outlined.Insights),
-    fold = NavBarItem("fold", "经营", Icons.Outlined.Storefront),
-    entry = NavBarItem("mine", "我的", Icons.Outlined.Person),
-    sa = NavBarItem("crowd", "人群", Icons.Outlined.Groups),
-    sb = NavBarItem("lab", "实验", Icons.Outlined.Science),
+    a = NavBarItem("today", "今日", NavGlyph.Calendar),
+    b = NavBarItem("revenue", "营收", NavGlyph.Coin),
+    c = NavBarItem("analysis", "分析", NavGlyph.Chart),
+    fold = NavBarItem("fold", "经营", NavGlyph.Store),
+    entry = NavBarItem("mine", "我的", NavGlyph.Person),
+    sa = NavBarItem("crowd", "人群", NavGlyph.People),
+    sb = NavBarItem("lab", "实验", NavGlyph.Flask),
     plusLabel = "记营收", plusDescription = "记营收",
 )
 

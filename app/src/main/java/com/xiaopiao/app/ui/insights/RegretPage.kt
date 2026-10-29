@@ -1,5 +1,7 @@
 package com.xiaopiao.app.ui.insights
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -40,7 +42,7 @@ import kotlin.math.roundToInt
 
 /** 后悔模拟器: pure arithmetic "what if I had spent X% less" — no returns, no advice. */
 @Composable
-fun RegretPage(input: InsightsInput, onBack: () -> Unit) {
+fun RegretPage(input: InsightsInput) {
     var window by rememberSaveable { mutableIntStateOf(3) }
     var reduction by rememberSaveable { mutableFloatStateOf(50f) }
     var targetKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -50,9 +52,9 @@ fun RegretPage(input: InsightsInput, onBack: () -> Unit) {
     val target = targets.firstOrNull { it.label == targetKey } ?: targets.firstOrNull()
     val hasData = input.history.any { it.direction == Direction.OUT }
 
-    InsightsPage("后悔模拟器", "如果当初少花一点……", onBack) {
+    InsightsPage("如果当初少花一点……") {
         if (!hasData || target == null) {
-            InsightsEmpty("🔮", "还没有可以模拟的账目", "记下一些支出后，这里可以算算「少花一点」能攒下多少。")
+            InsightsEmpty(Icons.Outlined.Timeline, "还没有可以模拟的账目", "记下一些支出后，这里可以算算「少花一点」能攒下多少。")
             return@InsightsPage
         }
         Segmented(RegretSimulator.WINDOWS.map { it to "近 $it 个月" }, window) { window = it }

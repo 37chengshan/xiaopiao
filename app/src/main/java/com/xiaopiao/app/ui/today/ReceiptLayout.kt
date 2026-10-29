@@ -132,8 +132,39 @@ object ReceiptLayout {
         }
     }
 
+    /** The day's earned badge if any; otherwise a title read off the day itself — 钱包休眠者 only when nothing was spent. */
     fun stampText(receipt: DailyReceipt): String =
-        receipt.badge?.title?.takeIf { it.isNotBlank() } ?: DEFAULT_STAMP
+        receipt.badge?.title?.takeIf { it.isNotBlank() } ?: dayTitle(receipt.items)
+
+    /**
+     * Titles for days without a badge, from the spend only (no advice, no judgement — just a wink at the day).
+     * Order: nothing spent → a big day / a tiny day → many entries / one entry → whatever took the largest share.
+     */
+    fun dayTitle(items: List<com.xiaopiao.app.domain.Txn>): String {
+        val spend = items.filter { it.direction == Direction.OUT }
+        val total = spend.sumOf { it.amountCents }
+        if (spend.isEmpty() || total == 0L) return DEFAULT_STAMP
+        if (total >= 500_00) return "豪横的一天"
+        if (spend.size >= 8) return "记账狂魔"
+        if (total < 20_00) return "小确幸日"
+        if (spend.size == 1) return "一笔入魂"
+        val top = spend.groupBy { it.category }.maxBy { (_, rows) -> rows.sumOf { it.amountCents } }.key
+        return when (top) {
+            com.xiaopiao.app.domain.Category.MEAL -> "干饭人"
+            com.xiaopiao.app.domain.Category.DRINK -> "续命专家"
+            com.xiaopiao.app.domain.Category.SNACK -> "零食收藏家"
+            com.xiaopiao.app.domain.Category.GROCERY -> "生活管家"
+            com.xiaopiao.app.domain.Category.TRANSPORT -> "通勤侠"
+            com.xiaopiao.app.domain.Category.SHOPPING -> "快乐剁手侠"
+            com.xiaopiao.app.domain.Category.FUN -> "快乐买单人"
+            com.xiaopiao.app.domain.Category.SUBSCRIPTION -> "会员收藏家"
+            com.xiaopiao.app.domain.Category.HOUSING -> "安居打工人"
+            com.xiaopiao.app.domain.Category.HEALTH -> "健康守护者"
+            com.xiaopiao.app.domain.Category.SOCIAL -> "人情大使"
+            com.xiaopiao.app.domain.Category.LEARNING -> "学习投资人"
+            com.xiaopiao.app.domain.Category.OTHER -> "认真生活家"
+        }
+    }
 
     /**
      * [expanded] prints every item (the share sheet's 完整); otherwise rows beyond [MAX_ROWS] fold into "还有 N 笔".

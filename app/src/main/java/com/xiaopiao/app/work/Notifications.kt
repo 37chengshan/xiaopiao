@@ -17,16 +17,19 @@ object ReminderIntents {
     const val OPEN_TODAY = "today"
     const val OPEN_WEEKLY = "weekly"
     const val OPEN_SUBSCRIPTIONS = "subscriptions"
+    const val OPEN_BUDGET = "budget"
 }
 
 object Notifications {
     const val CHANNEL_DAILY = "daily_receipt"
     const val CHANNEL_WEEKLY = "weekly_awards"
     const val CHANNEL_SUBSCRIPTION = "subscription_charge"
+    const val CHANNEL_BUDGET = "budget_milestones"
 
     const val ID_DAILY = 2101
     const val ID_WEEKLY = 2102
     const val ID_SUBSCRIPTION_BASE = 2200
+    const val ID_BUDGET_BASE = 2300
 
     fun createChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
@@ -38,6 +41,9 @@ object Notifications {
         })
         nm.createNotificationChannel(NotificationChannel(CHANNEL_SUBSCRIPTION, "扣费提醒", NotificationManager.IMPORTANCE_HIGH).apply {
             description = "订阅扣费前 3 天的小提醒"
+        })
+        nm.createNotificationChannel(NotificationChannel(CHANNEL_BUDGET, "预算提醒", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = "日/周/月预算用到 80% 或 100% 时提醒一次"
         })
     }
 

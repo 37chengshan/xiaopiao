@@ -1,5 +1,10 @@
 package com.xiaopiao.app.ui.ledger
 
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
+import com.xiaopiao.app.ui.budget.BudgetPage
+import com.xiaopiao.app.domain.BudgetSummary
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -82,11 +87,17 @@ fun LedgerScreen(
     container: AppContainer,
     @Suppress("UNUSED_PARAMETER") onVoiceStart: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
-    /** 已设预算时汇总卡底条改写成「本月预算剩余 ¥x」；null = 还没设，显示设置入口。 */
-    budget: BudgetSummary? = null,
-    /** 预算页由 budget worker 提供；合并时接上。 */
-    onOpenBudget: () -> Unit = {},
 ) {
+    // 「设置预算」 opens the budget page over the ledger; back returns here.
+    var budgetOpen by rememberSaveable { mutableStateOf(false) }
+    if (budgetOpen) {
+        BackHandler { budgetOpen = false }
+        BudgetPage(container, onBack = { budgetOpen = false }, onOpenSettings = onOpenSettings)
+        return
+    }
+    val budgetFlow = remember(container) { container.budget.observeSummary(container.ledger) }
+    val budget: BudgetSummary? by budgetFlow.collectAsStateWithLifecycle(initialValue = null)
+
     val ledger = container.ledger
     val flow = remember(container) { ledger.observeAll() }
     val txns: List<Txn>? by flow.collectAsStateWithLifecycle(initialValue = null)
@@ -218,7 +229,6 @@ fun LedgerScreen(
                 else -> {
                     // Reference `041428` puts 按天跳转 (calendar) in the top bar; we keep the receipt
                     // strip and the gear to its right (tt 要求设置在右上角).
-                    NavIconButton(Icons.Outlined.CalendarMonth, "按天跳转", onClick = { calendarOpen = true })
                     ReceiptStrip()
                     NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings)
                 }
@@ -250,7 +260,8 @@ fun LedgerScreen(
                 groups = groups,
                 summary = summary,
                 budget = budget,
-                onOpenBudget = onOpenBudget,
+                onOpenBudget = { budgetOpen = true },
+                onOpenCalendar = { calendarOpen = true },
                 hidden = hidden,
                 onToggleHidden = { scope.launch { prefs.setHidden(!hidden) } },
                 selection = selection,
@@ -329,8 +340,27 @@ fun LedgerScreen(
     }
 }
 
-/** Items above the first day card: the summary (search lives in the top bar, as in `041428`). */
-private const val HEADER_ITEMS = 1
+/** Items above the first day card: the summary and the 按天查看 pill (search lives in the top bar). */
+private const val HEADER_ITEMS = 2
+
+/** Right-aligned 32dp pill under the summary card: opens the day picker that jumps the list. */
+@Composable
+private fun DayJumpPill(onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = XpSpace.m), horizontalArrangement = Arrangement.End) {
+        Row(
+            Modifier.height(32.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Card)
+                .pressableClick(haptic = false, scaleDown = 0.96f, onClick = onClick)
+                .padding(horizontal = XpSpace.m),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = XpColors.InkSecondary, modifier = Modifier.size(16.dp))
+            Text(
+                "按天查看", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, maxLines = 1,
+                modifier = Modifier.padding(start = XpSpace.xs),
+            )
+        }
+    }
+}
 
 @Composable
 private fun LedgerList(
@@ -340,6 +370,7 @@ private fun LedgerList(
     summary: LedgerSummary,
     budget: BudgetSummary?,
     onOpenBudget: () -> Unit,
+    onOpenCalendar: () -> Unit,
     hidden: Boolean,
     onToggleHidden: () -> Unit,
     selection: Set<Long>?,
@@ -360,6 +391,8 @@ private fun LedgerList(
     ) {
         if (selection == null) {
             item(key = "summary") { LedgerSummaryCard(summary, hidden, onToggleHidden, budget, onOpenBudget) }
+            // tt: the date jump lives down here, not in the top bar (which keeps only 小票 and 设置 on the right).
+            if (!allEmpty) item(key = "jump") { DayJumpPill(onClick = onOpenCalendar) }
         }
         if (groups.isEmpty()) {
             item(key = "empty") {

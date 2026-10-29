@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.withTransaction
 import com.xiaopiao.app.capture.CaptureProcessor
 import com.xiaopiao.app.data.AppDatabase
+import com.xiaopiao.app.data.BudgetRepository
 import com.xiaopiao.app.data.CaptureLogRepository
 import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.data.RoomCategoryRepository
@@ -30,6 +31,9 @@ class AppContainer(context: Context) {
     }
     val categories: CategoryRepository get() = roomCategories
     val captureLog: CaptureLogRepository by lazy { CaptureLogRepository(database.captureLogDao()) }
+
+    /** 用户自设的日/周/月预算（tt#70），DataStore 存储、已花由账本实时算。 */
+    val budget: BudgetRepository by lazy { BudgetRepository(appContext) }
     val captureProcessor: CaptureProcessor by lazy { CaptureProcessor(ledger, captureLog) }
     val csvImporter: CsvImporter by lazy { CsvImporter(appContext.contentResolver, ledger) }
 
