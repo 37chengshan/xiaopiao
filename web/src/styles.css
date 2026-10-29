@@ -92,10 +92,16 @@
   --color-violet: var(--violet);
   --color-violet-soft: var(--violet-soft);
   --font-serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
+  /*
+   * The emoji families sit before the generic keyword: no text font in these stacks carries 🛒 or 🚇, so
+   * without them the browser falls through to a monochrome symbol face and category marks look like debris.
+   * They must precede `sans-serif`/`monospace` — a generic family resolves every character.
+   */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue",
-    "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    "Noto Sans SC", "Microsoft YaHei", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+    system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, "Sarasa Mono SC", "Noto Sans Mono CJK SC", "PingFang SC",
-    monospace;
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", monospace;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
@@ -303,15 +309,6 @@
 .num {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
-}
-
-/*
- * Category marks on the thermal paper: the mono stack has no emoji, so the browser falls back to a
- * monochrome outline glyph. Force the colour emoji families for just that character.
- */
-.emoji {
-  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-  font-variant-emoji: emoji;
 }
 
 /* Suppressed (k<20) heatmap cell: empty with a fine diagonal hatch, no text */
