@@ -195,7 +195,6 @@ fun LedgerScreen(
                     )
                 }
                 else -> {
-                    NavIconButton(Icons.Outlined.CalendarMonth, "按天跳转", onClick = { calendarOpen = true })
                     ReceiptStrip()
                     NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings)
                 }
@@ -229,6 +228,7 @@ fun LedgerScreen(
                 filterCount = filter.activeCount,
                 onOpenSearch = { searching = true },
                 onFilter = { filterOpen = true },
+                onCalendar = { calendarOpen = true },
                 selection = selection,
                 onToggleSelect = { txn ->
                     val current = selection.orEmpty()
@@ -299,6 +299,7 @@ private fun LedgerList(
     filterCount: Int,
     onOpenSearch: () -> Unit,
     onFilter: () -> Unit,
+    onCalendar: () -> Unit,
     selection: Set<Long>?,
     onToggleSelect: (Txn) -> Unit,
     onLongPress: (Txn) -> Unit,
@@ -317,7 +318,7 @@ private fun LedgerList(
     ) {
         if (selection == null) {
             item(key = "summary") { LedgerSummaryCard(summary, hidden, onToggleHidden) }
-            item(key = "search") { LedgerSearchRow(filterCount, onOpenSearch, onFilter) }
+            item(key = "search") { LedgerSearchRow(filterCount, onOpenSearch, onFilter, onCalendar) }
         }
         if (groups.isEmpty()) {
             item(key = "empty") {

@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.games
 
+import androidx.compose.material.icons.outlined.Settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -51,7 +52,7 @@ import com.xiaopiao.app.ui.theme.XpSpace
  * Two-column grid of [GameContent.games]; tapping one swaps this screen for [GamePlayer] in the same tab.
  */
 @Composable
-fun GamesHub(onBack: () -> Unit) {
+fun GamesHub(onBack: () -> Unit, onOpenSettings: (() -> Unit)? = null) {
     var openId by rememberSaveable { mutableStateOf<String?>(null) }
     val game = openId?.let(GameContent::byId)
 
@@ -69,7 +70,12 @@ fun GamesHub(onBack: () -> Unit) {
         onBack = { openId = null },
         modifier = Modifier.fillMaxSize(),
     ) {
-    NavScaffold(title = "游戏", scroll = NavScrollNone, onBack = onBack) { top ->
+    NavScaffold(
+        title = "游戏", scroll = NavScrollNone, onBack = onBack,
+        trailing = {
+            if (onOpenSettings != null) com.xiaopiao.app.ui.components.NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onClick = onOpenSettings)
+        },
+    ) { top ->
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             modifier = Modifier.fillMaxSize(),

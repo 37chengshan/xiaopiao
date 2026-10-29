@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
@@ -49,6 +50,7 @@ fun LedgerSearchRow(
     activeFilterCount: Int,
     onOpenSearch: () -> Unit,
     onFilter: () -> Unit,
+    onCalendar: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -70,6 +72,13 @@ fun LedgerSearchRow(
                 maxLines = 1,
                 modifier = Modifier.padding(start = XpSpace.s),
             )
+        }
+        // 按天跳转 lives here (grey-fill square, same family as the search field), not in the top bar (tt#69).
+        Box(
+            Modifier.size(40.dp).clip(FieldShape).background(XpColors.Fill).pressableClick(haptic = false, onClick = onCalendar),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Outlined.CalendarMonth, contentDescription = "按天跳转", tint = XpColors.Ink, modifier = Modifier.size(20.dp))
         }
         Text(
             if (activeFilterCount > 0) "筛选 $activeFilterCount" else "筛选",

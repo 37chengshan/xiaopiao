@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.merchant
 
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,6 +53,7 @@ fun MerchantTodayScreen(
     onEditDay: (Long) -> Unit,
     onOpenReceipt: (Long) -> Unit,
     onOpenRevenue: () -> Unit,
+    onOpenSettings: () -> Unit = {},
 ) {
     val book = remember(entries) { RevenueBook.normalize(entries) }
     val todayEntry = remember(book, today) { RevenueBook.entryFor(book, today) }
@@ -73,7 +75,10 @@ fun MerchantTodayScreen(
         title = "今日",
         scroll = NavScrollNone,
         demo = demo,
-        trailing = { NavIconButton(Icons.AutoMirrored.Outlined.ReceiptLong, "经营日报小票", onClick = { onOpenReceipt(today) }) },
+        trailing = {
+            NavIconButton(Icons.AutoMirrored.Outlined.ReceiptLong, "经营日报小票", onClick = { onOpenReceipt(today) })
+            NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onClick = onOpenSettings)
+        },
     ) { top ->
         Column(
             Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl),

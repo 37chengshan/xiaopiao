@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.today
 
+import com.xiaopiao.app.domain.Category
 import com.xiaopiao.app.domain.Cents
 import com.xiaopiao.app.domain.DAY_MS
 import com.xiaopiao.app.domain.DailyReceipt
@@ -9,11 +10,12 @@ import com.xiaopiao.app.insights.DailyReceiptBuilder
 
 /** Turns the whole ledger into one day's receipt and its print lines. Pure; shared by the print ceremony and the 小票页 preview. */
 object ReceiptSource {
-    fun receiptFor(all: List<Txn>, day: Long): DailyReceipt =
-        DailyReceiptBuilder.build(day, all.filter { it.occurredAt in day until day + DAY_MS }, all)
+    /** [excluded] categories stay off the paper: they leave the day's rows, so the total and the shares follow. */
+    fun receiptFor(all: List<Txn>, day: Long, excluded: Set<Category> = emptySet()): DailyReceipt =
+        DailyReceiptBuilder.build(day, all.filter { it.occurredAt in day until day + DAY_MS && it.category !in excluded }, all)
 
-    fun metaFor(all: List<Txn>, day: Long, printedAtMs: Long): ReceiptMeta {
-        val prev = all.filter { it.direction == Direction.OUT && it.occurredAt in (day - DAY_MS) until day }
+    fun metaFor(all: List<Txn>, day: Long, printedAtMs: Long, excluded: Set<Category> = emptySet()): ReceiptMeta {
+        val prev = all.filter { it.direction == Direction.OUT && it.category !in excluded && it.occurredAt in (day - DAY_MS) until day }
         return ReceiptMeta(printedAtMs, if (prev.isEmpty()) null else prev.sumOf { it.amountCents })
     }
 
@@ -21,9 +23,12 @@ object ReceiptSource {
         all.filter { it.direction == Direction.OUT && it.occurredAt in today until today + DAY_MS }.sumOf { it.amountCents }
 
     /** Lines for printing [day] with the user's [content] switches. */
-    fun linesFor(all: List<Txn>, day: Long, today: Long, content: ReceiptContent, printedAtMs: Long, expanded: Boolean = false): List<ReceiptLine> {
-        val receipt = receiptFor(all, day)
-        return ReceiptLayout.build(receipt, day == today, false, expanded = expanded, meta = metaFor(all, day, printedAtMs), content = content)
+    fun linesFor(
+        all: List<Txn>, day: Long, today: Long, content: ReceiptContent, printedAtMs: Long,
+        expanded: Boolean = false, excluded: Set<Category> = emptySet(),
+    ): List<ReceiptLine> {
+        val receipt = receiptFor(all, day, excluded)
+        return ReceiptLayout.build(receipt, day == today, false, expanded = expanded, meta = metaFor(all, day, printedAtMs, excluded), content = content)
     }
 }
 

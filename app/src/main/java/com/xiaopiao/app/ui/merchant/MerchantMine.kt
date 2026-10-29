@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.merchant
 
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +40,7 @@ import com.xiaopiao.app.merchant.RevenueBook
 import com.xiaopiao.app.ui.components.GroupedRow
 import com.xiaopiao.app.ui.components.GroupedSection
 import com.xiaopiao.app.ui.components.IconTile
+import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.components.XpButton
@@ -59,6 +61,7 @@ fun MerchantMineScreen(
     onOpenSub: (MerchantSub) -> Unit,
     onPrivacy: () -> Unit,
     onExit: () -> Unit,
+    onOpenSettings: () -> Unit = {},
 ) {
     val experiment = state.experiment
     val decision = remember(experiment, state.decisions) { experiment?.let { state.decisionFor(it.id) } }
@@ -67,7 +70,10 @@ fun MerchantMineScreen(
     val weekCents = RevenueBook.windowTotal(book, RevenueBook.weekStart(today), today)
     val scroll = rememberScrollState()
 
-    NavScaffold(title = "我的", scroll = NavScrollNone, demo = book.any { it.seeded }) { top ->
+    NavScaffold(
+        title = "我的", scroll = NavScrollNone, demo = book.any { it.seeded },
+        trailing = { NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
+    ) { top ->
         Column(
             Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = XpSpace.xxl)
                 .xpRevealLayer(index = 0),

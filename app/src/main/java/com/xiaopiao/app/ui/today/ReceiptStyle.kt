@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.font.FontFamily
+import com.xiaopiao.app.domain.Category
 import com.xiaopiao.app.ui.theme.XpColors
 
 /** Which parts of the day get printed (docs/APP-DESIGN.md §3.1: 打印内容开关). */
@@ -72,6 +74,24 @@ enum class PaperTheme(val id: String, val label: String, val paper: Long?, val s
     }
 }
 
+/** The typeface the paper is set in: thermal-printer mono (default), system sans, or serif. */
+enum class ReceiptFont(val id: String, val label: String) {
+    Thermal("thermal", "等宽热敏"),
+    Sans("sans", "无衬线"),
+    Serif("serif", "衬线");
+
+    val family: FontFamily
+        get() = when (this) {
+            Thermal -> FontFamily.Monospace
+            Sans -> FontFamily.SansSerif
+            Serif -> FontFamily.Serif
+        }
+
+    companion object {
+        fun fromId(id: String?): ReceiptFont = entries.firstOrNull { it.id == id } ?: Thermal
+    }
+}
+
 /** Everything the 小票页 lets the user change; persisted by [ReceiptPrefs]. */
 @Immutable
 data class ReceiptSettings(
@@ -79,8 +99,13 @@ data class ReceiptSettings(
     /** ARGB of a custom ink colour, or null for the theme's own ink. */
     val customInk: Int? = null,
     val content: ReceiptContent = ReceiptPreset.Full.content,
+    val font: ReceiptFont = ReceiptFont.Thermal,
+    /** Categories left off the paper. Empty = everything is printed (the default); new categories start included. */
+    val excluded: Set<Category> = emptySet(),
 ) {
     fun colors(): PaperColors = PaperColors.resolve(theme, customInk)
+
+    fun includes(c: Category): Boolean = c !in excluded
 }
 
 /** Resolved colours the paper is drawn with. Read through [LocalPaperColors]. */
@@ -108,3 +133,6 @@ data class PaperColors(val paper: Color, val shade: Color, val ink: Color, val s
 
 /** The paper's colours for everything drawn on it (lines, stamp, background). Defaults to the app's classic tokens. */
 val LocalPaperColors = compositionLocalOf { PaperColors.resolve(PaperTheme.Classic, null) }
+
+/** The typeface for everything printed on the paper (lines, share image). */
+val LocalReceiptFont = compositionLocalOf { ReceiptFont.Thermal }

@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.merchant
 
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,6 +56,7 @@ fun MerchantRevenueScreen(
     onRecord: () -> Unit,
     onEditDay: (Long) -> Unit,
     onOpenReceipt: (Long) -> Unit,
+    onOpenSettings: () -> Unit = {},
 ) {
     val book = remember(entries) { RevenueBook.normalize(entries) }
     val months = remember(book) { RevenueBook.groupByMonth(book) }
@@ -71,6 +73,7 @@ fun MerchantRevenueScreen(
         trailing = {
             NavIconButton(Icons.Outlined.UploadFile, "导入 CSV", onClick = onImportCsv)
             NavIconButton(Icons.AutoMirrored.Outlined.ReceiptLong, "经营日报小票", onClick = { onOpenReceipt(today) })
+            NavIconButton(androidx.compose.material.icons.Icons.Outlined.Settings, "设置", onClick = onOpenSettings)
         },
     ) { top ->
         Column(

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.xiaopiao.app.domain.Category
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -17,12 +18,16 @@ class ReceiptPrefs(private val store: DataStore<Preferences>) {
     private val themeKey = stringPreferencesKey("theme")
     private val inkKey = intPreferencesKey("custom_ink")
     private val contentKey = intPreferencesKey("content_bits")
+    private val fontKey = stringPreferencesKey("font")
+    private val excludedKey = stringPreferencesKey("excluded_categories")
 
     fun observe(): Flow<ReceiptSettings> = store.data.map { p ->
         ReceiptSettings(
             theme = PaperTheme.fromId(p[themeKey]),
             customInk = p[inkKey],
             content = p[contentKey]?.let(ReceiptContent::fromBits) ?: ReceiptPreset.Full.content,
+            font = ReceiptFont.fromId(p[fontKey]),
+            excluded = decodeCategories(p[excludedKey]),
         )
     }
 
@@ -34,4 +39,19 @@ class ReceiptPrefs(private val store: DataStore<Preferences>) {
     }
 
     suspend fun setContent(content: ReceiptContent) { store.edit { it[contentKey] = content.toBits() } }
+
+    suspend fun setFont(font: ReceiptFont) { store.edit { it[fontKey] = font.id } }
+
+    /** [excluded] are the categories kept off the paper; an empty set prints everything. */
+    suspend fun setExcluded(excluded: Set<Category>) {
+        store.edit { if (excluded.isEmpty()) it.remove(excludedKey) else it[excludedKey] = encodeCategories(excluded) }
+    }
+
+    companion object {
+        /** Stored by name, so reordering or adding categories never changes what an old setting means. */
+        fun encodeCategories(set: Set<Category>): String = set.map { it.name }.sorted().joinToString(",")
+
+        fun decodeCategories(raw: String?): Set<Category> =
+            raw?.split(',')?.mapNotNull { n -> Category.entries.firstOrNull { it.name == n } }?.toSet().orEmpty()
+    }
 }

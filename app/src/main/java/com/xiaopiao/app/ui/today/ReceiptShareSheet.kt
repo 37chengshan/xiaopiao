@@ -74,6 +74,8 @@ class ShareContent(
     briefLines: List<ReceiptLine>? = null,
     /** The paper colours chosen in 小票页; null = the app's classic paper. */
     val colors: PaperColors? = null,
+    /** The typeface chosen in 小票页, so the saved image matches what was printed. */
+    val font: ReceiptFont? = null,
 ) {
     val brief: List<ReceiptLine> = briefLines ?: ReceiptLayout.brief(full)
     fun linesFor(briefMode: Boolean): List<ReceiptLine> = if (briefMode) brief else full
@@ -115,7 +117,7 @@ fun ReceiptShareSheet(content: ShareContent, onDismiss: () -> Unit) {
                 Modifier.weight(1f, fill = false).fillMaxWidth().padding(vertical = XpSpace.s)
                     .clip(RoundedCornerShape(XpRadius.m)).animateContentSize(spring(0.85f, 380f)).verticalScroll(rememberScrollState()),
             ) {
-                ShareCard(lines, content.stampText, GradientPresets.byIndex(gradient), content.colors, Modifier.drawWithContent {
+                ShareCard(lines, content.stampText, GradientPresets.byIndex(gradient), content.colors, content.font, Modifier.drawWithContent {
                     layer.record { this@drawWithContent.drawContent() }
                     drawLayer(layer)
                 })
@@ -162,7 +164,7 @@ private fun Modifier.defaultMin() = this.then(Modifier.height(48.dp))
 
 /** The exported image: the paper floating on the chosen gradient with a small signature. Captured as-is by the sheet. */
 @Composable
-private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: CardGradient, colors: PaperColors?, modifier: Modifier = Modifier) {
+private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: CardGradient, colors: PaperColors?, font: ReceiptFont?, modifier: Modifier = Modifier) {
     val timeline = remember(lines) { PrintTimeline.build(lines, reduced = true) }
     val clock = remember(timeline) { PrintClock(timeline, instant = true) { 0L } }
     val stamp = remember { StampVisuals({ 1f }, { 1f }, { 0f }) }
@@ -172,7 +174,7 @@ private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: Car
             .padding(horizontal = 24.dp, vertical = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        androidx.compose.runtime.CompositionLocalProvider(LocalPaperColors provides (colors ?: LocalPaperColors.current)) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalPaperColors provides (colors ?: LocalPaperColors.current), LocalReceiptFont provides (font ?: LocalReceiptFont.current)) {
             ReceiptPaper(lines, clock, stampText, stamp, tornTop = true)
         }
         Spacer(Modifier.height(18.dp))
