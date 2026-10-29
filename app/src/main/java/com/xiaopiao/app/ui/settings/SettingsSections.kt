@@ -26,7 +26,25 @@ import com.xiaopiao.app.ui.components.IconTile
 import com.xiaopiao.app.ui.components.Segmented
 import com.xiaopiao.app.ui.components.XpSwitch
 import androidx.compose.material.icons.outlined.Lightbulb
+import com.xiaopiao.app.ui.theme.AccentChoice
 import com.xiaopiao.app.ui.theme.DesignStyle
+import com.xiaopiao.app.ui.LaunchSide
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.xiaopiao.app.ui.theme.ThemeMode
 import com.xiaopiao.app.ui.record.RecordMethod
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -161,6 +179,58 @@ fun ReplayOnboardingSection(onReplay: () -> Unit) {
                 leading = { IconTile(Icons.Outlined.Lightbulb, tint = XpColors.Warning, background = XpColors.WarningSoft) },
                 onClick = onReplay,
             )
+        }
+    }
+}
+
+/** 强调色: seven dots, Apple skin only (Claude keeps its terracotta). Spread with weights so 360dp and 411dp both fit. */
+@Composable
+fun AccentSection(accent: AccentChoice, onAccent: (AccentChoice) -> Unit) {
+    GroupedSection(header = "强调色") {
+        item {
+            Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.s, vertical = XpSpace.m)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    AccentChoice.entries.forEach { choice ->
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                            AccentDot(choice, selected = choice == accent) { onAccent(choice) }
+                        }
+                    }
+                }
+                Text(
+                    accent.label, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
+                    modifier = Modifier.padding(start = XpSpace.m, top = XpSpace.s),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccentDot(choice: AccentChoice, selected: Boolean, onClick: () -> Unit) {
+    val fill = choice.color(XpColors.isDark)
+    Box(
+        Modifier.size(38.dp).clip(CircleShape)
+            .semantics { contentDescription = "强调色 ${choice.label}" }
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) Box(Modifier.size(38.dp).border(BorderStroke(2.dp, XpColors.Ink), CircleShape))
+        Box(Modifier.size(28.dp).clip(CircleShape).background(fill), contentAlignment = Alignment.Center) {
+            if (selected) Icon(
+                Icons.Outlined.Check, contentDescription = null, tint = com.xiaopiao.app.ui.theme.Contrast.onAccent(fill),
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+fun LaunchSideSection(side: LaunchSide, onSide: (LaunchSide) -> Unit) {
+    GroupedSection(header = "打开 App 时进入") {
+        item {
+            Box(Modifier.fillMaxWidth().padding(XpSpace.m)) {
+                Segmented(LaunchSide.entries.map { it.label }, side.ordinal, { onSide(LaunchSide.entries[it]) })
+            }
         }
     }
 }
