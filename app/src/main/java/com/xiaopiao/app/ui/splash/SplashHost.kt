@@ -33,6 +33,9 @@ import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.motion.MotionMath
 import com.xiaopiao.app.ui.motion.SplashTimeline
 import com.xiaopiao.app.ui.motion.xpOut
+import androidx.compose.ui.graphics.drawscope.clipRect
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
 /** Mirrors `windowSplashScreenBackground` in `values/themes.xml`, so the system splash and this overlay are one surface. */
@@ -44,10 +47,15 @@ private val SplashInk = Color(0xFF1D1D1F)
 private val SplashWarning = Color(0xFFB25000)
 
 /**
- * Cold-start overlay that continues the platform splash (docs/APP-DESIGN.md §2.5): the same printer and
- * paper stay on screen, then the paper shrinks into the persistent receipt control (300ms, dt-driven
- * spring) and the overlay fades (160ms). Whole sequence is capped at 1.2s; a tap skips it; reduced motion
- * drops the flight and only fades. Nothing here changes layout of the app underneath.
+ * The whole cold-start animation (docs/APP-DESIGN.md §2.5), and the **only** layer that draws it: the
+ * platform splash keeps just the paper colour behind us (tt 2026-10-29: two logos at different sizes read
+ * as "两层东西"). Sequence, all dt-driven and skippable by a tap:
+ *
+ * 1. the machine prints — body fades in, the paper rolls out of the slit, the printed lines appear;
+ * 2. the paper shrinks into the persistent receipt control (300ms spring);
+ * 3. the overlay fades out (160ms).
+ *
+ * Hard cap 1.2s; reduced motion keeps the logo still and only fades. Nothing here relayouts the app.
  */
 @Composable
 fun SplashHost(onFinished: () -> Unit, modifier: Modifier = Modifier) {
@@ -56,6 +64,10 @@ fun SplashHost(onFinished: () -> Unit, modifier: Modifier = Modifier) {
     var originY by remember { mutableFloatStateOf(0f) }
     var destination by remember { mutableStateOf<Rect?>(null) }
     var target by remember { mutableStateOf<Rect?>(null) }
+    // Print choreography: body / paper out of the slit / printed lines. Reduced motion starts printed.
+    var printer by remember { mutableFloatStateOf(if (reduced) 1f else 0f) }
+    var rollout by remember { mutableFloatStateOf(if (reduced) 1f else 0f) }
+    var ink by remember { mutableFloatStateOf(if (reduced) 1f else 0f) }
     var fly by remember { mutableFloatStateOf(0f) }
     var fade by remember { mutableFloatStateOf(0f) }
     var skip by remember { mutableStateOf(false) }
@@ -66,21 +78,39 @@ fun SplashHost(onFinished: () -> Unit, modifier: Modifier = Modifier) {
     }
 
     LaunchedEffect(Unit) {
-        val startedAt = SystemClock.elapsedRealtime()
-        // 1) Wait for the receipt control to appear (it is composed with the app shell, one frame later).
-        if (!reduced) {
-            while (!skip && target == null &&
-                SystemClock.elapsedRealtime() - startedAt < SplashTimeline.TARGET_WAIT_MS
-            ) {
+        if (reduced) {
+            delay(SplashTimeline.HOLD_MS.toLong())
+        } else {
+            // 1) The machine prints: body in, paper out of the slit, then the lines. Parts overlap, so the
+            //    strip is already out when the ink lands — the same story the platform AVD used to tell.
+            coroutineScope {
+                launch {
+                    ramp(SplashTimeline.PRINTER_FADE_MS.toFloat(), cancelled = { skip }) { printer = it }
+                }
+                launch {
+                    ramp(SplashTimeline.ROLLOUT_MS.toFloat(), startDelayMs = 60f, cancelled = { skip }) { rollout = it }
+                }
+                launch {
+                    ramp(
+                        SplashTimeline.INK_MS.toFloat(),
+                        startDelayMs = SplashTimeline.INK_DELAY_MS.toFloat(),
+                        cancelled = { skip },
+                    ) { ink = it }
+                }
+            }
+        }
+
+        // 2) The receipt control is composed with the app shell one frame later; give it a beat to report.
+        if (!reduced && !skip) {
+            val deadline = SystemClock.elapsedRealtime() + SplashTimeline.TARGET_WAIT_MS
+            while (!skip && target == null && SystemClock.elapsedRealtime() < deadline) {
                 target = ReceiptSlot.bounds()
                 if (target == null) delay(16)
             }
-        } else {
-            delay(SplashTimeline.HOLD_MS.toLong())
         }
         val canFly = target != null && !reduced && !skip
 
-        // 2) Paper travels to the control on a critically-damped-ish spring integrated by real dt.
+        // 3) Paper travels to the control on a critically-damped-ish spring integrated by real dt.
         if (canFly) {
             var position = 0f
             var velocity = 0f
@@ -100,7 +130,7 @@ fun SplashHost(onFinished: () -> Unit, modifier: Modifier = Modifier) {
             ReceiptSlot.landed()
         }
 
-        // 3) Fade the overlay away; skipping jumps straight here.
+        // 4) Fade the overlay away; skipping jumps straight here.
         var elapsed = 0f
         var lastFrame = 0L
         while (elapsed < 1f) {
@@ -150,18 +180,48 @@ fun SplashHost(onFinished: () -> Unit, modifier: Modifier = Modifier) {
                 bottom = lerp(start.bottom, end.bottom, p),
             )
 
+            // Paper first, then the machine on top, so the strip reads as coming out of the slit; while it
+            // is still rolling out, only the part below the slit is visible.
+            if (rollout < 0.999f) {
+                clipRect(top = start.top, bottom = start.top + start.height * rollout) {
+                    drawPaper(start, inkAlpha = ink)
+                }
+            } else {
+                drawPaper(rect, inkAlpha = ink)
+            }
             // Printer: leaves as soon as the paper starts travelling.
-            val printerAlpha = (1f - p * 2.2f).coerceIn(0f, 1f)
+            val printerAlpha = (printer * (1f - p * 2.2f)).coerceIn(0f, 1f)
             if (printerAlpha > 0.01f) {
                 // The printer stays put while the paper leaves it; it fades as the strip travels.
                 drawPrinter(centerX, start.top - 2.dp.toPx(), printerAlpha)
             }
-            drawPaper(rect, inkAlpha = (0.35f + 0.65f * p).coerceIn(0f, 1f))
         }
     }
 }
 
 private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t
+
+/** Frame-driven 0→1 ramp with [xpOut]; a tap (or any reason to bail) jumps straight to the end state. */
+private suspend fun ramp(
+    durationMs: Float,
+    startDelayMs: Float = 0f,
+    cancelled: () -> Boolean = { false },
+    set: (Float) -> Unit,
+) {
+    if (startDelayMs > 0f) delay(startDelayMs.toLong())
+    var elapsed = 0f
+    var last = 0L
+    while (elapsed < 1f && !cancelled()) {
+        val now = withFrameNanos { it }
+        val dt = MotionMath.dtSeconds(last, now)
+        last = now
+        if (dt > 0f) {
+            elapsed += dt / (durationMs / 1000f)
+            set(xpOut(elapsed.coerceIn(0f, 1f)))
+        }
+    }
+    set(1f)
+}
 
 /** 96x34dp ink capsule with a light slit and the warning dot, sitting right above the paper. */
 private fun DrawScope.drawPrinter(centerX: Float, bottomY: Float, alpha: Float) {
