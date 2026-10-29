@@ -1,7 +1,8 @@
 import { ChevronLeft, ChevronRight, Download, Printer } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ReceiptPaper } from "@/features/receipt/ReceiptPaper";
+import { ReceiptPrinterStage } from "@/features/receipt/ReceiptPrinterStage";
 import { GRADIENTS, cssGradient, gradientById, gradientName } from "@/features/receipt/gradients";
 import { renderReceiptPng } from "@/features/receipt/receiptImage";
 import { startOfDay } from "@/domain/types";
@@ -20,22 +21,9 @@ import type { Variant } from "@/features/receipt/receiptModel";
 /** The five paper themes offered on the web (the phone keeps the full set). */
 const THEMES = ["terracotta", "moss", "mist", "dusk", "midnight"] as const;
 
-/** Line-art thermal printer, 1.5px strokes and token fills so it follows the theme. */
-function PrinterArt() {
-  return (
-    <svg viewBox="0 0 360 168" className="w-full max-w-[320px] text-d-ink" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" aria-hidden>
-      <rect x="34" y="54" width="292" height="92" rx="14" fill="var(--d-surface)" />
-      <path d="M112 66h136" stroke="var(--d-hairline)" />
-      <rect x="50" y="84" width="46" height="7" rx="3.5" fill="var(--d-fill)" stroke="none" />
-      <rect x="252" y="84" width="46" height="7" rx="3.5" fill="var(--d-fill)" stroke="none" />
-      <circle cx="304" cy="70" r="3.5" fill="var(--d-accent)" stroke="none" />
-      <path d="M64 146v9M296 146v9" />
-    </svg>
-  );
-}
-
 export function ReceiptPage() {
   useLocale();
+  const reduce = useReducedMotion() ?? false;
   const { now } = useLedger();
   const shell = useShell();
   const today = startOfDay(now);
@@ -94,13 +82,19 @@ export function ReceiptPage() {
           <Hint>{s("rc.preview")}</Hint>
         </div>
 
-        <div className="relative flex flex-col items-center rounded-b-xl bg-d-fill/40 px-4 pb-8 pt-6">
-          <div className="relative z-0 -mb-1">
-            <PrinterArt />
-          </div>
-          <div className="relative z-10 shadow-[0_10px_26px_oklch(0_0_0/16%)]">
-            <ReceiptPaper doc={shown} stamp={stamp ? "shown" : "hidden"} />
-          </div>
+        <div className="relative flex flex-col items-center rounded-b-xl bg-d-fill/40 px-4 pb-7 pt-6">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={day}
+              initial={reduce ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? { opacity: 1 } : { opacity: 0, y: -6 }}
+              transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+            >
+              {/* The sheet the printer holds for this day: same ritual as the phone (docs/DESIGN.md §7). */}
+              <ReceiptPrinterStage doc={shown} stamped={stamp} />
+            </motion.div>
+          </AnimatePresence>
           {doc.zero && <p className="mt-3 text-[12px] text-d-ink-3">{s("rc.empty")}</p>}
         </div>
       </Card>
@@ -156,7 +150,7 @@ export function ReceiptPage() {
         <Card>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="primary" icon={Printer} onClick={() => shell.openPrint(shown)}>
-              {s("rc.print")}
+              {s("rc.printPaper")}
             </Button>
             <Button icon={Download} onClick={() => void exportPng()} disabled={exporting}>
               {s("rc.export")}

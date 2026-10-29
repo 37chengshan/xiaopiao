@@ -63,6 +63,10 @@ export const s = defineStrings(
     "stage.drag": "向下拖动撕下小票",
     "stage.skip": "跳过",
     "stage.tear": "撕下",
+    "stage.again": "重新打印",
+    "stage.ready": "纸已经出来了，撕下来吧",
+    "stage.torn": "这一张已经撕下来了",
+    "stage.idle": "纸已经装好，随时可以出票",
     "stage.close": "关闭",
     "stage.done": "小票已撕下，明天见 ✂️",
 
@@ -144,6 +148,10 @@ export const s = defineStrings(
     "stage.drag": "Drag down to tear off",
     "stage.skip": "Skip",
     "stage.tear": "Tear off",
+    "stage.again": "Print again",
+    "stage.ready": "It's out — tear it off",
+    "stage.torn": "This one is off the roll",
+    "stage.idle": "Paper is loaded and ready",
     "stage.close": "Close",
     "stage.done": "Receipt torn off — see you tomorrow ✂️",
 
