@@ -105,6 +105,8 @@ export function Shell() {
             onSearch={() => setPalette(true)}
             onPrint={() => setPrint({ doc: todayDoc, origin: document.querySelector("[data-receipt-widget]")?.getBoundingClientRect() ?? null })}
             onOpenSidebar={phone ? () => setDrawer(true) : undefined}
+            onToggleSidebar={() => setCollapsedPref(!collapsedPref)}
+            sidebarCollapsed={collapsed}
             onMessages={() => {
               setMessages(true);
               setUnread(false);
