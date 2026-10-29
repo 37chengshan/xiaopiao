@@ -8,6 +8,9 @@ import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.data.RoomLedgerRepository
 import com.xiaopiao.app.domain.LedgerRepository
 import com.xiaopiao.app.importer.CsvImporter
+import com.xiaopiao.app.wallet.AndroidCardCipher
+import com.xiaopiao.app.wallet.CardStore
+import com.xiaopiao.app.wallet.FileCardIo
 
 /** Tiny service locator. Owned by the data layer; UI only reads from it. */
 class AppContainer(context: Context) {
@@ -20,6 +23,11 @@ class AppContainer(context: Context) {
     val captureLog: CaptureLogRepository by lazy { CaptureLogRepository(database.captureLogDao()) }
     val captureProcessor: CaptureProcessor by lazy { CaptureProcessor(ledger, captureLog) }
     val csvImporter: CsvImporter by lazy { CsvImporter(appContext.contentResolver, ledger) }
+
+    /** 卡包（§5.5）：本机 JSON + Keystore 加密的卡号，数据不进备份。 */
+    val cards: CardStore by lazy {
+        CardStore(FileCardIo.inAppFiles(appContext), AndroidCardCipher()).also { it.load() }
+    }
 
     /** Loads ~3 weeks of clearly-labelled demo transactions. Returns how many were new. */
     suspend fun loadDemoData(now: Long = System.currentTimeMillis()): Int =

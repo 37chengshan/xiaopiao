@@ -31,7 +31,7 @@ class CaptureProcessor(
     }
 
     private suspend fun store(pkg: String, title: String, text: String, postedAt: Long, p: ParsedPayment) {
-        val txn = toTxn(pkg, postedAt, p)
+        val txn = toTxn(pkg, postedAt, p, CardTail.extract(title + " " + text).orEmpty())
         val id = if (isNearDuplicate(txn)) null else ledger.add(txn)
         val tag = if (id == null) "DUPLICATE:${p.ruleId}" else "PARSED:${p.ruleId}"
         record(pkg, title, text, postedAt, tag, id)
@@ -50,7 +50,7 @@ class CaptureProcessor(
     companion object {
         private const val NEAR_MS = 2 * 60_000L
 
-        fun toTxn(pkg: String, postedAt: Long, p: ParsedPayment): Txn {
+        fun toTxn(pkg: String, postedAt: Long, p: ParsedPayment, cardLast4: String = ""): Txn {
             val redPacket = p.ruleId.contains("redpacket")
             val merchant = p.merchant ?: when {
                 redPacket -> "微信红包"
@@ -60,7 +60,7 @@ class CaptureProcessor(
             val category = if (redPacket) Category.SOCIAL else MerchantCategorizer.categorize(merchant)
             return Txn(
                 amountCents = p.amountCents, direction = p.direction, merchant = merchant, category = category,
-                occurredAt = postedAt, source = Source.NOTIFICATION,
+                occurredAt = postedAt, source = Source.NOTIFICATION, cardLast4 = cardLast4,
                 dedupeKey = DedupeKeys.notification(pkg, p.direction.name, p.amountCents, postedAt, p.merchant.orEmpty()),
             )
         }

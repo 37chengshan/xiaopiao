@@ -62,6 +62,14 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.coroutines.android)
     implementation(libs.serialization.json)
+    // 卡包：本机拍照识别 + 条码生成（docs/APP-DESIGN.md §5.5），都不联网。
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
+    implementation(libs.mlkit.text)
+    implementation(libs.mlkit.barcode)
+    implementation(libs.zxing.core)
     debugImplementation(libs.compose.ui.tooling)
 
     testImplementation(libs.junit)

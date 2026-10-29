@@ -79,6 +79,8 @@ fun NavScaffold(
     onBack: (() -> Unit)? = null,
     backLabel: String = "返回",
     demo: Boolean = false,
+    /** Root pages can put one action on the left (e.g. 记账页的卡包按钮); hidden while [onBack] is set. */
+    leading: (@Composable RowScope.() -> Unit)? = null,
     trailing: @Composable RowScope.() -> Unit = {},
     content: @Composable BoxScope.(top: Dp) -> Unit,
 ) {
@@ -115,6 +117,14 @@ fun NavScaffold(
                     Icon(Icons.Outlined.ArrowBackIosNew, contentDescription = "返回", tint = XpColors.Ink, modifier = Modifier.size(16.dp))
                     Text(backLabel, style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink)
                 }
+            }
+            if (leading != null && onBack == null) {
+                Row(
+                    Modifier.align(Alignment.CenterStart).padding(start = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+                    content = leading,
+                )
             }
             Row(
                 Modifier.align(Alignment.CenterEnd),

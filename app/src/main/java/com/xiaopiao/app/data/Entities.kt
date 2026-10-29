@@ -23,13 +23,14 @@ data class TxnEntity(
     val occurredAt: Long,
     val source: String,
     val note: String,
+    @ColumnInfo(name = "cardLast4", defaultValue = "") val cardLast4: String,
     @ColumnInfo(name = "dedupeKey") val dedupeKey: String?,
 )
 
 fun Txn.toEntity() = TxnEntity(
     id = id, amountCents = amountCents, direction = direction.name, merchant = merchant,
     category = category.name, occurredAt = occurredAt, source = source.name, note = note,
-    dedupeKey = dedupeKey.ifEmpty { null },
+    cardLast4 = cardLast4, dedupeKey = dedupeKey.ifEmpty { null },
 )
 
 fun TxnEntity.toDomain() = Txn(
@@ -39,7 +40,7 @@ fun TxnEntity.toDomain() = Txn(
     category = runCatching { Category.valueOf(category) }.getOrDefault(Category.OTHER),
     occurredAt = occurredAt,
     source = runCatching { Source.valueOf(source) }.getOrDefault(Source.MANUAL),
-    note = note, dedupeKey = dedupeKey.orEmpty(),
+    note = note, cardLast4 = cardLast4, dedupeKey = dedupeKey.orEmpty(),
 )
 
 /** Raw captured notification, kept on device only. */

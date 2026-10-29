@@ -37,6 +37,8 @@ data class Txn(
     val occurredAt: Long,
     val source: Source,
     val note: String = "",
+    /** Last four digits of the card the payment settled on, when the notification named it (§5.5). */
+    val cardLast4: String = "",
     /** Stable key used to drop duplicates from repeated notifications / imports. */
     val dedupeKey: String = "",
 )
