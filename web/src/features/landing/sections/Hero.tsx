@@ -230,6 +230,13 @@ export function Hero() {
 
       <TopNav navRef={navRef} style={booted ? undefined : { transform: "translateY(-140%)", opacity: 0 }} />
 
+      <div className="lp-hero-badge-wrap">
+        <span className="lp-badge">
+          <span aria-hidden className="lp-badge-dot" />
+          {s("hero.badge")}
+        </span>
+      </div>
+
       <div ref={rowRef} className="lp-hero-row">
         <h1 className="sr-only">
           {s("hero.title.a")} {s("hero.title.b")}
@@ -271,6 +278,22 @@ export function Hero() {
         </span>
       </div>
 
+      <aside className="lp-hero-float lp-hero-float--left" aria-hidden>
+        <div className="lp-float-card">
+          <p className="lp-float-kicker">10月27日 周一</p>
+          <p className="lp-float-row"><span>面馆 · 午饭</span><span>32.00</span></p>
+          <p className="lp-float-row"><span>地铁</span><span>5.00</span></p>
+          <p className="lp-float-row"><span>咖啡</span><span>18.00</span></p>
+          <span className="lp-float-rule" />
+          <p className="lp-float-row lp-float-total"><span>合计</span><span>55.00</span></p>
+          <span className="lp-float-stamp">已记</span>
+        </div>
+      </aside>
+      <aside className="lp-hero-float lp-hero-float--right" aria-hidden>
+        <img src="/img/landing-hand-receipt.webp" alt="" loading="eager" />
+        <span className="lp-float-tag">365 / 365</span>
+      </aside>
+
       <div ref={footRef} className="lp-hero-foot" style={booted ? undefined : { transform: "translateY(160%)", opacity: 0 }}>
         <div>
           <div ref={ruleRef} className="lp-hero-rule" />
@@ -292,6 +315,13 @@ export function Hero() {
             </button>
             <span className="text-[13px] text-[var(--lp-ink-3)]">{s("hero.note")}</span>
           </div>
+          <p className="lp-hand-note mt-4 hidden sm:block" aria-hidden>
+            <svg viewBox="0 0 120 44" className="lp-hand-arrow" aria-hidden>
+              <path d="M4 34c22-26 52-30 92-18" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              <path d="M88 10l12 6-9 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {s("hero.noteHand")}
+          </p>
         </div>
         <p className="hidden text-right text-[13px] text-[var(--lp-ink-3)] sm:block">{s("hero.scroll")} ↓</p>
       </div>
