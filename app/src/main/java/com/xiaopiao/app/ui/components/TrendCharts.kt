@@ -26,6 +26,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,7 +74,9 @@ fun BarTrend(
     Canvas(modifier.fillMaxWidth().height(190.dp)) {
         val w = size.width
         val topPad = 22.dp.toPx()
-        val labelBlock = 38.dp.toPx()
+        // Room for the two-line period label at whatever font scale is active (docs/DESIGN.md §10).
+        val labelLine = measurer.measure(AnnotatedString("0"), labelStyle).size.height.toFloat()
+        val labelBlock = 8.dp.toPx() + labelLine * 2 + 2.dp.toPx()
         val baseline = size.height - labelBlock
         val plotH = baseline - topPad
         val maxCents = buckets.maxOf { it.cents }
@@ -88,6 +94,7 @@ fun BarTrend(
         }
 
         val slot = w / buckets.size
+        val fitW = slot - 4.dp.toPx()
         val bw = min(barWidth.toPx(), slot * 0.55f)
         val radius = 4.dp.toPx()
 
@@ -114,24 +121,27 @@ fun BarTrend(
             drawPath(path, color)
 
             if (local > 0.6f) {
-                val value = measurer.measure(
-                    AnnotatedString(StatsAggregator.grouped(bucket.cents)),
+                val value = measurer.fit(
+                    StatsAggregator.grouped(bucket.cents),
                     valueStyle.copy(color = if (bucket.isCurrent) XpColors.Accent else XpColors.InkSecondary),
+                    fitW,
                 )
                 drawText(value, topLeft = Offset(cx - value.size.width / 2f, top - value.size.height - 4.dp.toPx()))
             }
 
-            val topLabel = measurer.measure(
-                AnnotatedString(bucket.top),
+            val topLabel = measurer.fit(
+                bucket.top,
                 labelStyle.copy(color = if (bucket.isCurrent) XpColors.Accent else XpColors.InkTertiary),
+                fitW,
             )
             drawText(topLabel, topLeft = Offset(cx - topLabel.size.width / 2f, baseline + 8.dp.toPx()))
             if (bucket.bottom.isNotEmpty()) {
-                val bottomLabel = measurer.measure(
-                    AnnotatedString(bucket.bottom),
+                val bottomLabel = measurer.fit(
+                    bucket.bottom,
                     labelStyle.copy(color = if (bucket.isCurrent) XpColors.Accent else XpColors.InkTertiary),
+                    fitW,
                 )
-                drawText(bottomLabel, topLeft = Offset(cx - bottomLabel.size.width / 2f, baseline + 22.dp.toPx()))
+                drawText(bottomLabel, topLeft = Offset(cx - bottomLabel.size.width / 2f, baseline + 8.dp.toPx() + labelLine + 2.dp.toPx()))
             }
         }
     }
@@ -280,9 +290,9 @@ fun DonutChart(
     Canvas(
         modifier.fillMaxWidth().height(196.dp).pointerInput(slices) {
             detectTapGestures { offset ->
-                val cx = size.width * 0.42f
+                val cx = size.width / 2f
                 val cy = size.height / 2f
-                val r = size.height * 0.34f
+                val r = donutOuter(size.width.toFloat(), size.height.toFloat())
                 val dx = offset.x - cx
                 val dy = offset.y - cy
                 val dist = kotlin.math.sqrt(dx * dx + dy * dy)
@@ -298,10 +308,11 @@ fun DonutChart(
             }
         },
     ) {
-        val cx = size.width * 0.42f
+        // Centred ring sized to the card, so both label columns keep real width at 360dp × 1.3.
+        val cx = size.width / 2f
         val cy = size.height / 2f
-        val outer = size.height * 0.34f
-        val inner = outer * 0.5f
+        val outer = donutOuter(size.width, size.height)
+        val inner = outer * 0.6f
         val stroke = outer - inner
         val r = (outer + inner) / 2f
 
@@ -337,56 +348,92 @@ fun DonutChart(
             startAngle += sweep
         }
 
-        // Leader lines + labels, spread vertically so two neighbouring slices never collide.
-        val minGap = 16.dp.toPx()
+        // Leader lines + two-line labels (name over share), spread vertically so neighbours never collide,
+        // and shrunk to the column width instead of running into the ring.
+        val sideW = cx - outer - 26.dp.toPx()
+        val nameStyle = labelStyle.copy(color = XpColors.InkSecondary)
+        val shareStyle = labelStyle.copy(color = XpColors.InkTertiary, fontFeatureSettings = "tnum")
+        fun labelOf(e: StatsEntry): Pair<TextLayoutResult, TextLayoutResult> {
+            // Percent is relative to the five slices actually drawn, so the labels add up to the ring.
+            val share = (e.cents.toFloat() / total * 100).toInt()
+            return measurer.fit(e.label, nameStyle, sideW) to measurer.fit("$share%", shareStyle, sideW)
+        }
+        val sample = labelOf(slices.first())
+        val minGap = sample.first.size.height + sample.second.size.height + 4.dp.toPx()
         val left = labelAnchors.filter { it.first < cx }.sortedBy { it.second }
         val right = labelAnchors.filter { it.first >= cx }.sortedBy { it.second }
         fun spread(list: List<Triple<Float, Float, Int>>): List<Pair<Triple<Float, Float, Int>, Float>> {
             val out = mutableListOf<Pair<Triple<Float, Float, Int>, Float>>()
             var lastY = -Float.MAX_VALUE
             list.forEach { a ->
-                val y = maxOf(a.second, lastY + minGap)
+                val y = maxOf(a.second, lastY + minGap, minGap / 2f)
                 out += a to y
                 lastY = y
             }
-            return out
+            // If the column ran off the bottom, slide it back up as one block.
+            val overflow = (out.lastOrNull()?.second ?: 0f) - (size.height - minGap / 2f)
+            return if (overflow > 0f) out.map { (a, y) -> a to y - overflow } else out
+        }
+        fun drawLabel(e: StatsEntry, y: Float, alignEnd: Boolean, x: Float) {
+            val (name, share) = labelOf(e)
+            val top = y - (name.size.height + share.size.height) / 2f
+            drawText(name, topLeft = Offset(if (alignEnd) x - name.size.width else x, top))
+            drawText(share, topLeft = Offset(if (alignEnd) x - share.size.width else x, top + name.size.height))
         }
 
         spread(left).forEach { (anchor, y) ->
             val e = slices[anchor.third]
             val color = XpColors.Accent.copy(alpha = 1f - anchor.third * 0.18f)
-            val lineEnd = cx - outer - 18.dp.toPx()
+            val lineEnd = cx - outer - 12.dp.toPx()
             val path = Path().apply {
                 moveTo(anchor.first, anchor.second)
                 lineTo(lineEnd, y)
-                lineTo(lineEnd - 10.dp.toPx(), y)
+                lineTo(lineEnd - 8.dp.toPx(), y)
             }
             drawPath(path, color, style = Stroke(width = 1.dp.toPx()))
-            // Percent is relative to the five slices actually drawn, so the labels add up to the ring.
-            val share = (e.cents.toFloat() / total * 100).toInt()
-            val label = measurer.measure(AnnotatedString("${e.label} $share%"), labelStyle.copy(color = XpColors.InkSecondary))
-            drawText(label, topLeft = Offset((lineEnd - 14.dp.toPx() - label.size.width).coerceAtLeast(0f), y - label.size.height / 2f))
+            drawLabel(e, y, alignEnd = true, x = lineEnd - 12.dp.toPx())
         }
         spread(right).forEach { (anchor, y) ->
             val e = slices[anchor.third]
             val color = XpColors.Accent.copy(alpha = 1f - anchor.third * 0.18f)
-            val lineEnd = cx + outer + 18.dp.toPx()
+            val lineEnd = cx + outer + 12.dp.toPx()
             val path = Path().apply {
                 moveTo(anchor.first, anchor.second)
                 lineTo(lineEnd, y)
-                lineTo(lineEnd + 10.dp.toPx(), y)
+                lineTo(lineEnd + 8.dp.toPx(), y)
             }
             drawPath(path, color, style = Stroke(width = 1.dp.toPx()))
-            val share = (e.cents.toFloat() / total * 100).toInt()
-            val label = measurer.measure(AnnotatedString("${e.label} $share%"), labelStyle.copy(color = XpColors.InkSecondary))
-            drawText(label, topLeft = Offset(lineEnd + 14.dp.toPx(), y - label.size.height / 2f))
+            drawLabel(e, y, alignEnd = false, x = lineEnd + 12.dp.toPx())
         }
 
         // Center: the selected slice's amount (reference behaviour), label under it.
         val current = slices[selected.coerceIn(0, slices.lastIndex)]
-        val amount = measurer.measure(AnnotatedString(StatsAggregator.grouped(current.cents)), centerStyle.copy(color = XpColors.Ink))
-        val unit = measurer.measure(AnnotatedString(current.label), unitStyle.copy(color = XpColors.InkSecondary))
+        // The centre stays inside the hole: shrink rather than spill onto the ring.
+        val hole = inner * 2f - 10.dp.toPx()
+        val amount = measurer.fit(StatsAggregator.grouped(current.cents), centerStyle.copy(color = XpColors.Ink), hole, minSp = 12f)
+        val unit = measurer.fit(current.label, unitStyle.copy(color = XpColors.InkSecondary), hole)
         drawText(amount, topLeft = Offset(cx - amount.size.width / 2f, cy - amount.size.height / 2f - 6.dp.toPx()))
         drawText(unit, topLeft = Offset(cx - unit.size.width / 2f, cy + amount.size.height / 2f - 4.dp.toPx()))
     }
+}
+
+/** Ring radius: the old 34% of the height, capped so each label column keeps ~30% of the width. */
+private fun donutOuter(width: Float, height: Float): Float = min(height * 0.34f, width * 0.2f)
+
+/**
+ * Canvas text that steps its size down (to [minSp]) until it fits [maxWidth], then ellipsizes — the
+ * chart's equivalent of `TextAutoSize` (docs/DESIGN.md §10), so labels never run into each other.
+ */
+private fun TextMeasurer.fit(text: String, style: TextStyle, maxWidth: Float, minSp: Float = 8f): TextLayoutResult {
+    var sp = style.fontSize.value
+    var layout = measure(AnnotatedString(text), style, maxLines = 1, softWrap = false)
+    while (layout.size.width > maxWidth && sp > minSp) {
+        sp = (sp - 0.5f).coerceAtLeast(minSp)
+        layout = measure(AnnotatedString(text), style.copy(fontSize = sp.sp), maxLines = 1, softWrap = false)
+    }
+    if (layout.size.width <= maxWidth || maxWidth < 1f) return layout
+    return measure(
+        AnnotatedString(text), style.copy(fontSize = sp.sp), overflow = TextOverflow.Ellipsis, maxLines = 1,
+        constraints = Constraints(maxWidth = maxWidth.toInt()),
+    )
 }
