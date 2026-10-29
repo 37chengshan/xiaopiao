@@ -151,12 +151,15 @@ private fun Paper(text: String, c: PaperColors, modifier: Modifier) {
             drawRect(line, Offset(w * 0.22f, 10.dp.toPx()), Size(w * 0.36f, 1.dp.toPx()))
             drawRect(c.ink.copy(alpha = 0.10f), Offset(w * 0.12f, 14.5.dp.toPx()), Size(w * 0.76f, 0.6.dp.toPx()))
         }
+        // The scrap is a fixed 28dp drawing, so its print does not grow with the system font scale.
+        val density = androidx.compose.ui.platform.LocalDensity.current
         Text(
             text,
             modifier = Modifier.align(Alignment.Center).padding(top = 8.dp),
             style = TextStyle(
-                fontFamily = FontFamily.Monospace, fontSize = 7.sp, lineHeight = 8.sp, fontWeight = FontWeight.Bold,
-                color = c.ink, textAlign = TextAlign.Center, letterSpacing = (-0.3).sp, fontFeatureSettings = "tnum",
+                fontFamily = FontFamily.Monospace, fontSize = with(density) { 7.dp.toSp() }, lineHeight = with(density) { 8.dp.toSp() },
+                fontWeight = FontWeight.Bold, color = c.ink, textAlign = TextAlign.Center,
+                letterSpacing = with(density) { (-0.3).dp.toSp() }, fontFeatureSettings = "tnum",
             ),
             maxLines = 1, softWrap = false,
         )
