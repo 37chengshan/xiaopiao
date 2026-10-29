@@ -34,9 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.merchant.Experiment
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.theme.XpColors
@@ -59,13 +56,13 @@ fun DuelGameScreen(
     val answers = remember(seed, playKey) { mutableStateListOf<GameChoice>() }
     val finished = answers.size >= rounds.size
 
-    NavScaffold("二选一大作战", NavScrollNone, demo = true, trailing = {}) { top ->
+    NavScaffold("二选一大作战", NavScrollNone, demo = true, onBack = onExit, backLabel = "退出") { top ->
         Column(Modifier.fillMaxSize().padding(top = top)) {
+            // 退出 lives in the back capsule of the bar; this row only carries the round progress.
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.m),
             ) {
-                NavIconButton(Icons.Outlined.Close, "退出", onExit)
                 ProgressDots(rounds.size, answers.size, Modifier.weight(1f))
             }
             AnimatedContent(
