@@ -575,8 +575,14 @@ private fun KeyGlyph(key: String, size: Int, onClick: () -> Unit) {
 /** 86×48, radius 12: accent solid when there is an amount, grey fill when there is not (reference). */
 @Composable
 private fun SaveButton(enabled: Boolean, onSave: () -> Unit) {
-    val bg by animateColorAsState(if (enabled) XpColors.Accent else XpColors.Accent.copy(alpha = 0.35f), tween(160, easing = XpEase.out), label = "saveBg")
-    val fg = XpColors.OnAccent
+    // Disabled used to be accent at 35% under OnAccent, which is white in light (≈1.9:1) and near-black in dark
+    // (≈1.4:1): the label disappeared in both. A tinted fill with secondary ink reads as "not yet" everywhere.
+    val bg by animateColorAsState(
+        if (enabled) XpColors.Accent else XpColors.Accent.copy(alpha = 0.18f),
+        tween(160, easing = XpEase.out),
+        label = "saveBg",
+    )
+    val fg by animateColorAsState(if (enabled) XpColors.OnAccent else XpColors.InkSecondary, tween(160, easing = XpEase.out), label = "saveFg")
     Box(
         Modifier.size(width = 86.dp, height = 48.dp).clip(RoundedCornerShape(12.dp)).background(bg)
             .pressableClick(enabled = enabled, scaleDown = 0.95f, haptic = true) { onSave() },
