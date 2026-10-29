@@ -90,7 +90,7 @@ fun AppearancePage(
     onBack: () -> Unit,
 ) {
     val scroll = rememberScrollState()
-    NavScaffold("外观", rememberNavScroll(scroll), onBack = onBack) { top ->
+    NavScaffold("外观", rememberNavScroll(scroll), onBack = onBack, glassGround = true) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             XpReveal(index = 0) { AppearanceSection(mode, onMode) }
             XpReveal(index = 1) { ColorThemeSection(theme, onTheme) }
@@ -120,7 +120,7 @@ fun DataPage(
     onBack: () -> Unit,
 ) {
     val scroll = rememberScrollState()
-    NavScaffold("数据与隐私", rememberNavScroll(scroll), onBack = onBack) { top ->
+    NavScaffold("数据与隐私", rememberNavScroll(scroll), onBack = onBack, glassGround = true) { top ->
         Column(
             Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(XpSpace.xs),
@@ -153,7 +153,7 @@ fun DataPage(
 @Composable
 fun AboutPage(onPrivacy: () -> Unit, onBack: () -> Unit) {
     val scroll = rememberScrollState()
-    NavScaffold("关于", rememberNavScroll(scroll), onBack = onBack) { top ->
+    NavScaffold("关于", rememberNavScroll(scroll), onBack = onBack, glassGround = true) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             XpReveal(index = 0) { AboutSection(onPrivacy) }
             XpReveal(index = 1) {

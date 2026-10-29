@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.budget
 
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -86,6 +87,8 @@ fun BudgetPage(
     container: AppContainer,
     onBack: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    /** tt: opened from the ledger it is a bottom drawer, not a page — no nav bar, its own title row. */
+    inSheet: Boolean = false,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -99,18 +102,11 @@ fun BudgetPage(
     val statuses = remember(settings, txns, now) { BudgetMath.statuses(settings, txns, now) }
     val categories = remember(settings, txns, now) { BudgetMath.categoryBudgets(settings, txns, now) }
 
-    NavScaffold(
-        "预算",
-        NavScrollNone,
-        onBack = onBack,
-        backLabel = "返回",
-        trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
-    ) { top ->
+    val body: @Composable (Modifier) -> Unit = { frame ->
         Column(
-            Modifier.fillMaxSize().padding(top = top)
-                .verticalScroll(rememberScrollState())
+            frame.verticalScroll(rememberScrollState())
                 .padding(horizontal = XpSpace.page)
-                .padding(top = XpSpace.m, bottom = 120.dp),
+                .padding(top = XpSpace.m, bottom = if (inSheet) XpSpace.xl else 120.dp),
             verticalArrangement = Arrangement.spacedBy(XpSpace.cardGap),
         ) {
             Text(
@@ -132,6 +128,23 @@ fun BudgetPage(
                 onEdit = { editing = BudgetEditTarget.ForCategory(it.category, it.limit) },
             )
         }
+    }
+    if (inSheet) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
+            Text(
+                "预算", style = MaterialTheme.typography.titleLarge, color = XpColors.Ink,
+                modifier = Modifier.padding(horizontal = XpSpace.page),
+            )
+            body(Modifier.fillMaxWidth())
+        }
+    } else {
+        NavScaffold(
+            "预算",
+            NavScrollNone,
+            onBack = onBack,
+            backLabel = "返回",
+            trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
+        ) { top -> body(Modifier.fillMaxSize().padding(top = top)) }
     }
 
     val target = editing

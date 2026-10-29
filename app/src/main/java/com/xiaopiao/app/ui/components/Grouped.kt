@@ -1,5 +1,10 @@
 package com.xiaopiao.app.ui.components
 
+import com.kyant.backdrop.shadow.Shadow
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.drawBackdrop
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -71,6 +76,10 @@ fun GroupedSection(
 ) {
     val scope = GroupedScope().apply(content)
     val shape = RoundedCornerShape(XpRadius.m)
+    // On a [GlassGround] the card is liquid glass over the theme-coloured ground; elsewhere an opaque card.
+    val glass = LocalGlass.current
+    val film = XpColors.Card.copy(alpha = if (XpColors.isDark) 0.42f else 0.55f)
+    val rim = Color.Black.copy(alpha = if (XpColors.isDark) 0.24f else 0.06f)
     Column(modifier.fillMaxWidth().padding(horizontal = margin)) {
         if (header != null) {
             Row(
@@ -85,7 +94,18 @@ fun GroupedSection(
             Spacer(Modifier.height(XpSpace.l))
         }
         Column(
-            Modifier.fillMaxWidth().clip(shape).background(XpColors.Card),
+            if (glass == null) Modifier.fillMaxWidth().clip(shape).background(XpColors.Card)
+            else Modifier.fillMaxWidth().drawBackdrop(
+                backdrop = glass,
+                shape = { shape },
+                effects = {
+                    vibrancy()
+                    blur(10.dp.toPx())
+                    lens(8.dp.toPx(), 12.dp.toPx())
+                },
+                shadow = { Shadow(radius = 16.dp, color = rim) },
+                onDrawSurface = { drawRect(film) },
+            ),
         ) {
             scope.rows.forEachIndexed { i, row ->
                 key(scope.keys[i]) {
