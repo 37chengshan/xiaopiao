@@ -267,7 +267,7 @@ export function ShareBar({
       <span className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-d-fill">
         {!suppressed && <span className="absolute inset-y-0 left-0 rounded-full bg-d-accent" style={{ width: `${Math.max(2, Math.round((share ?? 0) * 100))}%` }} />}
       </span>
-      <span className={cn("w-12 shrink-0 text-right text-[12px] tabular-nums", suppressed ? "text-d-ink-3" : "text-d-ink-2")}>
+      <span className={cn("w-16 shrink-0 whitespace-nowrap text-right text-[12px] tabular-nums", suppressed ? "text-d-ink-3" : "text-d-ink-2")}>
         {suppressed ? "—" : (note ?? `${Math.round((share ?? 0) * 100)}%`)}
       </span>
     </div>

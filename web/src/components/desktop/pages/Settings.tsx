@@ -130,7 +130,7 @@ export function SettingsPage() {
           <span className="num text-[12px] text-d-ink-2">{pkg.version} · Web</span>
         </Row>
         <div className="pt-3">
-          <Hint>{s("brand")} · 认真生活，留下凭证。</Hint>
+          <Hint>{s("brand")} · {s("brand.tagline")}</Hint>
         </div>
       </Card>
 

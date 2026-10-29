@@ -55,14 +55,14 @@ export function DeltaText({ d, vs, tone = "spend" }: { d: Delta; vs?: string; to
   return (
     <p className={cn("flex items-center gap-1 text-[12px] font-medium", palette[d.dir])}>
       {d.dir === "flat" ? (
-        <span>{s("ov.flat")}</span>
+        <span>{s("ov.flat").replace("{}", (vs ?? "").replace(/^vs\s*/i, "").replace(/^较/, ""))}</span>
       ) : (
         <>
           <Arrow className="size-3.5" strokeWidth={2} aria-hidden />
           <span className="num">{d.pct === null ? "—" : `${Math.abs(d.pct)}%`}</span>
         </>
       )}
-      {vs && <span className="text-d-ink-3">{vs}</span>}
+      {vs && d.dir !== "flat" && <span className="text-d-ink-3">{vs}</span>}
     </p>
   );
 }
@@ -301,8 +301,7 @@ export function EmptyState({
           src={art}
           alt=""
           aria-hidden
-          loading="lazy"
-          className="mb-4 h-[104px] w-[184px] rounded-xl object-cover ring-1 ring-d-hairline"
+          className="mb-4 h-[104px] w-[184px] rounded-xl bg-d-fill object-cover ring-1 ring-d-hairline"
         />
       ) : Icon ? (
         <div className="relative mb-4 grid size-14 place-items-center rounded-full bg-d-fill">

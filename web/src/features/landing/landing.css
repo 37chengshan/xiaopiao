@@ -96,6 +96,13 @@
   }
 }
 
+/* Thermal paper: the same fibre noise the app prints with, plus a faint head banding so a
+   receipt reads as paper and not as a white card. */
+:root {
+  --lp-fibre: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9 .05' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .33 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  --lp-paper: #fcf8ef;
+}
+
 /* ------------------------------------------------------------------- hero */
 
 .lp-hero {
@@ -161,7 +168,7 @@
   flex: none;
   height: 1.81em;
   font-size: var(--fs);
-  width: 3.62em;
+  width: 2px;
   margin: 0 0.085em;
   border-radius: 999px;
   overflow: hidden;
@@ -212,21 +219,57 @@
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
+/* A receipt header, so the paper reads as a receipt and not as a white rectangle. */
+.lp-hero-paper-brand {
+  margin: 0;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+.lp-hero-paper-date {
+  margin: 2px 0 0;
+  text-align: center;
+  font-size: 7px;
+  opacity: 0.58;
+}
+.lp-hero-paper-thanks {
+  margin: 5px 0 0;
+  text-align: center;
+  font-size: 6.5px;
+  letter-spacing: 0.12em;
+  opacity: 0.5;
+}
+.lp-hero-paper .total {
+  margin-top: 1px;
+  font-size: 10px;
+}
+
 /* Paper being pulled out of the slot, forever. */
 .lp-hero-paper {
   position: absolute;
   left: 47%;
   top: 47%;
-  width: 42%;
-  transform: translateX(-50%) rotate(-5deg);
-  padding: 8px 9px 16px;
-  background: #fbf7ee;
-  border-radius: 2px;
+  width: 45%;
+  transform: translateX(-50%) rotate(-4.2deg) perspective(560px) rotateX(3.5deg);
+  padding: 9px 10px 20px;
+  border-radius: 1.5px;
   color: #2a251d;
   font-family: var(--font-mono, ui-monospace, Menlo, monospace);
-  font-size: 8px;
+  font-size: 9px;
   line-height: 1.55;
-  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.55);
+  letter-spacing: 0.01em;
+  background-color: var(--lp-paper);
+  background-image: var(--lp-fibre), repeating-linear-gradient(0deg, rgba(42, 37, 29, 0.012) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #fffef9, #f7f0e2);
+  background-blend-mode: multiply, normal, normal;
+  box-shadow:
+    inset 0 7px 9px -8px rgba(20, 15, 10, 0.55),
+    inset 0 -1px 0 rgba(80, 62, 42, 0.18),
+    0 2px 3px -2px rgba(20, 15, 10, 0.4),
+    0 18px 30px -20px rgba(20, 15, 10, 0.6);
+  transform-origin: 50% 0;
   animation: lp-print 8s cubic-bezier(0.33, 0, 0.2, 1) infinite;
   will-change: clip-path, opacity;
 }
@@ -250,6 +293,17 @@
     clip-path: inset(0 0 100% 0);
     opacity: 0;
   }
+}
+.lp-hero-paper::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 14px;
+  background: linear-gradient(180deg, transparent, rgba(74, 56, 38, 0.16));
+  border-radius: 0 0 1.5px 1.5px;
+  pointer-events: none;
 }
 .lp-hero-paper b {
   display: flex;
@@ -294,7 +348,30 @@
   padding-right: 0.12em;
 }
 
+/* A drop cap on "It reads…" is just a black bar in Latin; keep the paragraph flush. */
+html[data-locale="en"] .lp-dropcap::first-letter {
+  float: none;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  padding-right: 0;
+}
+
+/* Latin sets the same two words with far more glyphs, so the wordmark shrinks to leave the floating
+   paper and photo their space (they return at ≥1360px, as in Chinese). */
+html[data-locale="en"] .lp-hero {
+  --fs: min(15svh, 8.2vw);
+}
+/* "LOGGED" is wider than 已记: stamp the header instead of the arithmetic. */
+html[data-locale="en"] .lp-float-stamp {
+  top: 30px;
+  right: 8px;
+  bottom: auto;
+}
 @media (max-width: 720px) {
+  html[data-locale="en"] .lp-hero {
+    --fs: min(21vw, 13vh);
+  }
   .lp-hero {
     --fs: min(32vw, 15.5vh);
   }
@@ -354,7 +431,9 @@
   width: 158px;
   display: none;
 }
-@media (min-width: 1360px) {
+/* Keepsakes only where there is room beside the wordmark; below 1600px the Latin title and the
+   capsules would collide with them. */
+@media (min-width: 1600px) {
   .lp-hero-float {
     display: block;
   }
@@ -518,6 +597,10 @@
 .lp-ticket {
   padding: 20px 22px;
 }
+.lp-ticket .lp-mini {
+  transform: rotate(-0.55deg);
+  transform-origin: 50% 0;
+}
 .lp-ticket {
   border-left: 1px solid rgba(255, 255, 255, 0.45);
   background: rgba(250, 246, 238, 0.34);
@@ -567,12 +650,35 @@
   }
 }
 .lp-mini {
-  background: #fbf7ee;
-  border-radius: 4px;
-  padding: 14px 12px 12px;
+  position: relative;
+  border-radius: 3px;
+  padding: 14px 12px 16px;
   font-family: var(--font-mono, ui-monospace, Menlo, monospace);
   color: #2a251d;
-  box-shadow: 0 10px 26px -18px rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.01em;
+  background-color: var(--lp-paper);
+  background-image: var(--lp-fibre), repeating-linear-gradient(0deg, rgba(42, 37, 29, 0.01) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #fffefa, #f8f1e4);
+  background-blend-mode: multiply, normal, normal;
+  box-shadow:
+    inset 0 -1px 0 rgba(80, 62, 42, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 2px 4px -3px rgba(30, 20, 12, 0.45),
+    0 20px 34px -24px rgba(30, 20, 12, 0.6);
+}
+/* Torn bottom edge: a saw-tooth strip in the same paper, so the cut never looks like a CSS box. */
+.lp-mini::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 9px;
+  background: var(--lp-paper);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(206, 190, 165, 0.35));
+  clip-path: polygon(0 0, 100% 0, 100% 36%, 97% 100%, 94% 32%, 91% 88%, 88% 30%, 85% 96%, 82% 34%, 79% 90%, 76% 28%, 73% 100%, 70% 34%, 67% 86%, 64% 30%, 61% 94%, 58% 34%, 55% 88%, 52% 28%, 49% 100%, 46% 32%, 43% 88%, 40% 28%, 37% 96%, 34% 32%, 31% 90%, 28% 28%, 25% 98%, 22% 34%, 19% 88%, 16% 30%, 13% 94%, 10% 34%, 7% 86%, 4% 28%, 0 36%);
+  filter: drop-shadow(0 2px 2px rgba(30, 20, 12, 0.12));
+  pointer-events: none;
 }
 .lp-mini-row {
   display: flex;
@@ -586,6 +692,30 @@
 .lp-mini-rule {
   border-top: 1px dashed rgba(42, 37, 29, 0.35);
   margin: 6px 0;
+}
+/* The small print of a real thermal receipt: one thank-you line and a fake barcode. */
+.lp-mini-sub {
+  margin: 2px 0 0;
+  text-align: center;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  opacity: 0.45;
+}
+.lp-mini-thanks {
+  margin: 9px 0 0;
+  text-align: center;
+  font-size: 7.5px;
+  letter-spacing: 0.16em;
+  opacity: 0.5;
+}
+.lp-mini-barcode {
+  margin: 7px auto 0;
+  width: 118px;
+  height: 20px;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(42, 37, 29, 0.82) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(42, 37, 29, 0.55) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(90deg, rgba(42, 37, 29, 0.35) 0 1px, transparent 1px 4px);
 }
 .lp-stamp {
   display: inline-block;
@@ -856,17 +986,12 @@
 
 /* ----------------------------------------------------------------- outro */
 
+/* The close reads like a section heading now, not a second billboard (tt 2026-10-28). */
 .lp-outro-title {
-  font-size: clamp(44px, 7.4vw, 128px);
-  line-height: 0.94;
-  letter-spacing: -0.05em;
-  font-weight: 900;
-}
-.lp-footer-word {
-  font-size: clamp(56px, 19vw, 300px);
-  line-height: 0.8;
-  letter-spacing: -0.055em;
-  font-weight: 900;
+  font-size: clamp(24px, 3.2vw, 44px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  font-weight: 800;
 }
 
 /* ------------------------------------------------------------------ bits */

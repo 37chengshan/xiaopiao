@@ -2,12 +2,13 @@ import { ChevronLeft, ChevronRight, Download, Printer } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ReceiptPaper } from "@/features/receipt/ReceiptPaper";
-import { GRADIENTS, cssGradient, gradientById } from "@/features/receipt/gradients";
+import { GRADIENTS, cssGradient, gradientById, gradientName } from "@/features/receipt/gradients";
 import { renderReceiptPng } from "@/features/receipt/receiptImage";
 import { startOfDay } from "@/domain/types";
 import { addDays } from "@/logic/time";
 import { useLedger } from "@/services/LedgerProvider";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/lib/strings";
 import { downloadBlob } from "../csvExport";
 import { relativeDay } from "../format";
 import { useDayDoc } from "../receiptDoc";
@@ -34,6 +35,7 @@ function PrinterArt() {
 }
 
 export function ReceiptPage() {
+  useLocale();
   const { now } = useLedger();
   const shell = useShell();
   const today = startOfDay(now);
@@ -110,7 +112,7 @@ export function ReceiptPage() {
               <button
                 key={g.id}
                 type="button"
-                aria-label={g.name}
+                aria-label={gradientName(g)}
                 aria-pressed={theme === g.id}
                 onClick={() => setTheme(g.id)}
                 className={cn(
@@ -119,7 +121,7 @@ export function ReceiptPage() {
                 )}
                 style={{ background: cssGradient(g) }}
               >
-                <span className="text-[10px] font-medium text-white/90">{g.name.slice(0, 1)}</span>
+                <span className="text-[10px] font-medium text-white/90">{gradientName(g).slice(0, 1)}</span>
               </button>
             ))}
           </div>

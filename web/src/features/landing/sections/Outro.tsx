@@ -7,12 +7,12 @@ export function Outro() {
   const { ref, inView } = useInViewOnce(0.25);
   useLocale();
   return (
-    <section ref={ref} className="relative mx-auto w-full max-w-[1320px] px-4 pb-24 pt-24 sm:px-6 lg:pb-32 lg:pt-32">
+    <section ref={ref} className="relative mx-auto w-full max-w-[1320px] px-4 pb-20 pt-20 sm:px-6 lg:pb-24 lg:pt-24">
       <h2 className="lp-outro-title max-w-[16ch]">
         <SplitText as="span" text={s("outro.title.a")} active={inView} />
         <SplitText as="span" text={s("outro.title.b")} active={inView} base={110} index={3} className="text-[var(--lp-ink-2)]" />
       </h2>
-      <p className="mt-6 max-w-[46ch] text-[16px] leading-[1.75] text-[var(--lp-ink)]">{s("outro.body")}</p>
+      <p className="mt-5 max-w-[46ch] text-[16px] leading-[1.75] text-[var(--lp-ink)]">{s("outro.body")}</p>
       <div className="mt-8 flex flex-wrap items-center gap-3">
         <a
           href="#/app"

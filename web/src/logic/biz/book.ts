@@ -1,4 +1,8 @@
+import { getLocale } from "../../lib/strings";
 import { addDays, monthKey, shortDate, weekdayIndex, weekStart } from "./format";
+
+/** Axis labels for the month trend: the month name follows the UI language, the numbers never do. */
+const MONTH_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**
  * The shop's revenue book: one row per day, integer cents, no clock inside.
@@ -262,7 +266,7 @@ export function monthlyTrend(entries: readonly RevenueEntry[], today: number, mo
     const before = compare ? entriesBetween(entries, beforeStart, beforeEnd) : [];
     return {
       key: monthKey(start),
-      label: `${cursor.getMonth() + 1}月`,
+      label: getLocale() === "en" ? MONTH_EN[cursor.getMonth()] : `${cursor.getMonth() + 1}月`,
       revenueCents: totalCents(rows),
       orders: totalOrders(rows),
       days: rows.length,

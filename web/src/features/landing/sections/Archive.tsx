@@ -1,6 +1,7 @@
 import { useInViewOnce, SplitText, Reveal } from "../lib/motion";
 import { useLocale } from "@/lib/strings";
 import { s } from "../strings";
+import { landingDate } from "../format";
 import { IMG } from "../lib/assets";
 import { MiniReceipt, type ReceiptRow } from "../parts/MiniReceipt";
 
@@ -24,7 +25,7 @@ export function Archive() {
 
   const teaReceipt: Tile = {
     kind: "receipt",
-    date: "2026年10月21日 周三",
+    date: landingDate(2026, 10, 21),
     rows: [
       { label: "霸王茶姬 · 伯牙", amount: "18.00" },
       { label: "瑞幸 · 生椰", amount: "13.90" },
@@ -35,7 +36,7 @@ export function Archive() {
   };
   const metroReceipt: Tile = {
     kind: "receipt",
-    date: "2026年10月14日 周三",
+    date: landingDate(2026, 10, 14),
     rows: [
       { label: "地铁 · 早高峰", amount: "5.00" },
       { label: "地铁 · 晚高峰", amount: "5.00" },
@@ -46,7 +47,7 @@ export function Archive() {
   };
   const nightReceipt: Tile = {
     kind: "receipt",
-    date: "2026年10月25日 周日",
+    date: landingDate(2026, 10, 25),
     rows: [
       { label: "烧烤 · 夜宵", amount: "58.00" },
       { label: "便利店 · 水", amount: "4.00" },

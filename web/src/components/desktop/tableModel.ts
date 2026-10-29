@@ -1,4 +1,6 @@
+import { getLocale } from "@/lib/strings";
 import { CATEGORIES, type Category, type Source, type Txn } from "@/domain/types";
+import { categoryLabel, sourceLabel, SOURCE_LABEL_ZH } from "./labels";
 
 /**
  * Pure logic behind the desktop DataTable (docs/WEB-SPEC.md §A.2): filtering, sorting, selection,
@@ -40,18 +42,13 @@ export const EMPTY_FILTERS: Filters = {
   sources: [],
 };
 
-export const SOURCE_LABEL: Record<Source, string> = {
-  VOICE: "语音",
-  QUICK_ADD: "一句话",
-  MANUAL: "手动",
-  CSV: "导入",
-  DEMO: "初始",
-};
+/** Chinese labels stay for CSV round-trip (the importer reads these columns). */
+export const SOURCE_LABEL = SOURCE_LABEL_ZH;
 
 /** Free text hits the merchant, the note and the category label; `12.5` also finds a ¥12.50 row. */
 function matchesQuery(t: Txn, q: string): boolean {
   if (!q) return true;
-  const label = CATEGORIES[t.category].label;
+  const label = `${CATEGORIES[t.category].label} ${categoryLabel(t.category)}`;
   if (t.merchant.trim().toLowerCase().includes(q)) return true;
   if (t.note && t.note.trim().toLowerCase().includes(q)) return true;
   if (label.includes(q)) return true;
@@ -78,9 +75,9 @@ function sortValue(t: Txn, key: SortKey): number | string {
     case "merchant":
       return t.merchant;
     case "category":
-      return CATEGORIES[t.category].label;
+      return categoryLabel(t.category);
     case "source":
-      return SOURCE_LABEL[t.source];
+      return sourceLabel(t.source);
     case "amountCents":
       return t.amountCents;
     default:
@@ -96,7 +93,7 @@ export function sortTxns(rows: readonly Txn[], sort: Sort): Txn[] {
     .sort((a, b) => {
       const av = sortValue(a.row, sort.key);
       const bv = sortValue(b.row, sort.key);
-      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv), "zh-CN");
+      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv), getLocale() === "en" ? "en" : "zh-CN");
       return cmp !== 0 ? cmp * sign : a.index - b.index;
     })
     .map((x) => x.row);

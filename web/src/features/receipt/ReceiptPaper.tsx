@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import type { Ref } from "react";
 import { EASE_OUT, SPRING_LAND } from "@/lib/motion";
 import { NumberTicker } from "./NumberTicker";
-import { DISCLAIMER, fmtMoney, STUB, TAGLINE, type DocGroup, type ReceiptDoc } from "./receiptModel";
+import { fmtMoney, type DocGroup, type ReceiptDoc } from "./receiptModel";
 import { PAPER_W, paperClipPath } from "./zigzag";
 
 export type StampState = "hidden" | "slam" | "shown";
@@ -69,9 +69,9 @@ function Group({ g, sign = "" }: { g: DocGroup; sign?: string }) {
           <Line left={l.merchant} right={`${sign}${fmtMoney(l.cents)}`} dim />
         </div>
       ))}
-      {g.hidden > 0 && (
+      {g.hiddenLabel && (
         <div className="pl-[22px] text-[11.5px] leading-[18px] text-paper-ink/70" data-row>
-          … 另 {g.hidden} 笔
+          {g.hiddenLabel}
         </div>
       )}
     </>
@@ -96,8 +96,11 @@ export function ReceiptPaper({
   ref?: Ref<HTMLDivElement>;
 }) {
   const full = doc.variant === "full";
+  const c = doc.copy;
+  // the dictionary supplies a letterspaced title where the script calls for it ("今 日 小 票"), same form the plain text uses
+  const spaced = c.titleSpaced !== c.title;
   return (
-    <div ref={ref} className="relative text-paper-ink" style={{ width: PAPER_W }} aria-label={`${doc.dateLabel} 的小票`}>
+    <div ref={ref} className="relative text-paper-ink" style={{ width: PAPER_W }} aria-label={doc.ariaLabel}>
       <div className="relative bg-paper px-5 pb-[26px] pt-[30px] font-mono" style={{ clipPath: paperClipPath() }}>
         <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.07] mix-blend-multiply" style={{ backgroundImage: FIBRE }} />
         <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-paper-ink/[0.06] to-transparent" />
@@ -105,31 +108,31 @@ export function ReceiptPaper({
         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-paper-ink/[0.05] to-transparent" />
 
         <div className="text-center" data-row>
-          <h2 className="pl-[0.5em] font-serif text-[23px] font-semibold leading-[30px] tracking-[0.5em]">今日小票</h2>
-          <p className="mt-0.5 font-serif text-[12px] text-paper-ink/70">{TAGLINE}</p>
+          <h2 className={`font-serif text-[23px] font-semibold leading-[30px] ${spaced ? "pl-[0.5em] tracking-[0.5em]" : ""}`}>{c.title}</h2>
+          <p className="mt-0.5 font-serif text-[12px] text-paper-ink/70">{c.tagline}</p>
         </div>
         <Rule />
-        <Line left="日期" right={doc.dateLabel} />
-        {full && <Line left="出票" right={doc.printedAt} />}
+        <Line left={c.date} right={doc.dateLabel} />
+        {full && <Line left={c.printed} right={doc.printedAt} />}
         <Rule />
 
         <div className="py-1 text-center" data-row data-total>
-          <p className="text-[11.5px] tracking-[0.3em] text-paper-ink/70">{doc.isToday ? "今日支出" : "当日支出"}</p>
+          <p className={`text-[11.5px] text-paper-ink/70 ${spaced ? "tracking-[0.3em]" : ""}`}>{doc.isToday ? c.totalToday : c.totalThatDay}</p>
           <NumberTicker cents={doc.totalCents} run={tickerRun} instant={instant} className="text-[44px] font-semibold tracking-[-0.03em]" />
-          <p className="text-[10.5px] tracking-[0.06em] text-paper-ink/70">{DISCLAIMER}</p>
+          <p className="text-[10.5px] tracking-[0.06em] text-paper-ink/70">{c.disclaimer}</p>
         </div>
         <Rule />
 
         {!full ? null : doc.zero ? (
           <div className="py-5 text-center" data-row>
-            <p className="font-serif text-[22px] font-semibold">今日无消费</p>
-            <p className="mt-1 text-[11.5px] text-paper-ink/70">钱包今天睡着了 🌙</p>
+            <p className="font-serif text-[22px] font-semibold">{c.emptyTitle}</p>
+            <p className="mt-1 text-[11.5px] text-paper-ink/70">{c.emptyQuote}</p>
           </div>
         ) : (
           <>
             <div className="flex justify-between pb-1 text-[10.5px] tracking-[0.08em] text-paper-ink/70" data-row>
-              <span>分类 / 明细</span>
-              <span>金额</span>
+              <span>{c.colCategory}</span>
+              <span>{c.colAmount}</span>
             </div>
             <div className="space-y-1.5">
               {doc.groups.map((g) => (
@@ -137,7 +140,7 @@ export function ReceiptPaper({
                   <Group g={g} />
                 </div>
               ))}
-              {doc.folded && <Line left={`… 其他 ${doc.folded.count} 类`} right={fmtMoney(doc.folded.cents)} dim />}
+              {doc.folded && <Line left={doc.folded.label} right={fmtMoney(doc.folded.cents)} dim />}
               {doc.income && (
                 <div>
                   <Group g={doc.income} sign="+" />
@@ -149,7 +152,7 @@ export function ReceiptPaper({
         {full && (
           <>
             <Rule />
-            <div className="flex justify-between text-[11px] text-paper-ink/70" data-row>
+            <div className={`text-[11px] text-paper-ink/70 ${doc.stats.stacked ? "flex flex-col items-center gap-0.5" : "flex justify-between"}`} data-row>
               <span>{doc.stats.count}</span>
               <span>{doc.stats.delta}</span>
               <span>{doc.stats.weekDay}</span>
@@ -158,7 +161,7 @@ export function ReceiptPaper({
           </>
         )}
         <p className="px-1 text-center font-serif text-[12.5px] leading-[1.75]" data-row>
-          「{doc.remark}」
+          {doc.remarkText}
         </p>
 
         <Stamp text={doc.stampText} state={stamp} />
@@ -167,8 +170,8 @@ export function ReceiptPaper({
             {doc.badgeReason}
           </p>
         )}
-        <p className="text-center text-[10.5px] tracking-[0.12em] text-paper-ink/70" data-row>
-          {STUB}
+        <p className={`text-center text-[10.5px] text-paper-ink/70 ${spaced ? "tracking-[0.12em]" : "tracking-[0.06em]"}`} data-row>
+          {c.stub}
         </p>
       </div>
     </div>

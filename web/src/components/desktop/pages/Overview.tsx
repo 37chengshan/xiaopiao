@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Plus, Printer, RefreshCw } from "lucide-react";
+import { useLocale } from "@/lib/strings";
 import { AnimatePresence, motion } from "framer-motion";
 import { CATEGORIES, startOfDay, type Txn } from "@/domain/types";
 import { addDays, hhmm } from "@/logic/time";
@@ -7,6 +8,7 @@ import { useLedger } from "@/services/LedgerProvider";
 import { AreaTrend, Donut, Legend, type Slice } from "../charts";
 import { DataTable, type Column } from "../DataTable";
 import { dayLabel, delta, money, relativeDay } from "../format";
+import { categoryLabel } from "../labels";
 import { useFirstPaint } from "../hooks";
 import { Loadable, Stagger } from "../motion";
 import { go } from "../nav";
@@ -106,6 +108,7 @@ function SummaryFacts({ facts }: { facts: { top: string | null; topCents: number
 }
 
 export function OverviewPage() {
+  useLocale();
   const { txns, now, isLoading, isError, refetch } = useLedger();
   const shell = useShell();
   const skeleton = useFirstPaint(isLoading);
@@ -141,7 +144,7 @@ export function OverviewPage() {
       byCat.set(t.category, (byCat.get(t.category) ?? 0) + t.amountCents);
     }
     const sorted = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
-    const top: Slice[] = sorted.slice(0, 5).map(([key, cents]) => ({ label: CATEGORIES[key as keyof typeof CATEGORIES].label, value: cents }));
+    const top: Slice[] = sorted.slice(0, 5).map(([key, cents]) => ({ label: categoryLabel(key as keyof typeof CATEGORIES), value: cents }));
     const rest = sorted.slice(5).reduce((sum, [, cents]) => sum + cents, 0);
     if (rest > 0) top.push({ label: s("common.more"), value: rest, color: "muted" });
     const mixTotal = top.reduce((sum, x) => sum + x.value, 0);
@@ -192,7 +195,7 @@ export function OverviewPage() {
   const vsPrev = delta(data.monthOut, data.prevMonthOut);
   const share = data.mixTotal > 0 ? Math.round(((data.mix[0]?.value ?? 0) / data.mixTotal) * 100) : 0;
   const facts = {
-    top: data.topCategory ? CATEGORIES[data.topCategory[0] as keyof typeof CATEGORIES].label : null,
+    top: data.topCategory ? categoryLabel(data.topCategory[0] as keyof typeof CATEGORIES) : null,
     topCents: data.mix[0]?.value ?? 0,
     share,
     vsPrevPct: vsPrev.pct,
@@ -255,7 +258,7 @@ export function OverviewPage() {
           <Card className="h-full" title={s("ov.trend")} action={<Hint>{s("ov.trendHint")}</Hint>}>
             {data.mixTotal === 0 && data.trend30.every((point) => point.value === 0) ? (
               <EmptyState
-                art="/img/app-empty-ledger.webp"
+                art="/img/app-empty-ledger.jpg"
                 title={s("ov.emptyTrendTitle")}
                 hint={s("ov.emptyTrendHint")}
                 action={
@@ -319,7 +322,7 @@ export function OverviewPage() {
               maxHeight="360px"
               empty={
                 <EmptyState
-                  art="/img/app-empty-ledger.webp"
+                  art="/img/app-empty-ledger.jpg"
                   title={s("empty.ledgerTitle")}
                   hint={s("empty.ledgerHint")}
                   action={

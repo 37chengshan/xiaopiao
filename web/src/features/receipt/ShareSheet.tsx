@@ -6,26 +6,27 @@ import { Segmented, XButton } from "@/components/app/kit";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 import type { DailyReceipt } from "../../domain/types";
-import { cssGradient, DEFAULT_GRADIENT, GRADIENTS } from "./gradients";
+import { cssGradient, DEFAULT_GRADIENT, GRADIENTS, gradientName } from "./gradients";
 import { receiptPlainText, type Variant } from "./receiptModel";
 import { renderReceiptPng, saveBlob, shareReceiptFile } from "./receiptImage";
 import { ReceiptPaper } from "./ReceiptPaper";
 import { useReceiptDoc } from "./useReceiptDoc";
+import { useReceiptStrings } from "./strings";
 
 const ZOOM = 0.62;
 const CARD_PAD = 44;
 
-const VARIANTS = [
-  { value: "full", label: "完整" },
-  { value: "brief", label: "简版" },
-] as const;
-
 /** Bottom sheet after the tear (docs/DESIGN.md §7.6): the receipt on a chosen gradient, full or brief, then share / save / copy. */
 export function ShareSheet({ receipt, open, onClose }: { receipt: DailyReceipt; open: boolean; onClose: () => void }) {
+  const t = useReceiptStrings();
   const [variant, setVariant] = useState<Variant>("full");
   const [gradient, setGradient] = useState(DEFAULT_GRADIENT);
   const [busy, setBusy] = useState<null | "share" | "save">(null);
   const doc = useReceiptDoc(receipt, variant);
+  const variants = [
+    { value: "full" as const, label: t("layout.full") },
+    { value: "brief" as const, label: t("layout.brief") },
+  ];
   const reduce = useReducedMotion() ?? false;
   const [paperBox, setPaperBox] = useState<HTMLDivElement | null>(null);
   const cardH = useMotionValue(0);
@@ -44,9 +45,9 @@ export function ShareSheet({ receipt, open, onClose }: { receipt: DailyReceipt; 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(receiptPlainText(doc));
-      toast.success("已复制文字");
+      toast.success(t("share.copied"));
     } catch {
-      toast.error("复制失败，请换个方式试试");
+      toast.error(t("share.copyFailed"));
     }
   };
 
@@ -56,18 +57,18 @@ export function ShareSheet({ receipt, open, onClose }: { receipt: DailyReceipt; 
     try {
       const blob = await renderReceiptPng(doc, gradient);
       if (kind === "share") {
-        const outcome = await shareReceiptFile(blob, "我的今日小票");
-        if (outcome === "shared") toast.success("小票已分享");
+        const outcome = await shareReceiptFile(blob, t("share.fileTitle"));
+        if (outcome === "shared") toast.success(t("share.shared"));
         else if (outcome === "fallback") {
           saveBlob(blob);
-          toast("此浏览器不支持直接分享，已保存图片");
+          toast(t("share.fallback"));
         }
       } else {
         saveBlob(blob);
-        toast.success("图片已保存");
+        toast.success(t("share.saved"));
       }
     } catch {
-      toast.error("生成图片失败，再试一次");
+      toast.error(t("share.failed"));
     } finally {
       setBusy(null);
     }
@@ -78,13 +79,13 @@ export function ShareSheet({ receipt, open, onClose }: { receipt: DailyReceipt; 
       <DrawerContent className="mx-auto max-h-[94dvh] max-w-[430px] rounded-t-[20px] border-0 bg-bg outline-none">
         <div className="overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1">
           <div className="flex h-12 items-center justify-between">
-            <DrawerTitle className="font-serif text-[20px] font-semibold leading-none text-ink">分享小票</DrawerTitle>
+            <DrawerTitle className="font-serif text-[20px] font-semibold leading-none text-ink">{t("share.title")}</DrawerTitle>
             <button type="button" onClick={copy} className="-mr-2 flex h-11 items-center gap-1.5 rounded-[10px] px-2 text-[15px] text-clay active:opacity-60">
               <Copy className="size-4" strokeWidth={1.75} aria-hidden />
-              复制文字
+              {t("share.copy")}
             </button>
           </div>
-          <DrawerDescription className="sr-only">选择背景和版式，然后分享或保存图片</DrawerDescription>
+          <DrawerDescription className="sr-only">{t("share.intro")}</DrawerDescription>
 
           <motion.div className="relative flex justify-center overflow-hidden rounded-[16px] pt-[22px]" style={{ backgroundImage: cssGradient(gradient), height: cardH }}>
             <div ref={setPaperBox} className="h-fit [filter:drop-shadow(0_8px_14px_rgb(0_0_0/0.22))]" style={{ transform: `scale(${ZOOM})`, transformOrigin: "50% 0" }}>
@@ -92,7 +93,7 @@ export function ShareSheet({ receipt, open, onClose }: { receipt: DailyReceipt; 
             </div>
           </motion.div>
 
-          <div role="radiogroup" aria-label="背景" className="-mx-4 mt-3 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+          <div role="radiogroup" aria-label={t("share.backdrop")} className="-mx-4 mt-3 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
             {GRADIENTS.map((g) => {
               const on = g.id === gradient.id;
               return (
@@ -101,7 +102,7 @@ export function ShareSheet({ receipt, open, onClose }: { receipt: DailyReceipt; 
                   type="button"
                   role="radio"
                   aria-checked={on}
-                  aria-label={g.name}
+                  aria-label={gradientName(g)}
                   onClick={() => setGradient(g)}
                   className="grid size-11 shrink-0 place-items-center"
                 >
@@ -119,14 +120,14 @@ export function ShareSheet({ receipt, open, onClose }: { receipt: DailyReceipt; 
             })}
           </div>
 
-          <Segmented className="mt-2" value={variant} options={VARIANTS} onChange={setVariant} />
+          <Segmented className="mt-2" value={variant} options={variants} onChange={setVariant} />
 
           <div className="mt-4 flex gap-2.5">
             <XButton variant="primary" className="flex-1" onClick={() => void run("share")} disabled={busy !== null}>
-              {busy === "share" ? "生成中…" : "分享"}
+              {busy === "share" ? t("share.shareBusy") : t("share.share")}
             </XButton>
             <XButton variant="secondary" className="flex-1" onClick={() => void run("save")} disabled={busy !== null}>
-              {busy === "save" ? "保存中…" : "保存图片"}
+              {busy === "save" ? t("share.saveBusy") : t("share.save")}
             </XButton>
           </div>
         </div>

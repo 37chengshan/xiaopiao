@@ -21,9 +21,9 @@ function NavRow({ item, active, collapsed }: { item: NavItem; active: boolean; c
       aria-current={active ? "page" : undefined}
       title={collapsed ? item.label() : undefined}
       className={cn(
-        "d-press relative flex h-[30px] items-center rounded-lg text-[13px] font-medium transition-colors",
+        "d-press relative flex h-[34px] items-center rounded-[9px] text-[13px] font-medium transition-colors",
         "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-d-accent-ink",
-        collapsed ? "mx-auto w-8 justify-center" : "gap-2 pl-3 pr-2.5",
+        collapsed ? "mx-auto size-10 justify-center rounded-[11px]" : "gap-2.5 pl-3 pr-2.5",
         active ? "text-d-ink" : "text-d-ink-2 hover:bg-d-fill/50 hover:text-d-ink",
         active && collapsed && "bg-d-fill",
       )}
@@ -33,7 +33,7 @@ function NavRow({ item, active, collapsed }: { item: NavItem; active: boolean; c
       {active && !collapsed && (
         <motion.span aria-hidden layoutId="side-nav-bar" transition={SPRING_SLIDE} className="absolute left-0 top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-d-accent" />
       )}
-      <Icon className={cn("relative size-4 shrink-0", active && "text-d-ink")} strokeWidth={active ? 2 : 1.75} aria-hidden />
+      <Icon className={cn("relative shrink-0", collapsed ? "size-[18px]" : "size-[17px]", active && "text-d-ink")} strokeWidth={active ? 2 : 1.75} aria-hidden />
       <motion.span animate={{ opacity: collapsed ? 0 : 1 }} transition={{ duration: 0.1 }} className="relative truncate whitespace-nowrap">
         {item.label()}
       </motion.span>
@@ -48,7 +48,11 @@ function SegmentSwitch({ segment, collapsed }: { segment: Segment; collapsed: bo
   ];
   if (collapsed) {
     return (
-      <div className="flex flex-col items-center gap-1 py-2">
+      <div
+        role="group"
+        aria-label={s("nav.label")}
+        className="mx-2 mb-1 mt-2 flex flex-col items-center gap-1 rounded-2xl border border-d-hairline bg-d-surface/60 p-1"
+      >
         {options.map((o) => {
           const Icon = o.icon;
           return (
@@ -59,13 +63,13 @@ function SegmentSwitch({ segment, collapsed }: { segment: Segment; collapsed: bo
               aria-label={o.label}
               title={o.label}
               onClick={() => go(o.to)}
-              className={cn("d-press grid size-8 place-items-center rounded-lg transition-colors", segment === o.value ? "bg-d-surface text-d-ink shadow-[0_1px_2px_oklch(0_0_0/8%)]" : "text-d-ink-3 hover:text-d-ink")}
+              className={cn("d-press grid size-9 place-items-center rounded-[9px] transition-colors", segment === o.value ? "bg-d-surface text-d-ink shadow-[0_1px_2px_oklch(0_0_0/8%)]" : "text-d-ink-3 hover:text-d-ink")}
             >
-              <Icon className="size-4" strokeWidth={1.75} aria-hidden />
+              <Icon className="size-[18px]" strokeWidth={1.75} aria-hidden />
             </button>
           );
         })}
-      </div>
+              </div>
     );
   }
   return (
@@ -119,7 +123,7 @@ export function Sidebar({ collapsed, pathname, onToggle, toggleLabel }: { collap
 
       {!collapsed && <p className="px-4 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-[0.06em] text-d-ink-3">{segment === "shop" ? s("seg.shop") : s("seg.personal")}</p>}
 
-      <nav className={cn("hide-scrollbar min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-2", collapsed ? "px-2 pt-2" : "px-2 pt-1")}>
+      <nav className={cn("hide-scrollbar min-h-0 flex-1 overflow-y-auto pb-2", collapsed ? "space-y-1 px-2 pt-2" : "space-y-0.5 px-2 pt-1")}>
         {items.map((item) => (
           <NavRow key={item.to} item={item} active={isActive(pathname, item.to)} collapsed={collapsed} />
         ))}
@@ -131,7 +135,7 @@ export function Sidebar({ collapsed, pathname, onToggle, toggleLabel }: { collap
           <button
             type="button"
             onClick={onToggle}
-            className="d-press mt-1 flex h-[30px] w-full items-center gap-2 rounded-lg px-2.5 text-[12px] text-d-ink-3 transition-colors hover:bg-d-fill/50 hover:text-d-ink"
+            className="d-press mt-1 flex h-[34px] w-full items-center gap-2 rounded-[9px] px-2.5 text-[12px] text-d-ink-3 transition-colors hover:bg-d-fill/50 hover:text-d-ink"
           >
             <PanelLeftClose className="size-4" strokeWidth={1.75} aria-hidden />
             {toggleLabel ?? s("nav.collapse")}
@@ -141,7 +145,7 @@ export function Sidebar({ collapsed, pathname, onToggle, toggleLabel }: { collap
 
       {collapsed && (
         <div className="border-t border-d-hairline py-2">
-          <IconButton icon={PanelLeftOpen} label={s("nav.expand")} onClick={onToggle} className="mx-auto" />
+          <IconButton icon={PanelLeftOpen} label={s("nav.expand")} onClick={onToggle} className="mx-auto size-10 rounded-[11px]" />
         </div>
       )}
     </motion.aside>

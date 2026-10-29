@@ -1,4 +1,4 @@
-import { money, shortDate } from "@/logic/biz/format";
+import { money } from "@/logic/biz/format";
 
 /**
  * The daily report slip, laid out as geometry (not as DOM) so the same spec draws the screen
@@ -35,7 +35,6 @@ export interface ReceiptSpec {
 export interface ReceiptInput {
   mm: ReceiptMm;
   shopName: string;
-  day: number;
   revenueCents: number;
   orders: number;
   ticketCents: number;
@@ -46,7 +45,7 @@ export interface ReceiptInput {
   showTicket: boolean;
   showWeek: boolean;
   showSummary: boolean;
-  /** weekday names + fixed labels, resolved by the caller's dictionary */
+  /** fixed labels + the composed date line, resolved by the caller's dictionary */
   labels: {
     head: string;
     revenue: string;
@@ -56,7 +55,8 @@ export interface ReceiptInput {
     issued: string;
     thanks: string;
     ordersUnit: string;
-    weekday: string;
+    /** "10/28 Wednesday" / "10/28, 周三" — date and weekday already joined by the caller */
+    dayLine: string;
     summaryFallback: string;
   };
   issuedAt: string;
@@ -66,22 +66,50 @@ const PAD = 16;
 const BASE = 11;
 const LEAD = 17;
 
-/** Wraps by display width: a CJK glyph is one em, ASCII roughly 0.56 em. */
+/**
+ * Wraps by display width: a CJK glyph is one em, ASCII roughly 0.56 em. Latin words stay whole
+ * (an English sentence on the slip must not break mid-word); only a word longer than the line is
+ * cut, and CJK still breaks between any two glyphs.
+ */
 export function wrapText(text: string, width: number, size: number): string[] {
   const out: string[] = [];
+  const advanceOf = (ch: string) => (/[\u3000-\u9fff\uff00-\uffef]/.test(ch) ? size : size * 0.56);
+  const tokens = text.match(/[\u3000-\u9fff\uff00-\uffef]|\s+|[^\s\u3000-\u9fff\uff00-\uffef]+/g) ?? [];
   let line = "";
   let used = 0;
-  for (const ch of text) {
-    const advance = /[\u3000-\u9fff\uff00-\uffef]/.test(ch) ? size : size * 0.56;
-    if (used + advance > width && line !== "") {
-      out.push(line);
+  let pendingSpace = false;
+  for (const token of tokens) {
+    if (/^\s+$/.test(token)) {
+      pendingSpace = true;
+      continue;
+    }
+    if (pendingSpace && line !== "") {
+      line += " ";
+      used += size * 0.56;
+    }
+    pendingSpace = false;
+    const advance = [...token].reduce((n, ch) => n + advanceOf(ch), 0);
+    if (used + advance > width && line.trim() !== "") {
+      out.push(line.trimEnd());
       line = "";
       used = 0;
     }
-    line += ch;
-    used += advance;
+    if (advance > width) {
+      for (const ch of token) {
+        if (used + advanceOf(ch) > width && line !== "") {
+          out.push(line.trimEnd());
+          line = "";
+          used = 0;
+        }
+        line += ch;
+        used += advanceOf(ch);
+      }
+    } else {
+      line += token;
+      used += advance;
+    }
   }
-  if (line !== "") out.push(line);
+  if (line.trim() !== "") out.push(line.trimEnd());
   return out;
 }
 
@@ -113,7 +141,7 @@ export function buildReceipt(input: ReceiptInput): ReceiptSpec {
   center(input.shopName, BASE + 1, 600);
   if (input.variant === "full") center(input.labels.head, 9, 400, true);
   y += 2;
-  center(`${shortDate(input.day)} ${input.labels.weekday}`, BASE + 1, 600);
+  center(input.labels.dayLine, BASE + 1, 600);
   y += 2;
   rule();
 

@@ -2,9 +2,12 @@
  * Share-card backdrops (docs/DESIGN.md §7.6). Muted on purpose: the paper is the hero, the gradient is the table it lies on.
  * These are image data for the exported PNG, not UI colours, so they are literal values rather than theme tokens.
  */
+import { s, type ReceiptKey } from "./strings";
+
 export interface ReceiptGradient {
   id: string;
-  name: string;
+  /** key into the receipt dictionary; read it through `gradientName` so it follows the reading language */
+  nameKey: ReceiptKey;
   /** top-left → bottom-right */
   stops: readonly [string, string];
   /** true when the card is dark enough that its footer text must be light */
@@ -12,18 +15,18 @@ export interface ReceiptGradient {
 }
 
 export const GRADIENTS: readonly ReceiptGradient[] = [
-  { id: "terracotta", name: "陶土", stops: ["#D9A58E", "#B8694B"], dark: false },
-  { id: "apricot", name: "杏", stops: ["#F4D5B2", "#E3A98B"], dark: false },
-  { id: "sand", name: "沙", stops: ["#E8DCC4", "#C8B896"], dark: false },
-  { id: "moss", name: "苔绿", stops: ["#AEBC9E", "#6E8869"], dark: false },
-  { id: "mist", name: "雾蓝", stops: ["#BCCADA", "#8AA1B8"], dark: false },
-  { id: "dusk", name: "暮紫", stops: ["#BBA9C8", "#8875A2"], dark: false },
-  { id: "midnight", name: "墨夜", stops: ["#3B3B40", "#161618"], dark: true },
-  { id: "cream", name: "奶油", stops: ["#F7EEDB", "#E9DAB6"], dark: false },
-  { id: "peach", name: "桃", stops: ["#F5C5B9", "#E39A8D"], dark: false },
-  { id: "celadon", name: "青瓷", stops: ["#C1D9D0", "#8CB4A6"], dark: false },
-  { id: "slate", name: "灰岩", stops: ["#B9B8B3", "#84837E"], dark: false },
-  { id: "sakura", name: "夜樱", stops: ["#5E4159", "#2A1A29"], dark: true },
+  { id: "terracotta", nameKey: "theme.terracotta", stops: ["#D9A58E", "#B8694B"], dark: false },
+  { id: "apricot", nameKey: "theme.apricot", stops: ["#F4D5B2", "#E3A98B"], dark: false },
+  { id: "sand", nameKey: "theme.sand", stops: ["#E8DCC4", "#C8B896"], dark: false },
+  { id: "moss", nameKey: "theme.moss", stops: ["#AEBC9E", "#6E8869"], dark: false },
+  { id: "mist", nameKey: "theme.mist", stops: ["#BCCADA", "#8AA1B8"], dark: false },
+  { id: "dusk", nameKey: "theme.dusk", stops: ["#BBA9C8", "#8875A2"], dark: false },
+  { id: "midnight", nameKey: "theme.midnight", stops: ["#3B3B40", "#161618"], dark: true },
+  { id: "cream", nameKey: "theme.cream", stops: ["#F7EEDB", "#E9DAB6"], dark: false },
+  { id: "peach", nameKey: "theme.peach", stops: ["#F5C5B9", "#E39A8D"], dark: false },
+  { id: "celadon", nameKey: "theme.celadon", stops: ["#C1D9D0", "#8CB4A6"], dark: false },
+  { id: "slate", nameKey: "theme.slate", stops: ["#B9B8B3", "#84837E"], dark: false },
+  { id: "sakura", nameKey: "theme.sakura", stops: ["#5E4159", "#2A1A29"], dark: true },
 ];
 
 export const DEFAULT_GRADIENT = GRADIENTS[0];
@@ -34,6 +37,11 @@ export function gradientById(id: string | null | undefined): ReceiptGradient {
 
 export function cssGradient(g: ReceiptGradient): string {
   return `linear-gradient(135deg, ${g.stops[0]}, ${g.stops[1]})`;
+}
+
+/** Theme name in the reading language ("陶土" / "Terracotta"). Call from a component that subscribes to `useLocale`. */
+export function gradientName(g: ReceiptGradient): string {
+  return s(g.nameKey);
 }
 
 /** WCAG relative luminance of a #rrggbb colour. */

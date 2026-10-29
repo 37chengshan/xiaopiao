@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { useLocale } from "@/lib/strings";
+import "@/lib/locale";
 import "./notfound.css";
 import { s } from "./strings";
 

@@ -1,9 +1,11 @@
 import { ArrowUp, Share2, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CATEGORIES } from "@/domain/types";
+import { categoryLabel } from "../labels";
 import { hhmm, weekStartOf, addDays } from "@/logic/time";
 import { useLedger } from "@/services/LedgerProvider";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/lib/strings";
 import { CIRCLES, ME, memberOf, seedMessages, weeklyFacts, type CircleMessage } from "../circleData";
 import { money } from "../format";
 import { Button, Card, EmptyState, Hint } from "../ui";
@@ -14,6 +16,7 @@ function Avatar({ emoji, self }: { emoji: string; self?: boolean }) {
 }
 
 export function CirclePage() {
+  useLocale();
   const { txns, now } = useLedger();
   const [circleId, setCircleId] = useState(CIRCLES[0].id);
   const [messages, setMessages] = useState<CircleMessage[]>(() => seedMessages(Date.now()));
@@ -84,7 +87,7 @@ export function CirclePage() {
 
         <div className="d-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {room.length === 0 ? (
-            <EmptyState art="/img/app-empty-circle.webp" title={s("ci.empty")} className="py-8" />
+            <EmptyState art="/img/app-empty-circle.jpg" title={s("ci.empty")} className="py-8" />
           ) : (
             room.map((m) => {
               const member = memberOf(circle, m.memberId);
@@ -103,7 +106,7 @@ export function CirclePage() {
                           <p className="num text-[15px] font-semibold">{money(m.weekly.totalCents)}</p>
                           <p className="mt-0.5 text-[11.5px] opacity-70">
                             {m.weekly.count} {s("ledger.itemUnit")}
-                            {m.weekly.top ? ` · ${CATEGORIES[m.weekly.top].label}` : ""}
+                            {m.weekly.top ? ` · ${categoryLabel(m.weekly.top)}` : ""}
                           </p>
                         </div>
                       ) : (
@@ -152,7 +155,7 @@ export function CirclePage() {
               <p className="num mt-0.5 text-[22px] font-semibold leading-7 text-d-ink">{money(week.totalCents)}</p>
               <p className="mt-1 text-[12px] text-d-ink-2">
                 {week.count} {s("ledger.itemUnit")}
-                {week.top ? ` · ${CATEGORIES[week.top].label}` : ""}
+                {week.top ? ` · ${categoryLabel(week.top)}` : ""}
               </p>
               <Button size="sm" variant="primary" className="mt-3" onClick={shareWeek}>
                 {s("ci.shareWeek")}

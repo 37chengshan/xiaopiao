@@ -8,6 +8,7 @@ import { addDays, dateKey, hhmm, weekStartOf } from "@/logic/time";
 import { decodeBillBytes, parseBillCsv } from "@/logic/csv";
 import { useLedger } from "@/services/LedgerProvider";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/lib/strings";
 import { DataTable, type Column } from "../DataTable";
 import { downloadCsv } from "../csvExport";
 import { money } from "../format";
@@ -27,6 +28,7 @@ import {
   type Filters,
   type Sort,
 } from "../tableModel";
+import { categoryLabel, sourceLabel } from "../labels";
 import { Button, Card, Chip, EmptyState, Skeleton, TextInput, Segmented, SearchInput } from "../ui";
 import { s } from "../strings";
 import { useShell } from "../Shell";
@@ -53,6 +55,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
 }
 
 export function LedgerPage() {
+  useLocale();
   const { txns, now, isLoading, isError, refetch, add, update, remove, restore } = useLedger();
   const shell = useShell();
   const skeleton = useFirstPaint(isLoading);
@@ -199,14 +202,14 @@ export function LedgerPage() {
       header: s("ledger.colCategory"),
       sortKey: "category",
       width: "128px",
-      cell: (t) => <span className="text-[12px] text-d-ink-2">{CATEGORIES[t.category].label}</span>,
+      cell: (t) => <span className="text-[12px] text-d-ink-2">{categoryLabel(t.category)}</span>,
     },
     {
       key: "source",
       header: s("ledger.colSource"),
       sortKey: "source",
       width: "84px",
-      cell: (t) => <span className="text-[12px] text-d-ink-3">{SOURCE_LABEL[t.source]}</span>,
+      cell: (t) => <span className="text-[12px] text-d-ink-3">{sourceLabel(t.source)}</span>,
     },
     {
       key: "amount",
@@ -317,7 +320,7 @@ export function LedgerPage() {
                           onClick={() => setFilters((f) => ({ ...f, categories: on ? f.categories.filter((c) => c !== key) : [...f.categories, key] }))}
                           className={cn("d-press h-6 rounded-md px-2 text-[12px]", on ? "bg-d-accent/10 text-d-accent-ink" : "bg-d-fill text-d-ink-2 hover:text-d-ink")}
                         >
-                          {CATEGORIES[key].label}
+                          {categoryLabel(key)}
                         </button>
                       );
                     })}
@@ -359,7 +362,7 @@ export function LedgerPage() {
                           onClick={() => setFilters((f) => ({ ...f, sources: on ? f.sources.filter((c) => c !== key) : [...f.sources, key] }))}
                           className={cn("d-press h-6 rounded-md px-2 text-[12px]", on ? "bg-d-accent/10 text-d-accent-ink" : "bg-d-fill text-d-ink-2 hover:text-d-ink")}
                         >
-                          {SOURCE_LABEL[key]}
+                          {sourceLabel(key)}
                         </button>
                       );
                     })}
@@ -383,7 +386,7 @@ export function LedgerPage() {
             )}
             {filters.categories.map((c) => (
               <Chip key={c} onRemove={() => setFilters((f) => ({ ...f, categories: f.categories.filter((x) => x !== c) }))}>
-                {CATEGORIES[c].label}
+                {categoryLabel(c)}
               </Chip>
             ))}
             {(filters.minCents !== null || filters.maxCents !== null) && (
@@ -394,7 +397,7 @@ export function LedgerPage() {
             )}
             {filters.sources.map((x) => (
               <Chip key={x} onRemove={() => setFilters((f) => ({ ...f, sources: f.sources.filter((y) => y !== x) }))}>
-                {SOURCE_LABEL[x]}
+                {sourceLabel(x)}
               </Chip>
             ))}
           </div>
@@ -457,7 +460,7 @@ export function LedgerPage() {
               rows.length === 0 ? (
                 txns.length === 0 ? (
                   <EmptyState
-                    art="/img/app-empty-ledger.webp"
+                    art="/img/app-empty-ledger.jpg"
                     title={s("empty.ledgerTitle")}
                     hint={s("empty.ledgerHint")}
                     action={<Button variant="primary" icon={Plus} onClick={() => shell.openEntry()}>{s("cm.record")}</Button>}
@@ -511,7 +514,7 @@ export function LedgerPage() {
                           onClick={() => void reclassify(key)}
                           className="d-press h-6 rounded-md bg-d-fill px-2 text-[12px] text-d-ink-2 hover:text-d-ink"
                         >
-                          {CATEGORIES[key].label}
+                          {categoryLabel(key)}
                         </button>
                       ))}
                     </div>
@@ -556,7 +559,7 @@ export function LedgerPage() {
                 <div key={t.id} className="flex items-center gap-2 border-b border-d-hairline px-3 py-1.5 text-[12px] last:border-b-0">
                   <span className="num w-[86px] shrink-0 text-d-ink-3">{dateKey(t.occurredAt).slice(5)}</span>
                   <span className="min-w-0 flex-1 truncate text-d-ink">{t.merchant}</span>
-                  <span className="shrink-0 text-d-ink-3">{CATEGORIES[t.category].label}</span>
+                  <span className="shrink-0 text-d-ink-3">{categoryLabel(t.category)}</span>
                   <span className="num w-[76px] shrink-0 text-right text-d-ink">{money(t.amountCents)}</span>
                 </div>
               ))}

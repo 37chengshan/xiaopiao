@@ -1,4 +1,6 @@
+import { categoryLabel } from "../labels";
 import { ChevronLeft, ChevronRight, Plus, RefreshCw } from "lucide-react";
+import { useLocale } from "@/lib/strings";
 import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { CATEGORIES, startOfDay } from "@/domain/types";
@@ -21,6 +23,7 @@ const PERIODS: { value: Period; label: () => string }[] = [
 ];
 
 export function StatsPage() {
+  useLocale();
   const { txns, now, isLoading, isError, refetch } = useLedger();
   const shell = useShell();
   const skeleton = useFirstPaint(isLoading);
@@ -36,7 +39,7 @@ export function StatsPage() {
     const summary = summarize(txns, win);
     const prevSummary = prevWin ? summarize(txns, prevWin) : null;
     const points = seriesOf(period, win, txns, prevWin);
-    const mix: Slice[] = summary.byCategory.slice(0, 5).map((c) => ({ label: CATEGORIES[c.category].label, value: c.cents }));
+    const mix: Slice[] = summary.byCategory.slice(0, 5).map((c) => ({ label: categoryLabel(c.category), value: c.cents }));
     const rest = summary.byCategory.slice(5).reduce((sum, c) => sum + c.cents, 0);
     if (rest > 0) mix.push({ label: s("common.more"), value: rest, color: "muted" });
     return { win, prevWin, summary, prevSummary, points, mix, label: windowLabel(period, anchor, custom) };
@@ -115,7 +118,7 @@ export function StatsPage() {
             <Card className="h-full" title={s("stats.trend")} action={compare ? <span className="text-[11px] text-d-ink-3">{s("stats.previous")}</span> : null}>
               {view.summary.totalCents === 0 && view.summary.count === 0 ? (
                 <EmptyState
-                  art="/img/app-empty-ledger.webp"
+                  art="/img/app-empty-ledger.jpg"
                   title={s("stats.empty")}
                   hint={s("stats.emptyHint")}
                   action={
@@ -154,7 +157,7 @@ export function StatsPage() {
           <Stagger index={5} className="col-span-12 xl:col-span-4">
           <Card className="h-full" title={s("stats.mix")}>
             {view.summary.totalCents === 0 ? (
-              <EmptyState art="/img/app-empty-shop.webp" title={s("stats.empty")} className="py-4" />
+              <EmptyState art="/img/app-empty-shop.jpg" title={s("stats.empty")} className="py-4" />
             ) : (
               <div className="flex flex-col items-center gap-3">
                 <Donut slices={view.mix} size={172} centerValue={money(view.summary.totalCents)} centerLabel={s("stats.total")} />
@@ -167,14 +170,14 @@ export function StatsPage() {
           <Stagger index={6} className="col-span-12 xl:col-span-8">
           <Card className="h-full" title={s("stats.ranking")}>
             {view.summary.byCategory.length === 0 ? (
-              <EmptyState art="/img/app-empty-shop.webp" title={s("stats.empty")} className="py-4" />
+              <EmptyState art="/img/app-empty-shop.jpg" title={s("stats.empty")} className="py-4" />
             ) : (
               <ul className="space-y-2.5">
                 {view.summary.byCategory.map((row) => {
                   const share = view.summary.totalCents > 0 ? row.cents / view.summary.totalCents : 0;
                   return (
                     <li key={row.category} className="flex items-center gap-3">
-                      <span className="w-[92px] shrink-0 truncate text-[12.5px] text-d-ink-2">{CATEGORIES[row.category].label}</span>
+                      <span className="w-[92px] shrink-0 truncate text-[12.5px] text-d-ink-2">{categoryLabel(row.category)}</span>
                       <span className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-d-fill">
                         <span className="block h-full rounded-full bg-d-accent" style={{ width: `${Math.max(2, share * 100)}%` }} />
                       </span>

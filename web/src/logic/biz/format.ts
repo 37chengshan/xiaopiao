@@ -1,9 +1,11 @@
 import { startOfDay } from "../../domain/types";
+import { getLocale } from "../../lib/strings";
 import { addDays, dayDiff, dateKey } from "../time";
 
 /**
- * Number and date formatting for the shop console. Locale-free by design: weekday names and
- * sentence wording live in `features/biz/strings.ts`, so the same cents always read the same here.
+ * Number and date formatting for the shop console. Weekday names and sentence wording live in
+ * `features/biz/strings.ts`; only the compact axis ticks ask the locale whether to shorten a large
+ * amount as 万 or as k/M, so the same cents always read the same everywhere else.
  */
 
 /** "¥6,420.5" — grouped thousands, decimals only when the amount has them. */
@@ -20,9 +22,15 @@ export function moneyPlain(cents: number): string {
   return `${cents < 0 ? "-" : ""}${whole}${frac}`;
 }
 
-/** "6.4k" / "1.2万" — axis labels only; the exact number stays in the tooltip. */
+/** "6.4k" / "1.2万" (zh) or "¥6.4k" / "¥1.1M" (en) — axis labels only; the exact number stays in the tooltip. */
 export function moneyCompact(cents: number): string {
   const yuan = cents / 100;
+  if (getLocale() === "en") {
+    const abs = Math.abs(yuan);
+    if (abs >= 1_000_000) return `¥${Number((yuan / 1_000_000).toFixed(1))}M`;
+    if (abs >= 1_000) return `¥${Number((yuan / 1_000).toFixed(1))}k`;
+    return `¥${Math.round(yuan)}`;
+  }
   if (Math.abs(yuan) >= 10_000) return `${(yuan / 10_000).toFixed(yuan % 10_000 === 0 ? 0 : 1)}万`;
   if (Math.abs(yuan) >= 1_000) return `${(yuan / 1_000).toFixed(1)}k`;
   return `${Math.round(yuan)}`;

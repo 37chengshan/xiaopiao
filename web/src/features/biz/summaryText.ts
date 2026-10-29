@@ -72,9 +72,9 @@ export function factsToLines(facts: readonly OverviewFact[], t: Strings): Summar
         return {
           tone: "up" as const,
           text:
-            fill(t("summary.bestDay"), `${shortDate(fact.best.day)}（${weekdayName(t, weekdayOf(fact.best.day))}）`, money(fact.best.revenueCents)) +
+            fill(t("summary.bestDay"), dayPart(t, fact.best.day), money(fact.best.revenueCents)) +
             (fact.worst
-              ? ` ${fill(t("summary.worstDay"), `${shortDate(fact.worst.day)}（${weekdayName(t, weekdayOf(fact.worst.day))}）`, money(fact.worst.revenueCents))}`
+              ? ` ${fill(t("summary.worstDay"), dayPart(t, fact.worst.day), money(fact.worst.revenueCents))}`
               : ""),
         };
     }
@@ -87,12 +87,15 @@ export function reportLine(fact: ReportFact, t: Strings): string {
   const total = money(fact.revenueCents);
   if (!fact.change.hasBase) return fill(t("report.lineNoBase"), total);
   if (fact.change.diffCents === 0) return fill(t("report.lineFlat"), total);
-  const pct = Math.abs(Math.round((fact.change.pct ?? 0) * 100));
-  const rel =
-    fact.change.diffCents > 0
-      ? fill(t("summary.weekUp"), money(fact.change.diffCents), `${pct}%`)
-      : fill(t("summary.weekDown"), money(-fact.change.diffCents), `${pct}%`);
-  return fill(t("report.line"), total, rel);
+  const pct = `${Math.abs(Math.round((fact.change.pct ?? 0) * 100))}%`;
+  return fact.change.diffCents > 0
+    ? fill(t("report.lineUp"), total, money(fact.change.diffCents), pct)
+    : fill(t("report.lineDown"), total, money(-fact.change.diffCents), pct);
+}
+
+/** "10/24 (Saturday)" / "10/24（周六）" — the weekday in brackets, with the locale's own punctuation. */
+function dayPart(t: Strings, day: number): string {
+  return fill(t("summary.dayPart"), shortDate(day), weekdayName(t, weekdayOf(day)));
 }
 
 function weekdayOf(day: number): number {

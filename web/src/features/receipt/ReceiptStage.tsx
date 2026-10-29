@@ -13,6 +13,7 @@ import { unlockAudio } from "./sound";
 import { usePrintSequence } from "./usePrintSequence";
 import { usePushBack } from "./usePushBack";
 import { useReceiptDoc } from "./useReceiptDoc";
+import { useReceiptStrings } from "./strings";
 import { useTear } from "./useTear";
 
 const SLOT_TOP = 10;
@@ -27,6 +28,7 @@ const safeTop = (px: number) => `calc(env(safe-area-inset-top, 0px) + ${px}px)`;
  * from the slot, a bottom capsule says what to do, dragging the paper down tears it off and opens the share sheet.
  */
 export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyReceipt; column: HTMLElement; onClose: () => void }) {
+  const t = useReceiptStrings();
   const reduce = useReducedMotion() ?? false;
   const doc = useReceiptDoc(receipt);
   const paperRef = useRef<HTMLDivElement>(null);
@@ -67,7 +69,7 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
   }, [phase, reduce, rot]);
 
   const close = () => {
-    if (phase === "torn") toast("小票已撕下，明天见 ✂️");
+    if (phase === "torn") toast(t("stage.done"));
     send("close");
     onClose();
   };
@@ -99,7 +101,7 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
   const ready = phase === "printed";
 
   return createPortal(
-    <div ref={rootRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="今日小票" className="absolute inset-0 z-40 overflow-hidden outline-none">
+    <div ref={rootRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={t("stage.label")} className="absolute inset-0 z-40 overflow-hidden outline-none">
       <motion.div
         aria-hidden
         className="absolute inset-0 bg-scrim"
@@ -116,7 +118,7 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
             {...tear.handlers}
             className="pointer-events-auto relative select-none"
             style={{ x, y, rotate: rot, opacity, scaleY: stretch, transformOrigin: "50% 0", width: PAPER_W, touchAction: "none", cursor: ready ? (tear.dragging ? "grabbing" : "grab") : "default" }}
-            aria-label={ready ? "向下拖动撕下小票" : undefined}
+            aria-label={ready ? t("stage.drag") : undefined}
           >
             <div aria-hidden className="absolute left-0 bg-paper" style={{ top: -STUB_OVERLAP, width: PAPER_W, height: STUB_OVERLAP + TOOTH_DEPTH, clipPath: stubClipPath() }} />
             <motion.div aria-hidden className="pointer-events-none absolute left-0 top-2.5" style={{ height: seq.paperH || "100%", width: PAPER_W, opacity: shadow, clipPath: revealClip }}>
@@ -173,7 +175,7 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
             aria-live="polite"
           >
             {!busy && <ChevronsDown className="size-4 shrink-0 text-ink-2" strokeWidth={1.75} aria-hidden />}
-            <span className="truncate">{busy ? "正在打印小票…" : tear.armed ? "松手撕下" : "向下拖动撕下小票"}</span>
+            <span className="truncate">{busy ? t("stage.printing") : tear.armed ? t("stage.release") : t("stage.drag")}</span>
           </motion.p>
         </AnimatePresence>
         <button
@@ -181,9 +183,9 @@ export function ReceiptStage({ receipt, column, onClose }: { receipt: DailyRecei
           onClick={busy ? seq.skip : () => tear.tear(700)}
           className="h-11 shrink-0 rounded-full px-3.5 text-[15px] font-medium text-clay transition-opacity duration-100 active:opacity-50"
         >
-          {busy ? "跳过" : "撕下"}
+          {busy ? t("stage.skip") : t("stage.tear")}
         </button>
-        <button type="button" onClick={close} aria-label="关闭" className="grid size-11 shrink-0 place-items-center rounded-full text-ink-2 transition-colors duration-100 active:bg-fill">
+        <button type="button" onClick={close} aria-label={t("stage.close")} className="grid size-11 shrink-0 place-items-center rounded-full text-ink-2 transition-colors duration-100 active:bg-fill">
           <X className="size-[18px]" strokeWidth={2} aria-hidden />
         </button>
       </motion.div>
