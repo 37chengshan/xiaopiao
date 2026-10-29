@@ -48,11 +48,7 @@ function SegmentSwitch({ segment, collapsed }: { segment: Segment; collapsed: bo
   ];
   if (collapsed) {
     return (
-      <div
-        role="group"
-        aria-label={s("nav.label")}
-        className="mx-2 mb-1 mt-2 flex flex-col items-center gap-1 rounded-2xl border border-d-hairline bg-d-surface/60 p-1"
-      >
+      <div role="group" aria-label={s("nav.label")} className="flex flex-col items-center gap-1 pb-2 pt-1">
         {options.map((o) => {
           const Icon = o.icon;
           return (
@@ -111,7 +107,10 @@ export function Sidebar({ collapsed, pathname, onToggle, toggleLabel }: { collap
             e.preventDefault();
             go("/app");
           }}
-          className="d-press flex min-w-0 items-center gap-2 rounded-md text-d-ink"
+          className={cn(
+            "d-press flex min-w-0 items-center rounded-md text-d-ink",
+            collapsed ? "size-10 justify-center rounded-[11px]" : "gap-2",
+          )}
           title={s("brand")}
         >
           <BrandMark className="size-6 shrink-0" />
@@ -144,7 +143,7 @@ export function Sidebar({ collapsed, pathname, onToggle, toggleLabel }: { collap
       </div>
 
       {collapsed && (
-        <div className="border-t border-d-hairline py-2">
+        <div className="py-2">
           <IconButton icon={PanelLeftOpen} label={s("nav.expand")} onClick={onToggle} className="mx-auto size-10 rounded-[11px]" />
         </div>
       )}
