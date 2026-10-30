@@ -29,7 +29,8 @@ interface AsrSession {
     /** True when the model decided the sentence ended (streaming only). */
     val endpointed: Boolean
 
-    /** Final text for what was heard so far; call after [accept] to pick up the last words. */
+    /** Final text for what was heard so far; call after [accept] to pick up the last words. Also resets
+     *  the session, because [SherpaEngine] caches it and the next press must start from silence. */
     fun finish(): String
 
     fun close()
@@ -125,7 +126,7 @@ class SherpaEngine(private val store: AsrModelStore) {
 
 private class StreamingSession(
     private val recognizer: OnlineRecognizer,
-    private val stream: OnlineStream,
+    private var stream: OnlineStream,
 ) : AsrSession {
     override var endpointed: Boolean = false
         private set
@@ -142,7 +143,12 @@ private class StreamingSession(
         stream.acceptWaveform(FloatArray(1_600), 16_000) // 100 ms of silence flushes the tail
         stream.inputFinished()
         while (recognizer.isReady(stream)) recognizer.decode(stream)
-        return recognizer.getResult(stream).text.trim()
+        val text = recognizer.getResult(stream).text.trim()
+        // A finished stream stays endpointed forever; reusing it cut every later press off after ~0.3 s.
+        stream.release()
+        stream = recognizer.createStream()
+        endpointed = false
+        return text
     }
 
     override fun close() {
@@ -178,11 +184,14 @@ private class OfflineSession(private val recognizer: OfflineRecognizer) : AsrSes
             chunk.copyInto(joined, offset)
             offset += chunk.size
         }
+        samples.clear()
+        total = 0
+        text = ""
         val stream: OfflineStream = recognizer.createStream()
         return try {
             stream.acceptWaveform(joined, 16_000)
             recognizer.decode(stream)
-            recognizer.getResult(stream).text.trim().also { text = it }
+            recognizer.getResult(stream).text.trim()
         } finally {
             stream.release()
         }
