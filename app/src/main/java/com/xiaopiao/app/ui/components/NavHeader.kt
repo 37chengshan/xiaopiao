@@ -9,16 +9,10 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.Constraints
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.shadow.Shadow
 import androidx.compose.runtime.getValue
@@ -150,7 +144,8 @@ fun NavScaffold(
                             Modifier.height(NavBarHeight).padding(start = 10.dp, end = 14.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
-                            Icon(Icons.Outlined.ArrowBackIosNew, contentDescription = "返回", tint = XpColors.Ink, modifier = Modifier.size(16.dp))
+                            // The visible label already names the destination, so the chevron adds no words for TalkBack.
+                            Icon(Icons.Outlined.ArrowBackIosNew, contentDescription = null, tint = XpColors.Ink, modifier = Modifier.size(16.dp))
                             Text(backLabel, style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink)
                         }
                     }
@@ -170,8 +165,8 @@ private val LocalInCapsule = staticCompositionLocalOf { false }
 /**
  * One floating liquid-glass pill for a group of top controls, same recipe as the tab bar's capsules
  * (vibrancy, light scatter, edge lens, ~40% film, soft drop shadow). Renders nothing when the group is empty.
- * The node is [NavTouchTarget] tall so its controls can hit 48dp; the glass itself is drawn in the node's top
- * [NavBarHeight], so the pill keeps exactly its old geometry and the extra 4dp is invisible touch room.
+ * Two nodes share one width: a [NavBarHeight] pill that *is* the glass, and the row of controls on top, which is
+ * [NavTouchTarget] tall so every button can hit 48dp. The extra 4dp is invisible touch room below the glass.
  */
 @Composable
 private fun GlassCapsule(backdrop: LayerBackdrop, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
@@ -181,28 +176,38 @@ private fun GlassCapsule(backdrop: LayerBackdrop, modifier: Modifier = Modifier,
     CompositionLocalProvider(LocalInCapsule provides true) {
         Layout(
             content = {
+                // The glass itself: a plain capsule, so the backdrop's lens effect keeps working (it only
+                // understands corner-based shapes — a hand-rolled outline throws at attach time).
+                Box(
+                    Modifier.height(NavBarHeight).drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { CapsuleShape },
+                        effects = {
+                            vibrancy()
+                            blur(4.dp.toPx())
+                            lens(10.dp.toPx(), 14.dp.toPx())
+                        },
+                        shadow = { Shadow(radius = 16.dp, color = drop) },
+                        onDrawSurface = { drawRect(film) },
+                    ),
+                )
                 Row(
                     Modifier.padding(horizontal = 2.dp),
                     verticalAlignment = Alignment.Top,
                     content = content,
                 )
             },
-            modifier = modifier.height(NavTouchTarget).drawBackdrop(
-                backdrop = backdrop,
-                shape = { CapsuleShape },
-                effects = {
-                    vibrancy()
-                    blur(4.dp.toPx())
-                    lens(10.dp.toPx(), 14.dp.toPx())
-                },
-                shadow = { Shadow(radius = 16.dp, color = drop) },
-                onDrawSurface = { drawRect(film) },
-            ),
+            modifier = modifier.height(NavTouchTarget),
         ) { measurables, constraints ->
-            val row = measurables.first().measure(constraints.copy(minWidth = 0, minHeight = 0))
+            val pill = measurables[0]
+            val row = measurables[1].measure(constraints.copy(minWidth = 0, minHeight = 0))
             // An empty group (e.g. a page with no trailing actions) gets no capsule at all.
             if (row.width <= 4.dp.roundToPx()) return@Layout layout(0, 0) {}
-            layout(row.width, constraints.maxHeight) { row.place(0, (constraints.maxHeight - row.height) / 2) }
+            val glass = pill.measure(Constraints.fixed(row.width, NavBarHeight.roundToPx()))
+            layout(row.width, constraints.maxHeight) {
+                glass.place(0, 0)
+                row.place(0, 0)
+            }
         }
     }
 }
@@ -235,16 +240,8 @@ fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, m
     }
 }
 
-/**
- * The pill's outline, drawn in the top [NavBarHeight] of a [NavTouchTarget]-tall node: the glass keeps its old
- * size while the node below it carries the taller touch areas.
- */
-private val CapsuleShape = object : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-        val h = minOf(with(density) { NavBarHeight.toPx() }, size.height)
-        return Outline.Rounded(RoundRect(0f, 0f, size.width, h, CornerRadius(h / 2f)))
-    }
-}
+/** The pill's outline: a plain capsule, the one shape the backdrop lens effect supports. */
+private val CapsuleShape = androidx.compose.foundation.shape.RoundedCornerShape(50)
 
 /** How far the edge fade reaches below the controls. */
 private val EdgeFade = 18.dp
