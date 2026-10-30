@@ -88,12 +88,14 @@ fun CategoryManagerScreen(categories: CategoryRepository, onDismiss: () -> Unit)
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
     NavScaffold(
         title = "分类",
         scroll = NavScrollNone,
         onBack = onDismiss,
         trailing = { NavTextAction("＋ 新建", onClick = { editor = CategoryEditorTarget(null) }) },
+        overlay = { glass ->
+            com.xiaopiao.app.ui.components.XpToastHost(toast, Modifier.align(Alignment.BottomCenter).navigationBarsPadding(), backdrop = glass)
+        },
     ) { top ->
         LazyColumn(
             Modifier.fillMaxSize().navigationBarsPadding(),
@@ -158,8 +160,6 @@ fun CategoryManagerScreen(categories: CategoryRepository, onDismiss: () -> Unit)
                 )
             }
         }
-    }
-    com.xiaopiao.app.ui.components.XpToastHost(toast, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
     }
 
     editor?.let { target ->

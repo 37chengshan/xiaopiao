@@ -74,7 +74,7 @@ fun rememberUndoToastState(): UndoToastState = remember { UndoToastState() }
  * Put it in a Box and align it to the bottom: `UndoToastHost(state, Modifier.align(Alignment.BottomCenter))`.
  */
 @Composable
-fun UndoToastHost(state: UndoToastState, modifier: Modifier = Modifier) {
+fun UndoToastHost(state: UndoToastState, modifier: Modifier = Modifier, backdrop: com.kyant.backdrop.Backdrop? = null) {
     val data = state.current
     var last by remember { mutableStateOf<ToastData?>(null) }
     if (data != null) last = data
@@ -93,13 +93,13 @@ fun UndoToastHost(state: UndoToastState, modifier: Modifier = Modifier) {
             enter = slideInVertically(tween(220, easing = XpEase.out)) { it * 2 } + fadeIn(tween(180, easing = XpEase.out)),
             exit = slideOutVertically(tween(160, easing = XpEase.out)) { it * 2 } + fadeOut(tween(120)),
         ) {
-            last?.let { ToastCapsule(it, onDismiss = state::dismiss) }
+            last?.let { ToastCapsule(it, onDismiss = state::dismiss, backdrop = backdrop) }
         }
     }
 }
 
 @Composable
-private fun ToastCapsule(data: ToastData, onDismiss: () -> Unit) {
+private fun ToastCapsule(data: ToastData, onDismiss: () -> Unit, backdrop: com.kyant.backdrop.Backdrop?) {
     val dx = remember(data.id) { Animatable(0f) }
     val scope = rememberCoroutineScope()
     Row(
@@ -118,8 +118,14 @@ private fun ToastCapsule(data: ToastData, onDismiss: () -> Unit) {
                     },
                 ) { change, delta -> change.consume(); scope.launch { dx.snapTo(dx.value + delta) } }
             }
-            .clip(RoundedCornerShape(50))
-            .background(XpColors.ToastBackground)
+            // Dark ink glass over the page (§7.7 toast, tt 2026-10-29 内容液态玻璃): the list shows through.
+            .liquidGlass(
+                backdrop,
+                RoundedCornerShape(50),
+                film = XpColors.ToastBackground.copy(alpha = 0.78f),
+                rim = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.18f),
+                fallback = XpColors.ToastBackground,
+            )
             .padding(start = XpSpace.l + 2.dp, end = XpSpace.m, top = XpSpace.m, bottom = XpSpace.m),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -104,6 +104,11 @@ fun NavScaffold(
     trailing: @Composable RowScope.() -> Unit = {},
     /** Lay the page on a theme-coloured [GlassGround] so its grouped cards turn into liquid glass (设置). */
     glassGround: Boolean = false,
+    /**
+     * Things that float over the page — toasts, the undo bar, action pills. Drawn beside the recorded page (never
+     * inside it), so they can turn into liquid glass by sampling the content that scrolls under them.
+     */
+    overlay: (@Composable BoxScope.(glass: com.kyant.backdrop.Backdrop) -> Unit)? = null,
     content: @Composable BoxScope.(top: Dp) -> Unit,
 ) {
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -164,6 +169,7 @@ fun NavScaffold(
             }
             GlassCapsule(glass, Modifier.align(Alignment.TopEnd), content = trailing)
         }
+        overlay?.invoke(this, glass)
     }
 }
 

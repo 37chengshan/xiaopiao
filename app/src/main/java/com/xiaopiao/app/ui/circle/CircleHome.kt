@@ -138,7 +138,7 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                 modifier = Modifier.align(Alignment.BottomEnd)
                     .padding(end = XpSpace.l, bottom = bottomInset + XpSpace.l),
             )
-            XpToastHost(toast, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 88.dp))
+            XpToastHost(toast, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 88.dp), backdrop = feedGlass)
         }
     }
 

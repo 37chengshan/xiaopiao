@@ -71,6 +71,7 @@ import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.components.ShimmerBlock
 import com.xiaopiao.app.ui.components.UndoToastHost
+import com.xiaopiao.app.ui.components.liquidGlass
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.components.rememberReducedMotion
@@ -298,6 +299,22 @@ fun LedgerScreen(
                 }
             }
         },
+        overlay = { glass ->
+            // Floating delete pill: 48dp, 96dp above the tab bar, disabled (Negative at 30%) until something is picked.
+            AnimatedVisibility(
+                visible = selection != null,
+                enter = fadeIn(tween(160, easing = XpEase.out)) + slideInVertically(tween(220, easing = XpEase.out)) { it / 2 } + scaleIn(tween(200, easing = XpEase.out), initialScale = 0.9f),
+                exit = fadeOut(tween(120)) + slideOutVertically(tween(160)) { it / 3 } + scaleOut(tween(160), targetScale = 0.92f),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp).padding(horizontal = 56.dp),
+            ) {
+                DeleteCapsule(count = selection?.size ?: 0, backdrop = glass) { deleteSelected() }
+            }
+            UndoToastHost(
+                toast,
+                Modifier.align(Alignment.BottomCenter).padding(bottom = if (selection != null) 164.dp else 96.dp),
+                backdrop = glass,
+            )
+        },
     ) { top ->
         // 搜索 is a secondary page: it slides in from the right over 记账 instead of swapping between frames.
         AnimatedContent(
@@ -364,20 +381,6 @@ fun LedgerScreen(
             }
         }
 
-        // Floating delete pill: 48dp, 96dp above the tab bar, disabled (Negative at 30%) until something is picked.
-        AnimatedVisibility(
-            visible = selection != null,
-            enter = fadeIn(tween(160, easing = XpEase.out)) + slideInVertically(tween(220, easing = XpEase.out)) { it / 2 } + scaleIn(tween(200, easing = XpEase.out), initialScale = 0.9f),
-            exit = fadeOut(tween(120)) + slideOutVertically(tween(160)) { it / 3 } + scaleOut(tween(160), targetScale = 0.92f),
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp).padding(horizontal = 56.dp),
-        ) {
-            DeleteCapsule(count = selection?.size ?: 0) { deleteSelected() }
-        }
-
-        UndoToastHost(
-            toast,
-            Modifier.align(Alignment.BottomCenter).padding(bottom = if (selection != null) 164.dp else 96.dp),
-        )
     }
 
     if (filterOpen) {
@@ -612,7 +615,7 @@ private fun LedgerSearchPage(
 }
 
 @Composable
-private fun DeleteCapsule(count: Int, onClick: () -> Unit) {
+private fun DeleteCapsule(count: Int, backdrop: com.kyant.backdrop.Backdrop? = null, onClick: () -> Unit) {
     val enabled = count > 0
     val fill by androidx.compose.animation.animateColorAsState(
         targetValue = if (enabled) XpColors.Negative else XpColors.Negative.copy(alpha = 0.3f),
@@ -621,8 +624,14 @@ private fun DeleteCapsule(count: Int, onClick: () -> Unit) {
     )
     Row(
         Modifier.fillMaxWidth().height(48.dp)
-            .clip(RoundedCornerShape(XpRadius.pill))
-            .background(fill)
+            // Red glass: the bills being picked stay visible through it.
+            .liquidGlass(
+                backdrop,
+                RoundedCornerShape(XpRadius.pill),
+                film = fill.copy(alpha = fill.alpha * 0.82f),
+                rim = XpColors.Negative.copy(alpha = 0.25f),
+                fallback = fill,
+            )
             .pressableClick(enabled = enabled, scaleDown = 0.96f, haptic = enabled, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,

@@ -62,7 +62,7 @@ fun rememberXpToast(): XpToastState = remember { XpToastState() }
  * action; it positions itself bottom-centre with 16dp insets.
  */
 @Composable
-fun XpToastHost(state: XpToastState, modifier: Modifier = Modifier) {
+fun XpToastHost(state: XpToastState, modifier: Modifier = Modifier, backdrop: com.kyant.backdrop.Backdrop? = null) {
     val current = state.message
     LaunchedEffect(current?.token) {
         val token = current?.token ?: return@LaunchedEffect
@@ -83,8 +83,13 @@ fun XpToastHost(state: XpToastState, modifier: Modifier = Modifier) {
             exit = slideOutVertically(tween(160, easing = XpEase.out)) { it / 2 } + fadeOut(tween(160)),
         ) {
             Box(
-                Modifier.clip(RoundedCornerShape(XpRadius.pill))
-                    .background(XpColors.ToastBackground)
+                Modifier.liquidGlass(
+                    backdrop,
+                    RoundedCornerShape(XpRadius.pill),
+                    film = XpColors.ToastBackground.copy(alpha = 0.78f),
+                    rim = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.18f),
+                    fallback = XpColors.ToastBackground,
+                )
                     .padding(horizontal = XpSpace.l, vertical = 10.dp),
             ) {
                 Text(
