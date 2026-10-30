@@ -27,6 +27,7 @@
   letter-spacing: -0.02em;
 }
 .lx-opening-context__intro > p {
+  text-wrap: pretty;
   font-size: 14px;
   line-height: 1.8;
   color: var(--ink-2);
