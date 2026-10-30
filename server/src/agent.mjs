@@ -42,11 +42,14 @@ toolDefinitions.push({ type: 'function', function: {
 /** Parses arbitrary UTF-8/SSE boundaries; ignores comments and multiline data is reassembled. */
 export async function* sseData(body) {
   const decoder = new TextDecoder();
-  let buffer = '';
+  let buffer = '', bytes = 0;
   for await (const chunk of body) {
+    bytes += chunk.byteLength;
+    if (bytes > 2_000_000) throw new Error('UPSTREAM_BODY_TOO_LARGE');
     buffer += decoder.decode(chunk, { stream: true });
     let match;
     while ((match = /\r?\n\r?\n/.exec(buffer))) {
+      if (match.index > 256_000) throw new Error('UPSTREAM_FRAME_TOO_LARGE');
       const frame = buffer.slice(0, match.index);
       buffer = buffer.slice(match.index + match[0].length);
       const data = frame.split(/\r?\n/).filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
@@ -57,8 +60,23 @@ export async function* sseData(body) {
   if (buffer.trim()) throw new Error('UPSTREAM_TRUNCATED');
 }
 /** Reads only enough of a provider error to route it; bodies are never logged, stored or forwarded. */
+async function boundedText(response, limit) {
+  const reader = response.body?.getReader();
+  if (!reader) return '';
+  const chunks = []; let bytes = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > limit) throw new Error('UPSTREAM_BODY_TOO_LARGE');
+      chunks.push(value);
+    }
+    return new TextDecoder().decode(Buffer.concat(chunks));
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+}
 async function providerNote(response) {
-  try { return (await response.text()).slice(0, 512).toLowerCase(); } catch { return ''; }
+  try { return (await boundedText(response, 4096)).slice(0, 512).toLowerCase(); } catch { return ''; }
 }
 export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, models = provider.models, now = Date.now }) {
   const router = createModelRouter({ models, now });
@@ -67,9 +85,9 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
   async function discover(signal) {
     if (discovery && discovery.until > now()) return discovery.models;
     try {
-      const response = await fetcher(urls.models, { headers: headersFor(provider, apiKey), signal });
-      if (!response.ok) throw new Error('MODEL_DISCOVERY_FAILED');
-      const body = await response.json();
+      const response = await fetcher(urls.models, { headers: headersFor(provider, apiKey), redirect: 'error', signal });
+      if (!response.ok) { await response.body?.cancel(); throw new Error('MODEL_DISCOVERY_FAILED'); }
+      const body = JSON.parse(await boundedText(response, 512_000));
       const ids = new Set((body.data ?? []).map(item => item.id));
       const live = models.filter(id => ids.has(id));
       // Static allowlist is free-tier only, so a discovery hiccup degrades ordering, not availability.
@@ -118,7 +136,7 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
       const controller = new AbortController();
       const deadline = AbortSignal.timeout(budget + 12_000);
       const onFirstTimeout = () => { if (!started) controller.abort(); };
-      const onDeadline = () => { if (!started) controller.abort(); };
+      const onDeadline = () => controller.abort();
       firstToken.addEventListener('abort', onFirstTimeout, { once: true });
       deadline.addEventListener('abort', onDeadline, { once: true });
       try {
@@ -126,7 +144,7 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
         else emit({ type: 'status', text: '正在组织回答' });
         let firstTokenAt = 0;
         const response = await fetcher(urls.chat, {
-          method: 'POST', signal: AbortSignal.any([signal, controller.signal]),
+          method: 'POST', redirect: 'error', signal: AbortSignal.any([signal, controller.signal]),
           headers: { ...headersFor(provider, apiKey), 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model, stream: true, max_tokens: 1600,
@@ -171,6 +189,7 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
             call.function.name += part.function?.name ?? '';
             call.function.arguments += part.function?.arguments ?? '';
             if (calls.size >= 4 && !calls.has(part.index)) throw new Error('TOOL_LIMIT');
+            if (call.id.length > 256 || call.function.name.length > 128) throw new Error('ARGUMENT_LIMIT');
             if (call.function.arguments.length > 4096) throw new Error('ARGUMENT_LIMIT');
             calls.set(part.index, call);
           }
@@ -215,6 +234,7 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
         if (kind === 'aborted') throw error;
         router.report(model, { ok: false, kind, latencyMs: (started ? 0 : now() - startedAt), needsTools });
       } finally {
+        controller.abort();
         firstToken.removeEventListener('abort', onFirstTimeout);
         deadline.removeEventListener('abort', onDeadline);
       }

@@ -29,6 +29,16 @@ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 MemoryMax=768M
 CPUQuota=100%
 UMask=0077
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+TasksMax=64
+LimitNOFILE=1024
+LimitCORE=0
 
 [Install]
 WantedBy=multi-user.target

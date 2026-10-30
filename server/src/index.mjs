@@ -17,3 +17,12 @@ const app = createApp({
 });
 app.listen(Number(process.env.PORT ?? 8787), process.env.HOST ?? '127.0.0.1', () => console.log('Xiaopiao API ready'));
 for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => { app.close(() => process.exit(0)); setTimeout(() => process.exit(1), 15_000).unref(); });
+
+// Fixed-size aggregate counters only; never log IPs, emails, routes, credentials or payloads.
+if (production) {
+  const defenseLog = setInterval(() => {
+    const snapshot = app.defenseSnapshot();
+    if (Object.keys(snapshot.rejected).length) console.log(JSON.stringify({ type: 'security_summary', ...snapshot }));
+  }, 60_000).unref();
+  app.once('close', () => clearInterval(defenseLog));
+}

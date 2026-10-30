@@ -122,3 +122,7 @@ curl --fail http://127.0.0.1:8787/healthz
 AgentMail 相同 key 在 Mac 可正常读自己的 inbox；从 ECS 使用两种 User-Agent 均收到 CloudFront `Request blocked`。因此不能把配置好 key 等同于注册可用。tt 已批准并启用下述免费、精确路由的邮件 relay Worker。Cloudflare `full` 仅保证加密，当前全区配置没有开启 origin 证书严格校验；未为此改动全区 SSL。
 
 配置依据：[Cloudflare Origin Rule API](https://developers.cloudflare.com/rules/origin-rules/create-api/)、[Origin CA certificate API](https://developers.cloudflare.com/api/resources/origin_ca_certificates/methods/create/)、[Cloudflare IP ranges API](https://developers.cloudflare.com/api/resources/ips/methods/list/)。线上结果以本次实际验收为准。
+
+## 2026-10-30 防御候选更新
+
+新增防御代码、nginx 预算和 systemd 隔离已在本地完成，尚未上线，生产 release 保持本页所列版本。阈值、回归证据、QMuse 权限未决项与独立网关上线步骤见 [SECURITY.md](SECURITY.md)。部署前按该文档取得 tt 对此 API/unit/nginx 更新的批准；不需要重建或扩大邮件 Worker 路由。

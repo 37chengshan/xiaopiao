@@ -1,10 +1,12 @@
 import { createServer } from 'node:http';
 import { isIP } from 'node:net';
+import { POLICY, createDefense, readJson, securityError } from './defense.mjs';
 import { randomInt, randomUUID } from 'node:crypto';
 import { hash, secret, passwordHash, passwordMatches, publicUser } from './store.mjs';
 import { createLedger, LIMITS as LEDGER } from './ledger.mjs';
 import { createCircles, LIMITS as CIRCLE } from './circle.mjs';
 const errors = {
+  SERVER_BUSY: [503, '服务繁忙，请稍后重试'], REQUEST_TIMEOUT: [408, '请求超时，请重试'],
   INVALID_INPUT: [400, '请检查输入内容'], INVALID_CREDENTIALS: [401, '账号或密码不正确'],
   UNAUTHORIZED: [401, '请重新登录'], EMAIL_UNVERIFIED: [403, '请先验证邮箱'],
   ACCOUNT_EXISTS: [409, '该邮箱或用户名暂不可用'], RATE_LIMITED: [429, '操作太频繁，请稍后再试'],
@@ -30,18 +32,15 @@ function numberParam(url, name, fallback) {
 }
 function cookieToken(req) { return /(?:^|;\s*)xp_session=([A-Za-z0-9_-]+)/.exec(req.headers.cookie ?? '')?.[1]; }
 const PAYLOAD = { default: 96_000, ledger: 512_000 };
-async function bodyOf(req, limit = PAYLOAD.default, tooLarge = 'INVALID_INPUT') {
-  if (!req.headers['content-type']?.startsWith('application/json')) fail('INVALID_INPUT');
-  let raw = ''; for await (const chunk of req) { raw += chunk; if (Buffer.byteLength(raw) > limit) fail(tooLarge); }
-  try { const value = JSON.parse(raw); if (!value || typeof value !== 'object' || Array.isArray(value)) fail('INVALID_INPUT'); return value; } catch { fail('INVALID_INPUT'); }
-}
+const bodyOf = (req, limit = PAYLOAD.default, tooLarge = 'INVALID_INPUT', timeoutMs) => readJson(req, limit, tooLarge, timeoutMs);
 /** Dev previews move between loopback ports; production stays pinned to one exact HTTPS origin. */
 const loopbackOrigin = /^http:\/\/(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?$/;
-export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173', production = false, trustedProxy = false }) {
+export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173', production = false, trustedProxy = false, defensePolicy = POLICY }) {
   // `APP_ORIGIN` takes a comma-separated list in dev (Web on 5173 and 5466); production stays one exact HTTPS origin.
   const origins = new Set(String(origin).split(',').map(value => value.trim()).filter(Boolean));
   if (!origins.size) throw new Error('APP_ORIGIN is required');
   if (production && (origins.size !== 1 || ![...origins][0].startsWith('https://'))) throw new Error('Production APP_ORIGIN must be exactly one https origin');
+  const defense = createDefense(defensePolicy);
   const dummyPassword = passwordHash(secret());
   const ledger = createLedger({ db });
   const circles = createCircles({ db });
@@ -56,7 +55,6 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
     return value;
   };
   const active = new Set();
-  let authWork = 0;
   const locks = new Set();
   const cookie = (token, expires = 30 * 86400) => `xp_session=${token}; HttpOnly; Path=/v1; SameSite=Strict; Max-Age=${expires}${production ? '; Secure' : ''}`;
   const cleanup = setInterval(() => {
@@ -64,8 +62,10 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
   }, 60_000).unref();
   function rate(key, max, window = 900_000) {
     const now = Date.now();
-    db.prepare('INSERT INTO limits(key,count,expires) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN expires < ? THEN 1 ELSE count+1 END, expires=CASE WHEN expires < ? THEN excluded.expires ELSE expires END').run(key, now + window, now, now);
-    if (db.prepare('SELECT count FROM limits WHERE key=?').get(key).count > max) fail('RATE_LIMITED');
+    const row = db.prepare('SELECT count,expires FROM limits WHERE key=?').get(key);
+    if (row && row.expires > now && row.count >= max) throw securityError('RATE_LIMITED', Math.max(1, Math.ceil((row.expires - now) / 1000)));
+    if (!row && db.prepare('SELECT count(*) AS n FROM limits').get().n >= defensePolicy.rateKeys) throw securityError('SERVER_BUSY', 60);
+    db.prepare('INSERT INTO limits(key,count,expires) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN expires <= ? THEN 1 ELSE count+1 END, expires=CASE WHEN expires <= ? THEN excluded.expires ELSE expires END').run(key, now + window, now, now);
   }
   function userOf(req) {
     const token = req.headers.authorization?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1] ?? cookieToken(req);
@@ -76,17 +76,27 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
   }
   function session(res, user, native) {
     const token = secret();
+    // Bound retained sessions even when valid credentials are repeatedly replayed.
+    db.prepare('DELETE FROM sessions WHERE digest IN (SELECT digest FROM sessions WHERE user_id=? ORDER BY expires DESC LIMIT -1 OFFSET 9)').run(user.id);
     db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token), user.id, Date.now() + 30 * 86400_000);
     res.setHeader('Set-Cookie', cookie(token));
     return { user: publicUser(user), ...(native ? { token } : {}) };
   }
+  const mailLocks = new Set();
   async function issueCode(user, purpose) {
+    const lock = `${user.id}:${purpose}`;
+    if (mailLocks.has(lock)) throw securityError('RATE_LIMITED', 5);
     if (!sendMail) fail('MAIL_UNAVAILABLE');
     rate(`mail:${user.id}`, 4, 3600_000);
-    const code = String(randomInt(100000, 1000000));
-    db.prepare('INSERT INTO codes VALUES (?,?,?,?,0) ON CONFLICT(user_id,purpose) DO UPDATE SET digest=excluded.digest, expires=excluded.expires, attempts=0').run(user.id, purpose, hash(`${user.id}:${purpose}:${code}`), Date.now() + 600_000);
-    try { await sendMail({ to: user.email, purpose, code }); }
-    catch { db.prepare('DELETE FROM codes WHERE user_id=? AND purpose=?').run(user.id, purpose); fail('MAIL_UNAVAILABLE'); }
+    rate(`mail-address:${hash(user.email)}`, 4, 3600_000);
+    rate('mail:all', 100, 3600_000);
+    mailLocks.add(lock);
+    try {
+      const code = String(randomInt(100000, 1000000));
+      db.prepare('INSERT INTO codes VALUES (?,?,?,?,0) ON CONFLICT(user_id,purpose) DO UPDATE SET digest=excluded.digest, expires=excluded.expires, attempts=0').run(user.id, purpose, hash(`${user.id}:${purpose}:${code}`), Date.now() + 600_000);
+      try { await sendMail({ to: user.email, purpose, code }); }
+      catch { db.prepare('DELETE FROM codes WHERE user_id=? AND purpose=? AND digest=?').run(user.id, purpose, hash(`${user.id}:${purpose}:${code}`)); fail('MAIL_UNAVAILABLE'); }
+    } finally { mailLocks.delete(lock); }
   }
   function consumeCode(user, purpose, value) {
     const code = text(value, 6);
@@ -96,13 +106,13 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
     if (hash(`${user.id}:${purpose}:${code}`) !== row.digest) fail('CODE_INVALID');
     db.prepare('DELETE FROM codes WHERE user_id=? AND purpose=?').run(user.id, purpose);
   }
-  const server = createServer(async (req, res) => {
+  const server = createServer({ maxHeaderSize: 16_384 }, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     const requestOrigin = req.headers.origin;
     // A loopback preview port is accepted in dev only; production keeps one exact origin.
     const originAllowed = requestOrigin !== undefined && requestOrigin !== '' && (origins.has(requestOrigin) || (!production && loopbackOrigin.test(requestOrigin)));
-    if (requestOrigin && !originAllowed) { res.writeHead(403); return res.end(); }
+    if (requestOrigin && !originAllowed) { defense.reject('ORIGIN_DENIED'); res.writeHead(403); return res.end(); }
     if (originAllowed) {
       res.setHeader('Access-Control-Allow-Origin', requestOrigin); res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -110,9 +120,12 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     }
     if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
-    const url = new URL(req.url, 'http://localhost');
     const json = (value, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
+    const releases = [], workReleases = [];
     try {
+      if (!req.url?.startsWith('/') || req.url.startsWith('//') || req.url.length > 2048 || req.url.includes('#')) fail('INVALID_INPUT');
+      let url;
+      try { url = new URL(req.url, 'http://localhost'); decodeURIComponent(url.pathname); } catch { fail('INVALID_INPUT'); }
       if (url.pathname === '/healthz' && req.method === 'GET') return json({ ok: true });
       if (!url.pathname.startsWith('/v1/')) return json({ error: 'NOT_FOUND' }, 404);
       // Native clients have no Origin. Browser requests use a Strict HttpOnly cookie and exact origin.
@@ -120,7 +133,11 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       // Only the private deployment gateway may set this; never trust arbitrary X-Forwarded-For.
       const forwarded = req.headers['x-xiaopiao-client-ip'];
       const ip = trustedProxy && typeof forwarded === 'string' && isIP(forwarded) ? forwarded : req.socket.remoteAddress;
+      releases.push(defense.admit(ip));
+      const release = () => { for (const done of releases.splice(0)) done(); };
+      res.once('finish', release); res.once('close', release);
       rate(`global:${ip}`, 300, 60_000);
+      rate('requests:all', 3000, 60_000);
       if (url.pathname === '/v1/auth/me' && req.method === 'GET') return json({ user: publicUser(userOf(req)) });
       if (url.pathname === '/v1/ledger/changes' && req.method === 'GET') {
         const user = verifiedUser(req);
@@ -181,8 +198,14 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
         return json({ error: 'NOT_FOUND' }, 404);
       }
       if (req.method !== 'POST') return json({ error: 'NOT_FOUND' }, 404);
+      const authRoute = /^\/v1\/auth\/(register|login|logout|verify|resend|forgot|reset)$/.test(url.pathname);
+      if (authRoute) {
+        rate(`auth:${ip}`, 30);
+        workReleases.push(defense.acquire('auth', defensePolicy.auth));
+      } else if (url.pathname === '/v1/chat' || url.pathname === '/v1/ledger/push') verifiedUser(req);
+      else return json({ error: 'NOT_FOUND' }, 404);
       const ledgerPush = url.pathname === '/v1/ledger/push';
-      const body = await bodyOf(req, ledgerPush ? PAYLOAD.ledger : PAYLOAD.default, ledgerPush ? 'LEDGER_PAYLOAD_TOO_LARGE' : 'INVALID_INPUT');
+      const body = await bodyOf(req, ledgerPush ? PAYLOAD.ledger : PAYLOAD.default, ledgerPush ? 'LEDGER_PAYLOAD_TOO_LARGE' : 'INVALID_INPUT', defensePolicy.bodyMs);
       const native = body.client === 'native' && !requestOrigin && !req.headers['sec-fetch-site'];
       if (ledgerPush) {
         const user = verifiedUser(req);
@@ -196,10 +219,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
         return json(ledger.push(user.id, deviceId, txns, categories));
       }
       if (url.pathname.startsWith('/v1/auth/')) {
-        rate(`auth:${ip}`, 30);
-        if (authWork >= 3) fail('RATE_LIMITED');
-        authWork++;
-        try { switch (url.pathname) {
+        switch (url.pathname) {
           case '/v1/auth/register': {
             const email = emailOf(body.email), username = text(body.username, 30).toLowerCase(), password = passwordOf(body.password);
             if (!/^[a-z][a-z0-9_]{2,29}$/.test(username)) fail('INVALID_INPUT');
@@ -243,6 +263,8 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
             const email = emailOf(body.email), password = passwordOf(body.password);
             const user = db.prepare('SELECT * FROM users WHERE email=?').get(email);
             if (!user) fail('CODE_INVALID');
+            const row = db.prepare('SELECT expires,attempts FROM codes WHERE user_id=? AND purpose=?').get(user.id, 'reset');
+            if (!row || row.expires <= Date.now() || row.attempts >= 5) fail('CODE_INVALID');
             const encoded = await passwordHash(password);
             // No await between consume and update: one-use even under concurrent reset requests.
             consumeCode(user, 'reset', body.code);
@@ -252,13 +274,14 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
           }
           default: return json({ error: 'NOT_FOUND' }, 404);
         }
-        } finally { authWork--; }
       }
       if (url.pathname !== '/v1/chat') return json({ error: 'NOT_FOUND' }, 404);
       const user = userOf(req);
       if (!user.verified) fail('EMAIL_UNVERIFIED');
       rate(`chat:${user.id}`, 40, 3600_000);
       if (active.has(user.id)) fail('RATE_LIMITED');
+      rate('chat:all', 200, 3600_000);
+      workReleases.push(defense.acquire('chats', defensePolicy.chats));
       let state;
       const runId = body.runId ? text(body.runId, 64) : randomUUID();
       if (body.runId) {
@@ -268,7 +291,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
         state = JSON.parse(row.state);
         if (!state.pending?.length || !Array.isArray(body.results) || body.results.length !== state.pending.length) fail('RUN_INVALID');
         for (const call of state.pending) {
-          const result = body.results.find(result => result.id === call.id);
+          const result = body.results.find(result => result && result.id === call.id);
           if (!result || result.data === undefined || JSON.stringify(result.data).length > 16_000) fail('INVALID_INPUT');
           state.messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify(result.data) });
         }
@@ -276,7 +299,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       } else {
         if (!Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > 24) fail('INVALID_INPUT');
         const messages = body.messages.map(message => {
-          if (!['user', 'assistant'].includes(message.role)) fail('INVALID_INPUT');
+          if (!message || typeof message !== 'object' || !['user', 'assistant'].includes(message.role)) fail('INVALID_INPUT');
           return { role: message.role, content: text(message.content, 6000) };
         });
         if (messages.at(-1).role !== 'user') fail('INVALID_INPUT');
@@ -287,10 +310,16 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       active.add(user.id); locks.add(runId);
       const controller = new AbortController();
       const abort = () => controller.abort();
+      const deadline = setTimeout(() => {
+        defense.reject('MODEL_TIMEOUT');
+        if (!res.destroyed) res.end(`data: ${JSON.stringify({ type: 'error', code: 'MODEL_UNAVAILABLE', message: errors.MODEL_UNAVAILABLE[1] })}\n\n`);
+        abort();
+      }, defensePolicy.chatMs).unref();
       res.once('close', abort);
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
-      const emit = event => { if (!res.destroyed && !controller.signal.aborted) res.write(`data: ${JSON.stringify(event)}\n\n`); };
-      const heartbeat = setInterval(() => { if (!res.destroyed) res.write(': heartbeat\n\n'); }, 10_000);
+      res.flushHeaders();
+      const emit = event => { if (!res.destroyed && !controller.signal.aborted && !res.write(`data: ${JSON.stringify(event)}\n\n`)) { controller.abort(); throw new Error('CLIENT_TOO_SLOW'); } };
+      const heartbeat = setInterval(() => { if (!res.destroyed && !res.write(': heartbeat\n\n')) controller.abort(); }, 10_000);
       try {
         state = await agent(state, emit, controller.signal);
         if (!controller.signal.aborted && state.pending.length) {
@@ -300,15 +329,23 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       } catch {
         emit({ type: 'error', code: 'MODEL_UNAVAILABLE', message: errors.MODEL_UNAVAILABLE[1] });
       } finally {
-        clearInterval(heartbeat); active.delete(user.id); locks.delete(runId);
+        clearTimeout(deadline); clearInterval(heartbeat); active.delete(user.id); locks.delete(runId);
         res.off('close', abort); res.end();
       }
     } catch (error) {
       const code = errors[error.code] ? error.code : 'INTERNAL_ERROR';
       const [status, message] = errors[code] ?? [500, '服务暂时不可用，请稍后重试'];
+      defense.reject(code);
+      if (!res.headersSent) {
+        if (!req.complete) res.setHeader('Connection', 'close');
+        if (error.retryAfter) res.setHeader('Retry-After', String(error.retryAfter));
+      }
       if (!res.headersSent) json({ error: code, message }, status); else res.end();
-    }
+    } finally { for (const done of workReleases) done(); }
   });
+  server.defenseSnapshot = defense.snapshot;
+  server.maxConnections = 128; server.maxRequestsPerSocket = 100;
+  server.maxHeadersCount = 64; server.keepAliveTimeout = 5000;
   server.headersTimeout = 15_000; server.requestTimeout = 30_000;
   server.on('close', () => clearInterval(cleanup));
   return server;
