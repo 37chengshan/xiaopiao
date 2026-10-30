@@ -69,16 +69,17 @@ class OnboardingPrefs(private val context: Context) {
     suspend fun reset() { context.onboardStore.edit { it[doneKey] = false } }
 }
 
-/** Three pages: what it is, the two gestures, the data promise. Skippable, re-openable from 我的. */
+/** Four pages: receipt, gestures, privacy, optional account. The entire tour can be skipped. */
 @Composable
-fun OnboardingHost(onDone: () -> Unit) {
+fun OnboardingHost(onLogin: () -> Unit = {}, signedIn: Boolean = false, onDone: () -> Unit) {
     var page by rememberSaveable { mutableIntStateOf(0) }
-    val pages = 3
+    val pages = 4
+    val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
     // Same top bar as every other page: nothing to name (the title belongs to the story), 跳过 in the right capsule.
     NavScaffold(
         title = "",
         scroll = NavScrollNone,
-        trailing = { NavTextAction("跳过", onDone, tint = XpColors.InkSecondary) },
+        trailing = { NavTextAction(if (en) "Skip" else "跳过", onDone, tint = XpColors.InkSecondary) },
     ) { top ->
         Column(
             Modifier.fillMaxSize().padding(top = top).navigationBarsPadding()
@@ -99,7 +100,8 @@ fun OnboardingHost(onDone: () -> Unit) {
                 when (p) {
                     0 -> PagePaper()
                     1 -> PageGestures()
-                    else -> PagePrivacy()
+                    2 -> PagePrivacy()
+                    else -> PageAccount(onLogin)
                 }
             }
             Row(Modifier.fillMaxWidth().padding(bottom = XpSpace.m), horizontalArrangement = Arrangement.Center) {
@@ -123,7 +125,7 @@ fun OnboardingHost(onDone: () -> Unit) {
                 }
             }
             XpButton(
-                if (page == pages - 1) "开始记账" else "继续",
+                if (page == pages - 1) (if (signedIn) (if (en) "Start bookkeeping" else "开始记账") else (if (en) "Continue without signing in" else "暂不登录，开始记账")) else (if (en) "Continue" else "继续"),
                 { if (page == pages - 1) onDone() else page++ },
                 Modifier.fillMaxWidth().padding(bottom = XpSpace.l),
             )
@@ -205,5 +207,19 @@ private fun PagePrivacy() {
         GestureRow(Icons.Outlined.Lock, "原文不出手机", "只保存结构化字段，云端拿不到截图", index = 0)
         GestureRow(Icons.Outlined.Lock, "贡献默认关闭", "要分享聚合数据，得你自己打开", index = 1)
         GestureRow(Icons.Outlined.Lock, "随时撤回", "关掉开关，历史贡献一并失效", index = 2)
+    }
+}
+
+
+@Composable
+private fun PageAccount(onLogin: () -> Unit) {
+    val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+        PageHead(if (en) "Your account,\nyour choice." else "登录这一步，\n由你决定。",
+            if (en) "Use one account on phone and web. You can also start with a local ledger." else "手机和网页可以使用同一个账号。也可以先不登录，直接开始本机记账。")
+        Spacer(Modifier.height(XpSpace.xl))
+        XpButton(if (en) "Sign in or create an account" else "登录或创建账号", onLogin, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(XpSpace.m))
+        Text(if (en) "Signing in does not upload original receipts or enable data contributions." else "登录不会自动上传账单原文，也不会开启数据贡献。", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
     }
 }

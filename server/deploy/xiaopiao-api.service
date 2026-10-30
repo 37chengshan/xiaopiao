@@ -1,0 +1,31 @@
+[Unit]
+Description=Today Receipt authenticated Agent API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=xiaopiao
+Group=xiaopiao
+WorkingDirectory=/opt/xiaopiao/current
+EnvironmentFile=/etc/xiaopiao/server.env
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=8787
+Environment=DB_PATH=/var/lib/xiaopiao/api.sqlite
+ExecStart=/opt/xiaopiao/runtime/bin/node src/index.mjs
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/xiaopiao
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=768M
+CPUQuota=100%
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -19,6 +19,9 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
+        val apiBase = providers.gradleProperty("xiaopiao.apiBaseUrl").orElse("").get()
+        require(apiBase.isEmpty() || apiBase.matches(Regex("https?://[A-Za-z0-9.:-]+/?")))
+        buildConfigField("String", "API_BASE_URL", "\"$apiBase\"")
     }
 
     buildTypes {

@@ -81,6 +81,12 @@ export function TopNav({ navRef, style }: { navRef?: RefObject<HTMLElement | nul
             {getLocale() === "zh" ? "EN" : "中"}
           </button>
           <a
+            href="#/login"
+            className="hidden h-9 items-center rounded-full px-3 text-[13px] font-medium text-[var(--lp-ink-2)] transition-colors hover:bg-[rgba(27,23,18,0.06)] hover:text-[var(--lp-ink)] sm:inline-flex"
+          >
+            {s("nav.login")}
+          </a>
+          <a
             href="#/app"
             className="inline-flex h-9 items-center rounded-full bg-[var(--lp-ink)] px-4 text-[13px] font-medium text-[var(--lp-paper)] transition-transform duration-200 hover:-translate-y-px active:scale-[0.98]"
           >
@@ -115,6 +121,7 @@ export function TopNav({ navRef, style }: { navRef?: RefObject<HTMLElement | nul
               {s(link.key)}
             </button>
           ))}
+          <a href="#/login" className="block rounded-xl px-3 py-2.5 text-left text-[15px] text-[var(--lp-ink)] hover:bg-[rgba(27,23,18,0.05)]">{s("nav.login")}</a>
         </div>
       )}
     </header>

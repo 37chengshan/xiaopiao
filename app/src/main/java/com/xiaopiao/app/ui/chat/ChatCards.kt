@@ -183,7 +183,7 @@ private fun ShareRow(share: CategoryShare) {
  * real data after 确认 (then 今日小票 above updates from the repository).
  */
 @Composable
-fun ConfirmCard(item: ChatItem.Confirm, onConfirm: () -> Unit, onEdit: () -> Unit) {
+fun ConfirmCard(item: ChatItem.Confirm, onConfirm: () -> Unit, onEdit: () -> Unit, onUndo: () -> Unit = {}) {
     XpCard(Modifier.padding(horizontal = XpSpace.l)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("我记成", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
@@ -197,23 +197,23 @@ fun ConfirmCard(item: ChatItem.Confirm, onConfirm: () -> Unit, onEdit: () -> Uni
             color = XpColors.Ink,
         )
         when (item.state) {
-            ConfirmState.Pending, ConfirmState.Saving -> Row(
+            ConfirmState.Pending, ConfirmState.Saving, ConfirmState.Failed -> Row(
                 Modifier.padding(top = XpSpace.m),
                 horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
             ) {
                 XpButton(
-                    "确认",
+                    if (item.state == ConfirmState.Failed) "重试记账" else "确认",
                     onConfirm,
                     style = XpButtonStyle.Primary,
                     size = XpButtonSize.Small,
-                    enabled = item.state == ConfirmState.Pending,
+                    enabled = item.state != ConfirmState.Saving,
                 )
                 XpButton(
                     "改一下",
                     onEdit,
                     style = XpButtonStyle.Secondary,
                     size = XpButtonSize.Small,
-                    enabled = item.state == ConfirmState.Pending,
+                    enabled = item.state != ConfirmState.Saving,
                 )
             }
 
@@ -228,13 +228,16 @@ fun ConfirmCard(item: ChatItem.Confirm, onConfirm: () -> Unit, onEdit: () -> Uni
                     modifier = Modifier.size(16.dp),
                 )
                 Text(
-                    "已记进账本",
+                    if (item.autoRequested) "已自动记入" else "已记进账本",
                     Modifier.padding(start = XpSpace.xs),
                     style = MaterialTheme.typography.bodySmall,
                     color = XpColors.InkSecondary,
                 )
+                Spacer(Modifier.weight(1f))
+                if (item.transactionId != null) androidx.compose.material3.TextButton(onClick = onUndo) { Text("撤销", color = XpColors.Accent) }
             }
 
+            ConfirmState.Undone -> Text("已撤销这笔记账", color = XpColors.InkSecondary, style = MaterialTheme.typography.bodySmall)
             ConfirmState.Duplicate -> Text(
                 "这笔已经记过了，没有重复入账。",
                 Modifier.padding(top = XpSpace.m),

@@ -22,22 +22,30 @@ import kotlin.math.roundToLong
  */
 
 /** One row in the chat flow. Assistant text has no bubble; cards are full-width. */
+@kotlinx.serialization.Serializable
 sealed interface ChatItem {
     val id: Long
 
     /** [streaming] drives the blinking cursor while the local template is still writing. */
+    @kotlinx.serialization.Serializable
     data class Assistant(override val id: Long, val text: String, val streaming: Boolean = false) : ChatItem
+    @kotlinx.serialization.Serializable
     data class User(override val id: Long, val text: String) : ChatItem
+    @kotlinx.serialization.Serializable
     data class Confirm(
         override val id: Long,
         val draft: ExpenseDraft,
         val state: ConfirmState = ConfirmState.Pending,
+        val transactionId: Long? = null,
+        val autoRequested: Boolean = false,
     ) : ChatItem
 
     /** Rich answer: the same numbers as a chart, so the reply is not only prose. */
+    @kotlinx.serialization.Serializable
     data class Chart(override val id: Long, val title: String, val days: List<Long>, val caption: String?) : ChatItem
 
     /** A CSV bill the user attached: parsed locally, imported only after 确认. */
+    @kotlinx.serialization.Serializable
     data class CsvAttachment(
         override val id: Long,
         val preview: ChatCsvPreview,
@@ -45,19 +53,25 @@ sealed interface ChatItem {
     ) : ChatItem
 
     /** A visible tool step: the assistant says what it is reading before it answers. */
+    @kotlinx.serialization.Serializable
     data class Tool(
         override val id: Long,
         val label: String,
         val detail: String? = null,
         val running: Boolean = true,
     ) : ChatItem
+
+    /** A modular view the model asked for; the app owns the layout, the model only filled numbers. */
+    @kotlinx.serialization.Serializable
+    data class View(override val id: Long, val view: ChatView) : ChatItem
 }
 
-enum class ConfirmState { Pending, Saving, Saved, Duplicate }
+enum class ConfirmState { Pending, Saving, Saved, Duplicate, Undone, Failed }
 
 enum class CsvAttachmentState { Pending, Importing, Imported, Cancelled }
 
 /** A locally parsed expense, shown on the confirm card until the user accepts it. */
+@kotlinx.serialization.Serializable
 data class ExpenseDraft(
     val merchant: String,
     val category: Category,

@@ -12,3 +12,8 @@ docs/references/**/*.mp4
 
 # QA screenshots stay local (qa/chat-v6, ...)
 qa/
+
+# Local API state and secrets
+server/node_modules/
+server/data/
+.env*

@@ -59,6 +59,21 @@ npm run build                # 产物 → web/dist/（改动后必须过）
 npm run preview              # 预览 build 产物
 ```
 
+### 登录与本机 API
+
+Web 是 hash 路由：登录页是 `http://localhost:5173/#/login`（落地页导航的「登录」和 App 内设置页都能进），不是 `/login`。登录/注册/验证码要连本机 API：
+
+```bash
+. "$HOME/.config/xiaopiao/model.env"     # MODEL_API_KEY（私密，600）
+. "$HOME/.config/agentmail/env"          # AGENTMAIL_API_KEY / AGENTMAIL_INBOX_ID
+DB_PATH="$HOME/.config/xiaopiao/data/xiaopiao.sqlite" \
+  npm start --prefix server              # 127.0.0.1:8787，vite 的 /v1 代理指向它
+```
+
+- API 没起时登录页会提示「登录服务尚未连接」，这是代理没拿到 JSON，不是页面坏了。
+- 新增/改名路由后必须重启 `npm run dev`：路由表在启动时读取，热更新不会补上新页面（表现为「页面未找到」）。
+- dev 下任意 loopback 端口（`127.0.0.1:*` / `localhost:*`）都接受，预览换端口不用改 `APP_ORIGIN`；生产仍是单一 HTTPS origin。
+
 ### 在手机上看 Web
 
 - 同一 Wi-Fi：`npx vite dev --host 0.0.0.0 --port 5173`，手机打开 `http://<Mac 局域网 IP>:5173/`（IP：`ipconfig getifaddr en0`）。

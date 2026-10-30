@@ -141,8 +141,11 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     var ledgerSearch by remember { mutableStateOf(false) }
     var ledgerFilter by remember { mutableStateOf<com.xiaopiao.app.ui.ledger.LedgerFilter?>(null) }
     LaunchedEffect(launchSide) { if (startRoute == null) launchSide?.let { startRoute = NavModel.startRoute(it) } }
+    val onboardingUser by container.account.user.collectAsState()
+    var onboardingAccountOpen by rememberSaveable { mutableStateOf(false) }
     if (onboarded == false) {
-        com.xiaopiao.app.ui.onboarding.OnboardingHost { shellScope.launch { onboarding.setDone() } }
+        com.xiaopiao.app.ui.onboarding.OnboardingHost(onLogin = { onboardingAccountOpen = true }, signedIn = onboardingUser != null, onDone = { shellScope.launch { onboarding.setDone() } })
+        if (onboardingAccountOpen) com.xiaopiao.app.ui.account.AccountSheet(container.account) { onboardingAccountOpen = false }
         return
     }
 

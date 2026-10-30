@@ -43,6 +43,7 @@ import kotlinx.coroutines.launch
 
 /** The three settings sub-pages that get a real push transition (docs/APP-DESIGN.md §7.5). */
 private enum class SettingsSub(val title: String) {
+    Account("账号"),
     Appearance("外观"),
     Voice("语音"),
     Data("数据与隐私"),
@@ -61,6 +62,9 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val aiPrefs = remember(context) { com.xiaopiao.app.ui.chat.AiChatPrefs(context) }
+    val autoEntry by aiPrefs.autoEntry.collectAsStateWithLifecycle(initialValue = false)
+    val user by container.account.user.collectAsStateWithLifecycle()
     var listenerOn by remember { mutableStateOf(NotificationAccess.listenerEnabled(context)) }
     var postGranted by remember { mutableStateOf(NotificationAccess.postNotificationsGranted(context)) }
     var importing by remember { mutableStateOf(false) }
@@ -105,6 +109,7 @@ fun SettingsScreen(
         page = sub?.let { target ->
             {
                 when (target) {
+                    SettingsSub.Account -> com.xiaopiao.app.ui.account.AccountPage(container.account) { sub = null }
                     SettingsSub.Appearance -> AppearancePage(
                         mode = mode,
                         onMode = { scope.launch { themePrefs.setMode(it) } },
@@ -149,6 +154,8 @@ fun SettingsScreen(
     ) {
         NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack, backLabel = backLabel, glassGround = true) { top ->
             Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
+                AccountNavSection(user?.username, user?.email, user?.verified == true) { sub = SettingsSub.Account }
+                AiEntrySection(autoEntry) { enabled -> scope.launch { aiPrefs.setAutoEntry(enabled) } }
                 Box(Modifier.xpRevealLayer(index = 0)) {
                     AppearanceNavSection(
                         value = "${mode.label} · ${colorTheme.label}",
