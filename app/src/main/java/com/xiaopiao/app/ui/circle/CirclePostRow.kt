@@ -1,6 +1,7 @@
 package com.xiaopiao.app.ui.circle
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,18 +15,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.xiaopiao.app.domain.yuan
+import com.xiaopiao.app.domain.yuanGrouped
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.theme.XpColors
@@ -46,7 +53,7 @@ fun CirclePostRow(
 ) {
     when (post) {
         is ReceiptPost -> if (author != null) {
-            ReceiptMessage(post, author, now, mineReactions, onToggleReaction, onMemberClick, modifier) { onReceiptOpen(post) }
+            ReceiptMessage(post, author, mineReactions, onToggleReaction, onMemberClick, modifier) { onReceiptOpen(post) }
         }
         is TextPost -> if (author != null) {
             TextMessage(post, author, onMemberClick, modifier)
@@ -60,7 +67,6 @@ fun CirclePostRow(
 private fun ReceiptMessage(
     post: ReceiptPost,
     author: CircleMember,
-    now: Long,
     mineReactions: Set<String>,
     onToggleReaction: (String, String) -> Unit,
     onMemberClick: (String) -> Unit,
@@ -88,16 +94,10 @@ private fun ReceiptMessage(
             TornReceiptCard(onClick = onReceiptOpen) {
                 Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
-                        Text(
-                            "${dayLabel(post.dayStart, now)}的小票",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = XpColors.InkSecondary,
-                        )
-                        Spacer(Modifier.height(XpSpace.xs))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (view.totalCents != null) {
                                 MoneyText(
-                                    view.totalCents,
+                                    amount = view.totalCents.yuanGrouped(),
                                     style = MaterialTheme.typography.titleLarge,
                                     color = XpColors.Ink,
                                 )
@@ -124,19 +124,24 @@ private fun ReceiptMessage(
 
                 Spacer(Modifier.height(XpSpace.s + 2.dp))
                 val slices = view.slices
-                when {
-                    slices == null -> CircleChip("分类未共享")
-                    slices.isEmpty() -> CircleChip("今天没有支出")
-                    else -> FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        slices.take(3).forEach { CircleChip("${it.category.label} ${it.percent}%") }
-                        if (slices.size > 3) CircleChip("+${slices.size - 3}")
+                val detail = view.detail
+                val detailHidden = detail.isNullOrEmpty() && view.totalCents != null
+                // 分类碎块和「单笔明细未共享」共用一行：三个灰胶囊堆三行会把金额的重点冲散。
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    when {
+                        slices == null -> CircleChip("分类未共享")
+                        slices.isEmpty() -> CircleChip("今天没有支出")
+                        else -> {
+                            slices.take(3).forEach { CircleChip("${it.category.label} ${it.percent}%") }
+                            if (slices.size > 3) CircleChip("+${slices.size - 3}")
+                        }
                     }
+                    if (detailHidden) DetailHiddenChip()
                 }
 
-                val detail = view.detail
                 if (detail != null && detail.isNotEmpty()) {
                     Spacer(Modifier.height(XpSpace.s + 2.dp))
                     Column(
@@ -157,7 +162,7 @@ private fun ReceiptMessage(
                                     modifier = Modifier.weight(1f),
                                 )
                                 MoneyText(
-                                    item.cents,
+                                    amount = item.cents.yuanGrouped(),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = XpColors.InkSecondary,
                                 )
@@ -171,9 +176,6 @@ private fun ReceiptMessage(
                             )
                         }
                     }
-                } else if (view.totalCents != null) {
-                    Spacer(Modifier.height(XpSpace.s + 2.dp))
-                    CircleChip("单笔明细 未共享")
                 }
 
                 val full = view.full
@@ -188,15 +190,29 @@ private fun ReceiptMessage(
                 Spacer(Modifier.height(XpSpace.s + 2.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     reactionsFor(post.id, mineReactions).forEach { reaction ->
-                        val tone = if (reaction.mine) XpColors.AccentSoft else XpColors.Fill
+                        val empty = reaction.count == 0
+                        val tone = when {
+                            reaction.mine -> XpColors.AccentSoft
+                            empty -> Color.Transparent
+                            else -> XpColors.Fill
+                        }
                         Row(
-                            Modifier.clip(RoundedCornerShape(XpRadius.pill)).background(tone)
+                            Modifier.clip(RoundedCornerShape(XpRadius.pill))
+                                .background(tone)
+                                .then(
+                                    if (empty) Modifier.border(0.5.dp, XpColors.Hairline, RoundedCornerShape(XpRadius.pill))
+                                    else Modifier,
+                                )
                                 .pressableClick(scaleDown = 0.92f) { onToggleReaction(post.id, reaction.emoji) }
                                 .padding(horizontal = XpSpace.s, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(reaction.emoji, style = MaterialTheme.typography.labelSmall)
-                            if (reaction.count > 0) {
+                            Text(
+                                reaction.emoji,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = if (empty) Modifier.alpha(0.65f) else Modifier,
+                            )
+                            if (!empty) {
                                 Text(
                                     " ${reaction.count}",
                                     style = MaterialTheme.typography.labelSmall,
@@ -208,6 +224,20 @@ private fun ReceiptMessage(
                 }
             }
         }
+    }
+}
+
+/** 锁图标 + 小字：明细没共享，但金额看得见——比一个和分类并列的灰胶囊更轻。 */
+@Composable
+private fun DetailHiddenChip() {
+    Row(
+        Modifier.clip(RoundedCornerShape(XpRadius.s)).background(XpColors.Fill)
+            .padding(horizontal = XpSpace.s, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(Icons.Outlined.Lock, contentDescription = null, tint = XpColors.InkTertiary, modifier = Modifier.size(11.dp))
+        Text("单笔明细未共享", style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary, maxLines = 1)
     }
 }
 
@@ -228,14 +258,14 @@ private fun ReceiptBody(post: ReceiptPost) {
         post.items.forEach { item ->
             Row(Modifier.fillMaxWidth()) {
                 Text(item.merchant, style = mono, color = XpColors.Ink, modifier = Modifier.weight(1f), maxLines = 1)
-                Text(item.cents.yuan(), style = mono, color = XpColors.Ink)
+                Text(item.cents.yuanGrouped(), style = mono, color = XpColors.Ink)
             }
         }
         Text("------------------------", style = mono, color = XpColors.InkTertiary, maxLines = 1)
         Row(Modifier.fillMaxWidth()) {
             Text("合计", style = mono, color = XpColors.Ink)
             Spacer(Modifier.weight(1f))
-            Text("¥${post.totalCents.yuan()}", style = mono, color = XpColors.Ink)
+            Text("¥${post.totalCents.yuanGrouped()}", style = mono, color = XpColors.Ink)
         }
         Text("谢谢惠顾", style = mono, color = XpColors.InkTertiary, maxLines = 1)
     }

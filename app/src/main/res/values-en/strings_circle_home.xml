@@ -16,7 +16,7 @@
     <string name="circle_home_save">Save</string>
     <string name="circle_home_empty_title">Quiet in here</string>
     <string name="circle_home_empty_body">The first receipt from a family member will liven this up.</string>
-    <string name="circle_home_composer">Say something… stays on this phone</string>
+    <string name="circle_home_composer">Say something…</string>
     <string name="circle_home_local_note">This circle lives on this phone only; messages never leave the device.</string>
     <string name="circle_home_games_title">Games</string>
     <string name="circle_home_games_meta">%1$d mini games · for fun, not advice</string>

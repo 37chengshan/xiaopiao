@@ -4,4 +4,12 @@
     <string name="capture_off">未开启</string>
     <string name="capture_reconnect">重新连接</string>
     <string name="capture_reconnect_hint">掉了点一下</string>
+    <string name="capture_last_seen">上次收到通知</string>
+    <string name="capture_last_seen_never">还没收到过</string>
+    <string name="capture_just_now">刚刚</string>
+    <string name="capture_ago_minutes">%1$d 分钟前</string>
+    <string name="capture_ago_hours">%1$d 小时前</string>
+    <string name="capture_ago_days">%1$d 天前</string>
+    <string name="capture_keep_alive">后台保活</string>
+    <string name="capture_keep_alive_hint">按系统设置开启</string>
 </resources>
