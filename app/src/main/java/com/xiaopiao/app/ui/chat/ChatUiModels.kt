@@ -85,6 +85,7 @@ object ChatInput {
 }
 
 /** One saved conversation. [updatedAt] drives the "今天 / 昨天 / 7 天内" groups in the drawer. */
+@kotlinx.serialization.Serializable
 data class ChatSession(
     val id: Int,
     val title: String,

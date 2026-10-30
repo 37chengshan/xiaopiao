@@ -206,3 +206,5 @@ html [data-sonner-toast] [data-icon] {
     background-color: transparent;
   }
 }
+
+/* Incoming text fades once; layout and characters remain stable while reading. */

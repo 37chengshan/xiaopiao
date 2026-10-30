@@ -96,12 +96,18 @@ fun ChatDrawer(
     onOpenSettings: () -> Unit,
     progress: Animatable<Float, androidx.compose.animation.core.AnimationVector1D>,
     modifier: Modifier = Modifier,
+    activeSessionId: Int? = null,
+    accountLabel: String = "登录你的账号",
+    onOpenAccount: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
+    val reduced = com.xiaopiao.app.ui.components.rememberReducedMotion()
     var query by remember { mutableStateOf("") }
     var renaming by remember { mutableStateOf<ChatSession?>(null) }
     var renamingText by remember { mutableStateOf("") }
+    var deleting by remember { mutableStateOf<ChatSession?>(null) }
 
+    if (!open && progress.value <= 0.001f) return
     BoxWithConstraints(modifier.fillMaxSize()) {
         val panelWidth = maxWidth * 0.82f
         val density = LocalDensity.current
@@ -115,9 +121,9 @@ fun ChatDrawer(
             )
         }
 
-        val filtered = remember(sessions, query) {
+        val filtered = remember(sessions.toList(), query) {
             if (query.isBlank()) sessions
-            else sessions.filter { it.title.contains(query.trim(), ignoreCase = true) }
+            else sessions.filter { session -> session.title.contains(query.trim(), ignoreCase = true) || session.items.any { item -> when (item) { is ChatItem.User -> item.text.contains(query.trim(), true); is ChatItem.Assistant -> item.text.contains(query.trim(), true); else -> false } } }
         }
         val groups = remember(filtered, now) { SessionGroups.group(filtered, now) }
 
@@ -130,11 +136,11 @@ fun ChatDrawer(
                 .draggable(
                     orientation = Orientation.Horizontal,
                     state = rememberDraggableState { delta ->
-                        scope.launch { progress.snapTo((progress.value + delta / widthPx).coerceIn(0f, 1f)) }
+                        scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) { progress.snapTo((progress.value + delta / widthPx).coerceIn(0f, 1f)) }
                     },
                     onDragStopped = { velocity ->
                         val target = if (velocity < -600f || progress.value < 0.6f) 0f else 1f
-                        progress.animateTo(target, spring(dampingRatio = 1f, stiffness = 420f))
+                        if (reduced) progress.snapTo(target) else progress.animateTo(target, com.xiaopiao.app.ui.theme.XpMotion.snappy())
                         if (target == 0f) onClose()
                     },
                 )
@@ -166,12 +172,14 @@ fun ChatDrawer(
                         )
                     }
                     items(list, key = { it.id }) { session ->
+                        Box(Modifier.clip(RoundedCornerShape(XpRadius.m)).background(if (session.id == activeSessionId) XpColors.Fill else Color.Transparent)) {
                         SessionRow(
                             session = session,
                             onOpen = { onOpenSession(session) },
                             onRename = { renaming = session; renamingText = session.title },
-                            onDelete = { onDelete(session) },
+                            onDelete = { deleting = session },
                         )
+                        }
                     }
                 }
             }
@@ -184,8 +192,8 @@ fun ChatDrawer(
                     contentAlignment = Alignment.Center,
                 ) { Text("票", style = MaterialTheme.typography.titleSmall, color = XpColors.Ink) }
                 Column(Modifier.weight(1f).padding(start = XpSpace.s)) {
-                    Text("我", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
-                    Text("数据只在这台手机", style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary)
+                    Text(accountLabel, modifier = Modifier.clickable(onClick = onOpenAccount), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
+                    Text("账本原文留在本机", style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary)
                 }
                 Box(
                     Modifier.size(40.dp).clip(CircleShape).pressableClick { onOpenSettings() },
@@ -195,6 +203,12 @@ fun ChatDrawer(
         }
     }
 
+    deleting?.let { session ->
+        androidx.compose.material3.AlertDialog(onDismissRequest = { deleting = null },
+            title = { Text("删除这段对话？") }, text = { Text("「${session.title}」将从这台手机移除，账本不会受到影响。") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { onDelete(session); deleting = null }) { Text("删除", color = XpColors.Negative) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { deleting = null }) { Text("取消") } })
+    }
     // Rename: one field, one save — no nested sheets.
     renaming?.let { session ->
         Dialog(onDismissRequest = { renaming = null }) {

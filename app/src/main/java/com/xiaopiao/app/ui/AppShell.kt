@@ -140,8 +140,11 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     // 搜索 from 小票 / 统计 = jump to 记账, which enters search and clears this.
     var ledgerSearch by remember { mutableStateOf(false) }
     LaunchedEffect(launchSide) { if (startRoute == null) launchSide?.let { startRoute = NavModel.startRoute(it) } }
+    val onboardingUser by container.account.user.collectAsState()
+    var onboardingAccountOpen by rememberSaveable { mutableStateOf(false) }
     if (onboarded == false) {
-        com.xiaopiao.app.ui.onboarding.OnboardingHost { shellScope.launch { onboarding.setDone() } }
+        com.xiaopiao.app.ui.onboarding.OnboardingHost(onLogin = { onboardingAccountOpen = true }, signedIn = onboardingUser != null, onDone = { shellScope.launch { onboarding.setDone() } })
+        if (onboardingAccountOpen) com.xiaopiao.app.ui.account.AccountSheet(container.account) { onboardingAccountOpen = false }
         return
     }
 

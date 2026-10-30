@@ -19,6 +19,7 @@ import com.xiaopiao.app.wallet.FileCardIo
 /** Tiny service locator. Owned by the data layer; UI only reads from it. */
 class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
+    val account by lazy { com.xiaopiao.app.network.AccountClient(appContext) }
 
     private val database: AppDatabase by lazy { AppDatabase.create(appContext) }
     private val roomLedger: RoomLedgerRepository by lazy { RoomLedgerRepository(database.txnDao()) }

@@ -89,6 +89,7 @@ fun ChatComposer(
     onRemoveAttachment: (ChatAttachment) -> Unit = {},
     focusRequester: FocusRequester? = null,
 ) {
+    val reduced = com.xiaopiao.app.ui.components.rememberReducedMotion()
     val plan = ChatInput.plan(value, streaming, attachments.size)
     val shape = RoundedCornerShape(30.dp)
 
@@ -102,7 +103,7 @@ fun ChatComposer(
                 .shadow(elevation = 10.dp, shape = shape, clip = false, ambientColor = Color(0x14000000), spotColor = Color(0x1A000000))
                 .clip(shape)
                 .background(XpColors.Card)
-                .animateContentSize(tween(200, easing = XpEase.out)),
+                .then(if (reduced) Modifier else Modifier.animateContentSize(tween(XpTiming.PopOut, easing = XpEase.out))),
         ) {
             if (!plan.expanded) {
                 // Idle: one 56dp row. Tapping the placeholder focuses the field; the button is voice.
@@ -149,6 +150,7 @@ private fun PrimaryButton(
     onVoice: () -> Unit,
     onStop: () -> Unit,
 ) {
+    val reduced = com.xiaopiao.app.ui.components.rememberReducedMotion()
     val (icon, description, onClick) = when (action) {
         ChatPrimaryAction.Voice -> Triple(Icons.Outlined.GraphicEq, "用语音记一笔", onVoice)
         ChatPrimaryAction.Send -> Triple(Icons.Outlined.ArrowUpward, "发送", onSend)
@@ -163,7 +165,7 @@ private fun PrimaryButton(
         AnimatedContent(
             targetState = icon,
             transitionSpec = {
-                (fadeIn(tween(170, easing = XpEase.out)) + scaleIn(tween(170, easing = XpEase.out), initialScale = 0.72f)) togetherWith
+                if (reduced) fadeIn(tween(0)) togetherWith fadeOut(tween(0)) else (fadeIn(tween(170, easing = XpEase.out)) + scaleIn(tween(170, easing = XpEase.out), initialScale = 0.72f)) togetherWith
                     (fadeOut(tween(140, easing = XpEase.out)) + scaleOut(tween(140, easing = XpEase.out), targetScale = 0.72f))
             },
             label = "primaryIcon",

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LegacyRouteImport } from './routes/_legacy'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as LegacyGameRouteImport } from './routes/_legacy/game'
 import { Route as LegacyHomeRouteImport } from './routes/_legacy/home'
 import { Route as LegacyInsightsRouteImport } from './routes/_legacy/insights'
@@ -46,6 +47,11 @@ const LegacyRoute = LegacyRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LegacyGameRoute = LegacyGameRouteImport.update({
@@ -157,6 +163,7 @@ const AppBizRevenueRoute = AppBizRevenueRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/login': typeof LoginRoute
   '/game': typeof LegacyGameRoute
   '/home': typeof LegacyHomeRoute
   '/insights': typeof LegacyInsightsRoute
@@ -181,6 +188,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/game': typeof LegacyGameRoute
   '/home': typeof LegacyHomeRoute
   '/insights': typeof LegacyInsightsRoute
@@ -207,6 +215,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_legacy': typeof LegacyRouteWithChildren
   '/app': typeof AppRouteWithChildren
+  '/login': typeof LoginRoute
   '/_legacy/game': typeof LegacyGameRoute
   '/_legacy/home': typeof LegacyHomeRoute
   '/_legacy/insights': typeof LegacyInsightsRoute
@@ -234,6 +243,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/login'
     | '/game'
     | '/home'
     | '/insights'
@@ -258,6 +268,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
     | '/game'
     | '/home'
     | '/insights'
@@ -283,6 +294,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_legacy'
     | '/app'
+    | '/login'
     | '/_legacy/game'
     | '/_legacy/home'
     | '/_legacy/insights'
@@ -310,6 +322,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LegacyRoute: typeof LegacyRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -333,6 +346,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_legacy/game': {
@@ -557,6 +577,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LegacyRoute: LegacyRouteWithChildren,
   AppRoute: AppRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

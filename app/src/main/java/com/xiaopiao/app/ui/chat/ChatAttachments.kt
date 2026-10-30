@@ -115,6 +115,7 @@ suspend fun readCsvText(context: Context, uri: Uri): String? = withContext(Dispa
 }
 
 /** A parsed-but-not-yet-imported CSV attachment. Importing happens only after the user confirms. */
+@kotlinx.serialization.Serializable
 data class ChatCsvPreview(
     val label: String,
     val format: BillFormat,

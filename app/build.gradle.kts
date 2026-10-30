@@ -15,6 +15,9 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        val apiBase = providers.gradleProperty("xiaopiao.apiBaseUrl").orElse("").get()
+        require(apiBase.isEmpty() || apiBase.matches(Regex("https?://[A-Za-z0-9.:-]+/?")))
+        buildConfigField("String", "API_BASE_URL", "\"$apiBase\"")
     }
 
     buildTypes {

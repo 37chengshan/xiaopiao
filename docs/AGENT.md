@@ -1,3 +1,21 @@
+# 小票机 Agent 框架（v2，2026-10-29）
+
+当前实现：`server/src/agent.mjs` 负责模型路由和有界工具循环；`server/src/app.mjs` 负责认证、限流和 SSE continuation。Android 的 `network/AccountClient.kt` 与 `ui/chat/LocalAgentTools.kt`、Web 的 `services/agent.ts` 使用同一协议。
+
+- 云端只发布四个只读工具：汇总、极值、结构化查询、已授权圈子读取。未接通的共享数据明确返回未共享；不返回演示成员金额。
+- 每轮最多四个工具，整次最多四轮。最后一轮不再发布工具；continuation 绑定用户、一次性消费、两分钟过期。用户打断会关闭网络连接。
+- UI 事件是 `status / token / tool_calls / done / error`；status 仅记录真实操作摘要，provider 内部 reasoning 不展示。收起时一行滚动，点击可展开。
+- 草稿与写入仍在本机。用户逐笔确认，或事先主动开启「AI 自动入账」后保存；保存卡支持撤销，恢复历史不会执行旧草稿。CSV 保留整批确认。
+- 下文 v1 的六工具表是原始能力契约；其中 draft/commit **不作为在线模型可调用工具**，`AgentEngine.kt` 为早期规划名，当前没有这个实现文件。
+- 发信使用 AgentMail HTTPS API，密钥和发信箱只在服务端环境；App/Web 永远拿不到。现有邮箱完成了真实验证码收取和注册验证。模型调用已用真实 key 验证（工具轮 + 回答 + 降级），公网部署仍未验收。
+- **供应商可插拔**：`server/src/providers.mjs` 一个描述符 = 一个厂商（`baseUrl`、`auth`、`headers`、`supportsTools`、免费 `models`）。加厂商只加描述符并把 `MODEL_PROVIDER` 指过去，不改流式循环；付费模型 id 一律不准写进 `models`。
+- **提示词单一来源**：`server/src/prompt.mjs` 里的规则数组就是线上 prompt，所有供应商拿到同一份；`test/provider.test.mjs` 断言 guardrail 关键词仍在（数据来源、禁建议、未共享、不可写、不可信数据、不输出思考过程、不输出工具标记）。
+- **输出清洗**：`server/src/sanitize.mjs` 在流式过程中丢掉模型自带的 `<tool_call>`/`<function=…>` 协议标记（含跨 chunk 半截标签），客户端渲染前再兜底一次——协议细节永远不进 UI。
+- **渲染子集**：Web（`components/desktop/markdown.tsx`）与 App（`MessageMarkdown`）用同一套安全子集：`**加粗**`、`` `行内代码` ``、`- 列表`、`###` 标题、``` 代码块；没有 HTML、链接、图片、表格，所以模型输出无法注入结构。
+- **思考流**：一行滚动（轮播真实操作步骤）+ 点击展开完整步骤；结束后收成「用了 N 个工具」，不显示过期状态。
+
+---
+
 # 小票机 Agent 框架（v1）
 
 目标：让 AI 页像 GPT 一样对话，同时**只能**靠工具读取真实（本机）数据，不编数字。

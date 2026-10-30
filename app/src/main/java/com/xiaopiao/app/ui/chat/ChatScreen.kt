@@ -101,6 +101,18 @@ import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import com.xiaopiao.app.ui.today.TodayGreeting
 import java.util.Calendar
+import kotlinx.serialization.json.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.conflate
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.derivedStateOf
+import androidx.activity.compose.BackHandler
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -117,7 +129,7 @@ private val DrawerPagePush = 24.dp
  * (voice → send → stop) and a ＋ that stages images / CSV files. Everything stays on this device: OCR and
  * CSV parsing happen locally, the ledger only receives the rows the user confirms.
  */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@OptIn(kotlinx.coroutines.FlowPreview::class, androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun ChatScreen(
     container: AppContainer,
@@ -151,12 +163,19 @@ fun ChatScreen(
     var scrollSignal by remember { mutableIntStateOf(0) }
     var drawerOpen by remember { mutableStateOf(false) }
     var streaming by remember { mutableStateOf(false) }
+    var streamGeneration by remember { mutableIntStateOf(0) }
     var streamJob by remember { mutableStateOf<Job?>(null) }
     val attachments = remember { androidx.compose.runtime.mutableStateListOf<ChatAttachment>() }
     var attachSheetOpen by remember { mutableStateOf(false) }
     var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
     val context = LocalContext.current
+    val aiPrefs = remember(context) { AiChatPrefs(context) }
+    val autoEntry by aiPrefs.autoEntry.collectAsStateWithLifecycle(initialValue = false)
 
+    val sessionStore = remember(context) { ChatSessionStore(context.applicationContext) }
+    var historyLoaded by remember { mutableStateOf(false) }
+    var accountOpen by remember { mutableStateOf(false) }
+    val accountUser by container.account.user.collectAsStateWithLifecycle()
     val sessions = remember { androidx.compose.runtime.mutableStateListOf<ChatSession>() }
     var sessionSeq by remember { mutableIntStateOf(0) }
     var activeSession by remember { mutableIntStateOf(++sessionSeq) }
@@ -172,15 +191,16 @@ fun ChatScreen(
         if (conversation.none { it is ChatItem.User }) return
         val saved = ChatSession(
             id = activeSession,
-            title = SessionGroups.titleOf(conversation),
+            title = sessions.firstOrNull { it.id == activeSession }?.title ?: SessionGroups.titleOf(conversation),
             items = conversation.toList(),
-            updatedAt = System.currentTimeMillis(),
+            updatedAt = sessions.firstOrNull { it.id == activeSession && it.items == conversation.toList() }?.updatedAt ?: System.currentTimeMillis(),
         )
         sessions.removeAll { it.id == activeSession }
         sessions.add(0, saved)
     }
 
     fun stopStreaming() {
+        streamGeneration++
         streamJob?.cancel()
         streamJob = null
         streaming = false
@@ -188,21 +208,121 @@ fun ChatScreen(
         for (i in conversation.indices) {
             val item = conversation[i]
             if (item is ChatItem.Assistant && item.streaming) conversation[i] = item.copy(streaming = false)
+            if (item is ChatItem.Tool && item.running) conversation[i] = item.copy(running = false, detail = "已停止")
         }
     }
 
     fun send(raw: String) {
         val text = raw.trim()
-        if (text.isEmpty() || streaming) return
+        if (text.isEmpty() || streaming || !historyLoaded) return
         conversation.add(ChatItem.User(newId(), text))
         haptics.select()
         val reply = stats?.let { ChatIntentRouter.route(text, it, turn) }
             ?: ChatReply.Answer("我还没数完今天的账，稍等一秒再说。")
         // Tools first: the user sees what was read before the answer appears (tt#23).
         val tools = ChatTools.plan(text, stats, text.contains("家人") || text.contains("圈子"))
+        val thisGeneration = ++streamGeneration
         streaming = true
         streamJob = scope.launch {
             try {
+                if (container.account.configured && accountUser?.verified == true && reply is ChatReply.Answer) {
+                    val messages = conversation.filter { it is ChatItem.User || it is ChatItem.Assistant }
+                        .filter { it !is ChatItem.Assistant || it.text.isNotBlank() }.takeLast(24)
+                    var payload = buildJsonObject {
+                        putJsonArray("messages") { messages.forEach { item -> add(buildJsonObject {
+                            put("role", if (item is ChatItem.User) "user" else "assistant")
+                            put("content", when (item) { is ChatItem.User -> item.text.take(6000); is ChatItem.Assistant -> item.text.take(6000); else -> "" })
+                        }) } }
+                        put("timezone", java.time.ZoneId.systemDefault().id)
+                    }
+                    var completed = false
+                    var receivedText = false
+                    var dataSeen = false
+                    try {
+                        repeat(4) {
+                            var next: JsonObject? = null
+                            var assistantId: Long? = null
+                            var terminal = false
+                            container.account.stream(payload).collect { event ->
+                                when (event["type"]?.jsonPrimitive?.content) {
+                                    "status" -> {
+                                        conversation.indices.forEach { i -> (conversation[i] as? ChatItem.Tool)?.takeIf { it.running }?.let { conversation[i] = it.copy(running = false) } }
+                                        conversation.add(ChatItem.Tool(newId(), event.getValue("text").jsonPrimitive.content, running = true))
+                                    }
+                                    "token" -> {
+                                        conversation.indices.forEach { i -> (conversation[i] as? ChatItem.Tool)?.takeIf { it.running }?.let { conversation[i] = it.copy(running = false) } }
+                                        receivedText = true
+                                        val id = assistantId ?: newId().also { assistantId = it; conversation.add(ChatItem.Assistant(it, "", streaming = true)) }
+                                        val index = conversation.indexOfFirst { it.id == id }
+                                        if (index >= 0) conversation[index] = (conversation[index] as ChatItem.Assistant).let { it.copy(text = it.text + event.getValue("text").jsonPrimitive.content) }
+                                    }
+                                    "tool_calls" -> {
+                                        conversation.indices.forEach { i -> (conversation[i] as? ChatItem.Tool)?.takeIf { it.running }?.let { conversation[i] = it.copy(running = false) } }
+                                        val results = event.getValue("calls").jsonArray.map { rawCall ->
+                                            val call = rawCall.jsonObject
+                                            val fn = call.getValue("function").jsonObject
+                                            val name = fn.getValue("name").jsonPrimitive.content
+                                            if (name == "show_view") {
+                                                val args = runCatching { Json.parseToJsonElement(fn.getValue("arguments").jsonPrimitive.content.ifBlank { "{}" }).jsonObject }.getOrNull()
+                                                val view = args?.let { ChatView.parse(it) }
+                                                return@map when {
+                                                    view == null -> buildJsonObject { put("id", call.getValue("id")); put("error", "INVALID_VIEW") }
+                                                    !dataSeen -> buildJsonObject { put("id", call.getValue("id")); put("error", "NO_DATA_FIRST"); put("message", "先调用取数工具") }
+                                                    else -> {
+                                                        conversation.add(ChatItem.View(newId(), view))
+                                                        scrollSignal++
+                                                        buildJsonObject { put("id", call.getValue("id")); put("ok", true); put("rendered", view.kind) }
+                                                    }
+                                                }
+                                            }
+                                            dataSeen = true
+                                            val toolId = newId()
+                                            conversation.add(ChatItem.Tool(toolId, when (name) { "summarize_period" -> "汇总账本"; "find_peak" -> "查找最大支出"; "read_circle" -> "检查共享权限"; else -> "查询账本" }))
+                                            val result = withContext(Dispatchers.Default) {
+                                                runCatching { LocalAgentTools.execute(name, Json.parseToJsonElement(fn.getValue("arguments").jsonPrimitive.content.ifBlank { "{}" }).jsonObject, history.orEmpty(), System.currentTimeMillis()) }
+                                                    .getOrElse { buildJsonObject { put("error", "INVALID_TOOL_ARGUMENTS") } }
+                                            }
+                                            val index = conversation.indexOfFirst { it.id == toolId }
+                                            if (index >= 0) conversation[index] = ChatItem.Tool(toolId, (conversation[index] as ChatItem.Tool).label, "完成", false)
+                                            buildJsonObject { put("id", call.getValue("id")); put("data", result) }
+                                        }
+                                        next = buildJsonObject { put("runId", event.getValue("runId")); put("results", JsonArray(results)) }
+                                        terminal = true
+                                    }
+                                    "view" -> {
+                                        event["view"]?.jsonObject?.let { raw -> ChatView.parse(raw) }?.let { view ->
+                                            conversation.add(ChatItem.View(newId(), view))
+                                            scrollSignal++
+                                        }
+                                    }
+                                    "done" -> {
+                                        conversation.indices.forEach { i -> (conversation[i] as? ChatItem.Tool)?.takeIf { it.running }?.let { conversation[i] = it.copy(running = false) } }
+                                        completed = true; terminal = true
+                                    }
+                                    "error" -> throw IllegalStateException(event["message"]?.jsonPrimitive?.content ?: "AI 暂时不可用")
+                                }
+                                scrollSignal++
+                            }
+                            assistantId?.let { id ->
+                                val index = conversation.indexOfFirst { it.id == id }
+                                if (index >= 0) conversation[index] = (conversation[index] as ChatItem.Assistant).copy(streaming = false)
+                            }
+                            if (!terminal) error("连接中断，请重新发送")
+                            if (completed) return@launch
+                            payload = next ?: error("没有收到工具结果")
+                        }
+                        error("本次查询步骤较多，请缩小问题范围后重试")
+                    } catch (e: CancellationException) { throw e }
+                    catch (e: Exception) {
+                        conversation.indices.forEach { index ->
+                            val item = conversation[index]
+                            if (item is ChatItem.Assistant && item.streaming) conversation[index] = item.copy(streaming = false)
+                            if (item is ChatItem.Tool && item.running) conversation[index] = item.copy(running = false)
+                        }
+                        conversation.add(ChatItem.Tool(newId(), if (receivedText) "回答中断，可重新发送" else "云端暂不可用，改用本机统计", running = false))
+                        if (receivedText) return@launch
+                    }
+                }
                 tools.forEach { step ->
                     val toolId = newId()
                     conversation.add(ChatItem.Tool(toolId, step.label, running = true))
@@ -212,7 +332,7 @@ fun ChatScreen(
                     if (i >= 0) conversation[i] = ChatItem.Tool(toolId, step.label, step.detail, running = false)
                 }
                 when (reply) {
-                    is ChatReply.Expense -> conversation.add(ChatItem.Confirm(newId(), reply.draft))
+                    is ChatReply.Expense -> conversation.add(ChatItem.Confirm(newId(), reply.draft, autoRequested = autoEntry))
                     is ChatReply.Answer -> {
                         // Stream the answer like a model writing: the reveal advances by real dt, so the
                         // text finishes in the same wall-clock time on 60/90/120Hz (never by frame count).
@@ -259,7 +379,10 @@ fun ChatScreen(
                 }
                 scrollSignal++
             } finally {
-                streaming = false
+                if (streamGeneration == thisGeneration) {
+                    streaming = false
+                    streamJob = null
+                }
             }
         }
     }
@@ -292,6 +415,7 @@ fun ChatScreen(
         }
         conversation.add(ChatItem.User(newId(), summary.trim()))
         haptics.select()
+        val thisGeneration = ++streamGeneration
         streaming = true
         streamJob = scope.launch {
             try {
@@ -315,9 +439,9 @@ fun ChatScreen(
                     if (found.isEmpty()) {
                         assistant("这几张图我没认出账单金额。原图只在这台手机上看了，没有存下来。")
                     } else {
-                        assistant("识别到 ${found.size} 笔，确认记入？")
+                        assistant(if (autoEntry) "识别到 ${found.size} 笔，正在自动记入，可逐笔撤销。" else "识别到 ${found.size} 笔，确认记入？")
                         found.forEach { candidate ->
-                            conversation.add(ChatItem.Confirm(newId(), candidate.toDraft()))
+                            conversation.add(ChatItem.Confirm(newId(), candidate.toDraft(), autoRequested = autoEntry))
                         }
                     }
                     scrollSignal++
@@ -335,58 +459,78 @@ fun ChatScreen(
                     scrollSignal++
                 }
             } finally {
-                streaming = false
+                if (streamGeneration == thisGeneration) {
+                    streaming = false
+                    streamJob = null
+                }
             }
         }
     }
 
-    fun importCsv(item: ChatItem.CsvAttachment) {
-        if (item.state != CsvAttachmentState.Pending) return
-        val index = conversation.indexOfFirst { it.id == item.id }
-        if (index >= 0) conversation[index] = item.copy(state = CsvAttachmentState.Importing)
-        scope.launch {
-            val summary = container.csvImporter.importText(item.preview.rawText)
-            val i = conversation.indexOfFirst { it.id == item.id }
-            if (i >= 0) conversation[i] = item.copy(state = CsvAttachmentState.Imported)
-            haptics.confirm()
-            conversation.add(
-                ChatItem.Assistant(
-                    newId(),
-                    if (summary.error != null) "导入没成功：${summary.error}"
-                    else "导入了 ${summary.imported} 笔，跳过重复 ${summary.duplicates} 笔。",
-                ),
-            )
-            scrollSignal++
+    fun updateChatItem(id: Long, updated: ChatItem) {
+        val position = conversation.indexOfFirst { it.id == id }
+        if (position >= 0) conversation[position] = updated
+        sessions.indices.forEach { index ->
+            val session = sessions[index]
+            if (session.items.any { it.id == id }) sessions[index] = session.copy(items = session.items.map { if (it.id == id) updated else it })
         }
     }
-
+    fun importCsv(item: ChatItem.CsvAttachment) {
+        val live = conversation.firstOrNull { it.id == item.id } as? ChatItem.CsvAttachment ?: return
+        if (live.state != CsvAttachmentState.Pending) return
+        updateChatItem(live.id, live.copy(state = CsvAttachmentState.Importing))
+        val importingSession = activeSession
+        scope.launch {
+            try {
+                val summary = container.csvImporter.importText(live.preview.rawText)
+                updateChatItem(live.id, live.copy(state = if (summary.error == null) CsvAttachmentState.Imported else CsvAttachmentState.Pending))
+                if (summary.error == null) haptics.confirm()
+                if (activeSession == importingSession) conversation.add(ChatItem.Assistant(newId(),
+                    if (summary.error != null) "导入没成功：${summary.error}"
+                    else "导入了 ${summary.imported} 笔，跳过重复 ${summary.duplicates} 笔。"))
+                scrollSignal++
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) {
+                updateChatItem(live.id, live.copy(state = CsvAttachmentState.Pending))
+                if (activeSession == importingSession) conversation.add(ChatItem.Assistant(newId(), "导入没有完成，可以重试；已存在的记录会跳过。"))
+            }
+        }
+    }
     fun cancelCsv(item: ChatItem.CsvAttachment) {
-        val index = conversation.indexOfFirst { it.id == item.id }
-        if (index >= 0) conversation[index] = item.copy(state = CsvAttachmentState.Cancelled)
+        val live = conversation.firstOrNull { it.id == item.id } as? ChatItem.CsvAttachment ?: return
+        if (live.state == CsvAttachmentState.Pending) updateChatItem(live.id, live.copy(state = CsvAttachmentState.Cancelled))
     }
 
     fun confirm(card: ChatItem.Confirm) {
-        if (card.state != ConfirmState.Pending) return
-        conversation.indexOfFirst { it.id == card.id }.takeIf { it >= 0 }?.let {
-            conversation[it] = card.copy(state = ConfirmState.Saving)
-        }
+        val position = conversation.indexOfFirst { it.id == card.id }
+        val live = conversation.getOrNull(position) as? ChatItem.Confirm ?: return
+        if (live.state !in listOf(ConfirmState.Pending, ConfirmState.Failed)) return
+        conversation[position] = live.copy(state = ConfirmState.Saving)
+        val savingSession = activeSession
         scope.launch {
-            val id = container.ledger.add(card.draft.toTxn(System.currentTimeMillis()))
-            val index = conversation.indexOfFirst { it.id == card.id }
-            if (index >= 0) {
-                conversation[index] = card.copy(state = if (id != null) ConfirmState.Saved else ConfirmState.Duplicate)
+            try {
+                val transaction = live.draft.toTxn(System.currentTimeMillis()).copy(dedupeKey = "chat:${savingSession}:${live.id}")
+                val id = container.ledger.add(transaction)
+                updateChatItem(live.id, live.copy(state = if (id != null) ConfirmState.Saved else ConfirmState.Duplicate, transactionId = id))
+                haptics.confirm()
+                scrollSignal++
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) {
+                updateChatItem(live.id, live.copy(state = ConfirmState.Failed, autoRequested = false))
             }
-            haptics.confirm()
-            conversation.add(
-                ChatItem.Assistant(
-                    newId(),
-                    if (id != null) "记下了：${card.draft.category.label} ${yuanText(card.draft.amountCents)}。今天的小票已经更新。"
-                    else "这笔看起来已经记过了，我没有重复入账。",
-                ),
-            )
-            scrollSignal++
         }
     }
+    fun undo(card: ChatItem.Confirm) {
+        val id = card.transactionId ?: return
+        scope.launch {
+            try {
+                container.ledger.delete(id)
+                updateChatItem(card.id, card.copy(state = ConfirmState.Undone, autoRequested = false))
+            } catch (_: Exception) { conversation.add(ChatItem.Assistant(newId(), "撤销没有完成，请到记账页查看这笔记录。")) }
+        }
+    }
+    val automaticPending = conversation.filterIsInstance<ChatItem.Confirm>().filter { it.autoRequested && it.state == ConfirmState.Pending }
+    LaunchedEffect(automaticPending.map { it.id }) { automaticPending.forEach(::confirm) }
 
     /** 「改一下」 puts the original sentence back in the field so the router re-parses the edit. */
     fun edit(card: ChatItem.Confirm) {
@@ -398,14 +542,60 @@ fun ChatScreen(
         haptics.select()
     }
 
-    LaunchedEffect(scrollSignal) {
-        if (scrollSignal == 0) return@LaunchedEffect
-        delay(80)
-        val last = listState.layoutInfo.totalItemsCount - 1
-        if (last >= 0) {
-            if (reduced) listState.scrollToItem(last) else listState.animateScrollToItem(last)
+    // Read history off the UI thread before enabling send/persistence.
+    LaunchedEffect(sessionStore) {
+        val saved = withContext(Dispatchers.IO) { sessionStore.load() }
+        sessions.addAll(saved.map { session -> session.copy(items = session.items.map { item ->
+            when (item) {
+                is ChatItem.Confirm -> item.copy(autoRequested = false, state = if (item.state == ConfirmState.Saving) ConfirmState.Failed else item.state)
+                is ChatItem.CsvAttachment -> item.copy(state = if (item.state == CsvAttachmentState.Importing) CsvAttachmentState.Pending else item.state)
+                else -> item
+            }
+        }) })
+        sessionSeq = saved.maxOfOrNull { it.id } ?: 0
+        activeSession = ++sessionSeq
+        seq = saved.flatMap { it.items }.maxOfOrNull { it.id }?.toInt() ?: 0
+        historyLoaded = true
+    }
+    LaunchedEffect(historyLoaded) {
+        if (!historyLoaded) return@LaunchedEffect
+        snapshotFlow { sessions.toList() to conversation.toList() }.debounce(500).collectLatest { (saved, current) ->
+            val currentSession = if (current.any { it is ChatItem.User }) ChatSession(activeSession,
+                saved.firstOrNull { it.id == activeSession }?.title ?: SessionGroups.titleOf(current),
+                current.map { if (it is ChatItem.Assistant) it.copy(streaming = false) else if (it is ChatItem.Tool) it.copy(running = false) else if (it is ChatItem.Confirm) it.copy(autoRequested = false) else it },
+                System.currentTimeMillis()) else null
+            val all = if (currentSession == null) saved else listOf(currentSession) + saved.filter { it.id != activeSession }
+            withContext(Dispatchers.IO) { sessionStore.save(all) }
         }
     }
+    // Follow content growth only while the reader is already at the bottom.
+    var following by remember { mutableStateOf(true) }
+    val readerDragging by listState.interactionSource.collectIsDraggedAsState()
+    LaunchedEffect(readerDragging, listState.canScrollForward) {
+        if (readerDragging) following = !listState.canScrollForward
+    }
+    LaunchedEffect(listState) {
+        snapshotFlow { scrollSignal }.conflate().collect { signal ->
+            if (signal > 0 && following) {
+                withFrameNanos { }
+                val layout = listState.layoutInfo
+                val lastIndex = layout.totalItemsCount - 1
+                if (lastIndex >= 0) {
+                    if (layout.visibleItemsInfo.lastOrNull()?.index != lastIndex) listState.scrollToItem(lastIndex)
+                    withFrameNanos { }
+                    val measured = listState.layoutInfo
+                    val last = measured.visibleItemsInfo.lastOrNull()
+                    if (last != null) {
+                        val delta = last.offset + last.size + measured.afterContentPadding - measured.viewportEndOffset
+                        if (delta > 0) listState.scrollBy(delta.toFloat())
+                    }
+                }
+            }
+        }
+    }
+    BackHandler(drawerOpen) { drawerOpen = false }
+    if (accountOpen) com.xiaopiao.app.ui.account.AccountSheet(container.account) { accountOpen = false }
+
 
 
     val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
@@ -438,11 +628,12 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(drawerOpen) { onDrawerOpenChange(drawerOpen) }
+    LaunchedEffect(drawerOpen) { if (drawerOpen) archiveCurrent(); onDrawerOpenChange(drawerOpen) }
 
     val drawer = remember { Animatable(if (drawerOpen) 1f else 0f) }
     LaunchedEffect(drawerOpen) {
-        drawer.animateTo(if (drawerOpen) 1f else 0f, spring(dampingRatio = 1f, stiffness = 420f))
+        if (reduced) drawer.snapTo(if (drawerOpen) 1f else 0f)
+        else drawer.animateTo(if (drawerOpen) 1f else 0f, com.xiaopiao.app.ui.theme.XpMotion.snappy())
     }
 
     Box(Modifier.fillMaxSize().background(chatBackdrop())) {
@@ -450,7 +641,7 @@ fun ChatScreen(
         NavScaffold(
             "AI",
             NavScrollNone,
-            modifier = Modifier.graphicsLayer { translationX = DrawerPagePush.toPx() * drawer.value },
+            modifier = Modifier.graphicsLayer { translationX = if (reduced) 0f else DrawerPagePush.toPx() * drawer.value },
             leading = { NavIconButton(Icons.Outlined.Menu, "会话", onClick = { drawerOpen = true }) },
             trailing = { AppTopActions() },
         ) { top ->
@@ -477,6 +668,7 @@ fun ChatScreen(
                         reduced = reduced,
                         onConfirm = ::confirm,
                         onEdit = ::edit,
+                        onUndo = ::undo,
                         onImportCsv = ::importCsv,
                         onCancelCsv = ::cancelCsv,
                         bottomPadding = composerH + barInset,
@@ -484,6 +676,10 @@ fun ChatScreen(
                     )
                 }
             }
+            if (!following && conversation.isNotEmpty()) androidx.compose.material3.TextButton(
+                onClick = { following = true; scrollSignal++ },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = composerH + barInset),
+            ) { Text("回到最新消息 ↓", color = XpColors.Accent) }
             ChatComposer(
                 value = input,
                 onValueChange = { input = it },
@@ -537,12 +733,14 @@ fun ChatScreen(
             now = System.currentTimeMillis(),
             onClose = { drawerOpen = false },
             onNewChat = {
+                stopStreaming()
                 archiveCurrent()
                 conversation.clear()
                 activeSession = ++sessionSeq
                 drawerOpen = false
             },
             onOpenSession = { session ->
+                stopStreaming()
                 archiveCurrent()
                 conversation.clear()
                 conversation.addAll(session.items)
@@ -554,6 +752,7 @@ fun ChatScreen(
                 if (index >= 0) sessions[index] = sessions[index].copy(title = title)
             },
             onDelete = { session ->
+                if (activeSession == session.id) stopStreaming()
                 sessions.removeAll { it.id == session.id }
                 if (activeSession == session.id) {
                     conversation.clear()
@@ -562,6 +761,9 @@ fun ChatScreen(
             },
             onOpenSettings = { drawerOpen = false; onOpenSettings() },
             progress = drawer,
+            activeSessionId = activeSession,
+            accountLabel = accountUser?.username ?: "登录你的账号",
+            onOpenAccount = { drawerOpen = false; accountOpen = true },
         )
     }
 }
@@ -641,11 +843,22 @@ private fun ConversationList(
     reduced: Boolean,
     onConfirm: (ChatItem.Confirm) -> Unit,
     onEdit: (ChatItem.Confirm) -> Unit,
+    onUndo: (ChatItem.Confirm) -> Unit,
     onImportCsv: (ChatItem.CsvAttachment) -> Unit,
     onCancelCsv: (ChatItem.CsvAttachment) -> Unit,
     modifier: Modifier = Modifier,
     bottomPadding: Dp = 0.dp,
 ) {
+    val blocks = remember(conversation.toList()) {
+        buildList<List<ChatItem>> {
+            conversation.forEach { item ->
+                if (item is ChatItem.Tool && lastOrNull()?.firstOrNull() is ChatItem.Tool) {
+                    val previous = removeAt(lastIndex)
+                    add(previous + item)
+                } else add(listOf(item))
+            }
+        }
+    }
     LazyColumn(
         modifier,
         state = listState,
@@ -653,7 +866,8 @@ private fun ConversationList(
         verticalArrangement = Arrangement.spacedBy(XpSpace.s),
     ) {
         if (reminder != null) item(key = "reminder") { ReminderLine(reminder) }
-        itemsIndexed(conversation, key = { _, item -> item.id }) { _, item ->
+        itemsIndexed(blocks, key = { _, block -> block.first().id }) { _, block ->
+            val item = block.first()
             Box(
                 Modifier.then(
                     if (reduced) Modifier
@@ -667,9 +881,10 @@ private fun ConversationList(
                 when (item) {
                     is ChatItem.Assistant -> AssistantText(item.text, streaming = item.streaming)
                     is ChatItem.User -> UserBubble(item.text)
-                    is ChatItem.Tool -> ToolRow(item)
+                    is ChatItem.Tool -> ThoughtPanel(block.filterIsInstance<ChatItem.Tool>())
                     is ChatItem.Chart -> ChartCard(item)
-                    is ChatItem.Confirm -> ConfirmCard(item, onConfirm = { onConfirm(item) }, onEdit = { onEdit(item) })
+                    is ChatItem.View -> ChatViewCard(item.view)
+                    is ChatItem.Confirm -> ConfirmCard(item, onConfirm = { onConfirm(item) }, onEdit = { onEdit(item) }, onUndo = { onUndo(item) })
                     is ChatItem.CsvAttachment -> CsvPreviewCard(
                         item,
                         onImport = { onImportCsv(item) },
@@ -685,12 +900,7 @@ private fun ConversationList(
 @Composable
 private fun AssistantText(text: String, streaming: Boolean = false) {
     Row(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.xs)) {
-        Text(
-            text,
-            Modifier.weight(1f, fill = false),
-            style = MaterialTheme.typography.bodyLarge,
-            color = XpColors.Ink,
-        )
+        MessageMarkdown(text, Modifier.weight(1f))
         if (streaming) {
             StreamingCursor(Modifier.align(Alignment.Bottom).padding(start = 3.dp, bottom = 3.dp))
         }

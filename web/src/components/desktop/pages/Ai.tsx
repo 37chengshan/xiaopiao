@@ -1,5 +1,8 @@
+import { useAutoEntry } from "@/services/aiPrefs";
+import { accountSnapshot } from "@/services/account";
+import { runAgent } from "@/services/agent";
 import { ArrowUp, Check, ChevronDown, Copy, Layers, Plus, RotateCcw, Sparkles, Square, ThumbsDown, ThumbsUp, Trash2, Upload } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { templateAssistant } from "@/ai/assistant";
@@ -17,6 +20,9 @@ import { ReceiptPaper } from "@/features/receipt/ReceiptPaper";
 import { type DraftTxn } from "@/logic/quickAdd";
 import { MiniBars, type Point } from "../charts";
 import { money } from "../format";
+import { MarkdownText } from "../markdown";
+import { ViewCard } from "./aiViews";
+import type { ViewSpec } from "@/services/views";
 import { useDayDoc } from "../receiptDoc";
 import { seriesOf } from "../statsModel";
 import { Button, Card, Kbd, Skeleton } from "../ui";
@@ -47,6 +53,39 @@ interface ToolStep {
   summary?: string;
 }
 
+/**
+ * One rolling line of real operation steps (docs/AGENT.md: status is an operation summary, never hidden
+ * reasoning). New steps land at the bottom; while a turn is still running the line keeps cycling so the
+ * reader sees the work moving instead of a frozen label.
+ */
+function ThoughtTicker({ steps, running }: { steps: string[]; running: boolean }) {
+  const last = steps.length - 1;
+  const [index, setIndex] = useState(() => Math.max(0, last));
+  useEffect(() => { setIndex(Math.max(0, last)); }, [last]);
+  useEffect(() => {
+    if (!running || steps.length < 2) return;
+    const id = window.setInterval(() => setIndex((i) => (i + 1) % steps.length), 1_800);
+    return () => window.clearInterval(id);
+  }, [running, steps.length]);
+  const current = steps[Math.min(index, Math.max(0, last))] ?? "";
+  return (
+    <span className="relative block h-[15px] min-w-0 flex-1 overflow-hidden text-left">
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.span
+          key={`${index}-${current}`}
+          initial={{ y: 11, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -11, opacity: 0 }}
+          transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+          className="block truncate"
+        >
+          {current}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
+
 interface Msg {
   id: string;
   role: "ai" | "user";
@@ -55,6 +94,8 @@ interface Msg {
   text?: string;
   phase?: Phase;
   tools?: ToolStep[];
+  /** Modular views the model asked for; each one is rendered by the app, never by model text. */
+  views?: ViewSpec[];
   card?: Card;
   refs?: RefSpec[];
   /** the user sentence that produced this answer, so regenerate can re-run it in place */
@@ -163,8 +204,10 @@ const fill = (template: string, ...vals: (string | number)[]) =>
   vals.reduce<string>((acc, v) => acc.replace("{}", String(v)), template);
 
 export function AiPage() {
+  const reduceMotion = useReducedMotion();
   const locale = useLocale();
-  const { txns, now, add, isLoading, isError, refetch } = useLedger();
+  const [autoEntry] = useAutoEntry();
+  const { txns, now, add, remove, isLoading, isError, refetch } = useLedger();
   const shell = useShell();
   const today = startOfDay(now);
   const monthStart = useMemo(() => {
@@ -188,7 +231,8 @@ export function AiPage() {
   const [elapsed, setElapsed] = useState(0);
   const [activeAnswerId, setActiveAnswerId] = useState<string | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreviewState | null>(null);
-  const turn = useRef<{ cancelled: boolean; msgId: string } | null>(null);
+  const turn = useRef<{ cancelled: boolean; msgId: string; controller: AbortController } | null>(null);
+  useEffect(() => () => { if (turn.current) { turn.current.cancelled = true; turn.current.controller.abort(); } }, []);
   /** the greeting alone may be rewritten in place when the language changes (it is also the only
    * message a restored chat can hold) */
   const openingId = useRef<string | null>(store.msgs.length === 1 && store.msgs[0].role === "ai" ? store.msgs[0].id : null);
@@ -273,19 +317,43 @@ export function AiPage() {
       const intent = templateAssistant.understand(text, now);
       const answerId = replaceId ?? nid();
       if (replaceId) {
-        patch(replaceId, (m) => ({ ...m, phase: "thinking", chunks: [], tools: [], card: undefined, refs: undefined, prompt: text }));
+        patch(replaceId, (m) => ({ ...m, phase: "thinking", chunks: [], tools: [], views: [], card: undefined, refs: undefined, prompt: text }));
       } else {
         const userMsg: Msg = { id: nid(), role: "user", text };
-        const aiMsg: Msg = { id: answerId, role: "ai", phase: "thinking", chunks: [], tools: [], prompt: text };
+        const aiMsg: Msg = { id: answerId, role: "ai", phase: "thinking", chunks: [], tools: [], views: [], prompt: text };
         setMsgs((list) => [...list, userMsg, aiMsg]);
       }
       // The panel follows whichever answer is being written.
       setActiveAnswerId(answerId);
       setBusy(true);
-      const token = { cancelled: false, msgId: answerId };
+      const token = { cancelled: false, msgId: answerId, controller: new AbortController() };
       turn.current = token;
 
       try {
+        if (accountSnapshot()?.verified && !isLoading && !isError && intent.kind !== "ADD" && intent.kind !== "IMPORT") {
+          let received = false;
+          try {
+            const previous = (replaceId ? msgs.slice(0, msgs.findIndex(m => m.id === replaceId) - 1) : msgs)
+              .filter(m => m.role === "user" || (m.phase === "done" && m.chunks?.join("").trim()))
+              .map(m => ({ role: m.role === "user" ? "user" as const : "assistant" as const, content: (m.text ?? m.chunks?.join("") ?? "").slice(0, 6000) }));
+            await runAgent([...previous, { role: "user", content: text }], txns, token.controller.signal, event => {
+              if (token.cancelled) return;
+              if (event.type === "token") {
+                received = true;
+                patch(answerId, m => ({ ...m, phase: "streaming", chunks: [...(m.chunks ?? []), event.text ?? ""] }));
+              } else if (event.type === "status") {
+                patch(answerId, m => ({ ...m, tools: [...(m.tools ?? []).map(t => ({ ...t, done: true })), { id: nid(), label: event.text ?? "正在处理", done: false }] }));
+              } else if (event.type === "view") {
+                patch(answerId, m => ({ ...m, views: [...(m.views ?? []), event.view as ViewSpec] }));
+              } else if (event.type === "done") patch(answerId, m => ({ ...m, phase: "done", tools: m.tools?.map(t => ({ ...t, done: true })) }));
+            });
+            return;
+          } catch (error) {
+            if (token.cancelled) return;
+            if (received) { patch(answerId, m => ({ ...m, phase: "error", tools: m.tools?.map(t => ({ ...t, done: true })) })); return; }
+            patch(answerId, m => ({ ...m, tools: [{ id: nid(), label: error instanceof Error ? error.message : "云端暂不可用，改用本机统计", done: true }] }));
+          }
+        }
         await sleep(320 + Math.random() * 180);
         if (token.cancelled) return;
 
@@ -411,6 +479,19 @@ export function AiPage() {
 
         await sleep(140);
         if (token.cancelled) return;
+        if (autoEntry && card?.kind === "drafts" && !token.cancelled) {
+          const drafts = card.drafts;
+          const rows: Txn[] = drafts.map(d => ({ id: d.id, amountCents: d.amountCents, direction: d.direction, merchant: d.merchant, category: d.category, occurredAt: d.occurredAt, source: d.source }));
+          const result = await add(rows);
+          card = { ...card, saved: true };
+          patch(answerId, m => ({ ...m, chunks: [locale === "en" ? `Saved ${result.added} entries. You can undo below.` : `已自动记入 ${result.added} 笔，可在提示中撤销。`] }));
+          toast(locale === "en" ? `Saved ${result.added} entries` : `已自动记入 ${result.added} 笔`, result.added === rows.length ? {
+            duration: 10_000,
+            action: { label: locale === "en" ? "Undo" : "撤销", onClick: () => { void Promise.all(rows.map(row => remove(row.id))).then(() => {
+              patch(answerId, m => ({ ...m, chunks: [locale === "en" ? "Entries undone." : "已撤销这次自动记账。"], card: undefined }));
+            }).catch(() => toast.error(locale === "en" ? "Could not undo. Check your ledger." : "撤销未完成，请到记账页检查。")); } },
+          } : undefined);
+        }
         patch(answerId, (m) => ({ ...m, phase: "card", card, refs }));
         await sleep(320);
         if (token.cancelled) return;
@@ -427,13 +508,14 @@ export function AiPage() {
         inputRef.current?.focus();
       }
     },
-    [busy, isError, isLoading, monthStart, now, patch, today, txns],
+    [busy, isError, isLoading, monthStart, now, patch, today, txns, msgs, autoEntry, add, remove, locale],
   );
 
   const stop = () => {
     const token = turn.current;
     if (!token) return;
     token.cancelled = true;
+    token.controller.abort();
     turn.current = null;
     setBusy(false);
     patch(token.msgId, (m) => (m.phase === "thinking" || m.phase === "streaming" || m.phase === "card" ? { ...m, phase: "stopped" } : m));
@@ -702,35 +784,55 @@ export function AiPage() {
   };
 
   const toolsRow = (m: Msg) => {
-    if (!m.tools || m.tools.length === 0) return null;
+    const tools = m.tools ?? [];
     const running = m.phase === "thinking" || m.phase === "streaming";
-    const open = running || expandedTools.has(m.id);
+    if (!running && tools.length === 0) return null;
+    // While running the line rolls through real steps; once done it settles into a one-line count.
+    // Two rounds report the same status; the stream shows each real step once.
+    const labels = running
+      ? tools.length ? [...new Set(tools.map((tool) => tool.label))] : [s("ai.thinking")]
+      : [s("ai.thoughtStream").replace("{n}", String(new Set(tools.map((tool) => tool.label)).size))];
+    const open = expandedTools.has(m.id);
+    const toggle = () => setExpandedTools((prev) => {
+      const next = new Set(prev);
+      if (next.has(m.id)) next.delete(m.id);
+      else next.add(m.id);
+      return next;
+    });
     return (
       <div className="mt-2">
-        <button
-          type="button"
-          onClick={() => setExpandedTools((prev) => {
-            const next = new Set(prev);
-            if (next.has(m.id)) next.delete(m.id);
-            else next.add(m.id);
-            return next;
-          })}
-          className="d-press flex h-6 items-center gap-1.5 rounded-full bg-d-fill px-2.5 text-[11.5px] text-d-ink-2 hover:text-d-ink"
-          aria-expanded={open}
-        >
-          <span className="num">{running ? s("ai.toolsRunning") : s("ai.toolsUsed").replace("{n}", String(m.tools.length))}</span>
-          <ChevronDown className={cn("size-3 transition-transform", open && "rotate-180")} strokeWidth={2} aria-hidden />
-        </button>
+        <div className="flex items-center gap-2">
+          {running ? (
+            <span className="flex shrink-0 gap-1" aria-hidden>
+              {[0, 1, 2].map((k) => (
+                <motion.span key={k} className="size-1.5 rounded-full bg-d-ink-3" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1, delay: k * 0.16 }} />
+              ))}
+            </span>
+          ) : (
+            <Check className="size-3 shrink-0 text-d-positive" strokeWidth={2.4} aria-hidden />
+          )}
+          <button
+            type="button"
+            onClick={toggle}
+            className="d-press flex h-6 min-w-0 max-w-[320px] items-center gap-1.5 rounded-full bg-d-fill px-2.5 text-[11.5px] text-d-ink-2 hover:text-d-ink"
+            aria-expanded={open}
+            aria-label={s("ai.toolsUsed").replace("{n}", String(tools.length || labels.length))}
+          >
+            <ThoughtTicker steps={labels} running={running} />
+            {running && elapsed >= 1 && <span className="num shrink-0 text-d-ink-3">{s("ai.elapsed").replace("{n}", String(elapsed))}</span>}
+            <ChevronDown className={cn("size-3 shrink-0 transition-transform", open && "rotate-180")} strokeWidth={2} aria-hidden />
+          </button>
+        </div>
         <AnimatePresence initial={false}>
-          {open && (
+          {open && tools.length > 0 && (
             <motion.ul
-              initial={{ height: 0, opacity: 0 }}
+              initial={reduceMotion ? false : { height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+              transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.23, 1, 0.32, 1] }}
               className="overflow-hidden"
             >
-              {m.tools.map((tool) => (
+              {tools.map((tool) => (
                 <li key={tool.id} className="mt-1 flex items-center gap-1.5 text-[11.5px] text-d-ink-3">
                   {tool.done ? (
                     <Check className="size-3 text-d-positive" strokeWidth={2.4} aria-hidden />
@@ -851,32 +953,17 @@ export function AiPage() {
                     <div className="flex items-start gap-2.5">
                       <Mark />
                       <div className="min-w-0 flex-1">
-                        {m.phase === "thinking" && (
-                          <p className="flex items-center gap-2 text-[13px] text-d-ink-3">
-                            <span className="flex gap-1" aria-hidden>
-                              {[0, 1, 2].map((k) => (
-                                <motion.span
-                                  key={k}
-                                  className="size-1.5 rounded-full bg-d-ink-3"
-                                  animate={{ opacity: [0.3, 1, 0.3] }}
-                                  transition={{ repeat: Infinity, duration: 1, delay: k * 0.16 }}
-                                />
-                              ))}
-                            </span>
-                            {s("ai.thinking")}
-                            {elapsed >= 1 && <span className="num text-[11.5px] text-d-ink-3">{s("ai.elapsed").replace("{n}", String(elapsed))}</span>}
-                          </p>
-                        )}
                         {toolsRow(m)}
                         {m.chunks && m.chunks.length > 0 && (
-                          <p className="mt-2 text-[14px] leading-[23px] text-d-ink">
-                            {m.chunks.map((piece, k) => (
-                              <motion.span key={k} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
-                                {piece}
-                              </motion.span>
-                            ))}
-                            {(m.phase === "streaming" || m.phase === "card") && <span className="d-cursor" aria-hidden />}
-                          </p>
+                          <div className="mt-2 text-[14px] leading-[23px] text-d-ink">
+                            <MarkdownText text={m.chunks.join("")} />
+                            {(m.phase === "streaming" || m.phase === "card") && <span className="d-cursor mt-1 inline-block" aria-hidden />}
+                          </div>
+                        )}
+                        {(m.views?.length ?? 0) > 0 && (
+                          <div className="space-y-2">
+                            {m.views?.map((view, index) => <ViewCard key={`${view.kind}-${index}`} spec={view} />)}
+                          </div>
                         )}
                         {m.phase === "stopped" && <p className="mt-1 text-[11.5px] text-d-ink-3">{s("ai.stopped")}</p>}
                         {m.phase === "error" && (
@@ -891,7 +978,7 @@ export function AiPage() {
                         )}
                         <AnimatePresence initial={false}>
                           {(m.phase === "card" || m.phase === "done") && m.card && (
-                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }} className="overflow-hidden">
+                            <motion.div initial={reduceMotion ? false : { height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }} className="overflow-hidden">
                               {cardNode(m)}
                             </motion.div>
                           )}

@@ -1,3 +1,5 @@
+import { Link } from "@tanstack/react-router";
+import { useAccount } from "@/services/account";
 import { PanelLeftClose, PanelLeftOpen, Store, Users } from "lucide-react";
 import { useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
@@ -92,6 +94,7 @@ function SegmentSwitch({ segment, collapsed }: { segment: Segment; collapsed: bo
 }
 
 export function Sidebar({ collapsed, pathname, onToggle, toggleLabel }: { collapsed: boolean; pathname: string; onToggle: () => void; toggleLabel?: string }) {
+  const user = useAccount();
   const segment = segmentOf(pathname);
   const items = segment === "shop" ? SHOP_NAV : PERSONAL_NAV;
   return (
@@ -131,6 +134,7 @@ export function Sidebar({ collapsed, pathname, onToggle, toggleLabel }: { collap
       </nav>
 
       <div className={cn("mt-auto border-t border-d-hairline py-2", collapsed ? "px-2" : "px-2")}>
+        <Link to="/login" title={user?.email ?? "登录 / Sign in"} className="mb-1 flex min-h-10 items-center gap-2 rounded-lg px-2.5 text-[13px] text-d-ink-2 hover:bg-d-fill"><span className="grid size-6 shrink-0 place-items-center rounded-full bg-d-fill text-xs">{user ? user.username[0].toUpperCase() : "我"}</span>{!collapsed && <span className="truncate">{user?.username ?? "登录 / Sign in"}</span>}</Link>
         <NavRow item={SETTINGS_ITEM} active={isActive(pathname, SETTINGS_ITEM.to)} collapsed={collapsed} />
         {!collapsed && (
           <button

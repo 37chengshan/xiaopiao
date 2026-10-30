@@ -235,3 +235,31 @@ fun LaunchSideSection(side: LaunchSide, onSide: (LaunchSide) -> Unit) {
         }
     }
 }
+
+
+@Composable
+fun AccountNavSection(username: String?, email: String?, verified: Boolean, onOpen: () -> Unit) {
+    val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
+    GroupedSection(header = if (en) "Account" else "账号", dividerInset = IconInset) {
+        item {
+            GroupedRow(title = username ?: if (en) "Sign in or create an account" else "登录或创建账号",
+                subtitle = email ?: if (en) "Optional. Keep your local ledger without signing in." else "可选，不登录也能使用本机记账",
+                value = if (username != null && !verified) if (en) "Verify email" else "待验证" else null,
+                leading = { IconTile(Icons.Outlined.Person, tint = XpColors.Info, background = XpColors.InfoSoft) },
+                chevron = true, onClick = onOpen)
+        }
+    }
+}
+
+@Composable
+fun AiEntrySection(enabled: Boolean, onChange: (Boolean) -> Unit) {
+    val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
+    GroupedSection(header = if (en) "AI bookkeeping" else "AI 记账", dividerInset = IconInset) {
+        item {
+            GroupedRow(title = if (en) "Automatic entry" else "AI 自动入账",
+                subtitle = if (en) "Save recognized entries directly. You can undo. CSV still requires review." else "一句话和图片识别后直接记入，可撤销；CSV 保留确认",
+                leading = { IconTile(Icons.Outlined.Lightbulb, tint = XpColors.Warning, background = XpColors.WarningSoft) },
+                trailing = { XpSwitch(enabled, onChange) })
+        }
+    }
+}
