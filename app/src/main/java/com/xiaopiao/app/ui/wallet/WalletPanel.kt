@@ -407,7 +407,7 @@ private fun BankStackItem(
     onReveal: () -> Unit,
     onCopy: () -> Unit,
 ) {
-    val height by animateDpAsState(if (isFront) 200.dp else if (compact) 40.dp else 71.dp, tween(232), label = "cardHeight")
+    val height by animateDpAsState(if (isFront) 240.dp else if (compact) 40.dp else 71.dp, tween(232), label = "cardHeight")
     CardCanvas(card.face, modifier.fillMaxWidth().height(height).pressableClick(haptic = false, onClick = onToggle)) {
         Column(Modifier.fillMaxSize()) {
             if (compact) {

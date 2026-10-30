@@ -1,0 +1,33 @@
+<resources>
+    <string name="budget_card_spent">Spent ¥%1$s</string>
+    <string name="budget_card_limit">Budget ¥%1$s</string>
+    <string name="budget_card_remaining">Remaining ¥%1$s</string>
+    <string name="budget_card_over">Over budget by ¥%1$s</string>
+    <string name="budget_card_allowance">%1$d days left · ¥%2$s available per day</string>
+    <string name="budget_detail_day">Daily budget details</string>
+    <string name="budget_detail_week">Weekly budget details</string>
+    <string name="budget_detail_month">Monthly budget details</string>
+    <string name="budget_detail_category_title">%1$s · Monthly details</string>
+    <string name="budget_detail_transaction">Expense details</string>
+    <string name="budget_detail_back">Back to summary</string>
+    <string name="budget_detail_close">Close details</string>
+    <string name="budget_detail_previous">Previous period</string>
+    <string name="budget_detail_next">Next period</string>
+    <string name="budget_detail_spent">Total spent</string>
+    <string name="budget_detail_count">%1$d expenses</string>
+    <string name="budget_detail_current_limit">Current budget setting</string>
+    <string name="budget_detail_edit">Edit budget</string>
+    <string name="budget_detail_daily_spend">Spending by day</string>
+    <string name="budget_detail_weekly_spend">Spending by week</string>
+    <string name="budget_detail_ranking">Spending ranking</string>
+    <string name="budget_detail_category">Category</string>
+    <string name="budget_detail_merchant">Merchant</string>
+    <string name="budget_detail_time">Date and time</string>
+    <string name="budget_detail_source">Recorded via</string>
+    <string name="budget_detail_note">Note</string>
+    <string name="budget_detail_transactions">Expenses</string>
+    <string name="budget_detail_empty">No expenses in this period</string>
+    <string name="budget_detail_empty_hint">Only expenses count toward your budget.</string>
+    <string name="budget_detail_all_ranks">View all %1$d rankings</string>
+    <string name="budget_detail_view">View expense details</string>
+</resources>

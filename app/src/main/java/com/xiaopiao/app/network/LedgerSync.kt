@@ -90,7 +90,9 @@ class LedgerSync(context: Context, private val account: AccountClient, private v
 
     /** First sync for this account on this device: everything here gets uploaded, cursor starts over. */
     private suspend fun adopt(userId: String) {
-        if (prefs.getString("user", null) == userId) return
+        val previous = prefs.getString("user", null)
+        if (previous == userId) return
+        if (previous != null) throw ApiException("ACCOUNT_MISMATCH", "本机账本属于此前登录的账号，未自动上传到新账号。请切回原账号同步。")
         db.withTransaction {
             dao.markAllTxnsDirty()
             dao.markTouchedCategoriesDirty()

@@ -45,8 +45,9 @@ class ReceiptHaptics(context: Context) {
 
     private fun play(predefined: Int, fallbackMs: Long, amplitude: Int) {
         if (!enabled) return
-        val effect = runCatching { VibrationEffect.createPredefined(predefined) }
-            .getOrElse { VibrationEffect.createOneShot(fallbackMs, amplitude) }
+        val effect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+            runCatching { VibrationEffect.createPredefined(predefined) }.getOrElse { VibrationEffect.createOneShot(fallbackMs, amplitude) }
+        else VibrationEffect.createOneShot(fallbackMs, amplitude)
         vibrate(effect)
     }
 

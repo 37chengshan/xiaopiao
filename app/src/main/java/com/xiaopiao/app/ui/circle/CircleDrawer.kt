@@ -48,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
@@ -80,19 +81,25 @@ fun CircleMenuDrawer(
     viewerId: String = CircleDemo.MY_ID,
 ) {
     var creating by remember { mutableStateOf(false) }
+    val reduced = com.xiaopiao.app.ui.components.rememberReducedMotion()
+    val progress = remember { androidx.compose.animation.core.Animatable(0f) }
+    var afterClose by remember { mutableStateOf<(() -> Unit)?>(null) }
+    fun closeThen(action: () -> Unit = onClose) { afterClose = action }
+    androidx.compose.runtime.LaunchedEffect(afterClose != null, reduced) {
+        val to = if (afterClose == null) 1f else 0f
+        if (reduced) progress.snapTo(to) else progress.animateTo(to, com.xiaopiao.app.ui.theme.XpMotion.snappy())
+        if (to == 0f) afterClose?.invoke()
+    }
+    androidx.activity.compose.BackHandler { closeThen() }
     Box(Modifier.fillMaxSize()) {
         Box(
-            Modifier.matchParentSize().background(XpColors.Scrim)
-                .pressableClick(haptic = false, onClick = onClose),
+            Modifier.matchParentSize().graphicsLayer { alpha = progress.value }.background(XpColors.Scrim)
+                .pressableClick(haptic = false) { closeThen() },
         )
-        AnimatedVisibility(
-            visible = true,
-            enter = slideInHorizontally(initialOffsetX = { -it }, animationSpec = tween(240, easing = XpEase.out)) +
-                fadeIn(tween(160)),
-            modifier = Modifier.align(Alignment.CenterStart),
-        ) {
+        Box(Modifier.align(Alignment.CenterStart)) {
             Surface(
-                Modifier.fillMaxHeight().widthIn(max = 332.dp).fillMaxWidth(0.88f),
+                Modifier.fillMaxHeight().widthIn(max = 332.dp).fillMaxWidth(0.88f)
+                    .graphicsLayer { translationX = -size.width * (1f - progress.value) },
                 color = XpColors.Card,
                 shape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
             ) {
@@ -129,7 +136,7 @@ fun CircleMenuDrawer(
                             } else null,
                             onClick = {
                                 onBookChange(switchCircle(book, circle.id))
-                                onClose()
+                                closeThen()
                             },
                         )
                     }
@@ -143,12 +150,12 @@ fun CircleMenuDrawer(
                     Spacer(Modifier.height(XpSpace.s))
                     DrawerHairline()
                     DrawerLabel(stringResource(R.string.circle_menu_manage))
-                    DrawerRow({ IconTileInline(Icons.Outlined.Group) }, stringResource(R.string.circle_home_members), null, onClick = onMembers)
-                    DrawerRow({ IconTileInline(Icons.Outlined.QrCode2) }, stringResource(R.string.circle_home_invite), null, onClick = onInvite)
-                    DrawerRow({ IconTileInline(Icons.Outlined.Share) }, stringResource(R.string.circle_menu_share), stringResource(R.string.circle_menu_share_sub), onClick = onShare)
-                    DrawerRow({ IconTileInline(Icons.Outlined.EmojiEvents) }, stringResource(R.string.circle_home_leaderboard), null, onClick = onLeaderboard)
-                    DrawerRow({ IconTileInline(Icons.Outlined.Lock) }, stringResource(R.string.circle_home_award), stringResource(R.string.circle_home_award_sub), onClick = onAward)
-                    DrawerRow({ IconTileInline(Icons.Outlined.SportsEsports) }, stringResource(R.string.circle_home_games_title), stringResource(R.string.circle_home_games_meta, 8), onClick = onGames)
+                    DrawerRow({ IconTileInline(Icons.Outlined.Group) }, stringResource(R.string.circle_home_members), null, onClick = { closeThen(onMembers) })
+                    DrawerRow({ IconTileInline(Icons.Outlined.QrCode2) }, stringResource(R.string.circle_home_invite), null, onClick = { closeThen(onInvite) })
+                    DrawerRow({ IconTileInline(Icons.Outlined.Share) }, stringResource(R.string.circle_menu_share), stringResource(R.string.circle_menu_share_sub), onClick = { closeThen(onShare) })
+                    DrawerRow({ IconTileInline(Icons.Outlined.EmojiEvents) }, stringResource(R.string.circle_home_leaderboard), null, onClick = { closeThen(onLeaderboard) })
+                    DrawerRow({ IconTileInline(Icons.Outlined.Lock) }, stringResource(R.string.circle_home_award), stringResource(R.string.circle_home_award_sub), onClick = { closeThen(onAward) })
+                    DrawerRow({ IconTileInline(Icons.Outlined.SportsEsports) }, stringResource(R.string.circle_home_games_title), stringResource(R.string.circle_home_games_meta, 8), onClick = { closeThen(onGames) })
                 }
             }
         }
@@ -163,7 +170,7 @@ fun CircleMenuDrawer(
                 if (result.error == null) {
                     onBookChange(result.book)
                     creating = false
-                    onClose()
+                    closeThen()
                 }
             },
         )

@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.chat
 
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.layout.onSizeChanged
@@ -651,9 +652,10 @@ fun ChatScreen(
         ) { top ->
         // The conversation runs under the floating input and the glass tab bar (docs/DESIGN.md §4.3); with the
         // keyboard up the bar is covered, so only the input's own height is reserved.
-        val imeUp = WindowInsets.isImeVisible
-        val barInset = if (imeUp) 0.dp else LocalTabBarInset.current
         val density = LocalDensity.current
+        val imeHeight = with(density) { androidx.compose.foundation.layout.WindowInsets.ime.getBottom(this).toDp() }
+        // IME padding + this remainder is max(IME, tabs), continuous throughout closing.
+        val barInset = (LocalTabBarInset.current - imeHeight).coerceAtLeast(0.dp)
         var composerH by remember { mutableStateOf(72.dp) }
         val glass = com.kyant.backdrop.backdrops.rememberLayerBackdrop()
         Box(Modifier.fillMaxSize().background(chatBackdrop()).imePadding()) {

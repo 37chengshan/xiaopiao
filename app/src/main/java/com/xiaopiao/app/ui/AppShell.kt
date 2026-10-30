@@ -270,7 +270,10 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 // screen does not "pop". No slide — that would slow down a dozens-times-a-day action.
                 enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) },
                 exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90)) },
-                popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) },
+                popEnterTransition = {
+                    if (initialState.destination.route == "settings") androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(200, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { -it / 8 } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(160))
+                    else androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120))
+                },
                 popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90)) },
             ) {
                 composable(NavTab.Ledger.route) {
@@ -297,12 +300,12 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 composable(
                     "settings",
                     enterTransition = {
-                        androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.spring(0.9f, 340f)) { it / 3 } +
+                        androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(220, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { it / 4 } +
                             androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(160))
                     },
                     exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140)) },
                     popExitTransition = {
-                        androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.spring(0.9f, 320f)) { it / 3 } +
+                        androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(200, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { it / 4 } +
                             androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140))
                     },
                 ) {
@@ -313,7 +316,12 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         backLabel = settingsBack.value,
                     )
                 }
-                composable(NavTab.Receipt.route) {
+                composable(NavTab.Receipt.route,
+                    enterTransition = { androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(180, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { it / 14 } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150)) },
+                    exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120)) },
+                    popEnterTransition = { androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(180, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { -it / 14 } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150)) },
+                    popExitTransition = { androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(160, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { it / 14 } + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120)) },
+                ) {
                     ReceiptPage(container, receiptHost)
                 }
                 composable(NavTab.Chat.route) {

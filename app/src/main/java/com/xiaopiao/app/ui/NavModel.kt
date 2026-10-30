@@ -10,13 +10,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /** Every page the tab bar can land on. [route] doubles as the NavHost route and the bar item id. */
-enum class NavTab(val route: String, val label: String) {
+enum class NavTab(val route: String, private val zhLabel: String) {
     Ledger("ledger", "记账"),
     Receipt("receipt", "小票"),
     Insights("insights", "统计"),
     Chat("chat", "AI"),
     Circle("circle", "圈子"),
-    Games("games", "游戏"),
+    Games("games", "游戏");
+    val label: String get() = if (java.util.Locale.getDefault().language != "en") zhLabel else when(this) {
+        Ledger -> "Ledger"; Receipt -> "Receipt"; Insights -> "Insights"; Chat -> "AI"; Circle -> "Circles"; Games -> "Games"
+    }
 }
 
 /** The two halves of the app. 记账 side is the default; 社交 side opens when 圈子 is tapped. */

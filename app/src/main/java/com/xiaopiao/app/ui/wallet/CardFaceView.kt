@@ -2,6 +2,12 @@ package com.xiaopiao.app.ui.wallet
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -70,9 +76,14 @@ fun CardCanvas(
 ) {
     val ink = face.onBg
     Box(
-        modifier.clip(RoundedCornerShape(16.dp)).background(face.bg),
+        modifier.graphicsLayer { rotationX = 2f; rotationY = -1f; cameraDistance = 18f * density }
+            .shadow(12.dp, RoundedCornerShape(16.dp), clip = false)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Brush.linearGradient(listOf(lerp(face.bg, Color.White, 0.14f), face.bg, lerp(face.bg, Color.Black, 0.18f))))
+            .border(1.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = 0.55f), Color.White.copy(alpha = 0.06f), Color.Black.copy(alpha = 0.25f))), RoundedCornerShape(16.dp)),
     ) {
         Canvas(Modifier.fillMaxSize()) {
+            drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.12f), Color.Transparent), center = Offset(size.width * 0.2f, 0f), radius = size.width * 0.8f), size.width * 0.8f, Offset(size.width * 0.2f, 0f))
             rotate(18f) {
                 val step = 26.dp.toPx()
                 var x = -size.height
@@ -176,6 +187,15 @@ fun BankCardBody(
             )
         }
         Spacer(Modifier.height(10.dp))
+        Canvas(Modifier.width(36.dp).height(25.dp)) {
+            val metal = listOf(Color(0xFFE4D6A5), Color(0xFFBCA46A), Color(0xFFF3E5B4))
+            drawRoundRect(Brush.linearGradient(metal), cornerRadius = CornerRadius(4.dp.toPx()))
+            val etch = Color(0xFF85734D).copy(alpha = 0.65f)
+            drawLine(etch, Offset(size.width * 0.33f, 0f), Offset(size.width * 0.33f, size.height), 1.dp.toPx())
+            drawLine(etch, Offset(size.width * 0.67f, 0f), Offset(size.width * 0.67f, size.height), 1.dp.toPx())
+            drawLine(etch, Offset(0f, size.height * 0.5f), Offset(size.width, size.height * 0.5f), 1.dp.toPx())
+        }
+        Spacer(Modifier.height(8.dp))
         Text(
             revealedPan?.let { CardBin.groups(it) } ?: CardBin.mask(card.last4),
             style = PanStyle,

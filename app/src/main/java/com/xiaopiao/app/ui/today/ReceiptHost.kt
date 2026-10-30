@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.CompositionLocalProvider
 
 /** One receipt on its way out of the printer. */
-class PrintJob(val day: Long, val lines: List<ReceiptLine>, val timeline: PrintTimeline, val stampText: String, val share: ShareContent)
+class PrintJob(val day: Long, val lines: List<ReceiptLine>, val timeline: PrintTimeline, val stampText: String, val share: ShareContent, val receipt: com.xiaopiao.app.domain.DailyReceipt? = null)
 
 /**
  * The print ceremony's owner, one per app shell: it holds the settings, today's number for the resident strip
@@ -77,7 +77,7 @@ class ReceiptHost internal constructor(
                 font = settings.font,
             )
             val timeline = PrintTimeline.build(lines, reduced)
-            job = PrintJob(day, lines, timeline, stamp, share)
+            job = PrintJob(day, lines, timeline, stamp, share, receipt)
             session.open(timeline, reduced, from)
         }
     }
@@ -125,7 +125,6 @@ fun rememberReceiptHost(container: AppContainer, onOpenPage: () -> Unit): Receip
 /** The overlay + share sheet for [host]; place once, above the navigation, so any page's strip can trigger it. */
 @Composable
 fun ReceiptHostOverlay(host: ReceiptHost) {
-    if (host.circleCompose) ReceiptCircleCompose(host)
     val job = host.job ?: return
     val density = LocalDensity.current
     val session = host.session
@@ -144,23 +143,22 @@ fun ReceiptHostOverlay(host: ReceiptHost) {
         ReceiptShareSheet(
             it,
             onDismiss = { host.share = null },
-            onShareToCircle = { host.share = null; host.circleCompose = true },
+            onShareToCircle = { host.circleCompose = true },
         )
     }
+    if (host.circleCompose) ReceiptCircleCompose(host)
 }
 
 /** The circle compose sheet opened from the receipt: today's slip attached, the result said in a toast. */
 @Composable
 private fun ReceiptCircleCompose(host: ReceiptHost) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val txns by remember(host) { host.container.ledger.observeAll() }.collectAsState(initial = emptyList())
-    val viewerId = com.xiaopiao.app.ui.circle.CircleDemo.MY_ID
-    com.xiaopiao.app.ui.circle.CircleComposeSheet(
-        store = host.container.circles,
-        viewerId = viewerId,
-        todayReceipt = com.xiaopiao.app.ui.circle.todayReceiptPost(txns, viewerId, System.currentTimeMillis()),
-        attachByDefault = true,
-        onPosted = { name -> android.widget.Toast.makeText(context, "已发到「$name」", android.widget.Toast.LENGTH_SHORT).show() },
+    val receipt = host.job?.receipt ?: return
+    ReceiptCircleShareSheet(host.container.account, receipt,
+        onPosted = { name ->
+            host.circleCompose = false
+            android.widget.Toast.makeText(context, "已发到「$name」", android.widget.Toast.LENGTH_SHORT).show()
+        },
         onDismiss = { host.circleCompose = false },
     )
 }
