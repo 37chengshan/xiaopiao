@@ -152,7 +152,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
             // The same 设置 page, reached from the gear on every 小店 page; back returns to where the shop was.
             BackHandler { merchantSettings = false }
             // Same page, but its edition row now leads back to the personal edition.
-            SettingsScreen(container, inMerchant = true, onSwitchEdition = { merchantSettings = false; merchantMode = false }, onBack = { merchantSettings = false })
+            SettingsScreen(container, inMerchant = true, onSwitchEdition = { merchantSettings = false; merchantMode = false }, onBack = { merchantSettings = false }, backLabel = "小店")
         } else {
             // SaveableStateProvider keeps the shop's tab / sub-page while the settings page replaces it.
             merchantState.SaveableStateProvider("merchant") {
@@ -180,9 +180,16 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
 
     // The resident receipt: pages place a ReceiptStrip, the ceremony itself lives here, above the navigation.
     val receiptHost = rememberReceiptHost(container) { go(NavTab.Receipt) }
+    // 设置 is a push page, and its 返回 names the tab whose gear opened it (移动七条 §1).
+    val settingsBack = remember { mutableStateOf(NavTab.Ledger.label) }
+    fun openSettingsFrom(tab: NavTab?) {
+        settingsBack.value = (tab ?: NavTab.Ledger).label
+        nav.navigate("settings")
+    }
+    val currentTab by androidx.compose.runtime.rememberUpdatedState(NavTab.entries.firstOrNull { it.route == current })
     val topBarHost = remember(nav) {
         TopBarHost(
-            openSettings = { nav.navigate("settings") },
+            openSettings = { openSettingsFrom(currentTab) },
             openWallet = { walletOpen = true },
             openSearch = { ledgerSearch = true; go(NavTab.Ledger) },
         )
@@ -276,8 +283,9 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         container,
                         open,
                         onOpenConsumed,
-                        onOpenSettings = { nav.navigate("settings") },
+                        onOpenSettings = { openSettingsFrom(NavTab.Insights) },
                         onOpenLedger = { f -> ledgerFilter = f; go(NavTab.Ledger) },
+                        onRecord = { record.openManual() },
                     )
                 }
                 composable(
@@ -296,6 +304,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         container,
                         onSwitchEdition = { merchantMode = true },
                         onBack = { nav.popBackStack() },
+                        backLabel = settingsBack.value,
                     )
                 }
                 composable(NavTab.Receipt.route) {
@@ -304,14 +313,14 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 composable(NavTab.Chat.route) {
                     ChatScreen(
                         container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openManual() },
-                        onOpenSettings = { nav.navigate("settings") },
+                        onOpenSettings = { openSettingsFrom(NavTab.Chat) },
                         // The session drawer covers the page; the tab bar steps aside while it is open.
                         onDrawerOpenChange = { navBarHidden = it },
                     )
                 }
-                composable(NavTab.Circle.route) { CircleHome(container, onOpenSettings = { nav.navigate("settings") }, onOpenGames = { go(NavTab.Games) }) }
+                composable(NavTab.Circle.route) { CircleHome(container, onOpenSettings = { openSettingsFrom(NavTab.Circle) }, onOpenGames = { go(NavTab.Games) }) }
                 // 游戏 is its own tab of the social side, not a state inside 圈子: nothing saved can reopen it by itself.
-                composable(NavTab.Games.route) { GamesHub(onBack = { go(NavTab.Circle) }, onOpenSettings = { nav.navigate("settings") }) }
+                composable(NavTab.Games.route) { GamesHub(onBack = { go(NavTab.Circle) }, onOpenSettings = { openSettingsFrom(NavTab.Games) }) }
 
             }
             }

@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.OpenRequest
+
 import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.ui.components.NavScrollNone
 import androidx.compose.material.icons.Icons
@@ -39,6 +40,8 @@ fun InsightsScreen(
     onOpenSettings: () -> Unit = {},
     onPrint: (() -> Unit)? = null,
     onOpenLedger: (com.xiaopiao.app.ui.ledger.LedgerFilter) -> Unit = {},
+    /** 记一笔 from the stats empty state (the shell owns the record pane). */
+    onRecord: () -> Unit = {},
 ) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { ReminderScheduler.ensureScheduled(context) }
@@ -70,30 +73,38 @@ fun InsightsScreen(
             onOpenRegret = { route = InsightsRoute.REGRET },
             onPrint = onPrint,
             onOpenLedger = onOpenLedger,
+            onRecord = onRecord,
         )
         return
     }
 
     BackHandler { route = null }
+    val backLabel = "统计"
+    // 预算 brings its own NavScaffold (it is also the drawer over 记账); wrapping it again stacked two bars.
+    if (page == InsightsRoute.BUDGET) {
+        BudgetPage(
+            container,
+            onBack = { route = null },
+            onOpenSettings = onOpenSettings,
+            backLabel = backLabel,
+        )
+        return
+    }
     NavScaffold(
         page.label,
         NavScrollNone,
         onBack = { route = null },
+        backLabel = backLabel,
     ) { top ->
         // One bar only: the sub-pages draw their own scrolling content, the reserved height travels into their
-        // scroll padding so the page runs under the capsules (统计 → 预算 used to stack a second bar).
+        // scroll padding so the page runs under the capsules.
         Box(Modifier.fillMaxSize()) {
             when (page) {
-                InsightsRoute.BUDGET -> BudgetPage(
-                    container,
-                    onBack = { route = null },
-                    onOpenSettings = onOpenSettings,
-                    embedded = true,
-                    topPad = top,
-                )
                 InsightsRoute.AWARDS -> AwardsPage(input, topPad = top)
                 InsightsRoute.SUBSCRIPTIONS -> SubscriptionPage(input, topPad = top)
                 InsightsRoute.REGRET -> RegretPage(input, topPad = top)
+                // Handled above: 预算 owns its own chrome.
+                InsightsRoute.BUDGET -> Unit
             }
         }
     }

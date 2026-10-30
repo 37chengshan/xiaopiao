@@ -11,17 +11,28 @@ import kotlinx.coroutines.flow.map
 private val Context.ledgerStore by preferencesDataStore(name = "ledger_prefs")
 
 /**
- * Ledger-only preferences (docs/APP-DESIGN.md §3.7): the 「隐藏金额」 eye state and the recent-search list.
- * Both belong to this screen, so they live next to it instead of in the global settings store.
+ * Ledger-only preferences (docs/APP-DESIGN.md §3.7): the 「隐藏金额」 eye state, the recent-search list and
+ * the one-shot swipe hint. All belong to this screen, so they live next to it instead of in the global settings store.
  */
 class LedgerPrefs(private val context: Context) {
     private val hideKey = booleanPreferencesKey("hide_amounts")
     private val recentKey = stringPreferencesKey("recent_searches")
+    private val swipeHintKey = booleanPreferencesKey("swipe_hint_shown")
 
     fun observeHidden(): Flow<Boolean> = context.ledgerStore.data.map { it[hideKey] ?: false }
 
     suspend fun setHidden(hidden: Boolean) {
         context.ledgerStore.edit { it[hideKey] = hidden }
+    }
+
+    /**
+     * The one-time 左滑删除 hint (mobile rules §5: every gesture gets a hint, but only once): false until the
+     * first bill row has peeked its delete action, true forever after.
+     */
+    fun observeSwipeHintShown(): Flow<Boolean> = context.ledgerStore.data.map { it[swipeHintKey] ?: false }
+
+    suspend fun markSwipeHintShown() {
+        context.ledgerStore.edit { it[swipeHintKey] = true }
     }
 
     fun observeRecent(): Flow<List<String>> = context.ledgerStore.data.map { prefs -> prefs[recentKey].toRecent() }

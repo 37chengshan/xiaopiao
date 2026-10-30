@@ -94,6 +94,8 @@ fun BudgetPage(
     embedded: Boolean = false,
     /** Height the outer bar reserves; only scrolls with the content, so the page can run under the capsules. */
     topPad: Dp = 0.dp,
+    /** Where 返回 goes (移动七条 §1): 统计 when it is a stats sub-page, 记账 for the drawer. */
+    backLabel: String = "返回",
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -150,7 +152,7 @@ fun BudgetPage(
             "预算",
             NavScrollNone,
             onBack = onBack,
-            backLabel = "返回",
+            backLabel = backLabel,
             trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
         ) { top -> body(Modifier.fillMaxSize(), top) }
     }

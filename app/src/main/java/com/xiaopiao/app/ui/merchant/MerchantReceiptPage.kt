@@ -116,6 +116,8 @@ fun MerchantReceiptPage(
     onBack: () -> Unit,
     onRecordDay: (Long) -> Unit,
     onOpenSettings: () -> Unit = {},
+    /** Where 返回 goes: the shop tab the receipt was opened from (移动七条 §1). */
+    backLabel: String = "小店",
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -169,7 +171,7 @@ fun MerchantReceiptPage(
         title = "经营小票",
         scroll = NavScrollNone,
         onBack = onBack,
-        backLabel = "返回",
+        backLabel = backLabel,
         trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
     ) { top ->
         Column(

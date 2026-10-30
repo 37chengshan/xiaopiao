@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +48,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
+
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.insights.StatsAggregator
@@ -68,6 +71,7 @@ import com.xiaopiao.app.insights.startOfWeek
 import com.xiaopiao.app.ui.components.BarTrend
 import com.xiaopiao.app.ui.components.EmptyState
 import com.xiaopiao.app.ui.components.DonutChart
+import com.xiaopiao.app.ui.components.EmptyState
 import com.xiaopiao.app.ui.components.GroupedRow
 import com.xiaopiao.app.ui.components.GroupedSection
 import com.xiaopiao.app.ui.ledger.LedgerFilter
@@ -164,6 +168,8 @@ fun StatsScreen(
     onPrint: (() -> Unit)? = null,
     /** Chart taps land in 账单, filtered to the tapped category and this period (tt: app 所有东西都需要联动). */
     onOpenLedger: (LedgerFilter) -> Unit = {},
+    /** 记一笔 from the empty state: the shell owns the record pane (docs/DESIGN.md §7). */
+    onRecord: () -> Unit = {},
 ) {
     val txns by container.ledger.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -340,13 +346,15 @@ fun StatsScreen(
                         direction = direction,
                         onDirection = { direction = it },
                     )
-                    if (snapshot.entries.isEmpty()) {
-                        // Empty is normal here, so say what the page will become instead of showing blank cards.
-                        EmptyState(
-                            icon = Icons.Outlined.ReceiptLong,
-                            title = "这一段还没有账单",
-                            body = "记下第一笔后，这里会长出趋势、构成和排行。",
-                            modifier = Modifier.cardSurface().padding(vertical = XpSpace.m),
+                    // Nothing in this period: no chart of zeros, no ¥0 KPIs, no empty ranking — one honest
+                    // empty state instead (移动七条 §7), and the 「更多」 tab stays reachable above it.
+                    if (snapshot.isEmpty) {
+                        StatsEmptyState(
+                            ledgerEmpty = txns.isEmpty(),
+                            // 自定义 has no previous period to show, so its only way out is a new record.
+                            canGoBack = range != StatsRange.Custom,
+                            onRecord = onRecord,
+                            onPrevious = { anchor = StatsAggregator.shiftAnchor(range, anchor, -1) },
                         )
                     } else {
                         if (narrative != null) {
@@ -512,6 +520,23 @@ private fun CircleArrow(icon: androidx.compose.ui.graphics.vector.ImageVector, d
 }
 
 // ── cards ─────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Empty period, two flavours (移动七条 §7): the whole ledger is empty → 「记一笔」; this period is empty while
+ * other periods hold bills → 「看上一期」, because the user's next question is "where did it go?".
+ */
+@Composable
+private fun StatsEmptyState(ledgerEmpty: Boolean, canGoBack: Boolean, onRecord: () -> Unit, onPrevious: () -> Unit) {
+    val backFirst = !ledgerEmpty && canGoBack
+    EmptyState(
+        icon = Icons.Outlined.ReceiptLong,
+        title = if (ledgerEmpty) "还没有账单" else "这段时间没有记录",
+        body = if (ledgerEmpty) "记下第一笔，统计才会有内容。" else "换一期看看，或者记一笔新的。",
+        actionLabel = if (backFirst) "看上一期" else "记一笔",
+        onAction = if (backFirst) onPrevious else onRecord,
+        modifier = Modifier.padding(top = XpSpace.l),
+    )
+}
 
 /** Quiet summary: hairline card, 11sp label, 13sp copy, inline link. No avatar, fill, or accent chrome. */
 @Composable

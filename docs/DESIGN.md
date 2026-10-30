@@ -68,6 +68,7 @@
 - 右上角在所有一级页**完全相同**：同一个组件 `AppTopActions()`（`ReceiptStrip` + 齿轮，顺序、尺寸、间距一致），不许单独写 `NavIconButton(Settings)`。
 - 左上角记账侧用同一个 `LedgerSideLeading()`（卡包 + 搜索）。
 - 页面级动作（日期跳转、筛选、新建）**不进顶栏**：放进页面内容（如账单总览卡右上角的「按天查看」）。
+- **热区 ≥48dp**（移动七条 §2，2026-10-29）：顶栏每个控件的节点都是 48dp（`NavTouchTarget`），视觉仍是 44dp 胶囊里的 40dp 槽位（`NavBarHeight`）——多出的 4dp 落在胶囊下沿，只吃点击、不画东西；`ReceiptStrip` 一样是 48dp 节点 + 20dp 线条图标。相邻按钮的节点各占 48dp，不互相压。
 
 ### 4.2 二级页
 
@@ -164,3 +165,4 @@ push 进入：左 = 返回（`onBack`），右 = 最多一个与本页相关的�
 | 6 | ~~小店版按本规范对齐~~ merchant-v8 已合（2026-10-29）；遗留：`MerchantConfirmDialog` 待收进 `XpBlurDialog`、`FitText`/`MerchantHeroCard` 等可上收、`bi()` 待 App i18n 后换 strings | Sonnet 子代理 |
 | 7 | 卡包展开动效未照参考录屏 16.2–16.8s 还原 | Claude |
 | 8 | App 中英文切换 | 待定（Claude 或 Sonnet 子代理） |
+| 9 | ~~顶栏按钮热区只有 34/40dp、左滑删除没有引导、统计空周期照画 ¥0 卡、二级页返回只写「返回」~~ app-ux 已修（2026-10-29）：顶栏节点 48dp（视觉不变）、一次性左滑 peek、统计空态统一 `EmptyState`、返回写目的地（设置/游戏/统计/小店/所在 tab）。遗留：App 内其余中文文案仍在硬编码，等 i18n | omp |

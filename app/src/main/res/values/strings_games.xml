@@ -2,7 +2,7 @@
 <resources>
     <string name="games_title">游戏</string>
     <string name="games_settings">设置</string>
-    <string name="games_back">返回</string>
+    <string name="games_back">游戏</string>
     <string name="games_count_unit">个小游戏</string>
     <string name="games_hub_sub">点开就玩 · 单局 1–5 分钟</string>
     <string name="games_meta">约 %1$d 题 · %2$d 分钟</string>

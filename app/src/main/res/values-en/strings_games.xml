@@ -2,7 +2,7 @@
 <resources>
     <string name="games_title">Games</string>
     <string name="games_settings">Settings</string>
-    <string name="games_back">Back</string>
+    <string name="games_back">Games</string>
     <string name="games_count_unit">mini games</string>
     <string name="games_hub_sub">Tap to play · 1–5 min a round</string>
     <string name="games_meta">About %1$d questions · %2$d min</string>

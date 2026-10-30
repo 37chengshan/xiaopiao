@@ -54,6 +54,8 @@ fun SettingsScreen(
     onSwitchEdition: () -> Unit = {},
     onBack: (() -> Unit)? = null,
     inMerchant: Boolean = false,
+    /** Where 返回 goes (移动七条 §1): the page whose gear opened 设置, e.g. 「记账」. */
+    backLabel: String = "返回",
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -140,7 +142,7 @@ fun SettingsScreen(
         onBack = { sub = null },
         modifier = Modifier.fillMaxSize(),
     ) {
-        NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack, glassGround = true) { top ->
+        NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack, backLabel = backLabel, glassGround = true) { top ->
             Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
                 Box(Modifier.xpRevealLayer(index = 0)) {
                     AppearanceNavSection(

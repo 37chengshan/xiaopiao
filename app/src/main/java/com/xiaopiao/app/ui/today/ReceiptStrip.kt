@@ -6,6 +6,8 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,7 +27,9 @@ import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.ui.components.AnimatedNavGlyph
+import com.xiaopiao.app.ui.components.NavBarHeight
 import com.xiaopiao.app.ui.components.NavGlyph
+import com.xiaopiao.app.ui.components.NavTouchTarget
 import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.XpColors
@@ -50,7 +54,8 @@ fun ReceiptStrip(modifier: Modifier = Modifier) {
 
     Box(
         modifier
-            .size(40.dp)
+            // 48dp touch area (mobile rules §2); the glyph stays 20dp and keeps the pill's own optical centre.
+            .size(NavTouchTarget)
             .onGloballyPositioned { bounds = it.boundsInWindow() }
             .semantics {
                 contentDescription = "今日小票 $text，点按打印，长按打开小票页"
@@ -75,11 +80,13 @@ fun ReceiptStrip(modifier: Modifier = Modifier) {
                     }
                 }
             },
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.TopCenter,
     ) {
-        AnimatedNavGlyph(
-            NavGlyph.Receipt, selected = false, tint = XpColors.Ink, reduced = reduced, replay = 0,
-            modifier = Modifier.size(20.dp).graphicsLayer { scaleX = press; scaleY = press },
-        )
+        Box(Modifier.fillMaxWidth().height(NavBarHeight), contentAlignment = Alignment.Center) {
+            AnimatedNavGlyph(
+                NavGlyph.Receipt, selected = false, tint = XpColors.Ink, reduced = reduced, replay = 0,
+                modifier = Modifier.size(20.dp).graphicsLayer { scaleX = press; scaleY = press },
+            )
+        }
     }
 }
