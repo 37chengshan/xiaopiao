@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.today
 
+import com.xiaopiao.app.ui.components.XpSheet
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
@@ -17,7 +18,6 @@ import androidx.compose.material.icons.outlined.Share
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -28,9 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -97,14 +95,9 @@ fun ReceiptShareSheet(content: ShareContent, onDismiss: () -> Unit, onShareToCir
     fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
     suspend fun render() = layer.toImageBitmap().asAndroidBitmap()
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = XpRadius.l, topEnd = XpRadius.l),
-        containerColor = XpColors.Card,
-        scrimColor = XpColors.Scrim,
-    ) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = XpSpace.l)) {
+    // The shared glass sheet (blurred page behind, translucent surface, light rim), like every other drawer.
+    XpSheet(onDismiss = onDismiss) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("分享小票", style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
                 Box(
@@ -199,23 +192,17 @@ private fun Swatch(g: CardGradient, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Segmented 完整 / 简版. */
+/** Segmented 完整 / 简版, on the shared glass-thumb control. */
 @Composable
 private fun ModeToggle(brief: Boolean, modifier: Modifier = Modifier, onChange: (Boolean) -> Unit) {
-    Row(modifier.height(34.dp).clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill).padding(2.dp)) {
-        listOf(false to "完整", true to "简版").forEach { (value, label) ->
-            val on = brief == value
-            Box(
-                Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(XpRadius.pill))
-                    .background(if (on) XpColors.Card else Color.Transparent)
-                    .pressableClick(haptic = false) { onChange(value) }
-                    .semantics { selected = on },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(label, style = MaterialTheme.typography.bodySmall, color = if (on) XpColors.Ink else XpColors.InkSecondary)
-            }
-        }
-    }
+    com.xiaopiao.app.ui.components.Segmented(
+        options = listOf("完整", "简版"),
+        selected = if (brief) 1 else 0,
+        onSelect = { onChange(it == 1) },
+        modifier = modifier,
+        height = 34.dp,
+        pill = true,
+    )
 }
 
 /** The black primary of the share sheet (Ink fill, Canvas text): the one place the sheet is allowed to shout. */

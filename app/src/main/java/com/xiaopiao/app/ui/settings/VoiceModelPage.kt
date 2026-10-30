@@ -84,7 +84,7 @@ fun VoicePage(container: AppContainer, onBack: () -> Unit) {
     var confirmDelete by remember { mutableStateOf<AsrModel?>(null) }
     val scroll = rememberScrollState()
 
-    NavScaffold(copy.title, rememberNavScroll(scroll), onBack = onBack, glassGround = true) { top ->
+    NavScaffold(copy.title, rememberNavScroll(scroll), onBack = onBack) { top ->
         Column(
             Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(XpSpace.m),

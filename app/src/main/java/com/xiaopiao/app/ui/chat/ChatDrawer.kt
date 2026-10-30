@@ -1,5 +1,14 @@
 package com.xiaopiao.app.ui.chat
 
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.xiaopiao.app.ui.components.Grabber
+import com.xiaopiao.app.ui.components.liquidGlass
+import com.kyant.backdrop.Backdrop
 import com.xiaopiao.app.ui.components.rememberWindowBlurBehind
 import com.xiaopiao.app.ui.components.glassSurface
 import androidx.compose.animation.core.Animatable
@@ -75,12 +84,12 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 /**
- * Session drawer (v6): 82% wide, slides in from the left, pushes the page 24dp and dims it. Search at the
- * top, 新对话, sessions grouped by 今天 / 昨天 / 7 天内 / 更早, long-press a row to rename or delete, and the
- * settings entry lives at the bottom with the avatar (the top bar is reserved for ☰ / segment / 新对话).
+ * Session drawer: a glass sheet that rises from the bottom (tt 2026-10-30: 侧边栏改成从下往上的抽屉) over the
+ * dimmed page. Search at the top, 新对话, sessions grouped by 今天 / 昨天 / 7 天内 / 更早, long-press a row to
+ * rename or delete, and the settings entry at the bottom with the avatar.
  *
- * Drag: horizontal drag on the panel closes it (velocity-aware). Opening is a tap on ☰ or an edge swipe
- * handled by [ChatDrawerEdge]; both share the same spring, so an interrupted drag resumes from where it is.
+ * Drag: a vertical drag on the sheet closes it (velocity-aware). Opening is a tap on ☰; open and close share
+ * the same spring, so an interrupted drag resumes from where it is.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -99,6 +108,8 @@ fun ChatDrawer(
     activeSessionId: Int? = null,
     accountLabel: String = "登录你的账号",
     onOpenAccount: () -> Unit = {},
+    /** The page behind, recorded as a sibling: the sheet refracts it. Null draws an opaque sheet. */
+    backdrop: Backdrop? = null,
 ) {
     val scope = rememberCoroutineScope()
     val reduced = com.xiaopiao.app.ui.components.rememberReducedMotion()
@@ -108,10 +119,52 @@ fun ChatDrawer(
     var deleting by remember { mutableStateOf<ChatSession?>(null) }
 
     if (!open && progress.value <= 0.001f) return
-    BoxWithConstraints(modifier.fillMaxSize()) {
-        val panelWidth = maxWidth * 0.82f
+    val listState = rememberLazyListState()
+    // Sheet height in px, known once laid out; drag deltas are measured against it.
+    var sheetPx by remember { mutableStateOf(1f) }
+    fun pull(delta: Float) {
+        scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+            progress.snapTo((progress.value - delta / sheetPx).coerceIn(0f, 1f))
+        }
+    }
+    suspend fun settle(velocity: Float) {
+        val target = if (velocity > 600f || progress.value < 0.6f) 0f else 1f
+        if (reduced) progress.snapTo(target) else progress.animateTo(target, com.xiaopiao.app.ui.theme.XpMotion.snappy())
+        if (target == 0f) onClose()
+    }
+    BoxWithConstraints(
+        modifier.fillMaxSize()
+            // A downward pull that starts on the sheet while its list is at the top moves the sheet; this sits on
+            // the still outer box (the sheet itself moves under the finger) and runs before the list sees it.
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val sheetTop = size.height - size.height * 0.80f * progress.value
+                    if (down.position.y < sheetTop) return@awaitEachGesture
+                    val tracker = VelocityTracker()
+                    var travel = 0f
+                    var pulling = false
+                    while (true) {
+                        val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        val dy = change.position.y - change.previousPosition.y
+                        travel += dy
+                        if (!pulling && travel > viewConfiguration.touchSlop && !listState.canScrollBackward) pulling = true
+                        if (pulling) {
+                            tracker.addPosition(change.uptimeMillis, change.position)
+                            pull(dy)
+                            change.consume()
+                        }
+                    }
+                    if (pulling) scope.launch { settle(tracker.calculateVelocity().y) }
+                }
+            },
+    ) {
+        val panelHeight = maxHeight * 0.80f
         val density = LocalDensity.current
-        val widthPx = with(density) { panelWidth.toPx() }
+        val heightPx = with(density) { panelHeight.toPx() }
+        sheetPx = heightPx
+        val shape = RoundedCornerShape(topStart = XpRadius.sheet, topEnd = XpRadius.sheet)
 
         if (progress.value > 0.001f) {
             Box(
@@ -129,29 +182,28 @@ fun ChatDrawer(
 
         Column(
             Modifier
-                .width(panelWidth)
-                .fillMaxHeight()
-                .offset { IntOffset((-widthPx + widthPx * progress.value).roundToInt(), 0) }
-                .background(XpColors.Card)
-                .draggable(
-                    orientation = Orientation.Horizontal,
-                    state = rememberDraggableState { delta ->
-                        scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) { progress.snapTo((progress.value + delta / widthPx).coerceIn(0f, 1f)) }
-                    },
-                    onDragStopped = { velocity ->
-                        val target = if (velocity < -600f || progress.value < 0.6f) 0f else 1f
-                        if (reduced) progress.snapTo(target) else progress.animateTo(target, com.xiaopiao.app.ui.theme.XpMotion.snappy())
-                        if (target == 0f) onClose()
-                    },
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(panelHeight)
+                .offset { IntOffset(0, (heightPx - heightPx * progress.value).roundToInt()) }
+                .liquidGlass(
+                    backdrop, shape,
+                    film = XpColors.Card.copy(alpha = if (XpColors.isDark) 0.80f else 0.78f),
+                    blur = 24.dp, lensHeight = 16.dp, lensAmount = 24.dp, shadow = 24.dp,
                 )
-                .statusBarsPadding()
+                .draggable(
+                    orientation = Orientation.Vertical,
+                    state = rememberDraggableState { delta -> pull(delta) },
+                    onDragStopped = { velocity -> settle(velocity) },
+                )
                 // Reserve the floating tab bar the shell draws above every page, so the account row and
                 // settings stay tappable (AppShell owns that bar; see the lane report).
-                .padding(start = XpSpace.l, end = XpSpace.m, top = XpSpace.m, bottom = 88.dp),
+                .padding(start = XpSpace.l, end = XpSpace.m, bottom = 88.dp),
         ) {
+            Grabber()
             SearchField(query) { query = it }
             NewChatRow(onNewChat)
-            LazyColumn(Modifier.weight(1f).padding(top = XpSpace.xs)) {
+            LazyColumn(Modifier.weight(1f).padding(top = XpSpace.xs), state = listState) {
                 if (groups.isEmpty()) {
                     item("empty") {
                         Text(
@@ -343,24 +395,3 @@ private fun SessionRow(
         }
     }
 }
-
-/** Invisible 20dp strip on the left edge: a real drag (not a tap) opens the drawer. */
-@Composable
-fun ChatDrawerEdge(onOpen: () -> Unit, modifier: Modifier = Modifier) {
-    var travelled by remember { mutableStateOf(0f) }
-    Box(
-        modifier
-            .width(20.dp)
-            .fillMaxHeight()
-            .draggable(
-                orientation = Orientation.Horizontal,
-                state = rememberDraggableState { delta -> travelled += delta },
-                onDragStarted = { travelled = 0f },
-                onDragStopped = { velocity ->
-                    if (travelled > 24f || velocity > 400f) onOpen()
-                    travelled = 0f
-                },
-            ),
-    )
-}
-

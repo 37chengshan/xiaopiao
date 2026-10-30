@@ -6,6 +6,12 @@
     <string name="games_count_unit">mini games</string>
     <string name="games_hub_sub">Tap to play · 1–5 min a round</string>
     <string name="games_meta">About %1$d questions · %2$d min</string>
+    <string name="games_meta_short">%1$d min</string>
+    <string name="games_row_meta">%1$d Q · %2$d min</string>
+    <string name="games_hub_count">%1$d mini games</string>
+    <string name="games_group_personality">Personality</string>
+    <string name="games_group_guess">Guess</string>
+    <string name="games_group_challenge">Challenges</string>
     <string name="games_mode_persona">Persona</string>
     <string name="games_mode_challenge">Challenge</string>
     <string name="games_mode_radar">Radar</string>
@@ -36,7 +42,7 @@
     <string name="games_result_saved">Saved this round</string>
     <string name="games_result_of">/ %1$d</string>
     <string name="games_result_radar">Strongest trait</string>
-    <string name="games_result_radar_title">Five-sided profile</string>
+    <string name="games_result_radar_title">Your profile</string>
     <string name="games_share_title">Share card</string>
     <string name="games_share_footer">Today\'s Receipt · Games</string>
     <string name="games_copy">Copy text</string>
@@ -46,21 +52,17 @@
     <string name="games_another">Another game</string>
     <string name="games_disclaimer">For fun only — not advice</string>
 
-    <string name="games_tag_wallet_persona">Ten questions, one wallet personality</string>
-    <string name="games_tag_spend_duel">Thirty either-or moments</string>
-    <string name="games_tag_receipt_guess">Guess what is on the receipt</string>
-    <string name="games_tag_blind_box">Pick the right price band</string>
-    <string name="games_tag_daily_tasks">Ten small tasks, done at your pace</string>
-    <string name="games_tag_save_challenge">Eight scenes, one thrifty choice each</string>
-    <string name="games_tag_ledger_quiz">Fifteen bits of ledger trivia</string>
-    <string name="games_tag_spend_radar">Five scales, one five-sided map</string>
 
-    <string name="games_howto_wallet_persona">From your first move on payday to what has been sitting in your cart for months — ten questions, one read on your wallet\'s personality.</string>
+        <string name="games_result_analysis">Analysis</string>
+    <string name="games_howto_spend_profile">Twelve scales, two per axis: planning, impulse, enjoyment, social, thrift, novelty. No right answers, only a shape.</string>
+    <string name="games_howto_big_five">Twenty scales from the public-domain Mini-IPIP: extraversion, agreeableness, conscientiousness, stability, openness — two keyed each way.</string>
+    <string name="games_howto_saving_style">Ten picks reveal your saving style: automatic, goal, buffer, casual, minimal, enjoy.</string>
+<string name="games_howto_wallet_persona">From your first move on payday to what has been sitting in your cart for months — ten questions, one read on your wallet\'s personality.</string>
     <string name="games_howto_spend_duel">Thirty either-or moments with no right answer. Pick your way through and your spending style shows up.</string>
     <string name="games_howto_receipt_guess">Look at an item on a receipt and guess what it cost. The real price is revealed right after.</string>
     <string name="games_howto_blind_box">No exact numbers — just pick a price band. Eight blind boxes, and how close you land.</string>
     <string name="games_howto_daily_tasks">Ten little tasks drawn at random. Each one you do counts — no streaks, no judgement.</string>
     <string name="games_howto_save_challenge">Eight everyday scenes, each with a thriftier option. See how much this round saves.</string>
     <string name="games_howto_ledger_quiz">Fifteen true-or-false questions from the ledger\'s trivia drawer. Every answer comes with an explanation.</string>
-    <string name="games_howto_spend_radar">Five quick scales draw your five-sided money map: planning, impulse, social, experience, minimalism.</string>
+    <string name="games_howto_spend_radar">Six quick scales draw your money map: planning, impulse, social, experience, minimalism, novelty.</string>
 </resources>

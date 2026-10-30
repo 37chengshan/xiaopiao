@@ -78,8 +78,6 @@ import com.xiaopiao.app.ui.ledger.LedgerFilter
 import com.xiaopiao.app.ui.ledger.LedgerRange
 import com.xiaopiao.app.ui.components.IconTile
 import com.xiaopiao.app.ui.components.LedgerSideLeading
-import com.xiaopiao.app.ui.components.LocalGlass
-import com.xiaopiao.app.ui.components.glassCard
 import com.xiaopiao.app.ui.components.AppTopActions
 import com.xiaopiao.app.ui.components.LineTrend
 import com.xiaopiao.app.ui.components.NavScaffold
@@ -151,11 +149,10 @@ private fun neighborOf(range: StatsRange, forward: Boolean): StatsRange? {
     return SwipeOrder.getOrNull(if (forward) i + 1 else i - 1)
 }
 
-/** Liquid glass on the page's [GlassGround]; the plain white card with a 0.5dp hairline edge without one. */
+/** White card with a 0.5dp hairline edge: separation from the canvas comes from the line, never a shadow. */
 @Composable
 private fun Modifier.cardSurface(shape: Shape = ContentShape): Modifier =
-    if (LocalGlass.current != null) glassCard(shape)
-    else clip(shape).background(XpColors.Card).border(0.5.dp, XpColors.Hairline, shape)
+    clip(shape).background(XpColors.Card).border(0.5.dp, XpColors.Hairline, shape)
 
 /**
  * 统计 tab landing page (docs/APP-DESIGN.md §3.3): 周/月/年/自定义 → AI 小结 → KPI → 趋势 → 构成 → 排行,
@@ -217,7 +214,6 @@ fun StatsScreen(
         NavScrollNone,
         leading = { LedgerSideLeading() },
         trailing = { AppTopActions() },
-        glassGround = true,
     ) { top ->
         // The top inset is scroll content, not a frame: cards slide up under the glass capsules.
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -418,31 +414,17 @@ fun StatsScreen(
 
 // ── segments ──────────────────────────────────────────────────────────────────────────────────
 
-/** 周报 / 月报 / 年报 / 自定义 / 更多: 14sp labels, 2dp accent underline as wide as the selected text. */
+/** 周报 / 月报 / 年报 / 自定义 / 更多 on the shared glass-thumb segmented control (tt 2026-10-30). */
 @Composable
 private fun RangeSegments(selected: StatsRange, more: Boolean, onSelect: (StatsRange) -> Unit, onMore: () -> Unit) {
-    val density = LocalDensity.current
-    Row(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp)) {
-        (StatsRange.entries.map { it.label to it } + ("更多" to null)).forEach { (label, range) ->
-            val on = if (range == null) more else !more && range == selected
-            var textWidth by remember { mutableStateOf(24.dp) }
-            val underline by animateDpAsState(if (on) textWidth else 0.dp, tween(180, easing = XpEase.out), label = "underline")
-            Column(
-                Modifier.weight(1f).pressableClick(haptic = false) { if (range == null) onMore() else onSelect(range) }.padding(vertical = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    label,
-                    style = SegmentLabel.copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal),
-                    color = if (on) XpColors.Ink else XpColors.InkTertiary,
-                    maxLines = 1,
-                    modifier = Modifier.onSizeChanged { textWidth = with(density) { it.width.toDp() } },
-                )
-                Spacer(Modifier.height(5.dp))
-                Box(Modifier.width(underline).height(2.dp).clip(RoundedCornerShape(1.dp)).background(XpColors.Accent))
-            }
-        }
-    }
+    val ranges = StatsRange.entries
+    com.xiaopiao.app.ui.components.Segmented(
+        options = ranges.map { it.label } + "更多",
+        selected = if (more) ranges.size else ranges.indexOf(selected),
+        onSelect = { i -> if (i == ranges.size) onMore() else onSelect(ranges[i]) },
+        modifier = Modifier.padding(vertical = 2.dp),
+        pill = true,
+    )
 }
 
 // ── period row ────────────────────────────────────────────────────────────────────────────────

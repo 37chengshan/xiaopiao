@@ -151,7 +151,7 @@ fun SettingsScreen(
         onBack = { sub = null },
         modifier = Modifier.fillMaxSize(),
     ) {
-        NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack, backLabel = backLabel, glassGround = true) { top ->
+        NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack, backLabel = backLabel) { top ->
             Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
                 val sync by container.ledgerSync.status.collectAsState()
                 AccountNavSection(user?.username, user?.email, user?.verified == true, syncNote(sync).takeIf { user?.verified == true }) { sub = SettingsSub.Account }

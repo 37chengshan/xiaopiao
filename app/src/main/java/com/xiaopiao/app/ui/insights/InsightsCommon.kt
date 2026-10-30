@@ -129,25 +129,15 @@ fun SelectChip(text: String, selected: Boolean, modifier: Modifier = Modifier, o
     ) { Text(text, style = MaterialTheme.typography.labelLarge, color = fg) }
 }
 
-/** Two-or-three option segmented control on a soft track. */
+/** Two-or-three option segmented control: the shared glass-thumb [com.xiaopiao.app.ui.components.Segmented]. */
 @Composable
 fun <T> Segmented(options: List<Pair<T, String>>, selected: T, modifier: Modifier = Modifier, onSelect: (T) -> Unit) {
-    Row(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.s)).background(XpColors.Fill).padding(2.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        options.forEach { (value, label) ->
-            val on = value == selected
-            Box(
-                Modifier.weight(1f).clip(RoundedCornerShape(XpRadius.s - 2.dp))
-                    .background(if (on) XpColors.Card else androidx.compose.ui.graphics.Color.Transparent)
-                    .clickable { onSelect(value) }.padding(vertical = XpSpace.s),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(label, style = MaterialTheme.typography.labelLarge, color = if (on) XpColors.Ink else XpColors.InkSecondary)
-            }
-        }
-    }
+    com.xiaopiao.app.ui.components.Segmented(
+        options = options.map { it.second },
+        selected = options.indexOfFirst { it.first == selected }.coerceAtLeast(0),
+        onSelect = { onSelect(options[it].first) },
+        modifier = modifier,
+    )
 }
 
 /** Counts up to [target] with an ease-out tween. */

@@ -13,6 +13,7 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.Shadow
 import com.xiaopiao.app.ui.theme.XpColors
 
@@ -34,6 +35,8 @@ fun Modifier.liquidGlass(
     lensHeight: Dp = 8.dp,
     lensAmount: Dp = 12.dp,
     shadow: Dp = 16.dp,
+    /** The bright rim along the edge that makes it read as glass rather than a frosted card. */
+    highlight: Highlight? = Highlight.Default,
     fallback: Color = XpColors.Card,
 ): Modifier =
     if (backdrop == null) {
@@ -47,18 +50,8 @@ fun Modifier.liquidGlass(
                 blur(blur.toPx())
                 lens(lensHeight.toPx(), lensAmount.toPx())
             },
+            highlight = { highlight },
             shadow = { Shadow(radius = shadow, color = rim) },
             onDrawSurface = { drawRect(film) },
         )
     }
-
-/**
- * A content card on a [GlassGround] page (设置、统计、小票): liquid glass over the theme-coloured ground, or the plain
- * opaque card anywhere else. Content is clipped to [shape].
- */
-@Composable
-fun Modifier.glassCard(shape: Shape, fallback: Color = XpColors.Card): Modifier {
-    val ground = LocalGlass.current
-    return if (ground == null) this.clip(shape).background(fallback)
-    else this.liquidGlass(ground, shape).clip(shape)
-}

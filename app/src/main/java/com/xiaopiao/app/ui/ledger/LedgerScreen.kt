@@ -1,5 +1,9 @@
 package com.xiaopiao.app.ui.ledger
 
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.asPaddingValues
+import com.xiaopiao.app.ui.components.NavBarHeight
+import androidx.compose.runtime.derivedStateOf
 import com.xiaopiao.app.ui.components.XpSheet
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.size
@@ -300,6 +304,8 @@ fun LedgerScreen(
             }
         },
         overlay = { glass ->
+            // Which day is passing under the top capsules once its own header has scrolled away.
+            if (!searching) FloatingDayPill(listState, groups, glass, Modifier.align(Alignment.TopCenter))
             // Floating delete pill: 48dp, 96dp above the tab bar, disabled (Negative at 30%) until something is picked.
             AnimatedVisibility(
                 visible = selection != null,
@@ -609,6 +615,57 @@ private fun LedgerSearchPage(
                         swipeToDelete = false,
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The day under the top capsules, in a small glass pill (tt 2026-10-30: 浮在内容上的层). It appears once that day's
+ * own header has gone under the bar, so the date is never shown twice.
+ */
+@Composable
+private fun FloatingDayPill(
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    groups: List<DayGroup>,
+    backdrop: com.kyant.backdrop.Backdrop,
+    modifier: Modifier = Modifier,
+) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val topInset = androidx.compose.foundation.layout.WindowInsets.statusBars
+        .asPaddingValues().calculateTopPadding()
+    val line = with(density) { (topInset + NavBarHeight + 18.dp).toPx() }
+    val headerPx = with(density) { 44.dp.toPx() }
+    val day by remember(groups) {
+        derivedStateOf {
+            val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.offset + it.size > line }
+            val key = item?.key as? String
+            if (item == null || key == null || !key.startsWith("day-") || item.offset > line - headerPx) null
+            else groups.firstOrNull { "day-${it.dayStart}" == key }
+        }
+    }
+    // Keep the last day while fading out, so the text does not blank before the pill is gone.
+    var shown by remember { mutableStateOf<DayGroup?>(null) }
+    if (day != null) shown = day
+    AnimatedVisibility(
+        visible = day != null,
+        enter = fadeIn(tween(160, easing = XpEase.out)) + scaleIn(tween(220, easing = XpEase.out), initialScale = 0.9f),
+        exit = fadeOut(tween(120)) + scaleOut(tween(140), targetScale = 0.94f),
+        modifier = modifier.padding(top = topInset + NavBarHeight + 6.dp),
+    ) {
+        val g = shown ?: return@AnimatedVisibility
+        Row(
+            Modifier.height(30.dp)
+                .liquidGlass(backdrop, RoundedCornerShape(XpRadius.pill), blur = 8.dp, shadow = 10.dp)
+                .padding(horizontal = XpSpace.m),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(g.header, style = MaterialTheme.typography.labelMedium, color = XpColors.Ink, maxLines = 1)
+            if (g.outCents > 0) {
+                Text(
+                    "  支 ${g.outCents.yuan()}",
+                    style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, maxLines = 1,
+                )
             }
         }
     }
