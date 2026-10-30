@@ -38,6 +38,10 @@ async function bodyOf(req, limit = PAYLOAD.default, tooLarge = 'INVALID_INPUT') 
 /** Dev previews move between loopback ports; production stays pinned to one exact HTTPS origin. */
 const loopbackOrigin = /^http:\/\/(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?$/;
 export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173', production = false, trustedProxy = false }) {
+  // `APP_ORIGIN` takes a comma-separated list in dev (Web on 5173 and 5466); production stays one exact HTTPS origin.
+  const origins = new Set(String(origin).split(',').map(value => value.trim()).filter(Boolean));
+  if (!origins.size) throw new Error('APP_ORIGIN is required');
+  if (production && (origins.size !== 1 || ![...origins][0].startsWith('https://'))) throw new Error('Production APP_ORIGIN must be exactly one https origin');
   const dummyPassword = passwordHash(secret());
   const ledger = createLedger({ db });
   const circles = createCircles({ db });
@@ -97,7 +101,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
     res.setHeader('X-Content-Type-Options', 'nosniff');
     const requestOrigin = req.headers.origin;
     // A loopback preview port is accepted in dev only; production keeps one exact origin.
-    const originAllowed = requestOrigin !== undefined && requestOrigin !== '' && (requestOrigin === origin || (!production && loopbackOrigin.test(requestOrigin)));
+    const originAllowed = requestOrigin !== undefined && requestOrigin !== '' && (origins.has(requestOrigin) || (!production && loopbackOrigin.test(requestOrigin)));
     if (requestOrigin && !originAllowed) { res.writeHead(403); return res.end(); }
     if (originAllowed) {
       res.setHeader('Access-Control-Allow-Origin', requestOrigin); res.setHeader('Vary', 'Origin');

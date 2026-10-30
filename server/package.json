@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node src/index.mjs",
+    "dev": "XP_DEV_MAIL=1 PORT=${PORT:-8931} HOST=0.0.0.0 APP_ORIGIN=http://localhost:5173,http://localhost:5466 DB_PATH=./data/dev.sqlite node src/index.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check src/index.mjs && node --check src/app.mjs && node --check src/agent.mjs && node --check src/mail.mjs && node --check src/router.mjs && node --check src/prompt.mjs && node --check src/providers.mjs && node --check src/sanitize.mjs && node --check src/ledger.mjs && node --check src/circle.mjs"
+    "check": "node --check src/index.mjs && node --check src/app.mjs && node --check src/agent.mjs && node --check src/mail.mjs && node --check src/dev-mail.mjs && node --check src/router.mjs && node --check src/prompt.mjs && node --check src/providers.mjs && node --check src/sanitize.mjs && node --check src/ledger.mjs && node --check src/circle.mjs && node --check scripts/dev-account.mjs"
   }
 }

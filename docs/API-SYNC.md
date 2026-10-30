@@ -254,4 +254,43 @@ curl -s -X POST $B/v1/ledger/push -H "$J" -H "Authorization: Bearer $TOKEN" -d '
 curl -s "$B/v1/ledger/changes?since=0&limit=200" -H "Authorization: Bearer $TOKEN"
 ```
 
+### 本机联调（模拟器 / Web dev，不需要 AgentMail）
+
+```bash
+npm run dev --prefix server        # 等价于下面这组环境变量，监听 0.0.0.0:8931
+# XP_DEV_MAIL=1 PORT=8931 HOST=0.0.0.0 \
+# APP_ORIGIN=http://localhost:5173,http://localhost:5466 DB_PATH=./data/dev.sqlite
+```
+
+- **验证码不发邮件**：`XP_DEV_MAIL=1` 时改用本机 dev 发信器，每一行追加到 `server/data/dev-mail.log`
+  （`ISO 时间 ⇥ purpose ⇥ 邮箱 ⇥ 6 位码`），控制台同时打印 `dev mail → <邮箱> <purpose> <code>`。
+  该文件与整个 `server/data/` 都在 gitignore 里。
+- **生产拒绝**：`NODE_ENV=production` 下设置 `XP_DEV_MAIL=1` 会直接启动失败（这是本机调试专用）。
+- **`HOST=0.0.0.0`** 只在 `npm run dev` 里设置，Android 模拟器才能通过 `10.0.2.2` 访问；正常 `npm start` 仍只绑 `127.0.0.1`。
+- **多源**：`APP_ORIGIN` 在 dev 下支持逗号分隔（Web dev server 的 5173 / 5466），生产仍要求**恰好一个** HTTPS 源，
+  否则启动失败。
+
+一条龙创建一个已验证账号（注册 → 从 dev 日志读最新验证码 → verify）：
+
+```bash
+node server/scripts/dev-account.mjs                 # 默认 http://127.0.0.1:8931，dev@example.test / dev
+node server/scripts/dev-account.mjs http://127.0.0.1:8931 \
+  --email=me@example.test --username=me --password='A long dev passphrase 123'
+```
+
+- 账号已存在时自动改为登录；已经验证过就直接复用会话。
+- 终端只打印 token 前 6 位；**完整 token 写到 `server/data/dev-token.txt`**（已 gitignore），可直接：
+
+```bash
+curl -s http://127.0.0.1:8931/v1/auth/me -H "Authorization: Bearer $(cat server/data/dev-token.txt)"
+```
+
+Android 模拟器里的 App 用同一个 dev server（10.0.2.2 是模拟器访问宿主机回环的固定地址）：
+
+```sh
+./gradlew :app:assembleDebug -Pxiaopiao.apiBaseUrl=http://10.0.2.2:8931
+```
+
+Web dev server 把 `/v1` 代理到 `http://127.0.0.1:8931` 即可；页面 Origin `http://localhost:5466` 已在 dev 的 `APP_ORIGIN` 里。
+
 完整运行记录（含 stale / rejected / 墓碑 / 分页 / 401/403）见 `qa/sync-v1/REPORT.md`。

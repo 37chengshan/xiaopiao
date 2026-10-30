@@ -131,6 +131,20 @@ test('dev previews accept any loopback port; production pins one exact origin', 
   assert.equal((await production.request('/v1/auth/register', account, null, { Origin: 'http://127.0.0.1:5295' })).response.status, 403);
   assert.equal((await production.request('/v1/auth/register', account, null, { Origin: 'https://app.example.test' })).response.status, 201);
 });
+test('APP_ORIGIN takes a comma-separated dev list; production refuses anything but one https origin', async t => {
+  const dev = await fixture(t, { origin: 'http://localhost:5173,http://localhost:5466' });
+  const web = await dev.request('/v1/auth/register', account, null, { Origin: 'http://localhost:5466' });
+  assert.equal(web.response.status, 201);
+  assert.equal(web.response.headers.get('access-control-allow-origin'), 'http://localhost:5466');
+  assert.equal((await dev.request('/v1/auth/me', null, null, { Origin: 'https://evil.test' })).response.status, 403);
+
+  const db = store(':memory:');
+  t.after(() => db.close());
+  const build = origin => () => createApp({ db, agent: async state => state, origin, production: true });
+  assert.throws(build('https://app.example.test,https://web.example.test'), /exactly one https origin/);
+  assert.throws(build('http://app.example.test'), /exactly one https origin/);
+  assert.throws(build(''), /APP_ORIGIN is required/);
+});
 test('a rate-limited or empty free model hands the turn to the next one, then loses its preference', async () => {
   const seen = [];
   const fetcher = async (url, options) => {
