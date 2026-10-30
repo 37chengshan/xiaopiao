@@ -203,8 +203,20 @@
   border: 1px solid rgba(20, 20, 19, 0.07);
   background: transparent;
   overflow: hidden;
-  -webkit-backdrop-filter: blur(20px) saturate(150%) brightness(1.05) var(--lx-nav-filter);
-  backdrop-filter: blur(20px) saturate(150%) brightness(1.05) var(--lx-nav-filter);
+  -webkit-backdrop-filter: blur(14px) saturate(170%) brightness(1.06) var(--lx-nav-filter);
+  backdrop-filter: blur(14px) saturate(170%) brightness(1.06) var(--lx-nav-filter);
+  /* Past the opening the bar eases into a compact capsule (same content, less width). */
+  transition:
+    left 0.62s cubic-bezier(0.2, 0.8, 0.2, 1),
+    right 0.62s cubic-bezier(0.2, 0.8, 0.2, 1),
+    padding 0.62s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.4s;
+}
+.lx-nav.is-compact {
+  left: max(var(--margin), calc(50% - 470px));
+  right: max(var(--margin), calc(50% - 470px));
+  padding: 7px 8px 7px 16px;
+  border-color: rgba(20, 20, 19, 0.09);
 }
 /* Liquid Glass: the real page refracts at the rim, a thin tint keeps text legible, a rim highlight
    gives the slab its thickness. Falls back to plain blur where `url()` is not supported. */
@@ -217,7 +229,12 @@
   pointer-events: none;
 }
 .lx-nav__tint {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(250, 249, 245, 0.5));
+  /* Thin enough that the page reads through it: glass, not a white bar. */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(250, 249, 245, 0.3));
+  transition: opacity 0.5s;
+}
+.lx-nav.is-compact .lx-nav__tint {
+  opacity: 0.86;
 }
 .lx-nav__specular {
   box-shadow:
@@ -247,11 +264,49 @@
   text-decoration: none;
 }
 .lx-nav__links {
+  position: relative;
   display: flex;
   align-items: center;
   gap: clamp(4px, 0.8vw, 14px);
 }
+/* The selection lens: a small slab of brighter glass that travels between links. It overshoots a touch
+   and squashes while moving, then settles round — liquid, not a sliding rectangle. */
+.lx-nav__lens {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 34px;
+  margin-top: -17px;
+  border-radius: 999px;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.42));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 1px rgba(20, 20, 19, 0.06),
+    0 4px 14px -6px rgba(24, 24, 20, 0.28);
+  -webkit-backdrop-filter: blur(4px) saturate(180%);
+  backdrop-filter: blur(4px) saturate(180%);
+  transition:
+    transform 0.46s cubic-bezier(0.34, 1.42, 0.5, 1),
+    width 0.46s cubic-bezier(0.34, 1.42, 0.5, 1),
+    opacity 0.24s,
+    scale 0.22s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+.lx-nav__lens.is-on {
+  opacity: 1;
+}
+.lx-nav__lens.is-moving {
+  scale: 1.1 0.86;
+}
+.lx-nav__link.is-current {
+  color: var(--ink);
+}
 .lx-nav__link {
+  /* Above the lens: the label sits on the glass, never under it. */
+  position: relative;
+  z-index: 1;
   background: none;
   border: 0;
   padding: 8px 10px;
@@ -264,7 +319,6 @@
 }
 .lx-nav__link:hover {
   color: var(--ink);
-  background: rgba(20, 20, 19, 0.05);
 }
 .lx-nav__brand,
 .lx-nav__link {
@@ -287,8 +341,11 @@
 .lx-nav.is-dark .lx-nav__link {
   color: var(--paper);
 }
-.lx-nav.is-dark .lx-nav__link:hover {
-  background: rgba(246, 244, 239, 0.12);
+.lx-nav.is-dark .lx-nav__lens {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 4px 14px -6px rgba(0, 0, 0, 0.6);
 }
 .lx-nav.is-dark .lx-pillbtn--ink {
   background: var(--paper);
@@ -385,7 +442,7 @@
 .lx-hero__band {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 34ch) 1fr auto;
+  grid-template-columns: minmax(0, 40ch) 1fr auto;
   align-items: center;
   gap: clamp(18px, 4vw, 56px);
   padding: 0 var(--margin) clamp(22px, 4vh, 42px);
@@ -396,6 +453,8 @@
   line-height: 1.62;
   color: var(--ink-2);
   max-width: 42ch;
+  /* No lone 「子。」 on the last line under the drop cap. */
+  text-wrap: pretty;
 }
 .lx-hero__lead::first-letter {
   float: left;
@@ -2090,7 +2149,7 @@
 }
 
 @media (max-width: 900px) {
-  .lx-nav__link:nth-child(-n + 3) {
+  .lx-nav__link:nth-of-type(-n + 3) {
     display: none;
   }
   .lx-launch__grid {
