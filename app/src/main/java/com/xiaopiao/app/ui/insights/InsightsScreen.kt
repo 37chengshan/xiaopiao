@@ -15,11 +15,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.OpenRequest
-import com.xiaopiao.app.R
+
 import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.ui.components.NavScrollNone
 import androidx.compose.material.icons.Icons
@@ -81,7 +81,7 @@ fun InsightsScreen(
     }
 
     BackHandler { route = null }
-    val backLabel = stringResource(R.string.back_insights)
+    val backLabel = "统计"
     // 预算 brings its own NavScaffold (it is also the drawer over 记账); wrapping it again stacked two bars.
     if (page == InsightsRoute.BUDGET) {
         BudgetPage(

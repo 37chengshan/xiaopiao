@@ -51,7 +51,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,7 +61,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.OpenRequest
-import com.xiaopiao.app.R
 import com.xiaopiao.app.ui.chat.ChatScreen
 import com.xiaopiao.app.ui.circle.CircleHome
 import com.xiaopiao.app.ui.components.NavBarItem
@@ -153,7 +151,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
             // The same 设置 page, reached from the gear on every 小店 page; back returns to where the shop was.
             BackHandler { merchantSettings = false }
             // Same page, but its edition row now leads back to the personal edition.
-            SettingsScreen(container, inMerchant = true, onSwitchEdition = { merchantSettings = false; merchantMode = false }, onBack = { merchantSettings = false }, backLabel = stringResource(R.string.back_shop))
+            SettingsScreen(container, inMerchant = true, onSwitchEdition = { merchantSettings = false; merchantMode = false }, onBack = { merchantSettings = false }, backLabel = "小店")
         } else {
             // SaveableStateProvider keeps the shop's tab / sub-page while the settings page replaces it.
             merchantState.SaveableStateProvider("merchant") {
@@ -181,19 +179,10 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
 
     // The resident receipt: pages place a ReceiptStrip, the ceremony itself lives here, above the navigation.
     val receiptHost = rememberReceiptHost(container) { go(NavTab.Receipt) }
-    // 设置 is a push page, and its 返回 names the tab whose gear opened it (移动七条 §1). The label is read
-    // at composition time from the current route, then frozen into state when the gear is tapped.
-    val settingsBack = remember { mutableStateOf("返回") }
-    val tabLabels = mapOf(
-        NavTab.Ledger to stringResource(R.string.back_ledger),
-        NavTab.Receipt to stringResource(R.string.back_receipt),
-        NavTab.Insights to stringResource(R.string.back_insights),
-        NavTab.Chat to stringResource(R.string.back_chat),
-        NavTab.Circle to stringResource(R.string.back_circle),
-        NavTab.Games to stringResource(R.string.back_games),
-    )
+    // 设置 is a push page, and its 返回 names the tab whose gear opened it (移动七条 §1).
+    val settingsBack = remember { mutableStateOf(NavTab.Ledger.label) }
     fun openSettingsFrom(tab: NavTab?) {
-        settingsBack.value = tabLabels[tab] ?: tabLabels.getValue(NavTab.Ledger)
+        settingsBack.value = (tab ?: NavTab.Ledger).label
         nav.navigate("settings")
     }
     val currentTab by androidx.compose.runtime.rememberUpdatedState(NavTab.entries.firstOrNull { it.route == current })

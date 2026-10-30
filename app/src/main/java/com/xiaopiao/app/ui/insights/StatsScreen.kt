@@ -47,7 +47,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
+
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
-import com.xiaopiao.app.R
+
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.insights.StatsAggregator
@@ -507,9 +507,9 @@ private fun StatsEmptyState(ledgerEmpty: Boolean, canGoBack: Boolean, onRecord: 
     val backFirst = !ledgerEmpty && canGoBack
     EmptyState(
         icon = Icons.Outlined.ReceiptLong,
-        title = stringResource(if (ledgerEmpty) R.string.stats_empty_all_title else R.string.stats_empty_period_title),
-        body = stringResource(if (ledgerEmpty) R.string.stats_empty_all_body else R.string.stats_empty_period_body),
-        actionLabel = stringResource(if (backFirst) R.string.stats_empty_previous else R.string.stats_empty_record),
+        title = if (ledgerEmpty) "还没有账单" else "这段时间没有记录",
+        body = if (ledgerEmpty) "记下第一笔，统计才会有内容。" else "换一期看看，或者记一笔新的。",
+        actionLabel = if (backFirst) "看上一期" else "记一笔",
         onAction = if (backFirst) onPrevious else onRecord,
         modifier = Modifier.padding(top = XpSpace.l),
     )
