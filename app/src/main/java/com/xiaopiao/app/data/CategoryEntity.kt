@@ -22,6 +22,9 @@ data class CategoryEntity(
     @ColumnInfo(name = "builtIn") val builtIn: Boolean,
     val hidden: Boolean,
     @ColumnInfo(name = "sortOrder") val sortOrder: Int,
+    /** 0 for an untouched built-in, so a fresh install never overwrites what another device set. */
+    @ColumnInfo(name = "updatedAt", defaultValue = "0") val updatedAt: Long = 0,
+    @ColumnInfo(name = "dirty", defaultValue = "0") val dirty: Boolean = false,
 )
 
 fun CategoryDef.toEntity() = CategoryEntity(

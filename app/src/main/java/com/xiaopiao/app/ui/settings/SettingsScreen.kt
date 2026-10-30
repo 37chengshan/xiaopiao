@@ -153,7 +153,8 @@ fun SettingsScreen(
     ) {
         NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack, backLabel = backLabel, glassGround = true) { top ->
             Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
-                AccountNavSection(user?.username, user?.email, user?.verified == true) { sub = SettingsSub.Account }
+                val sync by container.ledgerSync.status.collectAsState()
+                AccountNavSection(user?.username, user?.email, user?.verified == true, syncNote(sync)) { sub = SettingsSub.Account }
                 AiEntrySection(autoEntry) { enabled -> scope.launch { aiPrefs.setAutoEntry(enabled) } }
                 Box(Modifier.xpRevealLayer(index = 0)) {
                     AppearanceNavSection(
@@ -195,5 +196,24 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+/** 账号行右侧的同步状态：同步中 / 已同步 · 几分钟前 / 没成功（§7.7.1 状态反馈）。 */
+@Composable
+private fun syncNote(status: com.xiaopiao.app.network.LedgerSync.Status): String? {
+    val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
+    return when {
+        status.running && status.lastOkAt == 0L -> if (en) "Syncing…" else "同步中…"
+        status.error != null -> if (en) "Sync failed" else "同步没成功"
+        status.lastOkAt > 0 -> {
+            val minutes = (System.currentTimeMillis() - status.lastOkAt) / 60_000
+            when {
+                minutes < 1 -> if (en) "Synced just now" else "已同步 · 刚刚"
+                minutes < 60 -> if (en) "Synced ${minutes}m ago" else "已同步 · ${minutes} 分钟前"
+                else -> if (en) "Synced" else "已同步"
+            }
+        }
+        else -> null
     }
 }

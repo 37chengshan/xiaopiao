@@ -12,7 +12,9 @@ import com.xiaopiao.app.domain.Txn
 /** `dedupeKey` is NULL (not "") when absent, so the unique index only constrains real keys. */
 @Entity(
     tableName = "txns",
-    indices = [Index(value = ["dedupeKey"], unique = true), Index(value = ["occurredAt"])],
+    indices = [
+        Index(value = ["dedupeKey"], unique = true), Index(value = ["occurredAt"]), Index(value = ["syncId"], unique = true),
+    ],
 )
 data class TxnEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -29,6 +31,12 @@ data class TxnEntity(
     @ColumnInfo(name = "categoryId", defaultValue = "") val categoryId: String,
     /** `alipay` / `wechat` / blank: which app the payment came from (§4.4). */
     @ColumnInfo(name = "channel", defaultValue = "") val channel: String,
+    /** Id shared with the server (docs/API-SYNC.md); a random hex string set when the row is written. */
+    @ColumnInfo(name = "syncId", defaultValue = "") val syncId: String = "",
+    /** Last local edit in ms; the server's last-write-wins compares only this. */
+    @ColumnInfo(name = "updatedAt", defaultValue = "0") val updatedAt: Long = 0,
+    /** Changed since the last successful push. */
+    @ColumnInfo(name = "dirty", defaultValue = "0") val dirty: Boolean = false,
 )
 
 fun Txn.toEntity() = TxnEntity(
@@ -47,6 +55,18 @@ fun TxnEntity.toDomain() = Txn(
     source = runCatching { Source.valueOf(source) }.getOrDefault(Source.MANUAL),
     note = note, cardLast4 = cardLast4, dedupeKey = dedupeKey.orEmpty(),
     categoryId = categoryId, channel = channel,
+)
+
+/**
+ * A row deleted on this device that the server has not heard about yet. [body] is the push JSON
+ * (structured fields only, `deleted: true`), because the API validates a tombstone like any other row.
+ */
+@Entity(tableName = "sync_tombstones", primaryKeys = ["kind", "syncId"])
+data class TombstoneEntity(
+    val kind: String,
+    val syncId: String,
+    val updatedAt: Long,
+    val body: String,
 )
 
 /** Raw captured notification, kept on device only. */

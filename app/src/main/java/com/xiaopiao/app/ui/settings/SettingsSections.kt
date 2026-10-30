@@ -313,13 +313,13 @@ fun LaunchSideSection(side: LaunchSide, onSide: (LaunchSide) -> Unit) {
 
 
 @Composable
-fun AccountNavSection(username: String?, email: String?, verified: Boolean, onOpen: () -> Unit) {
+fun AccountNavSection(username: String?, email: String?, verified: Boolean, syncNote: String? = null, onOpen: () -> Unit) {
     val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
     GroupedSection(header = if (en) "Account" else "账号", dividerInset = IconInset) {
         item {
             GroupedRow(title = username ?: if (en) "Sign in or create an account" else "登录或创建账号",
                 subtitle = email ?: if (en) "Optional. Keep your local ledger without signing in." else "可选，不登录也能使用本机记账",
-                value = if (username != null && !verified) if (en) "Verify email" else "待验证" else null,
+                value = if (username != null && !verified) if (en) "Verify email" else "待验证" else syncNote,
                 leading = { IconTile(Icons.Outlined.Person, tint = XpColors.Info, background = XpColors.InfoSoft) },
                 chevron = true, onClick = onOpen)
         }

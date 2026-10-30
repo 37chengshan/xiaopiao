@@ -156,19 +156,19 @@ private class FakeCategoryDao : CategoryDao {
         publish()
     }
 
-    override suspend fun setOrder(id: String, order: Int) {
+    override suspend fun setOrder(id: String, order: Int, now: Long) {
         val i = rows.indexOfFirst { it.id == id }
         if (i >= 0) rows[i] = rows[i].copy(sortOrder = order)
         publish()
     }
 
-    override suspend fun setHidden(id: String, hidden: Boolean) {
+    override suspend fun setHidden(id: String, hidden: Boolean, now: Long) {
         val i = rows.indexOfFirst { it.id == id }
         if (i >= 0) rows[i] = rows[i].copy(hidden = hidden)
         publish()
     }
 
-    override suspend fun remapTxns(from: String, to: String) {
+    override suspend fun remapTxns(from: String, to: String, now: Long) {
         txns.replaceAll { if (it.categoryId == from) it.copy(categoryId = to) else it }
     }
 

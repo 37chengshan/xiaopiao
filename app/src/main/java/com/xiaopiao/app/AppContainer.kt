@@ -25,14 +25,22 @@ class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
     val account by lazy { com.xiaopiao.app.network.AccountClient(appContext) }
 
+    /** 账本同步（docs/API-SYNC.md）：登录并验证邮箱后，本机账本与账号双向同步。 */
+    val ledgerSync by lazy { com.xiaopiao.app.network.LedgerSync(appContext, account, database) }
+
     private val database: AppDatabase by lazy { AppDatabase.create(appContext) }
-    private val roomLedger: RoomLedgerRepository by lazy { RoomLedgerRepository(database.txnDao()) }
+    private val roomLedger: RoomLedgerRepository by lazy {
+        RoomLedgerRepository(database.txnDao(), database.syncDao(), { block -> database.withTransaction { block() } })
+    }
 
     val ledger: LedgerRepository get() = roomLedger
 
     /** 分类（tt#70/71）：名称、图标、颜色、排序的唯一来源，账单 / 记一笔 / 统计都读它。 */
     private val roomCategories: RoomCategoryRepository by lazy {
-        RoomCategoryRepository(database.categoryDao()) { block -> database.withTransaction { block() } }
+        RoomCategoryRepository(
+            database.categoryDao(),
+            tombstone = { database.syncDao().putTombstones(listOf(it)) },
+        ) { block -> database.withTransaction { block() } }
     }
     val categories: CategoryRepository get() = roomCategories
     val captureLog: CaptureLogRepository by lazy { CaptureLogRepository(database.captureLogDao()) }

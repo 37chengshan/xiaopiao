@@ -12,10 +12,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.xiaopiao.app.ui.AppShell
 import com.xiaopiao.app.ui.splash.SplashHost
 import com.xiaopiao.app.ui.theme.XiaopiaoTheme
 import com.xiaopiao.app.work.ReminderIntents
+import kotlinx.coroutines.launch
 
 /** A deep-link request from a reminder notification; identity-compared so repeated taps re-trigger. */
 class OpenRequest(val target: String)
@@ -37,6 +41,8 @@ class MainActivity : ComponentActivity() {
         val container = (application as XiaopiaoApp).container
         if (savedInstanceState == null) openRequest = intent.toOpenRequest()
         playSplash = savedInstanceState == null
+        // Account sync runs only while the app is on screen; the next start catches up.
+        lifecycleScope.launch { repeatOnLifecycle(Lifecycle.State.STARTED) { container.ledgerSync.keepInSync() } }
         setContent {
             XiaopiaoTheme {
                 Box(Modifier.fillMaxSize()) {

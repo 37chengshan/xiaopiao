@@ -8,14 +8,15 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [TxnEntity::class, CaptureLogEntity::class, CategoryEntity::class],
-    version = 3,
+    entities = [TxnEntity::class, CaptureLogEntity::class, CategoryEntity::class, TombstoneEntity::class],
+    version = 4,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun txnDao(): TxnDao
     abstract fun captureLogDao(): CaptureLogDao
     abstract fun categoryDao(): CategoryDao
+    abstract fun syncDao(): SyncDao
 
     companion object {
         /** v2 adds `cardLast4` so a payment can be attributed to the wallet card it was made on (§5.5). */
@@ -38,9 +39,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v4 adds account sync (docs/API-SYNC.md): a stable `syncId`, `updatedAt` / `dirty`, and tombstones. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                SyncSchema.statements.forEach { db.execSQL(it) }
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "xiaopiao.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
     }
 }

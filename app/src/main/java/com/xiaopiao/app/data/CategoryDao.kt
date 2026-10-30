@@ -31,15 +31,15 @@ interface CategoryDao {
     @Query("DELETE FROM categories WHERE id = :id AND builtIn = 0")
     suspend fun deleteCustom(id: String)
 
-    @Query("UPDATE categories SET sortOrder = :order WHERE id = :id")
-    suspend fun setOrder(id: String, order: Int)
+    @Query("UPDATE categories SET sortOrder = :order, updatedAt = MAX(:now, updatedAt + 1), dirty = 1 WHERE id = :id AND sortOrder != :order")
+    suspend fun setOrder(id: String, order: Int, now: Long)
 
-    @Query("UPDATE categories SET hidden = :hidden WHERE id = :id")
-    suspend fun setHidden(id: String, hidden: Boolean)
+    @Query("UPDATE categories SET hidden = :hidden, updatedAt = MAX(:now, updatedAt + 1), dirty = 1 WHERE id = :id")
+    suspend fun setHidden(id: String, hidden: Boolean, now: Long)
 
     /** Deleting a custom category folds its rows into the target (其他) instead of losing them. */
-    @Query("UPDATE txns SET categoryId = :to WHERE categoryId = :from")
-    suspend fun remapTxns(from: String, to: String)
+    @Query("UPDATE txns SET categoryId = :to, updatedAt = MAX(:now, updatedAt + 1), dirty = 1 WHERE categoryId = :from")
+    suspend fun remapTxns(from: String, to: String, now: Long)
 
     @Query("SELECT COUNT(*) FROM txns WHERE categoryId = :id")
     suspend fun countTxns(id: String): Int

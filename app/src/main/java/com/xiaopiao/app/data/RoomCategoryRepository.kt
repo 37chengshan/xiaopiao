@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.onStart
  */
 class RoomCategoryRepository(
     private val dao: CategoryDao,
+    /** Records a deleted custom category for the account sync; a no-op in unit tests. */
+    private val tombstone: suspend (TombstoneEntity) -> Unit = {},
+    private val clock: () -> Long = System::currentTimeMillis,
     /** Runs [block] in one transaction; injected so unit tests can pass `{ block -> block() }`. */
     private val transaction: suspend (suspend () -> Unit) -> Unit,
 ) : CategoryRepository {
@@ -51,39 +54,47 @@ class RoomCategoryRepository(
             bump += 1
             def = def.copy(id = CategoryDefaults.CUSTOM_PREFIX + (now + bump))
         }
-        dao.insertOne(def.toEntity())
+        dao.insertOne(def.toEntity().copy(updatedAt = now, dirty = true))
         return def
     }
 
     override suspend fun update(def: CategoryDef) {
         seedMissing()
         if (!def.builtIn) {
-            dao.update(def.copy(label = def.label.trim().take(CategoryDefaults.MAX_LABEL)).toEntity())
+            val seen = dao.all().firstOrNull { it.id == def.id }?.updatedAt ?: 0
+            dao.update(
+                def.copy(label = def.label.trim().take(CategoryDefaults.MAX_LABEL)).toEntity()
+                    .copy(updatedAt = maxOf(clock(), seen + 1), dirty = true),
+            )
         } else {
             // Built-in rows keep their name / icon / colour: only visibility belongs to the user.
-            dao.setHidden(def.id, def.hidden)
+            dao.setHidden(def.id, def.hidden, clock())
         }
     }
 
     override suspend fun reorder(idsInOrder: List<String>) {
         seedMissing()
+        val now = clock()
         transaction {
-            idsInOrder.forEachIndexed { index, id -> dao.setOrder(id, index) }
+            idsInOrder.forEachIndexed { index, id -> dao.setOrder(id, index, now) }
         }
     }
 
     override suspend fun setHidden(id: String, hidden: Boolean) {
         seedMissing()
-        dao.setHidden(id, hidden)
+        dao.setHidden(id, hidden, clock())
     }
 
     override suspend fun countTxns(id: String): Int = dao.countTxns(id)
 
     override suspend fun deleteCustom(id: String, mergeInto: String) {
         seedMissing()
+        val now = clock()
+        val row = dao.all().firstOrNull { it.id == id && !it.builtIn }
         transaction {
-            dao.remapTxns(id, mergeInto)
+            dao.remapTxns(id, mergeInto, now)
             dao.deleteCustom(id)
+            if (row != null) tombstone(SyncCodec.tombstone(row, maxOf(now, row.updatedAt + 1)))
         }
     }
 }
