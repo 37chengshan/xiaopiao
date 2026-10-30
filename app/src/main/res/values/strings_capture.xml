@@ -1,6 +1,6 @@
 <resources>
     <string name="capture_connected">已连接</string>
-    <string name="capture_disconnected">未连接</string>
+    <string name="capture_disconnected">已授权 · 系统还没接上</string>
     <string name="capture_off">未开启</string>
     <string name="capture_reconnect">重新连接</string>
     <string name="capture_reconnect_hint">掉了点一下</string>

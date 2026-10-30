@@ -1,6 +1,6 @@
 <resources>
     <string name="capture_connected">Connected</string>
-    <string name="capture_disconnected">Not connected</string>
+    <string name="capture_disconnected">Allowed · system not connected</string>
     <string name="capture_off">Off</string>
     <string name="capture_reconnect">Reconnect</string>
     <string name="capture_reconnect_hint">Tap if it stopped</string>
