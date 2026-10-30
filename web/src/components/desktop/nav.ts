@@ -13,7 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { s } from "./strings";
-import { appRouter } from "@/router";
+import { appRouter } from "@/lib/routerRef";
 
 export type Segment = "personal" | "shop";
 

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import { Outlet, createRootRouteWithContext, useRouter } from "@tanstack/react-router";
+import { setAppRouter } from "@/lib/routerRef";
 import { NotFound } from "@/features/notfound/NotFound";
 
 /** Unknown hash path: the full-bleed 404 screen, same one the router falls back to. */
@@ -41,6 +42,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootRoute() {
   const { queryClient } = Route.useRouteContext();
+  setAppRouter(useRouter());
 
   return (
     <QueryClientProvider client={queryClient}>

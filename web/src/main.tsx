@@ -2,11 +2,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
-import { getRouter, setAppRouter } from "./router";
+import { getRouter } from "./router";
 import "./styles.css";
 
 const router = getRouter();
-setAppRouter(router);
 
 function reportFatalReactError(
   error: unknown,
