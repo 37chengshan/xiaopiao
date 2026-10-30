@@ -1,0 +1,15 @@
+# Android 账号修复配套接口（2026-10-30）
+
+来源：tt 的注册错误、密码规则不一致、个人资料不可编辑反馈。基于已部署的防御版本开发；本文件描述已测试的候选接口，尚未发布。
+
+- `GET /v1/auth/policy`：公开返回 passwordMin=15、passwordMax=128、usernameMin=3、usernameMax=30、profileEditing=true。客户端据此展示提示与校验；旧服务缺少此接口时保留核实过的 15 字符规则，资料保存保持不可用。
+- 注册/重设密码的非法邮箱、密码和用户名返回现有安全错误码，并附 `field`（email/password/username）。不返回提交值。客户端确认密码字段只在本机比较，不上传。
+- `POST /v1/auth/profile`：已登录且已验证的账号更新 username；3–30 ASCII 字母、数字、下划线，以字母开头，规范化小写、唯一性检查。返回更新后的 user，账号 id 不变，账本归属不变。
+- `POST /v1/auth/email-request`：email 和 currentPassword；必须已登录、已验证，校验当前密码及邮箱占用，再通过既有 relay 向新邮箱发送验证邮件。旧邮箱在确认前不变。
+- `POST /v1/auth/email-confirm`：6 位 code；验证当前用户的待修改邮箱，最多 5 次尝试、10 分钟有效、单次消费；修改成功后清除待处理验证码并撤销其它会话，保留当前会话。错误尝试在事务外累计，不能通过回滚绕过上限。
+
+新增 SQLite `email_changes` 表（user_id 外键级联删除、email、expires），原有表/账目不改；过期记录由既有清理器清除。沿用原认证并发、IP/账号/地址/全局邮件限额、同目的发信互斥、固定发信端点和脱敏观测。不修改 Worker、DNS、安全组或全区设置。
+
+验收：85/85 服务端测试通过，npm check 通过；4 项新回归覆盖公开规则、字段定位、资料身份不变、邮箱重新认证和验证、撤销其它会话、验证码尝试上限。新增发信测试全部使用内存 mailbox，不向外部收件人发送邮件。生产发布后仍需真实账号验收，不能把本地测试等同上线。
+
+发布/回滚：经 tt 针对此账号接口批准后，使用 DEPLOY.md 的 source-only archive 与 update-private.sh，先在线备份 DB，保留旧 release 和 unit。新增表为兼容性增量，回滚 API 不恢复旧 DB、不丢弃新账目。发布范围为同一 API 服务，不需要再次安装 nginx 配置。

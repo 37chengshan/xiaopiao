@@ -5,7 +5,9 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { hash, secret, passwordHash, passwordMatches, publicUser } from './store.mjs';
 import { createLedger, LIMITS as LEDGER } from './ledger.mjs';
 import { createCircles, LIMITS as CIRCLE } from './circle.mjs';
+export const ACCOUNT_POLICY = Object.freeze({ passwordMin: 15, passwordMax: 128, usernameMin: 3, usernameMax: 30, profileEditing: true });
 const errors = {
+  INVALID_CURRENT_PASSWORD: [400, '当前密码不正确'],
   SERVER_BUSY: [503, '服务繁忙，请稍后重试'], REQUEST_TIMEOUT: [408, '请求超时，请重试'],
   INVALID_INPUT: [400, '请检查输入内容'], INVALID_CREDENTIALS: [401, '账号或密码不正确'],
   UNAUTHORIZED: [401, '请重新登录'], EMAIL_UNVERIFIED: [403, '请先验证邮箱'],
@@ -20,10 +22,10 @@ const errors = {
   RECEIPT_FIELD: [400, '小票卡片里有不支持的字段'], RECEIPT_RAW_TEXT: [400, '小票卡片不能包含账单原文'],
   RECEIPT_INVALID: [400, '小票卡片格式不正确'],
 };
-function fail(code) { throw Object.assign(new Error(code), { code }); }
+function fail(code, field) { throw Object.assign(new Error(code), { code, ...(field ? { field } : {}) }); }
 function text(value, max = 256) { if (typeof value !== 'string' || !value.trim() || value.length > max) fail('INVALID_INPUT'); return value.trim(); }
-function emailOf(value) { const email = text(value, 254).toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail('INVALID_INPUT'); return email; }
-function passwordOf(value) { if (typeof value !== 'string' || value.length < 15 || value.length > 128) fail('INVALID_INPUT'); return value; }
+function emailOf(value) { if (typeof value !== 'string' || value.trim().length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) fail('INVALID_INPUT', 'email'); return value.trim().toLowerCase(); }
+function passwordOf(value) { if (typeof value !== 'string' || value.length < ACCOUNT_POLICY.passwordMin || value.length > ACCOUNT_POLICY.passwordMax) fail('INVALID_INPUT', 'password'); return value; }
 function numberParam(url, name, fallback) {
   const raw = url.searchParams.get(name);
   if (raw === null || raw === '') return fallback;
@@ -58,7 +60,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
   const locks = new Set();
   const cookie = (token, expires = 30 * 86400) => `xp_session=${token}; HttpOnly; Path=/v1; SameSite=Strict; Max-Age=${expires}${production ? '; Secure' : ''}`;
   const cleanup = setInterval(() => {
-    for (const table of ['sessions', 'codes', 'runs', 'limits']) db.prepare(`DELETE FROM ${table} WHERE expires < ?`).run(Date.now());
+    for (const table of ['sessions', 'codes', 'runs', 'limits', 'email_changes']) db.prepare(`DELETE FROM ${table} WHERE expires < ?`).run(Date.now());
   }, 60_000).unref();
   function rate(key, max, window = 900_000) {
     const now = Date.now();
@@ -83,18 +85,18 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
     return { user: publicUser(user), ...(native ? { token } : {}) };
   }
   const mailLocks = new Set();
-  async function issueCode(user, purpose) {
+  async function issueCode(user, purpose, deliveryEmail = user.email) {
     const lock = `${user.id}:${purpose}`;
     if (mailLocks.has(lock)) throw securityError('RATE_LIMITED', 5);
     if (!sendMail) fail('MAIL_UNAVAILABLE');
     rate(`mail:${user.id}`, 4, 3600_000);
-    rate(`mail-address:${hash(user.email)}`, 4, 3600_000);
+    rate(`mail-address:${hash(deliveryEmail)}`, 4, 3600_000);
     rate('mail:all', 100, 3600_000);
     mailLocks.add(lock);
     try {
       const code = String(randomInt(100000, 1000000));
       db.prepare('INSERT INTO codes VALUES (?,?,?,?,0) ON CONFLICT(user_id,purpose) DO UPDATE SET digest=excluded.digest, expires=excluded.expires, attempts=0').run(user.id, purpose, hash(`${user.id}:${purpose}:${code}`), Date.now() + 600_000);
-      try { await sendMail({ to: user.email, purpose, code }); }
+      try { await sendMail({ to: deliveryEmail, purpose: purpose === 'email' ? 'verify' : purpose, code }); }
       catch { db.prepare('DELETE FROM codes WHERE user_id=? AND purpose=? AND digest=?').run(user.id, purpose, hash(`${user.id}:${purpose}:${code}`)); fail('MAIL_UNAVAILABLE'); }
     } finally { mailLocks.delete(lock); }
   }
@@ -138,6 +140,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       res.once('finish', release); res.once('close', release);
       rate(`global:${ip}`, 300, 60_000);
       rate('requests:all', 3000, 60_000);
+      if (url.pathname === '/v1/auth/policy' && req.method === 'GET') return json(ACCOUNT_POLICY);
       if (url.pathname === '/v1/auth/me' && req.method === 'GET') return json({ user: publicUser(userOf(req)) });
       if (url.pathname === '/v1/ledger/changes' && req.method === 'GET') {
         const user = verifiedUser(req);
@@ -198,7 +201,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
         return json({ error: 'NOT_FOUND' }, 404);
       }
       if (req.method !== 'POST') return json({ error: 'NOT_FOUND' }, 404);
-      const authRoute = /^\/v1\/auth\/(register|login|logout|verify|resend|forgot|reset)$/.test(url.pathname);
+      const authRoute = /^\/v1\/auth\/(register|login|logout|verify|resend|forgot|reset|profile|email-request|email-confirm)$/.test(url.pathname);
       if (authRoute) {
         rate(`auth:${ip}`, 30);
         workReleases.push(defense.acquire('auth', defensePolicy.auth));
@@ -222,7 +225,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
         switch (url.pathname) {
           case '/v1/auth/register': {
             const email = emailOf(body.email), username = text(body.username, 30).toLowerCase(), password = passwordOf(body.password);
-            if (!/^[a-z][a-z0-9_]{2,29}$/.test(username)) fail('INVALID_INPUT');
+            if (!/^[a-z][a-z0-9_]{2,29}$/.test(username)) fail('INVALID_INPUT', 'username');
             if (!sendMail) fail('MAIL_UNAVAILABLE');
             if (db.prepare('SELECT id FROM users WHERE email=? OR username=?').get(email, username)) fail('ACCOUNT_EXISTS');
             const encoded = await passwordHash(password);
@@ -232,6 +235,41 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
             try { await issueCode(user, 'verify'); }
             catch (error) { db.prepare('DELETE FROM users WHERE id=?').run(user.id); throw error; }
             return json(session(res, user, native), 201);
+          }
+          case '/v1/auth/profile': {
+            const user = verifiedUser(req);
+            const username = typeof body.username === 'string' ? body.username.trim().toLowerCase() : '';
+            if (!/^[a-z][a-z0-9_]{2,29}$/.test(username)) fail('INVALID_INPUT', 'username');
+            if (db.prepare('SELECT 1 FROM users WHERE username=? AND id<>?').get(username, user.id)) fail('ACCOUNT_EXISTS', 'username');
+            db.prepare('UPDATE users SET username=? WHERE id=?').run(username, user.id);
+            return json({ user: publicUser({ ...user, username }) });
+          }
+          case '/v1/auth/email-request': {
+            const user = verifiedUser(req), email = emailOf(body.email);
+            if (email === user.email) fail('INVALID_INPUT', 'email');
+            if (typeof body.currentPassword !== 'string' || body.currentPassword.length > 128 || !await passwordMatches(body.currentPassword, user.password)) fail('INVALID_CURRENT_PASSWORD', 'currentPassword');
+            if (db.prepare('SELECT 1 FROM users WHERE email=? AND id<>?').get(email, user.id)) fail('ACCOUNT_EXISTS', 'email');
+            if (mailLocks.has(`${user.id}:email`)) throw securityError('RATE_LIMITED', 5);
+            db.prepare('INSERT INTO email_changes VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET email=excluded.email, expires=excluded.expires').run(user.id, email, Date.now()+600_000);
+            try { await issueCode(user, 'email', email); }
+            catch (error) { db.prepare('DELETE FROM email_changes WHERE user_id=? AND email=?').run(user.id, email); throw error; }
+            return json({ ok: true });
+          }
+          case '/v1/auth/email-confirm': {
+            const user = verifiedUser(req);
+            const pending = db.prepare('SELECT email,expires FROM email_changes WHERE user_id=?').get(user.id);
+            if (!pending || pending.expires <= Date.now()) fail('CODE_INVALID', 'code');
+            if (db.prepare('SELECT 1 FROM users WHERE email=? AND id<>?').get(pending.email, user.id)) fail('ACCOUNT_EXISTS', 'email');
+            consumeCode(user, 'email', body.code);
+            db.exec('BEGIN');
+            try {
+              db.prepare('UPDATE users SET email=? WHERE id=?').run(pending.email, user.id);
+              db.prepare('DELETE FROM email_changes WHERE user_id=?').run(user.id);
+              db.prepare('DELETE FROM codes WHERE user_id=?').run(user.id);
+              db.prepare('DELETE FROM sessions WHERE user_id=? AND digest<>?').run(user.id, user.session_digest);
+              db.exec('COMMIT');
+            } catch (error) { db.exec('ROLLBACK'); throw error; }
+            return json({ user: publicUser({ ...user, email: pending.email }) });
           }
           case '/v1/auth/login': {
             const identifier = text(body.identifier, 254).toLowerCase();
@@ -340,7 +378,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
         if (!req.complete) res.setHeader('Connection', 'close');
         if (error.retryAfter) res.setHeader('Retry-After', String(error.retryAfter));
       }
-      if (!res.headersSent) json({ error: code, message }, status); else res.end();
+      if (!res.headersSent) json({ error: code, message, ...(error.field ? { field: error.field } : {}) }, status); else res.end();
     } finally { for (const done of workReleases) done(); }
   });
   server.defenseSnapshot = defense.snapshot;
