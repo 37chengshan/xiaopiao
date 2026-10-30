@@ -20,6 +20,8 @@
 ./gradlew :app:testDebugUnitTest        # JVM 单测
 # UI 测试只在专用模拟器跑：connectedDebugAndroidTest 会在跑完后卸载 App 并清空该设备数据。
 ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest
+# QA ledger-sync probe uses the custom Instrumentation instead of the JUnit runner:
+# ./gradlew :app:connectedDebugAndroidTest -Pxiaopiao.testRunner=com.xiaopiao.app.verification.LedgerSyncCheck
 ./gradlew :app:lint                     # Lint
 ./gradlew :app:installDebug             # 构建并安装到当前连接的唯一设备
 ```
