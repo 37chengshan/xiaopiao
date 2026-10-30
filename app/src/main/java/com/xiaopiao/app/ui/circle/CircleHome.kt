@@ -1,5 +1,11 @@
 package com.xiaopiao.app.ui.circle
 
+import com.xiaopiao.app.ui.theme.XpColors
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -72,6 +78,9 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
     val bottomInset = LocalTabBarInset.current
     // The feed is recorded for the glass 发帖 button that floats over it (a sibling, never its parent).
     val feedGlass = rememberLayerBackdrop()
+    // Height of the pinned capsule row; the feed starts under it and scrolls beneath it.
+    var entriesHeight by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
 
     LaunchedEffect(postedTick) { if (postedTick > 0) listState.animateScrollToItem(0) }
 
@@ -92,15 +101,11 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                     alpha = feedIn.value
                     translationY = (1f - feedIn.value) * 10.dp.toPx()
                 },
-                contentPadding = PaddingValues(top = top, bottom = bottomInset + 96.dp),
+                contentPadding = PaddingValues(
+                    top = top + with(density) { entriesHeight.toDp() },
+                    bottom = bottomInset + 96.dp,
+                ),
             ) {
-                item(key = "entries") {
-                    CircleEntryRow(
-                        onLeaderboard = { sheet = "leaderboard" },
-                        onAward = { sheet = "award" },
-                        onGames = onOpenGames,
-                    )
-                }
                 if (posts.isEmpty()) {
                     item(key = "empty") {
                         EmptyState(
@@ -132,6 +137,26 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                     }
                 }
             }
+            // Posts passing under the header and between the capsules fade out instead of reading through; the
+            // capsules still sample the feed itself, so they stay glass.
+            val band = top + with(density) { entriesHeight.toDp() }
+            val canvas = XpColors.CanvasGrouped
+            Box(
+                Modifier.fillMaxWidth().height(band + XpSpace.l).background(
+                    Brush.verticalGradient(
+                        0f to canvas.copy(alpha = 0.96f),
+                        band / (band + XpSpace.l) to canvas.copy(alpha = 0.9f),
+                        1f to canvas.copy(alpha = 0f),
+                    ),
+                ),
+            )
+            CircleEntryRow(
+                onLeaderboard = { sheet = "leaderboard" },
+                onAward = { sheet = "award" },
+                onGames = onOpenGames,
+                backdrop = feedGlass,
+                modifier = Modifier.padding(top = top).onSizeChanged { entriesHeight = it.height },
+            )
             CirclePostButton(
                 backdrop = feedGlass,
                 onClick = { sheet = "compose" },

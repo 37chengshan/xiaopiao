@@ -78,6 +78,8 @@ import com.xiaopiao.app.ui.ledger.LedgerFilter
 import com.xiaopiao.app.ui.ledger.LedgerRange
 import com.xiaopiao.app.ui.components.IconTile
 import com.xiaopiao.app.ui.components.LedgerSideLeading
+import com.xiaopiao.app.ui.components.LocalGlass
+import com.xiaopiao.app.ui.components.glassCard
 import com.xiaopiao.app.ui.components.AppTopActions
 import com.xiaopiao.app.ui.components.LineTrend
 import com.xiaopiao.app.ui.components.NavScaffold
@@ -149,10 +151,11 @@ private fun neighborOf(range: StatsRange, forward: Boolean): StatsRange? {
     return SwipeOrder.getOrNull(if (forward) i + 1 else i - 1)
 }
 
-/** White card with a 0.5dp hairline edge: separation from the canvas comes from the line, never a shadow. */
+/** Liquid glass on the page's [GlassGround]; the plain white card with a 0.5dp hairline edge without one. */
 @Composable
 private fun Modifier.cardSurface(shape: Shape = ContentShape): Modifier =
-    clip(shape).background(XpColors.Card).border(0.5.dp, XpColors.Hairline, shape)
+    if (LocalGlass.current != null) glassCard(shape)
+    else clip(shape).background(XpColors.Card).border(0.5.dp, XpColors.Hairline, shape)
 
 /**
  * 统计 tab landing page (docs/APP-DESIGN.md §3.3): 周/月/年/自定义 → AI 小结 → KPI → 趋势 → 构成 → 排行,
@@ -214,6 +217,7 @@ fun StatsScreen(
         NavScrollNone,
         leading = { LedgerSideLeading() },
         trailing = { AppTopActions() },
+        glassGround = true,
     ) { top ->
         // The top inset is scroll content, not a frame: cards slide up under the glass capsules.
         BoxWithConstraints(Modifier.fillMaxSize()) {

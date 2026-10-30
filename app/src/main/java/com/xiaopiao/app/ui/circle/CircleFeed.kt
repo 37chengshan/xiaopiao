@@ -298,25 +298,34 @@ private fun SystemFeedNote(post: SystemPost, modifier: Modifier) {
 
 // --- entries under the header -------------------------------------------------------------------
 
-/** 排行榜 / 颁奖 / 游戏 as one row of capsules (tt: 收进顶部胶囊作为入口). */
+/**
+ * 排行榜 / 颁奖 / 游戏 as one row of capsules (tt: 收进顶部胶囊作为入口). The row stays under the header while the
+ * feed scrolls beneath it, so each capsule is liquid glass sampling [backdrop] (the feed, a sibling).
+ */
 @Composable
-fun CircleEntryRow(onLeaderboard: () -> Unit, onAward: () -> Unit, onGames: () -> Unit, modifier: Modifier = Modifier) {
+fun CircleEntryRow(
+    onLeaderboard: () -> Unit,
+    onAward: () -> Unit,
+    onGames: () -> Unit,
+    backdrop: Backdrop?,
+    modifier: Modifier = Modifier,
+) {
     val en = LocalConfiguration.current.locales[0].language == "en"
     Row(
         modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = XpSpace.l, vertical = XpSpace.s),
         horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
     ) {
-        EntryCapsule("🏆", if (en) "Leaderboard" else "排行榜", onLeaderboard)
-        EntryCapsule("🎖", if (en) "This week's titles" else "本周颁奖", onAward)
-        EntryCapsule("🎮", if (en) "Games" else "小游戏", onGames)
+        EntryCapsule("🏆", if (en) "Leaderboard" else "排行榜", backdrop, onLeaderboard)
+        EntryCapsule("🎖", if (en) "This week's titles" else "本周颁奖", backdrop, onAward)
+        EntryCapsule("🎮", if (en) "Games" else "小游戏", backdrop, onGames)
     }
 }
 
 @Composable
-private fun EntryCapsule(emoji: String, label: String, onClick: () -> Unit) {
+private fun EntryCapsule(emoji: String, label: String, backdrop: Backdrop?, onClick: () -> Unit) {
     Row(
-        Modifier.clip(RoundedCornerShape(XpRadius.pill))
-            .background(XpColors.Card)
+        Modifier.liquidGlass(backdrop, RoundedCornerShape(XpRadius.pill), shadow = 10.dp)
+            .clip(RoundedCornerShape(XpRadius.pill))
             .pressableClick(onClick = onClick)
             .padding(horizontal = XpSpace.m, vertical = XpSpace.s),
         verticalAlignment = Alignment.CenterVertically,

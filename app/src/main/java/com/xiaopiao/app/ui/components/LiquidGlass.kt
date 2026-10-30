@@ -51,3 +51,14 @@ fun Modifier.liquidGlass(
             onDrawSurface = { drawRect(film) },
         )
     }
+
+/**
+ * A content card on a [GlassGround] page (设置、统计、小票): liquid glass over the theme-coloured ground, or the plain
+ * opaque card anywhere else. Content is clipped to [shape].
+ */
+@Composable
+fun Modifier.glassCard(shape: Shape, fallback: Color = XpColors.Card): Modifier {
+    val ground = LocalGlass.current
+    return if (ground == null) this.clip(shape).background(fallback)
+    else this.liquidGlass(ground, shape).clip(shape)
+}
