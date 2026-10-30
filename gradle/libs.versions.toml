@@ -18,6 +18,8 @@ mlkitText = "16.0.1"
 mlkitBarcode = "17.3.0"
 zxing = "3.5.3"
 junit = "4.13.2"
+# 端侧语音识别：sherpa-onnx 的 Android AAR（app/libs 里只保留 arm64-v8a + x86_64 的 so）。
+sherpaOnnx = "2.0.1"
 
 [libraries]
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -52,6 +54,7 @@ mlkit-text = { group = "com.google.mlkit", name = "text-recognition", version.re
 mlkit-barcode = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcode" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+sherpa-onnx = { group = "com.k2fsa.sherpa.onnx", name = "sherpa-onnx", version.ref = "sherpaOnnx" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
