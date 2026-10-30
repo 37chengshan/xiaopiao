@@ -1101,7 +1101,6 @@ private fun ResultView(
     val context = LocalContext.current
     val clipLabel = stringResource(R.string.games_clip_label)
     val haptics = rememberXpHaptics()
-    val clipLabel = stringResource(R.string.games_clip_label)
     var copied by remember(outcome) { mutableStateOf(false) }
     val figure = resultFigure(game, deck, answers, outcome)
     val persona = game.mode == GameMode.Persona || game.mode == GameMode.Type
