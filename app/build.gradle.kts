@@ -15,6 +15,10 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        // 端侧语音只给真机（arm64）和模拟器（x86_64）打包；v7a/x86 的 so 不进 APK。
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
     }
 
     buildTypes {
@@ -71,6 +75,8 @@ dependencies {
     implementation(libs.mlkit.text)
     implementation(libs.mlkit.barcode)
     implementation(libs.zxing.core)
+    // 端侧语音识别（tt 2026-10-29）：AAR 里只有 arm64-v8a + x86_64 的 so，模型按需下载。
+    implementation(files("libs/sherpa-onnx-${libs.versions.sherpaOnnx.get()}-arm64-x86_64.aar"))
     debugImplementation(libs.compose.ui.tooling)
 
     testImplementation(libs.junit)

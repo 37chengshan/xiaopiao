@@ -37,25 +37,33 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.xiaopiao.app.domain.asr.AsrModel
+import com.xiaopiao.app.domain.asr.AsrModelManager
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * The single voice surface (docs/APP-DESIGN.md §4.2). Any entry point — the centre key, the record
  * ball — asks this host to listen; the bar lives above the tab bar so it survives tab switches.
  */
-class VoiceHostState(val controller: VoiceController) {
+class VoiceHostState(
+    val controller: VoiceController,
+    val models: AsrModelManager,
+    private val scope: CoroutineScope,
+) {
     var open by mutableStateOf(false)
         private set
     var requested by mutableStateOf(false)
@@ -63,14 +71,57 @@ class VoiceHostState(val controller: VoiceController) {
     var cancelledBySwipe by mutableStateOf(false)
         private set
 
+    /** Non-null when the mic needs a model first; the prompt offers the one-tap download. */
+    var promptModel by mutableStateOf<AsrModel?>(null)
+        private set
+    var downloading by mutableStateOf(false)
+        private set
+    var downloadError by mutableStateOf<String?>(null)
+        private set
+
     fun request() { requested = true }
 
     fun permissionResult(granted: Boolean) {
         requested = false
-        if (granted) {
-            open = true
-            controller.start()
+        if (!granted) return
+        open = true
+        controller.start()
+        // No model for this language yet: close the bar and ask for the download instead.
+        controller.pendingModel?.let { model ->
+            controller.clearPending()
+            open = false
+            promptModel = model
         }
+    }
+
+    /** Download, then listen without another tap (tt: 「下载完直接开始听」). */
+    fun downloadAndListen() {
+        val model = promptModel ?: return
+        if (downloading) return
+        downloading = true
+        downloadError = null
+        scope.launch {
+            try {
+                models.ensure(model)
+                downloading = false
+                promptModel = null
+                open = true
+                controller.startAfterDownload()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                downloading = false
+                throw e
+            } catch (e: Exception) {
+                downloading = false
+                downloadError = e.message ?: "下载失败"
+            }
+        }
+    }
+
+    fun dismissPrompt() {
+        promptModel = null
+        downloading = false
+        downloadError = null
+        controller.clearPending()
     }
 
     fun stop() { controller.stop() }
@@ -85,10 +136,17 @@ class VoiceHostState(val controller: VoiceController) {
 }
 
 @Composable
-fun rememberVoiceHost(): VoiceHostState {
-    val context = LocalContext.current
-    val controller = rememberVoiceController()
-    val host = remember(controller) { VoiceHostState(controller) }
+fun rememberVoiceHost(container: com.xiaopiao.app.AppContainer): VoiceHostState {
+    val scope = rememberCoroutineScope()
+    val controller = remember(container) {
+        VoiceController(
+            context = container.appContext,
+            models = container.asrModels,
+            prefs = container.asrPrefs,
+            hotwordSeed = { container.asrHotwordSeed() },
+        )
+    }
+    val host = remember(controller) { VoiceHostState(controller, container.asrModels, scope) }
     DisposableEffect(host) { onDispose { controller.release() } }
     return host
 }
@@ -121,6 +179,10 @@ fun VoiceOverlay(host: VoiceHostState, onTranscript: (String) -> Unit, modifier:
         val err = controller.error ?: return@LaunchedEffect
         kotlinx.coroutines.delay(1900)
         if (!controller.listening && controller.error == err) host.cancel()
+    }
+
+    host.promptModel?.let { model ->
+        VoiceModelPrompt(model = model, host = host)
     }
 
     AnimatedVisibility(
