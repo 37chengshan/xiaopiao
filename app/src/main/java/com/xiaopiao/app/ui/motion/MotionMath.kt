@@ -83,7 +83,16 @@ object MotionMath {
  * always usable inside 1.2s, and skipping cuts straight to [FADE_MS].
  */
 object SplashTimeline {
-    /** Time to let the system splash icon (AVD) show before the hand-off starts. */
+    /** The machine printing itself: body fades in, the paper rolls out of the slit, the ink appears. */
+    const val PRINTER_FADE_MS = 140
+    const val ROLLOUT_MS = 380
+    const val INK_DELAY_MS = 300
+    const val INK_MS = 220
+
+    /** Whole print choreography (its parts overlap), i.e. when the paper is fully out and inked. */
+    const val PRINT_MS = 520
+
+    /** Reduced motion keeps the logo still for a beat, then only fades. */
     const val HOLD_MS = 120
 
     /** Paper flies from the logo position to the receipt control. */
@@ -96,14 +105,14 @@ object SplashTimeline {
     const val MAX_TOTAL_MS = 1200
 
     /**
-     * When to give up waiting for a receipt control to report its bounds and fade the paper out
-     * anyway. Leaves room for the flight and the fade inside [MAX_TOTAL_MS].
+     * How long the print waits for a receipt control to report its bounds before flying anyway.
+     * Leaves room for the flight and the fade inside [MAX_TOTAL_MS].
      */
-    const val TARGET_WAIT_MS = MAX_TOTAL_MS - FLIGHT_MS - FADE_MS - HOLD_MS
+    const val TARGET_WAIT_MS = MAX_TOTAL_MS - PRINT_MS - FLIGHT_MS - FADE_MS
 
     /** Total wall-clock length for the given plan. */
     fun totalMs(hasTarget: Boolean): Int =
-        if (hasTarget) HOLD_MS + FLIGHT_MS + FADE_MS else HOLD_MS + FADE_MS
+        if (hasTarget) PRINT_MS + FLIGHT_MS + FADE_MS else PRINT_MS + FADE_MS
 
     /** True when the plan still fits the 1.2s budget; used by the unit test as a guard. */
     fun fitsBudget(hasTarget: Boolean): Boolean = totalMs(hasTarget) <= MAX_TOTAL_MS

@@ -6,14 +6,14 @@
     </style>
 
     <!--
-        Cold-start splash (docs/APP-DESIGN.md §2.5). The AVD rolls a paper strip out of the printer
-        (<= 700ms, platform budget is 1000ms); the Compose host then flies the same paper to the
-        persistent receipt control and fades out, so the whole thing stays inside 1.2s.
+        Cold-start splash (docs/APP-DESIGN.md §2.5). 系统这一层只留底色：打印动作（机身、吐纸、打印内容、
+        再飞进右上角小票图标）全部在 Compose 的那一层里演。以前系统 AVD 和 Compose 各画一套打印机，
+        尺寸对不上，冷启动能看到「两层东西」（tt 2026-10-29）；透明图标而不是删属性，是为了
+        兼容 core-splashscreen 在没有图标时的回退到 launcher icon。
     -->
     <style name="Theme.Xiaopiao.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">#F5F3EE</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_animated</item>
-        <item name="windowSplashScreenAnimationDuration">700</item>
+        <item name="windowSplashScreenAnimatedIcon">@android:color/transparent</item>
         <item name="postSplashScreenTheme">@style/Theme.Xiaopiao</item>
     </style>
 </resources>
