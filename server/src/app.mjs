@@ -5,7 +5,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { hash, secret, passwordHash, passwordMatches, publicUser } from './store.mjs';
 import { createLedger, LIMITS as LEDGER } from './ledger.mjs';
 import { createCircles, LIMITS as CIRCLE } from './circle.mjs';
-export const ACCOUNT_POLICY = Object.freeze({ passwordMin: 15, passwordMax: 128, usernameMin: 3, usernameMax: 30, profileEditing: true });
+export const ACCOUNT_POLICY = Object.freeze({ passwordMin: 8, passwordMax: 128, usernameMin: 3, usernameMax: 30, profileEditing: true });
 const errors = {
   INVALID_CURRENT_PASSWORD: [400, '当前密码不正确'],
   SERVER_BUSY: [503, '服务繁忙，请稍后重试'], REQUEST_TIMEOUT: [408, '请求超时，请重试'],

@@ -19,7 +19,7 @@ test('verification and recovery use the configured inbox, finite timeout and ide
   assert.notEqual(calls[0].options.headers['Idempotency-Key'], calls[2].options.headers['Idempotency-Key']);
   const body = JSON.parse(calls[0].options.body);
   assert.equal(body.to, 'person@example.test'); assert.ok(body.text.includes('123456'));
-  assert.equal(body.html, undefined);
+  assert.match(body.html, /123456/); assert.match(body.html, /验证码/); assert.ok(!body.html.includes('test-placeholder'));
 });
 test('provider errors cannot expose keys or response content', async () => {
   const sender = createAgentMailSender({ apiKey: 'test-placeholder', inboxId: 'receipt@example.test', fetcher: async () => new Response('sensitive upstream response', { status: 403 }) });
