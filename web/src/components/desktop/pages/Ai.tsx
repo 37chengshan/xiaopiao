@@ -1,5 +1,8 @@
+import { useAutoEntry } from "@/services/aiPrefs";
+import { accountSnapshot } from "@/services/account";
+import { runAgent } from "@/services/agent";
 import { ArrowUp, Check, ChevronDown, Copy, Layers, Plus, RotateCcw, Sparkles, Square, ThumbsDown, ThumbsUp, Trash2, Upload } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { templateAssistant } from "@/ai/assistant";
@@ -163,8 +166,10 @@ const fill = (template: string, ...vals: (string | number)[]) =>
   vals.reduce<string>((acc, v) => acc.replace("{}", String(v)), template);
 
 export function AiPage() {
+  const reduceMotion = useReducedMotion();
   const locale = useLocale();
-  const { txns, now, add, isLoading, isError, refetch } = useLedger();
+  const [autoEntry] = useAutoEntry();
+  const { txns, now, add, remove, isLoading, isError, refetch } = useLedger();
   const shell = useShell();
   const today = startOfDay(now);
   const monthStart = useMemo(() => {
@@ -188,7 +193,8 @@ export function AiPage() {
   const [elapsed, setElapsed] = useState(0);
   const [activeAnswerId, setActiveAnswerId] = useState<string | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreviewState | null>(null);
-  const turn = useRef<{ cancelled: boolean; msgId: string } | null>(null);
+  const turn = useRef<{ cancelled: boolean; msgId: string; controller: AbortController } | null>(null);
+  useEffect(() => () => { if (turn.current) { turn.current.cancelled = true; turn.current.controller.abort(); } }, []);
   /** the greeting alone may be rewritten in place when the language changes (it is also the only
    * message a restored chat can hold) */
   const openingId = useRef<string | null>(store.msgs.length === 1 && store.msgs[0].role === "ai" ? store.msgs[0].id : null);
@@ -282,10 +288,32 @@ export function AiPage() {
       // The panel follows whichever answer is being written.
       setActiveAnswerId(answerId);
       setBusy(true);
-      const token = { cancelled: false, msgId: answerId };
+      const token = { cancelled: false, msgId: answerId, controller: new AbortController() };
       turn.current = token;
 
       try {
+        if (accountSnapshot()?.verified && !isLoading && !isError && intent.kind !== "ADD" && intent.kind !== "IMPORT") {
+          let received = false;
+          try {
+            const previous = (replaceId ? msgs.slice(0, msgs.findIndex(m => m.id === replaceId) - 1) : msgs)
+              .filter(m => m.role === "user" || (m.phase === "done" && m.chunks?.join("").trim()))
+              .map(m => ({ role: m.role === "user" ? "user" as const : "assistant" as const, content: (m.text ?? m.chunks?.join("") ?? "").slice(0, 6000) }));
+            await runAgent([...previous, { role: "user", content: text }], txns, token.controller.signal, event => {
+              if (token.cancelled) return;
+              if (event.type === "token") {
+                received = true;
+                patch(answerId, m => ({ ...m, phase: "streaming", chunks: [...(m.chunks ?? []), event.text ?? ""] }));
+              } else if (event.type === "status") {
+                patch(answerId, m => ({ ...m, tools: [...(m.tools ?? []).map(t => ({ ...t, done: true })), { id: nid(), label: event.text ?? "正在处理", done: false }] }));
+              } else if (event.type === "done") patch(answerId, m => ({ ...m, phase: "done", tools: m.tools?.map(t => ({ ...t, done: true })) }));
+            });
+            return;
+          } catch (error) {
+            if (token.cancelled) return;
+            if (received) { patch(answerId, m => ({ ...m, phase: "error", tools: m.tools?.map(t => ({ ...t, done: true })) })); return; }
+            patch(answerId, m => ({ ...m, tools: [{ id: nid(), label: error instanceof Error ? error.message : "云端暂不可用，改用本机统计", done: true }] }));
+          }
+        }
         await sleep(320 + Math.random() * 180);
         if (token.cancelled) return;
 
@@ -411,6 +439,19 @@ export function AiPage() {
 
         await sleep(140);
         if (token.cancelled) return;
+        if (autoEntry && card?.kind === "drafts" && !token.cancelled) {
+          const drafts = card.drafts;
+          const rows: Txn[] = drafts.map(d => ({ id: d.id, amountCents: d.amountCents, direction: d.direction, merchant: d.merchant, category: d.category, occurredAt: d.occurredAt, source: d.source }));
+          const result = await add(rows);
+          card = { ...card, saved: true };
+          patch(answerId, m => ({ ...m, chunks: [locale === "en" ? `Saved ${result.added} entries. You can undo below.` : `已自动记入 ${result.added} 笔，可在提示中撤销。`] }));
+          toast(locale === "en" ? `Saved ${result.added} entries` : `已自动记入 ${result.added} 笔`, result.added === rows.length ? {
+            duration: 10_000,
+            action: { label: locale === "en" ? "Undo" : "撤销", onClick: () => { void Promise.all(rows.map(row => remove(row.id))).then(() => {
+              patch(answerId, m => ({ ...m, chunks: [locale === "en" ? "Entries undone." : "已撤销这次自动记账。"], card: undefined }));
+            }).catch(() => toast.error(locale === "en" ? "Could not undo. Check your ledger." : "撤销未完成，请到记账页检查。")); } },
+          } : undefined);
+        }
         patch(answerId, (m) => ({ ...m, phase: "card", card, refs }));
         await sleep(320);
         if (token.cancelled) return;
@@ -427,13 +468,14 @@ export function AiPage() {
         inputRef.current?.focus();
       }
     },
-    [busy, isError, isLoading, monthStart, now, patch, today, txns],
+    [busy, isError, isLoading, monthStart, now, patch, today, txns, msgs, autoEntry, add, remove, locale],
   );
 
   const stop = () => {
     const token = turn.current;
     if (!token) return;
     token.cancelled = true;
+    token.controller.abort();
     turn.current = null;
     setBusy(false);
     patch(token.msgId, (m) => (m.phase === "thinking" || m.phase === "streaming" || m.phase === "card" ? { ...m, phase: "stopped" } : m));
@@ -704,7 +746,7 @@ export function AiPage() {
   const toolsRow = (m: Msg) => {
     if (!m.tools || m.tools.length === 0) return null;
     const running = m.phase === "thinking" || m.phase === "streaming";
-    const open = running || expandedTools.has(m.id);
+    const open = expandedTools.has(m.id);
     return (
       <div className="mt-2">
         <button
@@ -718,16 +760,16 @@ export function AiPage() {
           className="d-press flex h-6 items-center gap-1.5 rounded-full bg-d-fill px-2.5 text-[11.5px] text-d-ink-2 hover:text-d-ink"
           aria-expanded={open}
         >
-          <span className="num">{running ? s("ai.toolsRunning") : s("ai.toolsUsed").replace("{n}", String(m.tools.length))}</span>
+          <span className="num max-w-[260px] truncate">{open ? s("ai.toolsUsed").replace("{n}", String(m.tools.length)) : m.tools[m.tools.length - 1]?.label}</span>
           <ChevronDown className={cn("size-3 transition-transform", open && "rotate-180")} strokeWidth={2} aria-hidden />
         </button>
         <AnimatePresence initial={false}>
           {open && (
             <motion.ul
-              initial={{ height: 0, opacity: 0 }}
+              initial={reduceMotion ? false : { height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+              transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.23, 1, 0.32, 1] }}
               className="overflow-hidden"
             >
               {m.tools.map((tool) => (
@@ -871,9 +913,9 @@ export function AiPage() {
                         {m.chunks && m.chunks.length > 0 && (
                           <p className="mt-2 text-[14px] leading-[23px] text-d-ink">
                             {m.chunks.map((piece, k) => (
-                              <motion.span key={k} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
+                              <span key={k} className="d-stream-chunk">
                                 {piece}
-                              </motion.span>
+                              </span>
                             ))}
                             {(m.phase === "streaming" || m.phase === "card") && <span className="d-cursor" aria-hidden />}
                           </p>
@@ -891,7 +933,7 @@ export function AiPage() {
                         )}
                         <AnimatePresence initial={false}>
                           {(m.phase === "card" || m.phase === "done") && m.card && (
-                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }} className="overflow-hidden">
+                            <motion.div initial={reduceMotion ? false : { height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }} className="overflow-hidden">
                               {cardNode(m)}
                             </motion.div>
                           )}

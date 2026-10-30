@@ -187,7 +187,6 @@ const s = defineStrings(
     "faq.a6":
       "安卓 App 负责自动记账；网页版在电脑上看账、打印和导出，登录同一个账号就能同步。",
 
-    "close.word": "打印",
     "close.line": "打开网页版，把今天打印出来。不用注册。",
     "close.cta": "打开网页版",
     "close.app": "安卓 App",
@@ -417,7 +416,6 @@ const s = defineStrings(
     "faq.a6":
       "The Android app does the logging. The web app is for reading, printing and exporting on a computer; sign in with the same account to sync.",
 
-    "close.word": "PRINT",
     "close.line": "Open the web app and print today. No sign-up.",
     "close.cta": "Open the web app",
     "close.app": "Android app",
@@ -459,3 +457,32 @@ const s = defineStrings(
 );
 
 export { s, s as landingStrings };
+
+/** Concept-only phone narration; the original landing composition is retained. */
+export const cs = defineStrings(
+  {
+    cameraHint: "滚动查看手机与界面细节", glass: "液态玻璃", record: "记一笔", cards: "卡包", stats: "统计", circle: "圈子", parsed: "已解析", peak: "吃饭最多",
+    glassTitle: "液态玻璃，轻轻一层", glassBody: "光线穿过底栏，背景轻轻变形。滑动胶囊，感受材质随触摸变化。",
+    recordTitle: "说一句，就记下", recordBody: "「午饭 28。」金额与分类落进小票，确认一下，继续过你的日子。",
+    statsTitle: "花在哪，一眼明白", statsBody: "镜头推近一周的起伏，再拉开看分类。只讲账上的事实，不替你做决定。",
+    circleTitle: "小圈子，共同的日常", circleBody: "家人、室友，两个人也可以。一张周报，只分享你愿意被看见的部分。",
+    coffee: "午后咖啡", today: "今天", total: "本周支出", food: "餐饮", transport: "交通", drink: "饮品", sentence: "午饭 28", saved: "已记下", confirm: "确认这一笔", credit: "日常卡", transit: "交通卡", ending: "仅显示尾号", weekly: "本周小结", together: "好好吃饭的一周", sharing: "由你决定分享范围", you: "你", family: "家人", roommate: "室友", personal: "个人账本", shop: "街角小店", sample: "32 人 · 匿名汇总", consent: "单独授权 · 随时撤回", privacy: "本地解析", noAdvice: "只记录，不替你做决定",
+    intro: "AI 记账，每天一张会说话的小票。", introBody: "把通知里的零碎花销，收成一张看得懂的小票。", competition: "支付宝智能体涌现比赛 · Season 1", github: "查看 GitHub 源码", scroll: "向下滚动，打开今天",
+  },
+  {
+    cameraHint: "Scroll to explore the phone and its details", glass: "Liquid glass", record: "An entry", cards: "Your wallet", stats: "The picture", circle: "Your circle", parsed: "Parsed", peak: "Food leads",
+    glassTitle: "Glass, with a little depth", glassBody: "Light passes through the dock. Drag the capsule to see its edges, highlights and depth respond.",
+    recordTitle: "Say it. Keep it.", recordBody: "“Lunch, 28.” An amount and a category fall into place. Confirm, and get on with your day.",
+    statsTitle: "A week, made clear", statsBody: "Move in on the week's shape, then pull back for the categories. Facts from your own ledger, never advice.",
+    circleTitle: "Small circle. Shared days.", circleBody: "Family, flatmates, or just the two of you. A weekly recap shares only what you choose to show.",
+    coffee: "Afternoon coffee", today: "Today", total: "This week's spending", food: "Food", transport: "Transport", drink: "Drinks", sentence: "Lunch, 28", saved: "Noted", confirm: "Confirm entry", credit: "Everyday card", transit: "Transit card", ending: "Last digits only", weekly: "This week", together: "A week of good meals", sharing: "You choose what to share", you: "You", family: "Family", roommate: "Flatmate", personal: "Your ledger", shop: "The corner shop", sample: "32 people · anonymous", consent: "Separate consent · withdraw anytime", privacy: "Parsed on device", noAdvice: "A record, never a recommendation",
+    intro: "AI bookkeeping. One little receipt a day.", introBody: "Everyday payments become a small receipt you can actually read.", competition: "Alipay Agent Emergence Competition · Season 1", github: "View source on GitHub", scroll: "Scroll to open today",
+  },
+);
+
+
+/** Opening headline intentionally stays English in both language modes (tt 2026-10-29). */
+export const opening = defineStrings(
+  { wordL: "Daily", wordR: "Slip", title: "Daily Slip", product: "今日小票 · AI 记账", intro: "每天的零碎花销，收成一张会说话的小票。", down: "向下", github: "GitHub 源码", competition: "支付宝智能体涌现比赛 · Season 1", recordSpeech: "午饭 28", recordDone: "记下了，继续过你的日子。", circleUpdate: "这周的小结，已经整理好了。" },
+  { wordL: "Daily", wordR: "Slip", title: "Daily Slip", product: "Today's Receipt · AI bookkeeping", intro: "Your everyday spending, gathered into one little receipt.", down: "Scroll", github: "Source on GitHub", competition: "Alipay Agent Emergence Competition · Season 1", recordSpeech: "Lunch, 28", recordDone: "Noted. Get on with your day.", circleUpdate: "Your weekly recap is ready." },
+);

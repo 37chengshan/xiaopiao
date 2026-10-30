@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { motion, useTransform, type MotionValue } from "framer-motion";
-import { useEffect, useState } from "react";
+import { motion, type MotionValue } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 import { applyLocale, restoreLocale } from "@/lib/locale";
 import { getLocale, useLocale } from "@/lib/strings";
 import { s } from "../strings";
+import { GlassFilter } from "./GlassFilter";
 
 /** Hash routing owns the URL fragment, so in-page links scroll instead of setting `#id`. */
 export function scrollToId(id: string) {
@@ -11,15 +12,33 @@ export function scrollToId(id: string) {
 }
 
 /**
- * The nav falls in from above while the hero opens and then stays: one transform, no re-render.
+ * The original glass nav is visible from the opening frame; its appearance is unchanged.
  */
-export function Nav({ progress }: { progress: MotionValue<number> }) {
+export function Nav(_props: { progress: MotionValue<number> }) {
   useLocale();
   useEffect(() => {
     restoreLocale();
   }, []);
 
   const [dark, setDark] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+  const [box, setBox] = useState({ width: 0, height: 0 });
+
+  // The displacement map is built for the bar's own size, so it follows the viewport.
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const update = () =>
+      setBox((previous) =>
+        previous.width === el.offsetWidth && previous.height === el.offsetHeight
+          ? previous
+          : { width: el.offsetWidth, height: el.offsetHeight },
+      );
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    update();
+    return () => observer.disconnect();
+  }, []);
 
   // The privacy section is the only dark block: flip the pill's material while it sits under the nav.
   useEffect(() => {
@@ -44,12 +63,25 @@ export function Nav({ progress }: { progress: MotionValue<number> }) {
     };
   }, []);
 
-  const openY = useTransform(progress, [0.22, 0.5], [-110, 0]);
-  const openO = useTransform(progress, [0.2, 0.42], [0, 1]);
-  const y = useTransform(openY, (top) => `${top}%`);
-
   return (
-    <motion.nav className={`lx-nav${dark ? " is-dark" : ""}`} aria-label={s("nav.aria")} style={{ y, opacity: openO }}>
+    <motion.nav
+      ref={navRef}
+      className={`lx-nav${dark ? " is-dark" : ""}`}
+      aria-label={s("nav.aria")}
+      style={{ "--lx-nav-filter": "url(#lx-nav-glass)" } as React.CSSProperties}
+    >
+      {box.width > 0 ? (
+        <GlassFilter
+          id="lx-nav-glass"
+          width={box.width}
+          height={box.height}
+          radius={box.height / 2}
+          band={Math.max(14, box.height * 0.42)}
+          strength={22}
+        />
+      ) : null}
+      <span className="lx-nav__tint" aria-hidden="true" />
+      <span className="lx-nav__specular" aria-hidden="true" />
       <Link to="/" className="lx-nav__brand">
         <svg width="16" height="20" viewBox="0 0 18 22" aria-hidden="true">
           <path d="M1 1h16v18l-2.7-1.6L11.6 19 9 17.4 6.4 19l-2.7-1.6L1 19z" fill="currentColor" />

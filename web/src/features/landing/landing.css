@@ -200,11 +200,41 @@
   gap: 18px;
   padding: 9px 10px 9px 18px;
   border-radius: 999px;
-  border: 1px solid rgba(20, 20, 19, 0.08);
-  background: rgba(247, 246, 243, 0.74);
-  -webkit-backdrop-filter: saturate(180%) blur(18px);
-  backdrop-filter: saturate(180%) blur(18px);
-  will-change: transform;
+  border: 1px solid rgba(20, 20, 19, 0.07);
+  background: transparent;
+  overflow: hidden;
+  -webkit-backdrop-filter: blur(20px) saturate(150%) brightness(1.05) var(--lx-nav-filter);
+  backdrop-filter: blur(20px) saturate(150%) brightness(1.05) var(--lx-nav-filter);
+}
+/* Liquid Glass: the real page refracts at the rim, a thin tint keeps text legible, a rim highlight
+   gives the slab its thickness. Falls back to plain blur where `url()` is not supported. */
+.lx-nav__refract,
+.lx-nav__tint,
+.lx-nav__specular {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.lx-nav__tint {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(250, 249, 245, 0.5));
+}
+.lx-nav__specular {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -6px 12px -8px rgba(24, 24, 20, 0.18),
+    0 8px 24px -18px rgba(24, 24, 20, 0.45);
+}
+.lx-nav > *:not(.lx-nav__refract):not(.lx-nav__tint):not(.lx-nav__specular):not(.lx-glass-defs) {
+  position: relative;
+  z-index: 1;
+}
+.lx-glass-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
 }
 .lx-nav__brand {
   display: inline-flex;
@@ -241,9 +271,17 @@
   white-space: nowrap;
 }
 .lx-nav.is-dark {
-  background: rgba(24, 24, 22, 0.66);
   border-color: rgba(246, 244, 239, 0.16);
   color: var(--paper);
+}
+.lx-nav.is-dark .lx-nav__tint {
+  background: linear-gradient(180deg, rgba(38, 38, 34, 0.72), rgba(20, 20, 18, 0.62));
+}
+.lx-nav.is-dark .lx-nav__specular {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 24px -18px rgba(0, 0, 0, 0.7);
 }
 .lx-nav.is-dark .lx-nav__brand,
 .lx-nav.is-dark .lx-nav__link {
@@ -1804,20 +1842,11 @@
 }
 
 .lx-close {
-  padding: clamp(80px, 13vh, 170px) var(--margin) clamp(18px, 3vh, 32px);
+  padding: clamp(48px, 8vh, 96px) var(--margin) clamp(18px, 3vh, 32px);
   text-align: center;
 }
-.lx-close__mask {
-  overflow: hidden;
-}
-.lx-close__word {
-  font-size: clamp(72px, 16vw, 250px);
-  font-weight: 680;
-  letter-spacing: -0.055em;
-  line-height: 0.84;
-}
 .lx-close__line {
-  margin: clamp(16px, 3vh, 30px) auto 0;
+  margin: 0 auto;
   font-size: clamp(15px, 1.3vw, 18px);
   color: var(--ink-2);
   max-width: 38ch;

@@ -1,4 +1,7 @@
-import { Command, Download, Eraser, Info, Languages, LogIn, Palette, ShieldCheck, Volume2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { useAccount } from "@/services/account";
+import { useAutoEntry } from "@/services/aiPrefs";
+import { Check as CheckIcon, Command, Download, Eraser, Info, Languages, LogIn, Palette, ShieldCheck, Volume2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useLedger } from "@/services/LedgerProvider";
@@ -31,6 +34,8 @@ function KeyboardGlyph({ keys }: { keys: string }) {
 }
 
 export function SettingsPage() {
+  const user = useAccount();
+  const [autoEntry, setAutoEntry] = useAutoEntry();
   const { txns, reset } = useLedger();
   const { pref, setPref } = useTheme();
   const [sound, setSound] = useReceiptSound();
@@ -42,13 +47,16 @@ export function SettingsPage() {
   return (
     <div className="mx-auto flex w-full max-w-[760px] flex-col gap-5">
       <Card title={s("st.account")}>
-        <Row icon={<LogIn className="size-3.5" strokeWidth={1.8} aria-hidden />} label={s("st.accountValue")} hint={s("soon.body")}>
-          <Button size="sm" variant="primary" onClick={soon}>
-            {s("st.login")}
-          </Button>
+        <Row icon={<LogIn className="size-3.5" strokeWidth={1.8} aria-hidden />} label={user?.username ?? s("st.accountValue")} hint={user?.email}>
+          <Link to="/login" className="inline-flex h-8 items-center rounded-lg bg-d-ink px-3 text-xs text-d-canvas">{user ? (locale === "en" ? "Account" : "管理账号") : s("st.login")}</Link>
         </Row>
       </Card>
 
+      <Card title={locale === "en" ? "AI bookkeeping" : "AI 记账"}>
+        <Row icon={<CheckIcon />} label={locale === "en" ? "Automatic entry" : "AI 自动入账"} hint={locale === "en" ? "Save recognized entries without confirmation. You can undo. CSV still requires review." : "识别成功后直接记入，可撤销；CSV 仍需整批确认。"}>
+          <Toggle checked={autoEntry} onChange={setAutoEntry} label={locale === "en" ? "Automatic entry" : "AI 自动入账"}/>
+        </Row>
+      </Card>
       <Card title={s("st.language")}>
         <Row icon={<Languages className="size-3.5" strokeWidth={1.8} aria-hidden />} label={s("st.interfaceLang")}>
           <Segmented

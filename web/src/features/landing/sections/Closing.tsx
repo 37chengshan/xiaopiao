@@ -1,16 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import { motion, useInView } from "framer-motion";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { s } from "../strings";
 
 const FAQ = ["faq.q1", "faq.q2", "faq.q3", "faq.q4", "faq.q5", "faq.q6"] as const;
 const ANSWERS = ["faq.a1", "faq.a2", "faq.a3", "faq.a4", "faq.a5", "faq.a6"] as const;
 
-/** Closing: six honest answers, then the last big word and the way in. */
+/** Closing: six honest answers, then the way in. */
 export function Closing() {
   const [open, setOpen] = useState<number | null>(0);
-  const wordMask = useRef<HTMLDivElement>(null);
-  const wordIn = useInView(wordMask, { once: true, margin: "-12% 0px" });
 
   return (
     <>
@@ -48,16 +45,6 @@ export function Closing() {
       </section>
 
       <section id="close" className="lx-close">
-        <div className="lx-close__mask" ref={wordMask}>
-          <motion.h2
-            className="lx-close__word"
-            initial={false}
-            animate={{ y: wordIn ? "0%" : "108%" }}
-            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-          >
-            {s("close.word")}
-          </motion.h2>
-        </div>
         <p className="lx-close__line">{s("close.line")}</p>
         <div className="lx-close__actions">
           <Link to="/app" className="lx-pillbtn lx-pillbtn--ink lx-pillbtn--xl" data-cursor="cta">

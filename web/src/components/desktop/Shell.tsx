@@ -1,3 +1,5 @@
+import { refreshAccount } from "@/services/account";
+import { Link } from "@tanstack/react-router";
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
@@ -44,6 +46,7 @@ export function useShell(): ShellActions {
  * with the receipt control and command palette living in the shell so every page gets them.
  */
 export function Shell() {
+  useEffect(() => { void refreshAccount(); }, []);
   useLocale();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const reduce = useReducedMotion() ?? false;
@@ -128,9 +131,7 @@ export function Shell() {
                   <Button size="sm" variant="primary" onClick={soon}>
                     {s("notice.download")}
                   </Button>
-                  <Button size="sm" variant="quiet" className="bg-d-surface" onClick={soon}>
-                    {s("notice.login")}
-                  </Button>
+                  <Link to="/login" className="inline-flex h-8 items-center rounded-lg bg-d-surface px-3 text-xs">{s("notice.login")}</Link>
                 </>
               }
             >
