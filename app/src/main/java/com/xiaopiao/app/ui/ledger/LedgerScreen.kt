@@ -37,6 +37,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Tune
@@ -352,6 +353,7 @@ fun LedgerScreen(
                     reduceMotion = reduceMotion,
                     onClearConditions = { clearConditions() },
                     fresh = landings.fresh,
+                    filter = filter,
                 )
             }
         }
@@ -400,6 +402,38 @@ fun LedgerScreen(
 
 }
 
+/** The current narrowing in one tappable line; tapping clears it back to 本月. */
+@Composable
+private fun ActiveFilterChip(filter: LedgerFilter, onClear: () -> Unit) {
+    val parts = buildList {
+        filter.categories.forEach { add(it.label) }
+        filter.direction?.let { add(if (it == Direction.OUT) "支出" else "收入") }
+        when (filter.range) {
+            LedgerRange.Month -> {}
+            LedgerRange.Custom -> {
+                val fmt = java.text.SimpleDateFormat("M/d", java.util.Locale.getDefault())
+                val from = filter.customFrom?.let { fmt.format(java.util.Date(it)) } ?: "…"
+                val to = filter.customTo?.let { fmt.format(java.util.Date(it)) } ?: "…"
+                add("$from–$to")
+            }
+            else -> add(filter.range.label)
+        }
+        if (filter.sources.isNotEmpty()) add(filter.sources.joinToString("、") { it.label })
+        if (filter.minCents != null || filter.maxCents != null) add("金额")
+    }
+    Row(Modifier.fillMaxWidth().padding(top = XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.AccentSoft)
+                .pressableClick(onClick = onClear)
+                .padding(start = XpSpace.m, end = XpSpace.s, top = XpSpace.xs, bottom = XpSpace.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = XpColors.Accent, maxLines = 1)
+            Icon(Icons.Outlined.Close, contentDescription = "清除筛选", tint = XpColors.Accent, modifier = Modifier.padding(start = XpSpace.xs).size(16.dp))
+        }
+    }
+}
+
 /** Items above the first day card: the summary (search sits in the top bar, 按天查看 inside the summary card). */
 private const val HEADER_ITEMS = 1
 
@@ -425,6 +459,7 @@ private fun LedgerList(
     reduceMotion: Boolean,
     onClearConditions: () -> Unit,
     fresh: Set<Long> = emptySet(),
+    filter: LedgerFilter = LedgerFilter(),
 ) {
     // One open swipe row at a time; scrolling the list folds it back.
     val swipeRows = remember { SwipeRows() }
@@ -440,7 +475,11 @@ private fun LedgerList(
             // tt: the date jump lives in the summary card, not in the top bar (which keeps only 小票 and 设置 on the right).
             item(key = "summary") {
                 Box(Modifier.animateItem(fadeInSpec = tween(200), fadeOutSpec = null, placementSpec = tween(220, easing = XpEase.out))) {
-                    LedgerSummaryCard(summary, hidden, onToggleHidden, budget, onOpenBudget, onOpenCalendar = onOpenCalendar.takeIf { !allEmpty })
+                    Column {
+                        LedgerSummaryCard(summary, hidden, onToggleHidden, budget, onOpenBudget, onOpenCalendar = onOpenCalendar.takeIf { !allEmpty })
+                        // Arriving from a chart narrows the list; say so, or two bills look like the whole month.
+                        if (!filter.isDefault) ActiveFilterChip(filter, onClear = onClearConditions)
+                    }
                 }
             }
         }
