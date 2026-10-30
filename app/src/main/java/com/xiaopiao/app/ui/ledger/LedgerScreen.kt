@@ -263,6 +263,9 @@ fun LedgerScreen(
                 },
                 label = "ledgerChrome",
             ) { mode ->
+                // AnimatedContent lays its content out in a Box; without this Row the receipt and the gear
+                // (and 全选 / 取消) are drawn on top of each other.
+                Row(verticalAlignment = Alignment.CenterVertically) {
                 when (mode) {
                     "search" -> NavIconButton(Icons.Outlined.Tune, if (filter.activeCount > 0) "筛选 ${filter.activeCount}" else "筛选", onClick = { filterOpen = true })
                     "select" -> {
@@ -288,6 +291,7 @@ fun LedgerScreen(
                     }
 
                     else -> AppTopActions()
+                }
                 }
             }
         },
