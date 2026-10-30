@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { applyLocale, restoreLocale } from "@/lib/locale";
 import { getLocale, useLocale } from "@/lib/strings";
 import { s } from "../strings";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { GlassFilter } from "./GlassFilter";
 
 /** Hash routing owns the URL fragment, so in-page links scroll instead of setting `#id`. */
@@ -150,10 +151,7 @@ export function Nav(_props: { progress: MotionValue<number> }) {
       <span className="lx-nav__tint" aria-hidden="true" />
       <span className="lx-nav__specular" aria-hidden="true" />
       <Link to="/" className="lx-nav__brand">
-        <svg width="16" height="20" viewBox="0 0 18 22" aria-hidden="true">
-          <path d="M1 1h16v18l-2.7-1.6L11.6 19 9 17.4 6.4 19l-2.7-1.6L1 19z" fill="currentColor" />
-          <path d="M5 6h8M5 9.5h8M5 13h5" stroke="var(--lx-paper)" strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
+        <BrandMark className="lx-nav__mark" />
         <span>{s("brand")}</span>
       </Link>
       <div className="lx-nav__links" ref={linksRef} onMouseLeave={() => setHovered(null)}>

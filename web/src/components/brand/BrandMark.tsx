@@ -1,27 +1,25 @@
 /**
- * 今日小票 brand mark: a solid receipt slip with a torn zigzag foot, two printed lines knocked out
- * of the paper, and a warm-orange dot on the top-right corner — the stamp that is also the
- * "it has something to say" badge. Body uses currentColor; the knock-out lines take `--mark-paper`
- * (defaults to the page canvas) so the mark works on light and dark grounds.
+ * 今日小票 / Daily Slip brand mark — the same drawing as the Android launcher icon (docs/BRAND.md): a coral tile
+ * with a white receipt whose foot is torn in a zigzag, three printed lines in the tile's coral. One mark for the
+ * App icon, the favicon, the nav and the in-page phones, so the brand reads the same everywhere.
  */
-export const BRAND_ORANGE = "#FF8A00";
+export const BRAND_CORAL = "#FF6B4A";
 
-export const BRAND_BODY_PATH =
-  "M8 3h16a2 2 0 0 1 2 2v20l-2.5-2.5-2.5 2.5-2.5-2.5-2.5 2.5-2.5-2.5-2.5 2.5-2.5-2.5-2.5 2.5V5a2 2 0 0 1 2-2Z";
+const RECEIPT_PATH = "M36 30h36v44l-4.5-3-4.5 3-4.5-3-4.5 3-4.5-3-4.5 3-4.5-3-4.5 3z";
+const LINES_PATH = "M42 40h24v3H42zm0 8h18v3H42zm0 8h24v3H42z";
 
 export function BrandMark({ className, title }: { className?: string; title?: string }) {
   return (
     <svg
-      viewBox="0 0 32 32"
+      viewBox="18 18 72 72"
       className={className}
       role={title ? "img" : undefined}
       aria-label={title}
       aria-hidden={title ? undefined : true}
     >
-      <path d={BRAND_BODY_PATH} fill="currentColor" />
-      <rect x="10" y="10.5" width="10" height="2.4" rx="1.2" fill="var(--mark-paper, var(--d-canvas, #fff))" />
-      <rect x="10" y="15.5" width="6" height="2.4" rx="1.2" fill="var(--mark-paper, var(--d-canvas, #fff))" />
-      <circle cx="24.3" cy="6.7" r="4.4" fill={BRAND_ORANGE} stroke="var(--mark-paper, var(--d-canvas, #fff))" strokeWidth="2" />
+      <rect x="18" y="18" width="72" height="72" rx="17" fill={BRAND_CORAL} />
+      <path d={RECEIPT_PATH} fill="#fff" />
+      <path d={LINES_PATH} fill={BRAND_CORAL} />
     </svg>
   );
 }
