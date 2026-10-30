@@ -24,7 +24,8 @@ const errors = {
 };
 function fail(code, field) { throw Object.assign(new Error(code), { code, ...(field ? { field } : {}) }); }
 function text(value, max = 256) { if (typeof value !== 'string' || !value.trim() || value.length > max) fail('INVALID_INPUT'); return value.trim(); }
-function emailOf(value) { if (typeof value !== 'string' || value.trim().length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) fail('INVALID_INPUT', 'email'); return value.trim().toLowerCase(); }
+function identifierOf(value) { return text(value, 254).normalize('NFKC').replace(/[。．]/g, '.').toLowerCase(); }
+function emailOf(value) { let email; try { email = identifierOf(value); } catch { fail('INVALID_INPUT', 'email'); } if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail('INVALID_INPUT', 'email'); return email; }
 function passwordOf(value) { if (typeof value !== 'string' || value.length < ACCOUNT_POLICY.passwordMin || value.length > ACCOUNT_POLICY.passwordMax) fail('INVALID_INPUT', 'password'); return value; }
 function numberParam(url, name, fallback) {
   const raw = url.searchParams.get(name);
@@ -272,9 +273,11 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
             return json({ user: publicUser({ ...user, email: pending.email }) });
           }
           case '/v1/auth/login': {
-            const identifier = text(body.identifier, 254).toLowerCase();
+            const identifier = identifierOf(body.identifier);
             rate(`login:${hash(identifier)}`, 10);
-            const password = passwordOf(body.password);
+            // Existing accounts may predate the new-password policy; never rewrite their credential.
+            if (typeof body.password !== 'string' || !body.password.length || body.password.length > ACCOUNT_POLICY.passwordMax) fail('INVALID_INPUT', 'password');
+            const password = body.password;
             const user = db.prepare('SELECT * FROM users WHERE email=? OR username=?').get(identifier, identifier);
             const matches = await passwordMatches(password, user?.password ?? await dummyPassword);
             if (!user || !matches) fail('INVALID_CREDENTIALS');

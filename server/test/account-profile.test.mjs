@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { store } from '../src/store.mjs';
+import { store, passwordHash } from '../src/store.mjs';
 import { createApp } from '../src/app.mjs';
 
 async function fixture(t) {
@@ -57,4 +57,16 @@ test('failed email-change codes consume attempts and cannot be brute-forced', as
   for (let i = 0; i < 5; i++) assert.equal((await f.call('email-confirm', { code: '000000' }, f.token)).status, 400);
   assert.equal((await f.call('email-confirm', { code: f.mail.at(-1).code }, f.token)).status, 400);
   assert.equal(f.db.prepare('SELECT email FROM users').get().email, 'qa@example.test');
+});
+
+test('legacy short credentials survive logout/login and email IME punctuation is canonicalized', async t => {
+  const f = await fixture(t);
+  const legacy = 'testshort1';
+  await f.db.prepare('UPDATE users SET password=? WHERE email=?').run(await passwordHash(legacy), 'qa@example.test');
+  const first = await f.call('login', { identifier: 'qa@example。test', password: legacy, client: 'native' });
+  assert.equal(first.status, 200);
+  assert.equal((await f.call('logout', {}, first.data.token)).status, 200);
+  assert.equal((await f.call('login', { identifier: ' QA@EXAMPLE.TEST ', password: legacy, client: 'native' })).status, 200);
+  const invalidNew = await f.call('register', { email: 'new@example.test', username: 'newuser', password: legacy });
+  assert.equal(invalidNew.status, 400); assert.equal(invalidNew.data.field, 'password');
 });
