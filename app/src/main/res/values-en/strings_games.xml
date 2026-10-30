@@ -10,9 +10,13 @@
     <string name="games_row_meta">%1$d Q · %2$d min</string>
     <string name="games_hub_count">%1$d mini games</string>
     <string name="games_group_personality">Personality</string>
+    <string name="games_group_relationship">Relationships</string>
+    <string name="games_group_mind">Mind</string>
+    <string name="games_group_fun">Fun</string>
     <string name="games_group_guess">Guess</string>
     <string name="games_group_challenge">Challenges</string>
     <string name="games_mode_persona">Persona</string>
+    <string name="games_mode_type">16-type</string>
     <string name="games_mode_challenge">Challenge</string>
     <string name="games_mode_radar">Radar</string>
     <string name="games_intro_start">Start</string>
@@ -28,6 +32,7 @@
     <string name="games_feedback_false">That statement is false.</string>
     <string name="games_next">Next</string>
     <string name="games_result_cta">See result</string>
+    <string name="games_quiz_prompt">Pick an answer to reveal it</string>
     <string name="games_tf_prompt">True or false?</string>
     <string name="games_tf_true">True</string>
     <string name="games_tf_false">False</string>
@@ -65,4 +70,10 @@
     <string name="games_howto_save_challenge">Eight everyday scenes, each with a thriftier option. See how much this round saves.</string>
     <string name="games_howto_ledger_quiz">Fifteen true-or-false questions from the ledger\'s trivia drawer. Every answer comes with an explanation.</string>
     <string name="games_howto_spend_radar">Six quick scales draw your money map: planning, impulse, social, experience, minimalism, novelty.</string>
+    <string name="games_howto_type_16">12 this-or-that questions build a four-letter type. For fun, not the official MBTI instrument.</string>
+    <string name="games_howto_attachment_style">12 relationship scenes, showing your default way of getting close. Entertainment only, not a diagnosis.</string>
+    <string name="games_howto_love_language">10 this-or-that questions to find what makes you feel most cared for.</string>
+    <string name="games_howto_disc_style">10 scenes to see your default role in a group.</string>
+    <string name="games_howto_social_battery">10 scenes to see how your social battery recharges.</string>
+    <string name="games_howto_trivia_quickfire">12 trivia questions for your inner encyclopedia.</string>
 </resources>

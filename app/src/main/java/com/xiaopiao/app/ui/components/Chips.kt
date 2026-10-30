@@ -14,6 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
@@ -28,8 +30,13 @@ fun SelectCapsule(text: String, selected: Boolean, onClick: () -> Unit, modifier
     val bg by animateColorAsState(if (selected) XpColors.Ink else XpColors.Fill, tween(180, easing = XpEase.out), label = "capBg")
     // Selecting is a physical action: a tiny pop back to rest, never a fade.
     val pop = remember { androidx.compose.animation.core.Animatable(1f) }
+    var wasSelected by remember { mutableStateOf(selected) }
     LaunchedEffect(selected) {
-        if (selected) { pop.snapTo(0.94f); pop.animateTo(1f, androidx.compose.animation.core.spring(0.55f, 420f)) }
+        if (selected && !wasSelected) {
+            pop.snapTo(0.94f)
+            pop.animateTo(1f, androidx.compose.animation.core.spring(0.55f, 420f))
+        }
+        wasSelected = selected
     }
     val fg by animateColorAsState(if (selected) XpColors.Canvas else XpColors.Ink, tween(180, easing = XpEase.out), label = "capFg")
     Box(

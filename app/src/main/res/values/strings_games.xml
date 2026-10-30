@@ -10,9 +10,13 @@
     <string name="games_row_meta">%1$d 题 · %2$d 分钟</string>
     <string name="games_hub_count">%1$d 个小游戏</string>
     <string name="games_group_personality">性格测试</string>
+    <string name="games_group_relationship">关系测试</string>
+    <string name="games_group_mind">脑力测试</string>
+    <string name="games_group_fun">趣味测试</string>
     <string name="games_group_guess">猜一猜</string>
     <string name="games_group_challenge">小挑战</string>
     <string name="games_mode_persona">人格</string>
+    <string name="games_mode_type">16 型</string>
     <string name="games_mode_challenge">挑战</string>
     <string name="games_mode_radar">雷达</string>
     <string name="games_intro_start">开始</string>
@@ -28,6 +32,7 @@
     <string name="games_feedback_false">这句话是错的。</string>
     <string name="games_next">下一题</string>
     <string name="games_result_cta">看结果</string>
+    <string name="games_quiz_prompt">选一个答案，提交后揭晓</string>
     <string name="games_tf_prompt">这句话对吗？</string>
     <string name="games_tf_true">对</string>
     <string name="games_tf_false">错</string>
@@ -65,4 +70,10 @@
     <string name="games_howto_save_challenge">8 幕生活情景，每一幕都有个省钱的选择。看看这一局你能省下多少。</string>
     <string name="games_howto_ledger_quiz">15 道判断题，全是账本里的冷知识。答错也有解释。</string>
     <string name="games_howto_spend_radar">6 道量表，画出你的花钱六维图：计划、冲动、社交、体验、极简、新鲜。</string>
+    <string name="games_howto_type_16">12 道二选一，最后拼出你的四字母类型。娱乐版，不是官方 MBTI 测评。</string>
+    <string name="games_howto_attachment_style">12 个关系场景，看看你在亲密关系里的默认反应。娱乐向，不构成心理诊断。</string>
+    <string name="games_howto_love_language">10 个二选一，找出你最容易被哪种方式打动。</string>
+    <string name="games_howto_disc_style">10 个场景，看看你在人群里的默认角色。</string>
+    <string name="games_howto_social_battery">10 个场景，看看你的精神和社交电量怎么充电。</string>
+    <string name="games_howto_trivia_quickfire">12 道冷知识，答完看看你的脑内百科有几页。</string>
 </resources>

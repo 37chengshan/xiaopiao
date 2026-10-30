@@ -37,7 +37,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -96,6 +98,7 @@ import com.xiaopiao.app.domain.games.GameOutcome
 import com.xiaopiao.app.domain.games.GameQuestion
 import com.xiaopiao.app.domain.games.GameScoring
 import com.xiaopiao.app.domain.games.PriceQuestion
+import com.xiaopiao.app.domain.games.QuizQuestion
 import com.xiaopiao.app.domain.games.RadarPoint
 import com.xiaopiao.app.domain.games.RangeQuestion
 import com.xiaopiao.app.domain.games.ScaleQuestion
@@ -111,6 +114,8 @@ import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberReducedMotion
+import com.xiaopiao.app.ui.insights.ConfettiBurst
+import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.Contrast
 import com.xiaopiao.app.ui.theme.XpColors
@@ -172,7 +177,7 @@ fun GamePlayer(game: GameDefinition, onExit: () -> Unit) {
         }
         answers.add(value)
         when (question) {
-            is PriceQuestion, is RangeQuestion, is TrueFalseQuestion -> {
+            is PriceQuestion, is RangeQuestion, is TrueFalseQuestion, is QuizQuestion -> {
                 val correct = GameScoring.scoreFor(question, value) == 1
                 feedback = correct
                 if (correct) haptics.confirm() else haptics.reject()
@@ -260,46 +265,82 @@ private fun IntroView(game: GameDefinition, skin: GameSkin, onStart: () -> Unit,
             .padding(horizontal = XpSpace.page),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.height(XpSpace.xxl))
-        Text(
-            gameModeLabel(game.mode),
-            style = MaterialTheme.typography.labelSmall,
-            color = accent,
-        )
-        Text(
-            game.title,
-            style = MaterialTheme.typography.headlineLarge,
-            color = XpColors.Ink,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = XpSpace.s),
-        )
-        Text(
-            stringResource(R.string.games_meta, game.rounds, game.minutes),
-            style = MaterialTheme.typography.bodySmall,
-            color = XpColors.InkSecondary,
-            modifier = Modifier.padding(top = 6.dp),
-        )
-        Spacer(Modifier.height(XpSpace.xl))
-        GlassPanel(shape = RoundedCornerShape(XpRadius.l)) {
+        Spacer(Modifier.height(XpSpace.l))
+        Box(
+            Modifier.fillMaxWidth().height(210.dp).xpRevealLayer(index = 0)
+                .clip(RoundedCornerShape(XpRadius.xl))
+                .background(XpColors.Card)
+                .background(skin.heroBrush())
+                .border(0.5.dp, accent.copy(alpha = 0.28f), RoundedCornerShape(XpRadius.xl))
+                .padding(XpSpace.l),
+        ) {
+            Column(Modifier.align(Alignment.BottomStart)) {
+                Box(
+                    Modifier.size(58.dp).clip(CircleShape).background(accent.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center,
+                ) { Text(game.emoji, style = MaterialTheme.typography.displaySmall) }
+                Text(
+                    gameModeLabel(game.mode),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accent,
+                    modifier = Modifier.padding(top = XpSpace.s),
+                )
+                Text(
+                    game.title,
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = XpColors.Ink,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+                Text(
+                    stringResource(R.string.games_meta, game.rounds, game.minutes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = XpColors.InkSecondary,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(XpSpace.l))
+        GlassPanel(
+            modifier = Modifier.xpRevealLayer(index = 1),
+            shape = RoundedCornerShape(XpRadius.l),
+        ) {
             Column(Modifier.fillMaxWidth().padding(XpSpace.l)) {
                 Text(
                     stringResource(skin.howTo),
                     style = MaterialTheme.typography.bodyLarge,
                     color = XpColors.Ink,
                 )
+                Row(
+                    Modifier.fillMaxWidth().padding(top = XpSpace.m),
+                    horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+                ) {
+                    listOf("读题", "选择", "看结果").forEachIndexed { index, label ->
+                        Box(
+                            Modifier.clip(RoundedCornerShape(50))
+                                .background(accent.copy(alpha = 0.10f))
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                        ) {
+                            Text(
+                                "${index + 1} $label",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = accent,
+                            )
+                        }
+                    }
+                }
             }
         }
         Spacer(Modifier.height(XpSpace.xl))
         XpButton(
             text = stringResource(R.string.games_intro_start),
             onClick = onStart,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().xpRevealLayer(index = 2),
         )
         Spacer(Modifier.height(XpSpace.s))
         XpButton(
             text = stringResource(R.string.games_intro_exit),
             onClick = onExit,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().xpRevealLayer(index = 3),
             style = XpButtonStyle.Plain,
         )
         Spacer(Modifier.height(XpSpace.l))
@@ -320,6 +361,7 @@ private fun gameModeLabel(mode: GameMode): String = stringResource(
         GameMode.Persona -> R.string.games_mode_persona
         GameMode.Score -> R.string.games_mode_challenge
         GameMode.Radar -> R.string.games_mode_radar
+        GameMode.Type -> R.string.games_mode_type
     },
 )
 
@@ -336,6 +378,16 @@ private fun PlayView(
     onAnswer: (GameQuestion, GameAnswer) -> Unit,
     onContinue: () -> Unit,
 ) {
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(
+                listOf(
+                    skin.accentColor().copy(alpha = if (XpColors.isDark) 0.10f else 0.06f),
+                    Color.Transparent,
+                ),
+            ),
+        ),
+    ) {
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         GameProgress(index = index, total = deck.size, skin = skin, reduced = reduced)
         AnimatedContent(
@@ -356,6 +408,7 @@ private fun PlayView(
                 onContinue = onContinue,
             )
         }
+    }
     }
 }
 
@@ -453,6 +506,7 @@ private fun QuestionView(
                     is PriceQuestion -> PriceBlock(question, skin, picked, onAnswer)
                     is RangeQuestion -> RangeBlock(question, skin, picked, onAnswer)
                     is TrueFalseQuestion -> TrueFalseBlock(question, skin, picked, reduced, onAnswer)
+                    is QuizQuestion -> QuizBlock(question, skin, picked, reduced, onAnswer)
                     is TaskQuestion -> TaskBlock(question, skin, onAnswer)
                     is ScaleQuestion -> ScaleBlock(question, skin, picked, onAnswer)
                 }
@@ -742,6 +796,38 @@ private fun TrueFalseBlock(
 }
 
 @Composable
+private fun QuizBlock(
+    question: QuizQuestion,
+    skin: GameSkin,
+    picked: String?,
+    reduced: Boolean,
+    onAnswer: (GameAnswer) -> Unit,
+) {
+    Text(
+        stringResource(R.string.games_quiz_prompt),
+        style = MaterialTheme.typography.bodySmall,
+        color = XpColors.InkSecondary,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(bottom = XpSpace.m),
+    )
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = XpSpace.page),
+        verticalArrangement = Arrangement.spacedBy(XpSpace.s),
+    ) {
+        question.options.forEach { option ->
+            FlipChoiceCard(
+                option = option,
+                tone = toneFor(option.id, picked, question.correctId),
+                enabled = picked == null,
+                reduced = reduced,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 68.dp),
+                onClick = { onAnswer(GameAnswer.Pick(option.id)) },
+            )
+        }
+    }
+}
+
+@Composable
 private fun GuessGrid(
     chips: List<Pair<String, String>>,
     correctId: String,
@@ -929,6 +1015,7 @@ private fun FeedbackPanel(question: GameQuestion, correct: Boolean) {
             stringResource(
                 if (question.answer) R.string.games_feedback_true else R.string.games_feedback_false,
             ) + " " + question.explain
+        is QuizQuestion -> question.explain
         else -> ""
     }
     Column(
@@ -1012,19 +1099,32 @@ private fun ResultView(
     onExit: () -> Unit,
 ) {
     val context = LocalContext.current
+    val clipLabel = stringResource(R.string.games_clip_label)
     val haptics = rememberXpHaptics()
     var copied by remember(outcome) { mutableStateOf(false) }
     val figure = resultFigure(game, deck, answers, outcome)
-    val persona = game.mode == GameMode.Persona
+    val persona = game.mode == GameMode.Persona || game.mode == GameMode.Type
 
+    Box(Modifier.fillMaxSize()) {
     Column(
         Modifier.fillMaxSize()
+            .background(skin.heroBrush())
             .verticalScroll(rememberScrollState())
             // 底部浮着标签栏（约 96dp）＋安全区，结果页最后两颗按钮要留出这段。
             .padding(start = XpSpace.page, end = XpSpace.page, bottom = 168.dp),
     ) {
         Spacer(Modifier.height(XpSpace.m))
-        ResultHero(outcome = outcome, figure = figure, showBody = persona, accent = skin.accentColor())
+        ResultHero(outcome = outcome, figure = figure, showBody = persona, skin = skin, reduced = reduced)
+
+        if (outcome.keywords.isNotEmpty()) {
+            Spacer(Modifier.height(XpSpace.s))
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+            ) {
+                outcome.keywords.forEach { keyword -> KeywordChip(keyword, skin) }
+            }
+        }
 
         if (outcome.radar.isNotEmpty()) {
             Spacer(Modifier.height(XpSpace.m))
@@ -1053,12 +1153,15 @@ private fun ResultView(
                     )
                     outcome.insights.forEach { line ->
                         Row(Modifier.padding(top = XpSpace.s)) {
-                            Text("·", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
+                            Box(
+                                Modifier.padding(top = 7.dp).size(5.dp).clip(CircleShape)
+                                    .background(skin.accentColor()),
+                            )
                             Text(
                                 line,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = XpColors.Ink,
-                                modifier = Modifier.padding(start = 6.dp),
+                                modifier = Modifier.padding(start = 8.dp),
                             )
                         }
                     }
@@ -1089,7 +1192,7 @@ private fun ResultView(
             onClick = {
                 val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 manager.setPrimaryClip(
-                    ClipData.newPlainText(context.getString(R.string.games_clip_label), outcome.shareText),
+                    ClipData.newPlainText(clipLabel, outcome.shareText),
                 )
                 copied = true
                 haptics.confirm()
@@ -1122,6 +1225,8 @@ private fun ResultView(
         )
         Spacer(Modifier.height(XpSpace.xl))
     }
+        if (!reduced) ConfettiBurst(outcome.hashCode(), Modifier.fillMaxSize(), count = 70)
+    }
 }
 
 @Composable
@@ -1133,7 +1238,7 @@ private fun resultFigure(
 ): ScoreFigure {
     val rounds = deck.size
     return when (game.mode) {
-        GameMode.Persona -> ScoreFigure("", "", "")
+        GameMode.Persona, GameMode.Type -> ScoreFigure("", "", "")
         GameMode.Radar -> {
             val top = outcome.radar.maxByOrNull { it.value }
             ScoreFigure(
@@ -1172,20 +1277,34 @@ private fun resultFigure(
 
 /** 结果抬头：一张玻璃卡，字数最少的那种——类型名 + 一句判断 + 关键数字。 */
 @Composable
-private fun ResultHero(outcome: GameOutcome, figure: ScoreFigure, showBody: Boolean, accent: Color) {
+private fun ResultHero(outcome: GameOutcome, figure: ScoreFigure, showBody: Boolean, skin: GameSkin, reduced: Boolean) {
+    val accent = skin.accentColor()
+    val pop = remember(outcome) { Animatable(if (reduced) 1f else 0.82f) }
+    LaunchedEffect(outcome) {
+        if (!reduced) pop.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 520f))
+    }
     GlassPanel(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(XpRadius.xl)) {
         Column(Modifier.fillMaxWidth().padding(XpSpace.page)) {
-            Text(
-                stringResource(R.string.games_result_your),
-                style = MaterialTheme.typography.labelSmall,
-                color = XpColors.InkSecondary,
-            )
-            Text(
-                outcome.title,
-                style = MaterialTheme.typography.headlineLarge,
-                color = XpColors.Ink,
-                modifier = Modifier.padding(top = 6.dp),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(54.dp).clip(CircleShape).background(accent.copy(alpha = 0.16f))
+                        .graphicsLayer { scaleX = pop.value; scaleY = pop.value },
+                    contentAlignment = Alignment.Center,
+                ) { Text(outcome.emoji, style = MaterialTheme.typography.displaySmall) }
+                Column(Modifier.padding(start = XpSpace.m)) {
+                    Text(
+                        stringResource(R.string.games_result_your),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XpColors.InkSecondary,
+                    )
+                    Text(
+                        outcome.title,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = XpColors.Ink,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
             if (figure.value.isNotBlank()) {
                 Row(Modifier.padding(top = XpSpace.s), verticalAlignment = Alignment.Bottom) {
                     Text(
@@ -1381,6 +1500,17 @@ private fun RadarChart(
     }
 }
 
+@Composable
+private fun KeywordChip(text: String, skin: GameSkin) {
+    Box(
+        Modifier.clip(RoundedCornerShape(50))
+            .background(skin.accentColor().copy(alpha = 0.12f))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall, color = skin.accentColor())
+    }
+}
+
 /** A shareable card built from Compose surfaces (not a bitmap): the result, the figure and the disclaimer. */
 @Composable
 private fun ShareCard(
@@ -1399,7 +1529,7 @@ private fun ShareCard(
                 Modifier.fillMaxWidth()
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(skin.accentColor()),
+                    .background(Brush.horizontalGradient(listOf(skin.accentColor(), skin.supportColor()))),
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(outcome.emoji, style = MaterialTheme.typography.titleLarge)

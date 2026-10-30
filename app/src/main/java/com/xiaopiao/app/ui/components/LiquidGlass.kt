@@ -34,6 +34,8 @@ fun Modifier.liquidGlass(
     blur: Dp = 10.dp,
     lensHeight: Dp = 8.dp,
     lensAmount: Dp = 12.dp,
+    /** The lens bends the backdrop. Turn it off when the backdrop is text that must not move. */
+    lens: Boolean = true,
     shadow: Dp = 16.dp,
     /** The bright rim along the edge that makes it read as glass rather than a frosted card. */
     highlight: Highlight? = Highlight.Default,
@@ -48,7 +50,7 @@ fun Modifier.liquidGlass(
             effects = {
                 vibrancy()
                 blur(blur.toPx())
-                lens(lensHeight.toPx(), lensAmount.toPx())
+                if (lens) lens(lensHeight.toPx(), lensAmount.toPx())
             },
             highlight = { highlight },
             shadow = { Shadow(radius = shadow, color = rim) },

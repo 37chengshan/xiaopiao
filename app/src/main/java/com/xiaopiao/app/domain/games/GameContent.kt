@@ -17,7 +17,7 @@ import kotlin.random.Random
 const val GAME_DISCLAIMER = "娱乐，不构成建议"
 
 /** 游戏页分组：性格测试 / 猜价格 / 小挑战。 */
-enum class GameCategory { Personality, Guess, Challenge }
+enum class GameCategory { Personality, Relationship, Mind, Fun, Guess, Challenge }
 
 /** How a game turns answers into a result. */
 enum class GameMode {
@@ -27,6 +27,8 @@ enum class GameMode {
     Score,
     /** Averages 1–5 scale answers per axis and shows a radar. */
     Radar,
+    /** Four dichotomies; the winning pole on each makes a 16-type code. */
+    Type,
 }
 
 /** How the big number on the result screen reads. */
@@ -91,6 +93,15 @@ data class TrueFalseQuestion(
     val explain: String,
 ) : GameQuestion
 
+/** Multiple choice with one correct option; the player reveals it after the pick. */
+data class QuizQuestion(
+    override val id: String,
+    override val prompt: String,
+    val options: List<GameOption>,
+    val correctId: String,
+    val explain: String = "",
+) : GameQuestion
+
 /** A one-day challenge. Answering「完成」 earns one point; the player samples [GameDefinition.sampleCount]. */
 data class TaskQuestion(
     override val id: String,
@@ -114,8 +125,10 @@ data class GameProfile(
     val emoji: String,
     val label: String,
     val blurb: String,
-    /** 结果页的三行小字：行为特征 / 容易卡住 / 可以试试。 */
+    /** 结果页的小字：行为特征 / 容易卡住 / 可以试试。新测试可以给 5–6 条。 */
     val insights: List<String> = emptyList(),
+    /** Three or four words shown as chips on the result page. */
+    val keywords: List<String> = emptyList(),
 )
 
 data class GameBucket(
@@ -126,6 +139,19 @@ data class GameBucket(
     val blurb: String,
     val insights: List<String> = emptyList(),
 )
+
+/** One bipolar axis of a 16-type test: answers name a pole, the winning pole makes the code. */
+data class TypeAxis(
+    val key: String,
+    val label: String,
+    val leftKey: String,
+    val leftLabel: String,
+    val rightKey: String,
+    val rightLabel: String,
+) {
+    fun code(left: Boolean): String = if (left) leftKey else rightKey
+    fun poleLabel(left: Boolean): String = if (left) leftLabel else rightLabel
+}
 
 data class GameAxis(
     val key: String,
@@ -161,6 +187,8 @@ data class GameDefinition(
     val profiles: List<GameProfile> = emptyList(),
     val buckets: List<GameBucket> = emptyList(),
     val axes: List<GameAxis> = emptyList(),
+    /** For [GameMode.Type]: the dichotomies and the profile key they build. */
+    val typeAxes: List<TypeAxis> = emptyList(),
     /** One extra line on the result screen (e.g.「游戏内金额」). */
     val note: String = "",
 ) {
@@ -182,8 +210,10 @@ data class GameOutcome(
     val scoreLine: String,
     val shareText: String,
     val radar: List<RadarPoint> = emptyList(),
-    /** 结果页正文下面的三条分析（人格类来自 profile，分数类来自档位）。 */
+    /** 结果页正文下面的分析（人格类来自 profile，分数类来自档位）。 */
     val insights: List<String> = emptyList(),
+    /** Three or four words shown as chips above the analysis. */
+    val keywords: List<String> = emptyList(),
 )
 
 /** Pure scoring: no Compose, no I/O. Covered by GameContentTest. */
@@ -207,6 +237,8 @@ object GameScoring {
             } else 0
         is TrueFalseQuestion ->
             if (answer is GameAnswer.Pick && answer.optionId == question.answer.toString()) 1 else 0
+        is QuizQuestion ->
+            if (answer is GameAnswer.Pick && answer.optionId == question.correctId) 1 else 0
         is TaskQuestion ->
             if (answer is GameAnswer.Pick && answer.optionId == TASK_DONE) 1 else 0
         is ScaleQuestion -> 0
@@ -224,13 +256,13 @@ object GameScoring {
 
     private fun maxOfQuestion(question: GameQuestion): Int = when (question) {
         is ChoiceQuestion -> question.options.maxOfOrNull { it.score } ?: 0
-        is PriceQuestion, is RangeQuestion, is TrueFalseQuestion, is TaskQuestion -> 1
+        is PriceQuestion, is RangeQuestion, is TrueFalseQuestion, is QuizQuestion, is TaskQuestion -> 1
         is ScaleQuestion -> 0
     }
 
     private fun minOfQuestion(question: GameQuestion): Int = when (question) {
         is ChoiceQuestion -> question.options.minOfOrNull { it.score } ?: 0
-        is PriceQuestion, is RangeQuestion, is TrueFalseQuestion, is TaskQuestion, is ScaleQuestion -> 0
+        is PriceQuestion, is RangeQuestion, is TrueFalseQuestion, is QuizQuestion, is TaskQuestion, is ScaleQuestion -> 0
     }
 
     /** The band containing [score], or null when the content has a hole (the test forbids that). */
@@ -245,6 +277,7 @@ object GameScoring {
             GameMode.Persona -> personaOutcome(game, deck, answers)
             GameMode.Score -> scoreOutcome(game, deck, answers)
             GameMode.Radar -> radarOutcome(game, deck, answers)
+            GameMode.Type -> typeOutcome(game, deck, answers)
         }
 
     private fun personaOutcome(
@@ -262,11 +295,22 @@ object GameScoring {
         // maxByOrNull keeps the first profile on a tie, so the result is deterministic.
         val top = game.profiles.maxByOrNull { tally[it.key] ?: 0 } ?: game.profiles.first()
         val hits = tally[top.key] ?: 0
+        val ranked = tally.entries.sortedByDescending { it.value }
+        val second = ranked.getOrNull(1)?.let { row -> game.profiles.firstOrNull { it.key == row.key } }
+        val extra = buildList {
+            if (second != null && ranked[1].value > 0) {
+                add("第二接近：${second.emoji}${second.label}（${ranked[1].value} 次）。两种类型会同时出现在一个人身上。")
+            }
+            if (answers.isNotEmpty()) {
+                add("这局共 ${answers.size} 次选择，最高类型占 ${(hits * 100 / answers.size)}%。")
+            }
+        }
         return GameOutcome(
             emoji = top.emoji,
             title = top.label,
             blurb = top.blurb,
-            insights = top.insights,
+            insights = top.insights + extra,
+            keywords = top.keywords,
             scoreLine = "${answers.size} 次选择里，$hits 次指向它",
             shareText = "我在「${game.title}」里是 ${top.emoji}${top.label}：${top.blurb} $GAME_DISCLAIMER",
         )
@@ -285,13 +329,63 @@ object GameScoring {
             ScoreStyle.TasksDone -> "完成 $total / ${deck.size} 项"
             ScoreStyle.Points -> "$total 分"
         }
+        val extra = buildList {
+            if (game.scoreStyle == ScoreStyle.Correct && deck.isNotEmpty()) {
+                add("正确率 ${(total * 100 / deck.size)}%，本局共 ${deck.size} 题。")
+            } else {
+                add("本局共 ${deck.size} 题，这个结果是按本局选择的累计分计算的。")
+            }
+        }
         return GameOutcome(
             emoji = bucket.emoji,
             title = bucket.label,
             blurb = bucket.blurb,
-            insights = bucket.insights,
+            insights = bucket.insights + extra,
             scoreLine = line,
             shareText = "我在「${game.title}」里$line，拿到 ${bucket.emoji}${bucket.label}。$GAME_DISCLAIMER",
+        )
+    }
+
+    private fun typeOutcome(
+        game: GameDefinition,
+        deck: List<GameQuestion>,
+        answers: List<GameAnswer>,
+    ): GameOutcome {
+        val counts = mutableMapOf<String, Int>()
+        deck.forEachIndexed { i, question ->
+            val answer = answers.getOrNull(i) as? GameAnswer.Pick ?: return@forEachIndexed
+            val option = (question as? ChoiceQuestion)?.options?.firstOrNull { it.id == answer.optionId }
+            val key = option?.profile ?: return@forEachIndexed
+            counts[key] = (counts[key] ?: 0) + 1
+        }
+        val axes = game.typeAxes
+        val results = axes.map { axis ->
+            val left = counts[axis.leftKey] ?: 0
+            val right = counts[axis.rightKey] ?: 0
+            val total = (left + right).coerceAtLeast(1)
+            val leftShare = left.toFloat() / total
+            val leftWins = left >= right
+            axis to (leftWins to leftShare)
+        }
+        val code = results.joinToString("") { (axis, result) -> axis.code(result.first) }
+        val profile = game.profiles.firstOrNull { it.key == code } ?: game.profiles.first()
+        val points = results.map { (axis, result) ->
+            RadarPoint(axis.label, result.second.coerceIn(0f, 1f))
+        }
+        val line = results.joinToString(" · ") { (axis, result) ->
+            val left = result.first
+            val share = if (left) result.second else 1f - result.second
+            "${axis.poleLabel(left)} ${(share * 100).roundToInt()}%"
+        }
+        return GameOutcome(
+            emoji = profile.emoji,
+            title = "${profile.label} · $code",
+            blurb = profile.blurb,
+            scoreLine = line,
+            shareText = "我的「${game.title}」是 $code ${profile.emoji}${profile.label}：${profile.blurb} $GAME_DISCLAIMER",
+            radar = points,
+            insights = profile.insights,
+            keywords = profile.keywords,
         )
     }
 
@@ -393,6 +487,12 @@ object GameContent {
         saveChallenge(),
         ledgerQuiz(),
         spendRadar(),
+        PopularGames.type16(),
+        PopularGames.attachmentStyle(),
+        PopularGames.loveLanguage(),
+        PopularGames.discStyle(),
+        PopularGames.socialBattery(),
+        PopularGames.triviaQuickfire(),
     )
 
     fun byId(id: String): GameDefinition? = games.firstOrNull { it.id == id }

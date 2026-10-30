@@ -16,7 +16,7 @@ class GameContentTest {
 
     @Test
     fun `every game has a unique id and a non-empty deck`() {
-        assertEquals(11, games.size)
+        assertTrue("游戏太少", games.size >= 17)
         assertEquals(games.size, games.map { it.id }.toSet().size)
         games.forEach { game ->
             assertTrue(game.id, game.questions.isNotEmpty())
@@ -102,6 +102,7 @@ class GameContentTest {
                     is PriceQuestion -> GameAnswer.Pick(question.actualCents.toString())
                     is RangeQuestion -> GameAnswer.Pick(question.ranges.first { it.contains(question.actualCents) }.label)
                     is TrueFalseQuestion -> GameAnswer.Pick(question.answer.toString())
+                    is QuizQuestion -> GameAnswer.Pick(question.correctId)
                     is TaskQuestion -> GameAnswer.Pick("done")
                     is ScaleQuestion -> GameAnswer.Scale(5)
                 }
@@ -149,7 +150,7 @@ class GameContentTest {
     fun `persona results carry three lines of analysis`() {
         games.filter { it.mode == GameMode.Persona }.forEach { game ->
             game.profiles.forEach { profile ->
-                assertTrue("${game.id}/${profile.key}: 缺分析", profile.insights.size == 3)
+                assertTrue("${game.id}/${profile.key}: 缺分析", profile.insights.size >= 3)
             }
         }
     }
@@ -175,12 +176,61 @@ class GameContentTest {
                     is PriceQuestion -> GameAnswer.Pick("-1")
                     is RangeQuestion -> GameAnswer.Pick("__none__")
                     is TrueFalseQuestion -> GameAnswer.Pick((!question.answer).toString())
+                    is QuizQuestion -> GameAnswer.Pick("__none__")
                     is TaskQuestion -> GameAnswer.Pick("skip")
                     is ScaleQuestion -> GameAnswer.Scale(1)
                 }
             }
             val outcome = GameScoring.outcome(game, deck, answers)
             assertFalse(game.id, outcome.title.isBlank())
+        }
+    }
+
+    @Test
+    fun `type games cover all sixteen codes and build a radar`() {
+        val game = games.first { it.mode == GameMode.Type }
+        assertEquals(4, game.typeAxes.size)
+        assertEquals(16, game.profiles.size)
+        val expected = buildSet {
+            listOf("E", "I").forEach { e ->
+                listOf("S", "N").forEach { s ->
+                    listOf("T", "F").forEach { t ->
+                        listOf("J", "P").forEach { j -> add("$e$s$t$j") }
+                    }
+                }
+            }
+        }
+        assertEquals(expected, game.profiles.map { it.key }.toSet())
+        val deck = GameScoring.deckFor(game, seed = 11)
+        val answers = deck.map { q ->
+            val choice = q as ChoiceQuestion
+            GameAnswer.Pick(choice.options.first().id)
+        }
+        val outcome = GameScoring.outcome(game, deck, answers)
+        assertTrue(outcome.title.contains("·"))
+        assertEquals(4, outcome.radar.size)
+        assertTrue(outcome.keywords.size == 3)
+    }
+
+    @Test
+    fun `quiz questions have exactly one correct option`() {
+        games.flatMap { it.questions }.filterIsInstance<QuizQuestion>().forEach { question ->
+            assertEquals(3, question.options.size)
+            assertTrue("${question.id}: correct id missing", question.correctId in question.options.map { it.id })
+            assertEquals(1, GameScoring.scoreFor(question, GameAnswer.Pick(question.correctId)))
+            val wrong = question.options.first { it.id != question.correctId }
+            assertEquals(0, GameScoring.scoreFor(question, GameAnswer.Pick(wrong.id)))
+        }
+    }
+
+    @Test
+    fun `new popular tests carry richer analysis`() {
+        val ids = setOf("type-16", "attachment-style", "love-language", "disc-style", "social-battery")
+        games.filter { it.id in ids }.forEach { game ->
+            game.profiles.forEach { profile ->
+                assertTrue("${game.id}/${profile.key}: 分析不足", profile.insights.size >= 5)
+                assertEquals("${game.id}/${profile.key}: 关键词", 3, profile.keywords.size)
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.xiaopiao.app.ui.games
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import com.xiaopiao.app.R
@@ -18,8 +19,10 @@ data class GameSkin(
     val id: String,
     /** One or two sentences on the intro card. */
     val howTo: Int,
-    /** 唯一的身份色；只用于小面积强调（进度条、雷达多边形、选中态）。 */
+    /** 主身份色：进度条、雷达多边形、选中态。 */
     val accent: ThemeTone,
+    /** 辅助色：hero wash、彩带、分享卡的第二段渐变；不参与选中态。 */
+    val support: ThemeTone = accent,
 )
 
 object GameSkins {
@@ -28,6 +31,7 @@ object GameSkins {
             id = "wallet-persona",
             howTo = R.string.games_howto_wallet_persona,
             accent = ThemeTone(0xFF5B46C4, 0xFFA896FF),
+            support = ThemeTone(0xFF1D5F63, 0xFF7FD4D8),
         ),
         GameSkin(
             id = "spend-profile",
@@ -38,6 +42,7 @@ object GameSkins {
             id = "big-five",
             howTo = R.string.games_howto_big_five,
             accent = ThemeTone(0xFF4A3D7A, 0xFFB6A7FF),
+            support = ThemeTone(0xFF2F52B8, 0xFF93A8FF),
         ),
         GameSkin(
             id = "saving-style",
@@ -48,6 +53,7 @@ object GameSkins {
             id = "spend-duel",
             howTo = R.string.games_howto_spend_duel,
             accent = ThemeTone(0xFFC2410C, 0xFFFF9A6B),
+            support = ThemeTone(0xFFB3245C, 0xFFFF8FB6),
         ),
         GameSkin(
             id = "receipt-guess",
@@ -78,6 +84,43 @@ object GameSkins {
             id = "spend-radar",
             howTo = R.string.games_howto_spend_radar,
             accent = ThemeTone(0xFF0E6E9E, 0xFF6FD2F5),
+            support = ThemeTone(0xFF1D5F63, 0xFF7FD4D8),
+        ),
+        GameSkin(
+            id = "type-16",
+            howTo = R.string.games_howto_type_16,
+            accent = ThemeTone(0xFF4A3D7A, 0xFFB6A7FF),
+            support = ThemeTone(0xFFB3245C, 0xFFFF8FB6),
+        ),
+        GameSkin(
+            id = "attachment-style",
+            howTo = R.string.games_howto_attachment_style,
+            accent = ThemeTone(0xFF9A3E5A, 0xFFFF9DB8),
+            support = ThemeTone(0xFFC2410C, 0xFFFF9A6B),
+        ),
+        GameSkin(
+            id = "love-language",
+            howTo = R.string.games_howto_love_language,
+            accent = ThemeTone(0xFFB3245C, 0xFFFF8FB6),
+            support = ThemeTone(0xFF5B46C4, 0xFFA896FF),
+        ),
+        GameSkin(
+            id = "disc-style",
+            howTo = R.string.games_howto_disc_style,
+            accent = ThemeTone(0xFF2F52B8, 0xFF93A8FF),
+            support = ThemeTone(0xFF0E6E9E, 0xFF6FD2F5),
+        ),
+        GameSkin(
+            id = "social-battery",
+            howTo = R.string.games_howto_social_battery,
+            accent = ThemeTone(0xFF0E6E9E, 0xFF6FD2F5),
+            support = ThemeTone(0xFF2F7A3A, 0xFF7BD88A),
+        ),
+        GameSkin(
+            id = "trivia-quickfire",
+            howTo = R.string.games_howto_trivia_quickfire,
+            accent = ThemeTone(0xFF96621A, 0xFFF0BE66),
+            support = ThemeTone(0xFF2F52B8, 0xFF93A8FF),
         ),
     )
 
@@ -90,6 +133,19 @@ object GameSkins {
 /** The game's identity colour for the active light/dark palette. */
 @Composable
 fun GameSkin.accentColor(): Color = accent.color(XpColors.isDark)
+
+@Composable
+fun GameSkin.supportColor(): Color = support.color(XpColors.isDark)
+
+/** A soft two-colour wash for intro/result heroes; transparent at the bottom so text keeps contrast. */
+@Composable
+fun GameSkin.heroBrush(): Brush = Brush.verticalGradient(
+    listOf(
+        accentColor().copy(alpha = if (XpColors.isDark) 0.32f else 0.24f),
+        supportColor().copy(alpha = if (XpColors.isDark) 0.16f else 0.12f),
+        Color.Transparent,
+    ),
+)
 
 /** A tinted surface for selected answers; kept faint so the glass stays the surface. */
 @Composable

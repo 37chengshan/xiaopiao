@@ -18,6 +18,8 @@
 ```bash
 ./gradlew :app:assembleDebug            # 构建 debug APK → app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:testDebugUnitTest        # JVM 单测
+# UI 测试只在专用模拟器跑：connectedDebugAndroidTest 会在跑完后卸载 App 并清空该设备数据。
+ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest
 ./gradlew :app:lint                     # Lint
 ./gradlew :app:installDebug             # 构建并安装到当前连接的唯一设备
 ```

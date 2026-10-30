@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.insights
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -82,6 +86,8 @@ import com.xiaopiao.app.ui.components.AppTopActions
 import com.xiaopiao.app.ui.components.LineTrend
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
+import com.xiaopiao.app.ui.components.XpButton
+import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.icon
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberReducedMotion
@@ -90,10 +96,13 @@ import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpFonts
 import com.xiaopiao.app.ui.theme.XpMotion
 import com.xiaopiao.app.ui.theme.XpRadius
+import com.xiaopiao.app.ui.motion.XpTiming
+import com.xiaopiao.app.ui.motion.rememberDtProgress
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 private val ContentShape = RoundedCornerShape(XpRadius.contentCard)
 
@@ -193,6 +202,7 @@ fun StatsScreen(
 
     var weekSheet by remember { mutableStateOf(false) }
     var rangeSheet by remember { mutableStateOf(false) }
+    var aiOpen by rememberSaveable { mutableStateOf(false) }
 
     val reduceMotion = rememberReducedMotion()
     val snapshot = remember(txns, range, anchor, direction, grouping, customFrom, customTo, now) {
@@ -203,6 +213,26 @@ fun StatsScreen(
         )
     }
     val narrative = remember(snapshot) { StatsNarrative.line(snapshot) }
+
+    if (aiOpen) {
+        AiAnalysisPage(
+            snapshot = snapshot,
+            narrative = narrative,
+            onBack = { aiOpen = false },
+            onOpenLedger = {
+                onOpenLedger(
+                    LedgerFilter(
+                        direction = snapshot.direction,
+                        range = LedgerRange.Custom,
+                        customFrom = snapshot.from,
+                        customTo = snapshot.to - DAY,
+                    ),
+                )
+            },
+            onOpenAwards = onOpenAwards.takeIf { snapshot.range == StatsRange.Week },
+        )
+        return
+    }
 
     val scope = rememberCoroutineScope()
     // The page follows the finger (dragPx) and settles with a spring (slide); the two add up.
@@ -361,13 +391,13 @@ fun StatsScreen(
                             AiSummaryCard(
                                 title = snapshot.aiTitle,
                                 line = narrative,
-                                onOpen = onOpenAwards,
-                                modifier = Modifier.enterOnChange(snapshot.hashCode(), 0, reduceMotion),
+                                onOpen = { aiOpen = true },
+                                modifier = Modifier.enterOnce(0, reduceMotion),
                             )
                         }
-                        KpiCard(snapshot, Modifier.enterOnChange(snapshot.hashCode(), 1, reduceMotion))
+                        KpiCard(snapshot, Modifier.enterOnce(1, reduceMotion))
                         TrendCard(
-                            snapshot, Modifier.enterOnChange(snapshot.hashCode(), 2, reduceMotion),
+                            snapshot, Modifier.enterOnce(2, reduceMotion),
                             onPickBucket = { b -> anchor = b.start },
                         )
                         CompositionCard(
@@ -375,9 +405,9 @@ fun StatsScreen(
                             grouping = grouping,
                             onGrouping = { grouping = it },
                             onOpen = openEntry,
-                            modifier = Modifier.enterOnChange("${snapshot.hashCode()}-$grouping", 3, reduceMotion),
+                            modifier = Modifier.enterOnce(3, reduceMotion),
                         )
-                        RankingCard(snapshot, Modifier.enterOnChange("${snapshot.hashCode()}-$grouping", 4, reduceMotion), onOpen = openEntry)
+                        RankingCard(snapshot, Modifier.enterOnce(4, reduceMotion), onOpen = openEntry)
                     }
                 }
             }
@@ -794,18 +824,151 @@ private fun MoreSection(
 
 // ── motion ────────────────────────────────────────────────────────────────────────────────────
 
-/** Cards fade and rise 4dp whenever the data behind them changes, staggered by [index]. */
+/** Cards fade and rise 4dp on the first composition only; selection changes must not blank the page. */
 @Composable
-private fun Modifier.enterOnChange(key: Any, index: Int, reduceMotion: Boolean): Modifier {
-    val anim = remember(key) { Animatable(if (reduceMotion) 1f else 0f) }
-    LaunchedEffect(key) {
-        if (!reduceMotion) {
-            delay((index * 30).toLong())
-            anim.animateTo(1f, tween(200, easing = XpEase.out))
+private fun Modifier.enterOnce(index: Int, reduceMotion: Boolean): Modifier {
+    val progress = rememberDtProgress(
+        key = Unit,
+        durationMs = XpTiming.Enter,
+        delayMs = index * 30,
+        easing = { it },
+        reduced = reduceMotion,
+    )
+    return this.graphicsLayer {
+        alpha = progress
+        translationY = (1f - progress) * 4.dp.toPx()
+    }
+}
+
+
+// ── AI analysis ───────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The page behind 「查看 AI 分析」. The card's one-line narrative lives here in full, next to the facts
+ * it was computed from, so the link never lands on an unrelated weekly-awards page.
+ */
+@Composable
+private fun AiAnalysisPage(
+    snapshot: StatsSnapshot,
+    narrative: String?,
+    onBack: () -> Unit,
+    onOpenLedger: () -> Unit,
+    onOpenAwards: (() -> Unit)?,
+) {
+    BackHandler(onBack = onBack)
+    val scroll = rememberScrollState()
+    val noun = if (snapshot.direction == Direction.OUT) "支出" else "收入"
+    NavScaffold("AI 分析", NavScrollNone, onBack = onBack, backLabel = "统计") { top ->
+        Column(
+            Modifier.fillMaxSize().verticalScroll(scroll)
+                .padding(top = top, bottom = 120.dp)
+                .padding(horizontal = XpSpace.page),
+            verticalArrangement = Arrangement.spacedBy(XpSpace.m),
+        ) {
+            Text(snapshot.aiTitle, style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
+            Text(
+                "${snapshot.periodTitle} · $noun",
+                style = Body13,
+                color = XpColors.InkSecondary,
+            )
+
+            Column(Modifier.fillMaxWidth().cardSurface().padding(XpSpace.l)) {
+                Text("AI 分析", style = SectionTitle, color = XpColors.Ink)
+                Text(
+                    narrative ?: "这段时间还没有可分析的记录。",
+                    style = Body13,
+                    color = if (narrative != null) XpColors.Ink else XpColors.InkSecondary,
+                    modifier = Modifier.padding(top = XpSpace.s),
+                )
+            }
+
+            Column(Modifier.fillMaxWidth().cardSurface().padding(XpSpace.l)) {
+                Text("本期事实", style = SectionTitle, color = XpColors.Ink)
+                FactRow("本期$noun", "¥ ${StatsAggregator.grouped(snapshot.total)}")
+                FactRow("日均$noun", "¥ ${StatsAggregator.grouped(snapshot.avgPerDay)}")
+                FactRow("记账天数", "${snapshot.activeDays} 天")
+                val delta = snapshot.delta
+                FactRow(
+                    "环比",
+                    when {
+                        delta?.percent == null -> "—"
+                        delta.percent == 0 -> "与上一期持平"
+                        delta.percent > 0 -> "比上一期多 ${delta.percent}%"
+                        else -> "比上一期少 ${-delta.percent}%"
+                    },
+                )
+                snapshot.entries.firstOrNull()?.let { top ->
+                    FactRow("最大$noun", "「${top.label}」 ${(top.share * 100).roundToInt()}%")
+                }
+                FactRow(
+                    "收支结余",
+                    "¥ ${StatsAggregator.grouped(snapshot.balance)}",
+                    tone = if (snapshot.balance < 0) XpColors.Negative else XpColors.Ink,
+                )
+            }
+
+            if (snapshot.entries.size > 1) {
+                Column(Modifier.fillMaxWidth().cardSurface().padding(XpSpace.l)) {
+                    Text("占比靠前", style = SectionTitle, color = XpColors.Ink)
+                    snapshot.entries.take(3).forEach { entry ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = XpSpace.s),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                entry.label,
+                                style = Body13,
+                                color = XpColors.Ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                "${(entry.share * 100).roundToInt()}%",
+                                style = RowMoney,
+                                color = XpColors.InkSecondary,
+                            )
+                        }
+                        Box(
+                            Modifier.fillMaxWidth().padding(top = 4.dp).height(3.dp)
+                                .clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill),
+                        ) {
+                            Box(
+                                Modifier.fillMaxHeight()
+                                    .fillMaxWidth(entry.share.coerceIn(0f, 1f))
+                                    .background(XpColors.Accent),
+                            )
+                        }
+                    }
+                }
+            }
+
+            XpButton("查看本期账单", onClick = onOpenLedger, modifier = Modifier.fillMaxWidth())
+            if (onOpenAwards != null) {
+                XpButton(
+                    "查看本周小票",
+                    onClick = onOpenAwards,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = XpButtonStyle.Secondary,
+                )
+            }
+            Text(
+                "AI 只陈述本期事实，不给建议。",
+                style = Hint,
+                color = XpColors.InkTertiary,
+                modifier = Modifier.padding(top = XpSpace.xs),
+            )
         }
     }
-    return this.graphicsLayer {
-        alpha = anim.value
-        translationY = (1f - anim.value) * 4.dp.toPx()
+}
+
+@Composable
+private fun FactRow(label: String, value: String, tone: Color = XpColors.Ink) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = XpSpace.s),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = Body13, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
+        Text(value, style = RowMoney, color = tone, maxLines = 1)
     }
 }

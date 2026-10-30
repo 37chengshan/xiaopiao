@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 
 private val Context.receiptSoundStore by preferencesDataStore(name = "receipt_sound_prefs")
 
@@ -14,6 +15,7 @@ class ReceiptSoundPrefs(private val context: Context) {
     private val key = booleanPreferencesKey("enabled")
 
     fun observeEnabled(): Flow<Boolean> = context.receiptSoundStore.data.map { it[key] ?: true }
+        .onEach { cachedEnabled = it }
 
     suspend fun setEnabled(enabled: Boolean) {
         context.receiptSoundStore.edit { it[key] = enabled }
@@ -23,8 +25,16 @@ class ReceiptSoundPrefs(private val context: Context) {
 
     /** Whether the printer vibrates (tick per line, stamp, tear). On by default; independent of the sound switch. */
     fun observeVibration(): Flow<Boolean> = context.receiptSoundStore.data.map { it[vibrationKey] ?: true }
+        .onEach { cachedVibration = it }
 
     suspend fun setVibration(enabled: Boolean) {
         context.receiptSoundStore.edit { it[vibrationKey] = enabled }
+    }
+
+    companion object {
+        @Volatile var cachedEnabled: Boolean? = null
+            private set
+        @Volatile var cachedVibration: Boolean? = null
+            private set
     }
 }

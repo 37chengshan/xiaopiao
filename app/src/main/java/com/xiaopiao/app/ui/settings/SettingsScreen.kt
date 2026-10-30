@@ -77,12 +77,12 @@ fun SettingsScreen(
     val lastCaptureAt by CaptureStatus.lastSeenAt.collectAsStateWithLifecycle()
 
     val themePrefs = remember(context) { ThemePrefs(context.applicationContext) }
-    val mode by themePrefs.observeMode().collectAsState(initial = ThemeMode.System)
-    val colorTheme by themePrefs.observeTheme().collectAsState(initial = ColorTheme.Default)
+    val mode by themePrefs.observeMode().collectAsState(initial = ThemePrefs.cachedMode ?: ThemeMode.System)
+    val colorTheme by themePrefs.observeTheme().collectAsState(initial = ThemePrefs.cachedTheme ?: ColorTheme.Default)
     val navPrefs = remember(context) { NavPrefs(context.applicationContext.navStore) }
-    val launchSide by navPrefs.observeLaunch().collectAsState(initial = LaunchSide.Ledger)
+    val launchSide by navPrefs.observeLaunch().collectAsState(initial = NavPrefs.cachedLaunch ?: LaunchSide.Ledger)
     val soundPrefs = remember(context) { ReceiptSoundPrefs(context.applicationContext) }
-    val soundOn by soundPrefs.observeEnabled().collectAsState(initial = true)
+    val soundOn by soundPrefs.observeEnabled().collectAsState(initial = ReceiptSoundPrefs.cachedEnabled ?: true)
 
     // The user comes back from system settings: re-check both permissions.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {

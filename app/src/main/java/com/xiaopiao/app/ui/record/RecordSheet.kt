@@ -10,12 +10,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.material3.ExperimentalMaterial3Api
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.domain.Source
 import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.parse.ParsedEntry
-import com.xiaopiao.app.ui.components.XpSheet
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -40,11 +38,15 @@ class RecordSheetState {
     /** A new row pre-filled by voice; the pane saves it as an add. */
     var prefill by mutableStateOf<Txn?>(null)
         private set
+    /** True while the sheet is playing its exit animation; the mode stays set until it lands. */
+    var closing by mutableStateOf(false)
+        private set
 
     fun openManual(prefill: Txn? = null) {
         textPrefill = null
         editing = null
         this.prefill = prefill
+        closing = false
         mode = RecordMode.Manual
     }
 
@@ -54,22 +56,30 @@ class RecordSheetState {
         editing = txn
         prefill = null
         onDeleteEditing = onDelete
+        closing = false
         mode = RecordMode.Manual
     }
 
     fun openText(prefill: String? = null) {
         textPrefill = prefill
+        closing = false
         mode = RecordMode.Text
     }
 
     /** Voice lives on the dock; opening it is always the text path with an optional transcript. */
     fun openVoice() = openText(null)
 
+    /** Ask the sheet to leave; the host animates it and calls [finishDismiss] when it has landed. */
     fun dismiss() {
+        if (mode != null) closing = true
+    }
+
+    internal fun finishDismiss() {
         mode = null
         textPrefill = null
         editing = null
         prefill = null
+        closing = false
     }
 }
 
@@ -80,7 +90,6 @@ fun rememberRecordSheetState(): RecordSheetState = remember { RecordSheetState()
  * Owns the manual / 一句话 bottom sheet. Renders nothing while closed, and writes to the ledger only
  * from an explicit confirm action (「记下」 or 「确认记账」).
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
     val mode = state.mode ?: return
@@ -89,7 +98,11 @@ fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
     var managerOpen by remember { mutableStateOf(false) }
 
     val toast = com.xiaopiao.app.ui.components.rememberXpToast()
-    XpSheet(onDismiss = state::dismiss) {
+    RecordSheetFrame(
+        closing = state.closing,
+        onRequestClose = state::dismiss,
+        onClosed = state::finishDismiss,
+    ) {
         Box(Modifier.fillMaxWidth()) {
         when (mode) {
             // Keyed by the row so switching from one edit to another (or to 记一笔) starts a fresh draft.

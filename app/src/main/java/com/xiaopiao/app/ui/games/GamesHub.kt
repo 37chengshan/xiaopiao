@@ -1,18 +1,34 @@
 package com.xiaopiao.app.ui.games
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BatterySaver
+import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.CallSplit
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.SportsEsports
 import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.material.icons.outlined.Radar
 import androidx.compose.material.icons.outlined.ReceiptLong
@@ -26,11 +42,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.xiaopiao.app.R
 import com.xiaopiao.app.domain.games.GameCategory
 import com.xiaopiao.app.domain.games.GameDefinition
@@ -42,7 +62,16 @@ import com.xiaopiao.app.ui.components.IconTile
 import com.xiaopiao.app.ui.components.LocalTabBarInset
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
+import com.xiaopiao.app.ui.games.GameSkin
+import com.xiaopiao.app.ui.games.GameSkins
+import com.xiaopiao.app.ui.games.accentColor
+import com.xiaopiao.app.ui.games.heroBrush
+import com.xiaopiao.app.ui.games.supportColor
 import com.xiaopiao.app.ui.motion.XpPushHost
+import com.xiaopiao.app.ui.motion.xpRevealLayer
+import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.theme.Contrast
+import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 
@@ -78,7 +107,14 @@ fun GamesHub(onBack: () -> Unit, onOpenSettings: (() -> Unit)? = null) {
                 ),
             ) {
                 item(key = "games-hero") {
-                    GamesHeader(count = GameContent.games.size, modifier = Modifier.padding(horizontal = XpSpace.page))
+                    Column(Modifier.padding(horizontal = XpSpace.page)) {
+                        GamesHero(
+                            game = GameContent.byId("type-16") ?: GameContent.games.first(),
+                            onOpen = { openId = (GameContent.byId("type-16") ?: GameContent.games.first()).id },
+                        )
+                        Spacer(Modifier.height(XpSpace.l))
+                        GamesHeader(count = GameContent.games.size)
+                    }
                 }
                 GameCategory.entries.forEach { category ->
                     val games = GameContent.games.filter { it.category == category }
@@ -86,15 +122,27 @@ fun GamesHub(onBack: () -> Unit, onOpenSettings: (() -> Unit)? = null) {
                     item(key = "games-${category.name}") {
                         GroupedSection(
                             header = stringResource(category.labelRes()),
+                            headerTrailing = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        Modifier.size(6.dp).clip(CircleShape)
+                                            .background(category.tint()),
+                                    )
+                                    Text(
+                                        " ${games.size}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = category.tint(),
+                                    )
+                                }
+                            },
                             dividerInset = 58.dp,
                         ) {
-                            games.forEach { game ->
+                            games.forEachIndexed { index, game ->
                                 item(key = game.id) {
                                     GroupedRow(
                                         title = game.title,
-                                        // 一行说明已经够；长描述留给 intro，360dp×1.3 才不会挤成两行撞到时长。
-                                        // 只留时长：360dp×1.3 时「10 题 · 3 分钟」会把标题挤成省略号。
                                         value = stringResource(R.string.games_meta_short, game.minutes),
+                                        modifier = Modifier.xpRevealLayer(index = index),
                                         leading = {
                                             IconTile(
                                                 icon = game.icon(),
@@ -102,6 +150,9 @@ fun GamesHub(onBack: () -> Unit, onOpenSettings: (() -> Unit)? = null) {
                                                 background = category.tileBackground(),
                                             )
                                         },
+                                        trailing = if (game.id in PopularGameIds) {
+                                            { GameBadge(category.tint()) }
+                                        } else null,
                                         chevron = true,
                                         onClick = { openId = game.id },
                                     )
@@ -119,6 +170,89 @@ fun GamesHub(onBack: () -> Unit, onOpenSettings: (() -> Unit)? = null) {
                         modifier = Modifier.fillMaxWidth().padding(horizontal = XpSpace.page, vertical = XpSpace.l),
                     )
                 }
+            }
+        }
+    }
+}
+
+private val PopularGameIds = setOf("type-16", "attachment-style", "social-battery", "trivia-quickfire")
+
+@Composable
+private fun GameBadge(tint: androidx.compose.ui.graphics.Color) {
+    Box(
+        Modifier.clip(RoundedCornerShape(50)).background(tint.copy(alpha = 0.12f))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+    ) {
+        Text(
+            "热门",
+            style = MaterialTheme.typography.labelSmall,
+            color = tint,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+/** The one loud card in the hub: a coloured, tappable front door to the newest/popular test. */
+@Composable
+private fun GamesHero(game: GameDefinition, onOpen: () -> Unit) {
+    val skin = GameSkins.of(game.id)
+    val accent = skin.accentColor()
+    val shape = RoundedCornerShape(XpRadius.xl)
+    Box(
+        Modifier.fillMaxWidth().xpRevealLayer(index = 0)
+            .clip(shape)
+            .background(XpColors.Card)
+            .background(skin.heroBrush())
+            .border(0.5.dp, accent.copy(alpha = 0.28f), shape)
+            .pressableClick(haptic = false, onClick = onOpen)
+            .padding(XpSpace.l),
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(64.dp).clip(CircleShape).background(accent.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center,
+                ) { Text(game.emoji, fontSize = 32.sp) }
+                Spacer(Modifier.size(XpSpace.m))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "本周热门",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accent,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        game.title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = XpColors.Ink,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        "${game.rounds} 题 · ${game.minutes} 分钟",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XpColors.InkSecondary,
+                    )
+                }
+            }
+            Spacer(Modifier.height(XpSpace.m))
+            Text(
+                game.subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = XpColors.InkSecondary,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(XpSpace.m))
+            Box(
+                Modifier.clip(RoundedCornerShape(50)).background(accent)
+                    .padding(horizontal = XpSpace.l, vertical = 9.dp),
+            ) {
+                Text(
+                    "立即玩",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Contrast.onAccent(accent),
+                )
             }
         }
     }
@@ -143,6 +277,9 @@ private fun GamesHeader(count: Int, modifier: Modifier = Modifier) {
 
 private fun GameCategory.labelRes(): Int = when (this) {
     GameCategory.Personality -> R.string.games_group_personality
+    GameCategory.Relationship -> R.string.games_group_relationship
+    GameCategory.Mind -> R.string.games_group_mind
+    GameCategory.Fun -> R.string.games_group_fun
     GameCategory.Guess -> R.string.games_group_guess
     GameCategory.Challenge -> R.string.games_group_challenge
 }
@@ -160,23 +297,38 @@ private fun GameDefinition.icon(): ImageVector = when (id) {
     "save-challenge" -> Icons.Outlined.Flag
     "ledger-quiz" -> Icons.Outlined.MenuBook
     "spend-radar" -> Icons.Outlined.Radar
+    "type-16" -> Icons.Outlined.Psychology
+    "attachment-style" -> Icons.Outlined.Favorite
+    "love-language" -> Icons.Outlined.FavoriteBorder
+    "disc-style" -> Icons.Outlined.Groups
+    "social-battery" -> Icons.Outlined.BatterySaver
+    "trivia-quickfire" -> Icons.Outlined.Lightbulb
     else -> category.icon()
 }
 
 private fun GameCategory.icon(): ImageVector = when (this) {
     GameCategory.Personality -> Icons.Outlined.Psychology
+    GameCategory.Relationship -> Icons.Outlined.FavoriteBorder
+    GameCategory.Mind -> Icons.Outlined.Lightbulb
+    GameCategory.Fun -> Icons.Outlined.SportsEsports
     GameCategory.Guess -> Icons.Outlined.PriceCheck
     GameCategory.Challenge -> Icons.Outlined.Flag
 }
 
 private fun GameCategory.tint() = when (this) {
     GameCategory.Personality -> XpColors.Accent
+    GameCategory.Relationship -> XpColors.Stamp
+    GameCategory.Mind -> XpColors.Info
+    GameCategory.Fun -> XpColors.Warning
     GameCategory.Guess -> XpColors.Info
     GameCategory.Challenge -> XpColors.Positive
 }
 
 private fun GameCategory.tileBackground() = when (this) {
     GameCategory.Personality -> XpColors.AccentSoft
+    GameCategory.Relationship -> XpColors.WarningSoft
+    GameCategory.Mind -> XpColors.InfoSoft
+    GameCategory.Fun -> XpColors.WarningSoft
     GameCategory.Guess -> XpColors.InfoSoft
     GameCategory.Challenge -> XpColors.PositiveSoft
 }

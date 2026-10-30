@@ -75,8 +75,8 @@ val ReceiptHandwriting get() = TextStyle(
 fun XiaopiaoTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val prefs = remember(context) { ThemePrefs(context.applicationContext) }
-    val mode by prefs.observeMode().collectAsState(initial = ThemeMode.System)
-    val theme by prefs.observeTheme().collectAsState(initial = ColorTheme.Default)
+    val mode by prefs.observeMode().collectAsState(initial = ThemePrefs.cachedMode ?: ThemeMode.System)
+    val theme by prefs.observeTheme().collectAsState(initial = ThemePrefs.cachedTheme ?: ColorTheme.Default)
     val dark = when (mode) {
         ThemeMode.System -> isSystemInDarkTheme()
         ThemeMode.Light -> false

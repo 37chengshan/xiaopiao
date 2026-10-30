@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 
 /** Every page the tab bar can land on. [route] doubles as the NavHost route and the bar item id. */
 enum class NavTab(val route: String, val label: String) {
@@ -101,8 +102,14 @@ class NavPrefs(private val store: DataStore<Preferences>) {
 
     fun observeLaunch(): Flow<LaunchSide> =
         store.data.map { p -> LaunchSide.entries.firstOrNull { it.name == p[launchKey] } ?: LaunchSide.Ledger }
+            .onEach { cachedLaunch = it }
 
     suspend fun setLaunch(side: LaunchSide) {
         store.edit { it[launchKey] = side.name }
+    }
+
+    companion object {
+        @Volatile var cachedLaunch: LaunchSide? = null
+            private set
     }
 }
