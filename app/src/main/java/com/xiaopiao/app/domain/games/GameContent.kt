@@ -16,6 +16,9 @@ import kotlin.random.Random
 
 const val GAME_DISCLAIMER = "娱乐，不构成建议"
 
+/** 游戏页分组：性格测试 / 猜价格 / 小挑战。 */
+enum class GameCategory { Personality, Guess, Challenge }
+
 /** How a game turns answers into a result. */
 enum class GameMode {
     /** Counts how often each [GameDefinition.profiles] key was picked; the top one wins. */
@@ -96,16 +99,24 @@ data class TaskQuestion(
     val tip: String,
 ) : GameQuestion
 
-/** A 1–5 answer that feeds [axis]. */
+/** A 1–5 answer that feeds [axis]. [reverse] 为反向题（同意越多，该维度越低）。 */
 data class ScaleQuestion(
     override val id: String,
     override val prompt: String,
     val axis: String,
     val lowLabel: String,
     val highLabel: String,
+    val reverse: Boolean = false,
 ) : GameQuestion
 
-data class GameProfile(val key: String, val emoji: String, val label: String, val blurb: String)
+data class GameProfile(
+    val key: String,
+    val emoji: String,
+    val label: String,
+    val blurb: String,
+    /** 结果页的三行小字：行为特征 / 容易卡住 / 可以试试。 */
+    val insights: List<String> = emptyList(),
+)
 
 data class GameBucket(
     val minScore: Int,
@@ -113,9 +124,27 @@ data class GameBucket(
     val emoji: String,
     val label: String,
     val blurb: String,
+    val insights: List<String> = emptyList(),
 )
 
-data class GameAxis(val key: String, val emoji: String, val label: String, val blurb: String)
+data class GameAxis(
+    val key: String,
+    val emoji: String,
+    val label: String,
+    val blurb: String,
+    /** 低 / 中 / 高三档的一句话解释；空则不显示。 */
+    val bands: List<String> = emptyList(),
+) {
+    /** 按 0..1 的得分取档位解释。 */
+    fun band(value: Float): String? {
+        if (bands.size < 3) return null
+        return when {
+            value < 0.34f -> bands[0]
+            value < 0.67f -> bands[1]
+            else -> bands[2]
+        }
+    }
+}
 
 data class GameDefinition(
     val id: String,
@@ -124,6 +153,7 @@ data class GameDefinition(
     val emoji: String,
     val minutes: Int,
     val mode: GameMode,
+    val category: GameCategory = GameCategory.Personality,
     val questions: List<GameQuestion>,
     val scoreStyle: ScoreStyle = ScoreStyle.Points,
     /** Draw this many questions per run (seeded). Null plays every question in order. */
@@ -152,6 +182,8 @@ data class GameOutcome(
     val scoreLine: String,
     val shareText: String,
     val radar: List<RadarPoint> = emptyList(),
+    /** 结果页正文下面的三条分析（人格类来自 profile，分数类来自档位）。 */
+    val insights: List<String> = emptyList(),
 )
 
 /** Pure scoring: no Compose, no I/O. Covered by GameContentTest. */
@@ -234,6 +266,7 @@ object GameScoring {
             emoji = top.emoji,
             title = top.label,
             blurb = top.blurb,
+            insights = top.insights,
             scoreLine = "${answers.size} 次选择里，$hits 次指向它",
             shareText = "我在「${game.title}」里是 ${top.emoji}${top.label}：${top.blurb} $GAME_DISCLAIMER",
         )
@@ -256,6 +289,7 @@ object GameScoring {
             emoji = bucket.emoji,
             title = bucket.label,
             blurb = bucket.blurb,
+            insights = bucket.insights,
             scoreLine = line,
             shareText = "我在「${game.title}」里$line，拿到 ${bucket.emoji}${bucket.label}。$GAME_DISCLAIMER",
         )
@@ -269,7 +303,8 @@ object GameScoring {
         val sums = game.axes.associate { it.key to mutableListOf<Int>() }
         deck.forEachIndexed { i, question ->
             if (question !is ScaleQuestion) return@forEachIndexed
-            val value = (answers.getOrNull(i) as? GameAnswer.Scale)?.value ?: return@forEachIndexed
+            val raw = (answers.getOrNull(i) as? GameAnswer.Scale)?.value ?: return@forEachIndexed
+            val value = if (question.reverse) 6 - raw else raw
             sums[question.axis]?.add(value)
         }
         val points = game.axes.map { axis ->
@@ -278,18 +313,31 @@ object GameScoring {
             RadarPoint(axis.label, ((average - 1.0) / 4.0).toFloat().coerceIn(0f, 1f))
         }
         val topIndex = points.indices.maxByOrNull { points[it].value } ?: 0
+        val lowIndex = points.indices.minByOrNull { points[it].value } ?: 0
         val topAxis = game.axes[topIndex]
+        val lowAxis = game.axes[lowIndex]
         val top = points[topIndex]
         val percent = (top.value * 100).roundToInt()
+        val lowPercent = (points[lowIndex].value * 100).roundToInt()
         return GameOutcome(
             emoji = topAxis.emoji,
             title = "「${topAxis.label}」最高",
             blurb = topAxis.blurb,
-            scoreLine = "五维雷达 · ${topAxis.label} $percent%",
+            scoreLine = "${game.axes.size} 维雷达 · ${topAxis.label} $percent%",
             shareText = "我的${game.title}：" +
                 points.joinToString(" · ") { "${it.label} ${(it.value * 100).roundToInt()}%" } +
                 "。$GAME_DISCLAIMER",
             radar = points,
+            insights = buildList {
+                add("最强：${topAxis.label} $percent% —— ${topAxis.blurb}")
+                if (lowAxis.key == topAxis.key) {
+                    add("各维打平：没有一面压倒其他，你在不同场景里切换得比较平均。")
+                    add("均衡的好处是适应力强，代价是少了记忆点；想更清楚，可以挑一维刻意练一练。")
+                } else {
+                    add("最弱：${lowAxis.label} $lowPercent% —— ${lowAxis.blurb}")
+                    add("两端差 ${(percent - lowPercent).coerceAtLeast(0)} 个百分点：这是你花钱时最容易被自己牵动的地方。")
+                }
+            },
         )
     }
 }
@@ -335,6 +383,9 @@ private val DUEL_EMOJI = mapOf(
 object GameContent {
     val games: List<GameDefinition> = listOf(
         walletPersona(),
+        PersonalityGames.spendProfile(),
+        PersonalityGames.savingStyle(),
+        PersonalityGames.bigFive(),
         spendDuel(),
         receiptGuess(),
         blindBox(),
@@ -350,26 +401,27 @@ object GameContent {
 
     private fun walletPersona(): GameDefinition = GameDefinition(
         id = "wallet-persona",
+        category = GameCategory.Personality,
         title = "钱包人格测试",
         subtitle = "10 个问题，看看你的钱包是什么性格",
         emoji = "👛",
         minutes = 3,
         mode = GameMode.Persona,
         profiles = listOf(
-            GameProfile("planner", "🧮", "精算师", "每一分钱都有去处，账本比日历还整齐。"),
-            GameProfile("vibe", "🌈", "氛围选手", "买的是心情，不是东西；开心就值。"),
-            GameProfile("coupon", "🎟️", "囤券达人", "券包比钱包鼓，过期前一定用完。"),
-            GameProfile("stealth", "🕶️", "隐形富豪", "平时不声不响，花起来毫不手软。"),
-            GameProfile("moonlight", "🌙", "月光诗人", "月底的诗，都写在余额里。"),
-            GameProfile("saver", "🪙", "铁公鸡", "不是没钱，是舍不得。"),
-            GameProfile("adventurer", "🎢", "体验派", "钱要花在没做过的事上。"),
-            GameProfile("practical", "🔧", "实用主义", "能修就不换，能用就不买。"),
-            GameProfile("host", "🍻", "社交买单侠", "抢单速度比谁都快。"),
-            GameProfile("hunter", "🏹", "折扣猎人", "原价两个字，让你睡不着。"),
-            GameProfile("collector", "🗃️", "收藏家", "喜欢的东西，要集齐一整套。"),
-            GameProfile("zen", "🍵", "佛系消费者", "买不买都行，随缘。"),
-            GameProfile("ritual", "🕯️", "仪式感大师", "贵不贵不重要，氛围要对。"),
-            GameProfile("impulse", "⚡", "冲动星人", "下单的手指，比大脑快。"),
+            GameProfile("planner", "🧮", "精算师", "每一分钱都有去处，账本比日历还整齐。").withInsights("账本清楚是你最稳的安全感", "为几块钱反复比价，时间成本更高", "给小额消费设一个「不用算」的上限"),
+            GameProfile("vibe", "🌈", "氛围选手", "买的是心情，不是东西；开心就值。").withInsights("情绪到位就愿意花钱", "心情差的时候最容易超支", "下单前先放一晚，第二天还想要再买"),
+            GameProfile("coupon", "🎟️", "囤券达人", "券包比钱包鼓，过期前一定用完。").withInsights("券让你觉得占了便宜", "为了用券买过本来不需要的东西", "先问：没有这张券我还会买吗"),
+            GameProfile("stealth", "🕶️", "隐形富豪", "平时不声不响，花起来毫不手软。").withInsights("平时很省，偶尔一次大花", "大额决定容易跳过预算检查", "把大额支出提前写进当月计划"),
+            GameProfile("moonlight", "🌙", "月光诗人", "月底的诗，都写在余额里。").withInsights("月初宽松，月底紧张", "中间不检查，问题总在最后爆发", "月中看一眼余额，比月底后悔有用"),
+            GameProfile("saver", "🪙", "铁公鸡", "不是没钱，是舍不得。").withInsights("不花钱本身就让你安心", "该换的东西一直拖，最后更贵", "给必须项留一笔不用犹豫的额度"),
+            GameProfile("adventurer", "🎢", "体验派", "钱要花在没做过的事上。").withInsights("为没做过的事花钱不心疼", "体验越多，账单越厚", "先定体验预算，超了就换下一次"),
+            GameProfile("practical", "🔧", "实用主义", "能修就不换，能用就不买。").withInsights("能修就不换，能用就不买", "省了钱但用着不顺手，最后还是换", "把时间成本算进去再决定修还是换"),
+            GameProfile("host", "🍻", "社交买单侠", "抢单速度比谁都快。").withInsights("抢单让你有面子", "事后回想会有点肉疼", "和朋友约好轮流请，比抢单轻松"),
+            GameProfile("hunter", "🏹", "折扣猎人", "原价两个字，让你睡不着。").withInsights("原价两个字让你难受", "为折扣买过不需要的东西", "先列需求，再去找折扣"),
+            GameProfile("collector", "🗃️", "收藏家", "喜欢的东西，要集齐一整套。").withInsights("成套才舒服", "补齐全套的成本常常超出预期", "先买一件试试，再决定要不要整组"),
+            GameProfile("zen", "🍵", "佛系消费者", "买不买都行，随缘。").withInsights("买不买都行，随缘", "没被记录的支出最容易失控", "只做一件事：把它记下来"),
+            GameProfile("ritual", "🕯️", "仪式感大师", "贵不贵不重要，氛围要对。").withInsights("氛围值得付溢价", "为氛围付的钱事后很难解释", "把仪式感放到低成本的场景里"),
+            GameProfile("impulse", "⚡", "冲动星人", "下单的手指，比大脑快。").withInsights("下单的手指比大脑快", "退货和后悔是你的常客", "结算前关掉页面 10 分钟"),
         ),
         questions = listOf(
             choice(
@@ -439,16 +491,17 @@ object GameContent {
 
     private fun spendDuel(): GameDefinition = GameDefinition(
         id = "spend-duel",
+        category = GameCategory.Personality,
         title = "消费二选一",
         subtitle = "30 道两难，看看你的花钱路数",
         emoji = "⚔️",
         minutes = 5,
         mode = GameMode.Persona,
         profiles = listOf(
-            GameProfile("calc", "📊", "精算派", "先算再花，账目清楚才安心。"),
-            GameProfile("spontaneous", "🎈", "随性派", "感觉对了就出发，计划留给明天。"),
-            GameProfile("planner", "🗓️", "计划派", "提前安排，按部就班最舒服。"),
-            GameProfile("hedonist", "🍰", "享乐派", "当下开心最重要，快乐不打折。"),
+            GameProfile("calc", "📊", "精算派", "先算再花，账目清楚才安心。").withInsights("先算再花，账目清楚才安心", "算太久会错过真正想要的东西", "给日常小额设一个「不算」区"),
+            GameProfile("spontaneous", "🎈", "随性派", "感觉对了就出发，计划留给明天。").withInsights("感觉对了就出发", "惊喜多，超支也多", "出门前只定一个总上限"),
+            GameProfile("planner", "🗓️", "计划派", "提前安排，按部就班最舒服。").withInsights("提前安排好一切最舒服", "计划被打乱时容易额外花钱", "给意外留出 10% 的余量"),
+            GameProfile("hedonist", "🍰", "享乐派", "当下开心最重要，快乐不打折。").withInsights("当下开心最重要，快乐不打折", "月底容易和自己原本的计划打架", "把享乐的钱单独放在一边"),
         ),
         questions = listOf(
             duel("duel-1", "想买个大件，你会？", "先做参数对比", "看中就下单", "calc", "spontaneous"),
@@ -488,6 +541,7 @@ object GameContent {
 
     private fun receiptGuess(): GameDefinition = GameDefinition(
         id = "receipt-guess",
+        category = GameCategory.Guess,
         title = "小票猜猜看",
         subtitle = "10 张小票，猜中上面的价格",
         emoji = "🧾",
@@ -519,6 +573,7 @@ object GameContent {
 
     private fun blindBox(): GameDefinition = GameDefinition(
         id = "blind-box",
+        category = GameCategory.Guess,
         title = "盲盒猜价",
         subtitle = "8 个盲盒，把价格猜进正确的区间",
         emoji = "🎁",
@@ -580,6 +635,7 @@ object GameContent {
 
     private fun dailyTasks(): GameDefinition = GameDefinition(
         id = "daily-tasks",
+        category = GameCategory.Challenge,
         title = "今日小任务",
         subtitle = "随机抽 10 条小任务，做完几个算几个",
         emoji = "✅",
@@ -621,6 +677,7 @@ object GameContent {
 
     private fun saveChallenge(): GameDefinition = GameDefinition(
         id = "save-challenge",
+        category = GameCategory.Challenge,
         title = "省钱大挑战",
         subtitle = "8 幕情景选择，看看这一局能省下多少",
         emoji = "🛡️",
@@ -690,6 +747,7 @@ object GameContent {
 
     private fun ledgerQuiz(): GameDefinition = GameDefinition(
         id = "ledger-quiz",
+        category = GameCategory.Challenge,
         title = "记账冷知识",
         subtitle = "15 道判断题，看看你有多懂账本",
         emoji = "🧠",
@@ -726,7 +784,7 @@ object GameContent {
     private fun spendRadar(): GameDefinition = GameDefinition(
         id = "spend-radar",
         title = "花式花钱雷达",
-        subtitle = "5 道量表，画出你的花钱五维图",
+        subtitle = "6 道量表，画出你的花钱六维图",
         emoji = "📡",
         minutes = 2,
         mode = GameMode.Radar,
@@ -736,6 +794,7 @@ object GameContent {
             GameAxis("social", "🎉", "社交度", "你愿意为人和场合花钱，快乐常常是共享的。"),
             GameAxis("experience", "🎢", "体验度", "你更愿意把钱换成经历，回忆是你的收藏。"),
             GameAxis("minimal", "🪶", "极简度", "东西越少你越轻松，减法让你舒服。"),
+            GameAxis("novelty", "🧪", "新鲜度", "你愿意为没试过的东西付一次学费。"),
         ),
         questions = listOf(
             scale(
@@ -757,6 +816,10 @@ object GameContent {
             scale(
                 "sr-5", "家里东西越少，你越舒服吗？", "minimal",
                 lowLabel = "喜欢满满当当", highLabel = "越少越好",
+            ),
+            scale(
+                "sr-6", "看到没试过的新东西，你会想试一次吗？", "novelty",
+                lowLabel = "先观望", highLabel = "很想试",
             ),
         ),
     )

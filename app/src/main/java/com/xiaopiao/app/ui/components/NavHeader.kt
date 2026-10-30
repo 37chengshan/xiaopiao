@@ -97,6 +97,8 @@ fun NavScaffold(
     trailing: @Composable RowScope.() -> Unit = {},
     /** Lay the page on a theme-coloured [GlassGround] so its grouped cards turn into liquid glass (设置). */
     glassGround: Boolean = false,
+    /** 玻璃地面的颜色浓度（1 = 设置页那一档；游戏页用 0.55，免得彩色盖过内容）。 */
+    glassStrength: Float = 1f,
     content: @Composable BoxScope.(top: Dp) -> Unit,
 ) {
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -105,7 +107,7 @@ fun NavScaffold(
     val glass = rememberLayerBackdrop()
     Box(modifier.fillMaxSize()) {
         Box(Modifier.matchParentSize().layerBackdrop(glass).background(XpColors.CanvasGrouped)) {
-            if (glassGround) GlassGround(Modifier.matchParentSize()) { Box(Modifier.fillMaxSize()) { content(topInset + BarHeight) } }
+            if (glassGround) GlassGround(Modifier.matchParentSize(), strength = glassStrength) { Box(Modifier.fillMaxSize()) { content(topInset + BarHeight) } }
             else content(topInset + BarHeight)
         }
         // No bar: a soft edge fade keeps the title legible, and each group of controls floats in its own glass capsule.

@@ -15,8 +15,8 @@ class GameContentTest {
     private val games = GameContent.games
 
     @Test
-    fun `eight games with unique ids and non-empty decks`() {
-        assertEquals(8, games.size)
+    fun `every game has a unique id and a non-empty deck`() {
+        assertEquals(11, games.size)
         assertEquals(games.size, games.map { it.id }.toSet().size)
         games.forEach { game ->
             assertTrue(game.id, game.questions.isNotEmpty())
@@ -113,6 +113,43 @@ class GameContentTest {
             if (game.mode == GameMode.Radar) {
                 assertEquals(game.id, game.axes.size, outcome.radar.size)
                 outcome.radar.forEach { point -> assertTrue(game.id, point.value in 0f..100f) }
+            }
+        }
+    }
+
+    @Test
+    fun `personality games come in both flavours and cover every category`() {
+        val personality = games.filter { it.category == GameCategory.Personality }
+        assertTrue("性格类太少", personality.size >= 4)
+        assertTrue("缺人格类", personality.any { it.mode == GameMode.Persona })
+        assertTrue("缺雷达类", personality.any { it.mode == GameMode.Radar })
+        GameCategory.entries.forEach { category ->
+            assertTrue("分组为空：$category", games.any { it.category == category })
+        }
+    }
+
+    @Test
+    fun `radar games keep five or six axes and print an analysis per run`() {
+        games.filter { it.mode == GameMode.Radar }.forEach { game ->
+            assertTrue("${game.id}: 轴太少", game.axes.size in 5..6)
+            val deck = game.questions
+            val answers = deck.map { question ->
+                when (question) {
+                    is ScaleQuestion -> GameAnswer.Scale(4)
+                    else -> GameAnswer.Pick((question as? ChoiceQuestion)?.options?.firstOrNull()?.id ?: "x")
+                }
+            }
+            val outcome = GameScoring.outcome(game, deck, answers)
+            assertEquals("${game.id}: 需要三条分析", 3, outcome.insights.size)
+            outcome.insights.forEach { assertTrue("${game.id}: 分析为空", it.isNotBlank()) }
+        }
+    }
+
+    @Test
+    fun `persona results carry three lines of analysis`() {
+        games.filter { it.mode == GameMode.Persona }.forEach { game ->
+            game.profiles.forEach { profile ->
+                assertTrue("${game.id}/${profile.key}: 缺分析", profile.insights.size == 3)
             }
         }
     }

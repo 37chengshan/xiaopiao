@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -78,6 +79,17 @@ import com.xiaopiao.app.domain.games.ChoiceQuestion
 import com.xiaopiao.app.domain.games.GameAnswer
 import com.xiaopiao.app.domain.games.GameAxis
 import com.xiaopiao.app.domain.games.GameDefinition
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.graphicsLayer
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.shadow.Shadow
+import com.xiaopiao.app.ui.components.LocalGlass
+import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.domain.games.GameMode
 import com.xiaopiao.app.domain.games.GameOption
 import com.xiaopiao.app.domain.games.GameOutcome
@@ -167,8 +179,8 @@ fun GamePlayer(game: GameDefinition, onExit: () -> Unit) {
             }
             is ChoiceQuestion -> {
                 haptics.select()
-                // Let the choice be seen for a beat before the next question slides in.
-                scope.launch { delay(160); advance() }
+                // 卡片翻面要 340ms，留到翻完再切下一题，否则只看到半张卡。
+                scope.launch { delay(520); advance() }
             }
             is ScaleQuestion -> {
                 haptics.select()
@@ -188,6 +200,7 @@ fun GamePlayer(game: GameDefinition, onExit: () -> Unit) {
         scroll = NavScrollNone,
         onBack = onExit,
         backLabel = stringResource(R.string.games_back),
+        glassGround = true,
     ) { top ->
         Box(Modifier.fillMaxSize().padding(top = top)) {
             when (stage) {
@@ -242,82 +255,63 @@ fun GamePlayer(game: GameDefinition, onExit: () -> Unit) {
 @Composable
 private fun IntroView(game: GameDefinition, skin: GameSkin, onStart: () -> Unit, onExit: () -> Unit) {
     val accent = skin.accentColor()
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val headerHeight = (maxHeight * 0.56f).coerceIn(240.dp, 420.dp)
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            Box(
-                Modifier.fillMaxWidth()
-                    .height(headerHeight)
-                    .clipToBounds()
-                    .background(skin.heroGradient()),
-            ) {
-                GameMotifGraphic(skin = skin, modifier = Modifier.matchParentSize(), strength = 0.24f)
-                Column(
-                    Modifier.align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .padding(horizontal = XpSpace.page, vertical = XpSpace.xl),
-                ) {
-                    Text(
-                        gameModeLabel(game.mode),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = accent,
-                    )
-                    Box(
-                        Modifier.padding(top = XpSpace.l)
-                            .size(96.dp)
-                            .clip(RoundedCornerShape(XpRadius.xl))
-                            .background(XpColors.Card),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(game.emoji, style = MaterialTheme.typography.displayLarge)
-                    }
-                    Text(
-                        game.title,
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = XpColors.Ink,
-                        modifier = Modifier.padding(top = XpSpace.l),
-                    )
-                    Text(
-                        stringResource(R.string.games_meta, game.rounds, game.minutes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = XpColors.InkSecondary,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
-            }
-            Column(
-                Modifier.fillMaxWidth()
-                    .padding(horizontal = XpSpace.page, vertical = XpSpace.l),
-            ) {
+    Column(
+        Modifier.fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = XpSpace.page),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.height(XpSpace.xxl))
+        Text(
+            gameModeLabel(game.mode),
+            style = MaterialTheme.typography.labelSmall,
+            color = accent,
+        )
+        Text(
+            game.title,
+            style = MaterialTheme.typography.headlineLarge,
+            color = XpColors.Ink,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = XpSpace.s),
+        )
+        Text(
+            stringResource(R.string.games_meta, game.rounds, game.minutes),
+            style = MaterialTheme.typography.bodySmall,
+            color = XpColors.InkSecondary,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        Spacer(Modifier.height(XpSpace.xl))
+        GlassPanel(shape = RoundedCornerShape(XpRadius.l)) {
+            Column(Modifier.fillMaxWidth().padding(XpSpace.l)) {
                 Text(
                     stringResource(skin.howTo),
                     style = MaterialTheme.typography.bodyLarge,
                     color = XpColors.Ink,
                 )
-                Spacer(Modifier.height(XpSpace.xl))
-                XpButton(
-                    text = stringResource(R.string.games_intro_start),
-                    onClick = onStart,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(XpSpace.s))
-                XpButton(
-                    text = stringResource(R.string.games_intro_exit),
-                    onClick = onExit,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = XpButtonStyle.Plain,
-                )
-                Spacer(Modifier.height(XpSpace.l))
-                Text(
-                    stringResource(R.string.games_disclaimer),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XpColors.InkTertiary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(XpSpace.s))
             }
         }
+        Spacer(Modifier.height(XpSpace.xl))
+        XpButton(
+            text = stringResource(R.string.games_intro_start),
+            onClick = onStart,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(XpSpace.s))
+        XpButton(
+            text = stringResource(R.string.games_intro_exit),
+            onClick = onExit,
+            modifier = Modifier.fillMaxWidth(),
+            style = XpButtonStyle.Plain,
+        )
+        Spacer(Modifier.height(XpSpace.l))
+        Text(
+            stringResource(R.string.games_disclaimer),
+            style = MaterialTheme.typography.labelSmall,
+            color = XpColors.InkTertiary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(XpSpace.l))
     }
 }
 
@@ -440,7 +434,7 @@ private fun QuestionView(
         }
     }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             Column(
                 Modifier.widthIn(max = 560.dp)
                     .fillMaxWidth()
@@ -456,10 +450,10 @@ private fun QuestionView(
                 Spacer(Modifier.height(XpSpace.l))
 
                 when (question) {
-                    is ChoiceQuestion -> ChoiceBlock(question, skin, picked, onAnswer)
+                    is ChoiceQuestion -> ChoiceBlock(question, skin, picked, reduced, onAnswer)
                     is PriceQuestion -> PriceBlock(question, skin, picked, onAnswer)
                     is RangeQuestion -> RangeBlock(question, skin, picked, onAnswer)
-                    is TrueFalseQuestion -> TrueFalseBlock(question, skin, picked, onAnswer)
+                    is TrueFalseQuestion -> TrueFalseBlock(question, skin, picked, reduced, onAnswer)
                     is TaskQuestion -> TaskBlock(question, skin, onAnswer)
                     is ScaleQuestion -> ScaleBlock(question, skin, picked, onAnswer)
                 }
@@ -507,6 +501,7 @@ private fun ChoiceBlock(
     question: ChoiceQuestion,
     skin: GameSkin,
     picked: String?,
+    reduced: Boolean,
     onAnswer: (GameAnswer) -> Unit,
 ) {
     if (question.hint.isNotBlank()) {
@@ -514,129 +509,155 @@ private fun ChoiceBlock(
             question.hint,
             style = MaterialTheme.typography.bodySmall,
             color = XpColors.InkSecondary,
-            modifier = Modifier.padding(bottom = XpSpace.s),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(bottom = XpSpace.m),
         )
     }
-    when (question.layout) {
-        ChoiceLayout.Duel -> Row(
-            Modifier.fillMaxWidth(),
+    val options = question.options
+    if (question.layout == ChoiceLayout.Duel) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = XpSpace.page),
             horizontalArrangement = Arrangement.spacedBy(XpSpace.m),
         ) {
-            question.options.forEach { option ->
-                DuelCard(
+            options.forEach { option ->
+                FlipChoiceCard(
                     option = option,
                     tone = toneFor(option.id, picked, correctId = null),
-                    skin = skin,
                     enabled = picked == null,
-                    modifier = Modifier.weight(1f),
+                    reduced = reduced,
+                    modifier = Modifier.weight(1f).height(168.dp),
                     onClick = { onAnswer(GameAnswer.Pick(option.id)) },
                 )
             }
         }
-        ChoiceLayout.List -> Column(verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-            question.options.forEach { option ->
-                OptionRow(
-                    option = option,
-                    tone = toneFor(option.id, picked, correctId = null),
-                    skin = skin,
-                    enabled = picked == null,
-                    onClick = { onAnswer(GameAnswer.Pick(option.id)) },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun OptionRow(
-    option: GameOption,
-    tone: AnswerTone,
-    skin: GameSkin,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    val fg = toneForeground(tone, skin)
-    val shape = RoundedCornerShape(XpRadius.l)
-    Row(
-        Modifier.fillMaxWidth()
-            .clip(shape)
-            .background(toneBackground(tone, skin))
-            .then(if (tone.hasEdge) Modifier.border(1.5.dp, fg, shape) else Modifier)
-            .pressableClick(enabled = enabled, scaleDown = 0.98f, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (option.emoji.isNotBlank()) {
-            Box(
-                Modifier.size(38.dp)
-                    .clip(RoundedCornerShape(XpRadius.m))
-                    .background(if (tone == AnswerTone.Idle) XpColors.Card else skin.washColor()),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(option.emoji, style = MaterialTheme.typography.titleMedium)
-            }
-        }
+    } else {
         Column(
-            Modifier.weight(1f).padding(start = if (option.emoji.isNotBlank()) XpSpace.m else 0.dp),
+            Modifier.fillMaxWidth().padding(horizontal = XpSpace.page),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(XpSpace.s),
         ) {
-            Text(option.label, style = MaterialTheme.typography.titleSmall, color = fg)
-            if (option.note.isNotBlank()) {
-                Text(
-                    option.note,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = XpColors.InkSecondary,
-                    modifier = Modifier.padding(top = 2.dp),
+            options.forEach { option ->
+                FlipChoiceCard(
+                    option = option,
+                    tone = toneFor(option.id, picked, correctId = null),
+                    enabled = picked == null,
+                    reduced = reduced,
+                    modifier = Modifier.fillMaxWidth(0.92f).heightIn(min = 72.dp),
+                    onClick = { onAnswer(GameAnswer.Pick(option.id)) },
                 )
             }
-        }
-        when (tone) {
-            AnswerTone.Selected, AnswerTone.Correct -> Icon(
-                Icons.Outlined.Check,
-                contentDescription = null,
-                tint = fg,
-                modifier = Modifier.size(18.dp),
-            )
-            AnswerTone.Wrong -> Icon(
-                Icons.Outlined.Close,
-                contentDescription = null,
-                tint = fg,
-                modifier = Modifier.size(18.dp),
-            )
-            else -> Text("›", style = MaterialTheme.typography.titleMedium, color = XpColors.InkTertiary)
         }
     }
 }
 
+/** 液态玻璃面板：页面有 GlassGround 就折射地面，没有则退回实色卡。 */
 @Composable
-private fun DuelCard(
+private fun GlassPanel(
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(XpRadius.l),
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val glass = LocalGlass.current
+    val rim = Color.Black.copy(alpha = if (XpColors.isDark) 0.24f else 0.06f)
+    val film = XpColors.Card.copy(alpha = if (XpColors.isDark) 0.52f else 0.62f)
+    val surface = if (glass == null) {
+        modifier.clip(shape).background(XpColors.Card)
+    } else {
+        modifier.drawBackdrop(
+            backdrop = glass,
+            shape = { shape },
+            effects = {
+                vibrancy()
+                blur(10.dp.toPx())
+                lens(8.dp.toPx(), 12.dp.toPx())
+            },
+            shadow = { Shadow(radius = 16.dp, color = rim) },
+            onDrawSurface = { drawRect(film) },
+        )
+    }
+    Box(surface, content = content)
+}
+
+/**
+ * 居中的翻卡选择项：正面是选项，选中后沿 Y 轴翻到背面给结论。
+ * 只有被选中的那张翻；没选中的保持正面，避免整屏一起动。
+ */
+@Composable
+private fun FlipChoiceCard(
     option: GameOption,
     tone: AnswerTone,
-    skin: GameSkin,
     enabled: Boolean,
-    modifier: Modifier = Modifier,
+    reduced: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val fg = toneForeground(tone, skin)
+    // 只有被选中的那张翻面；同题的另一张只是变淡，不然两张都翻过去像都选上了。
+    val flipped = tone == AnswerTone.Selected || tone == AnswerTone.Correct || tone == AnswerTone.Wrong
+    val rotation = remember { Animatable(0f) }
+    LaunchedEffect(flipped) {
+        if (reduced) rotation.snapTo(if (flipped) 180f else 0f)
+        else rotation.animateTo(if (flipped) 180f else 0f, tween(340, easing = XpEase.out))
+    }
+    val density = LocalDensity.current.density
     val shape = RoundedCornerShape(XpRadius.l)
-    Column(
+    val accent = if (tone == AnswerTone.Wrong) XpColors.Warning else XpColors.Accent
+    // 点击与翻面都挂在外层 Box：玻璃面板自己带 backdrop 图层，放在里面会把点击吃掉。
+    Box(
         modifier
-            .height(176.dp)
-            .clip(shape)
-            .background(toneBackground(tone, skin))
-            .then(if (tone.hasEdge) Modifier.border(1.5.dp, fg, shape) else Modifier)
-            .pressableClick(enabled = enabled, scaleDown = 0.96f, onClick = onClick)
-            .padding(XpSpace.m),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+            .graphicsLayer {
+                rotationY = rotation.value
+                cameraDistance = 12f * density
+                alpha = if (tone == AnswerTone.Muted) 0.55f else 1f
+            }
+            .pressableClick(enabled = enabled, scaleDown = 0.97f, haptic = true, onClick = onClick),
     ) {
-        Text(option.emoji, style = MaterialTheme.typography.displayLarge)
-        Text(
-            option.label,
-            style = MaterialTheme.typography.titleSmall,
-            color = if (tone == AnswerTone.Idle) XpColors.Ink else fg,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = XpSpace.s),
-        )
+        GlassPanel(modifier = Modifier.fillMaxSize(), shape = shape) {
+            if (!flipped || rotation.value < 90f) {
+                Column(
+                    Modifier.fillMaxSize().padding(horizontal = XpSpace.m, vertical = XpSpace.m),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        option.label,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = XpColors.Ink,
+                        textAlign = TextAlign.Center,
+                    )
+                    if (option.note.isNotBlank()) {
+                        Text(
+                            option.note,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XpColors.InkSecondary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
+                }
+            } else {
+                Column(
+                    Modifier.fillMaxSize()
+                        .graphicsLayer { rotationY = 180f }
+                        .padding(horizontal = XpSpace.m, vertical = XpSpace.m),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        if (tone == AnswerTone.Wrong) Icons.Outlined.Close else Icons.Outlined.Check,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(26.dp),
+                    )
+                    Text(
+                        option.label,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = XpColors.Ink,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = XpSpace.s),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -681,6 +702,7 @@ private fun TrueFalseBlock(
     question: TrueFalseQuestion,
     skin: GameSkin,
     picked: String?,
+    reduced: Boolean,
     onAnswer: (GameAnswer) -> Unit,
 ) {
     val correctId = question.answer.toString()
@@ -688,25 +710,35 @@ private fun TrueFalseBlock(
         stringResource(R.string.games_tf_prompt),
         style = MaterialTheme.typography.bodySmall,
         color = XpColors.InkSecondary,
-        modifier = Modifier.padding(bottom = XpSpace.s),
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(bottom = XpSpace.m),
     )
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-        GuessChip(
-            label = "✅ " + stringResource(R.string.games_tf_true),
-            tone = toneFor("true", picked, correctId),
-            skin = skin,
-            enabled = picked == null,
-            modifier = Modifier.weight(1f),
-            onClick = { onAnswer(GameAnswer.Pick("true")) },
-        )
-        GuessChip(
-            label = "❌ " + stringResource(R.string.games_tf_false),
-            tone = toneFor("false", picked, correctId),
-            skin = skin,
-            enabled = picked == null,
-            modifier = Modifier.weight(1f),
-            onClick = { onAnswer(GameAnswer.Pick("false")) },
-        )
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = XpSpace.page),
+        horizontalArrangement = Arrangement.spacedBy(XpSpace.m),
+    ) {
+        listOf("true" to R.string.games_tf_true, "false" to R.string.games_tf_false).forEach { (id, labelRes) ->
+            val tone = toneFor(id, picked, correctId)
+            val option = GameOption(id = id, label = stringResource(labelRes))
+            Box(Modifier.weight(1f).height(132.dp)) {
+                FlipChoiceCard(
+                    option = option,
+                    tone = tone,
+                    enabled = picked == null,
+                    reduced = reduced,
+                    modifier = Modifier.fillMaxSize(),
+                    onClick = { onAnswer(GameAnswer.Pick(id)) },
+                )
+                if (picked == null) {
+                    Icon(
+                        if (id == "true") Icons.Outlined.Check else Icons.Outlined.Close,
+                        contentDescription = null,
+                        tint = XpColors.InkTertiary,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(10.dp).size(16.dp),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -817,7 +849,7 @@ private fun ScaleBlock(
             val shape = RoundedCornerShape(XpRadius.l)
             Box(
                 Modifier.weight(1f)
-                    .height(56.dp)
+                    .height(64.dp)
                     .clip(shape)
                     .background(if (selected) accent else XpColors.Fill)
                     .then(if (selected) Modifier.border(1.5.dp, accent, shape) else Modifier)
@@ -828,7 +860,7 @@ private fun ScaleBlock(
             ) {
                 Text(
                     "$value",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     color = if (selected) onAccent else XpColors.Ink,
                 )
             }
@@ -856,24 +888,12 @@ private fun ScaleBlock(
 
 @Composable
 private fun ItemCard(emoji: String, item: String, hint: String, skin: GameSkin) {
-    Box(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(XpRadius.xl))
-            .background(skin.cardGradient()),
-    ) {
-        GameMotifGraphic(skin = skin, modifier = Modifier.matchParentSize(), strength = 0.22f)
+    GlassPanel(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(XpRadius.xl)) {
         Column(
             Modifier.fillMaxWidth().padding(XpSpace.l),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box(
-                Modifier.size(88.dp)
-                    .clip(RoundedCornerShape(XpRadius.l))
-                    .background(XpColors.Card),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(emoji, style = MaterialTheme.typography.displayMedium)
-            }
+            Text(emoji, style = MaterialTheme.typography.headlineMedium)
             Text(
                 item,
                 style = MaterialTheme.typography.titleMedium,
@@ -1001,10 +1021,11 @@ private fun ResultView(
     Column(
         Modifier.fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = XpSpace.page, end = XpSpace.page, bottom = 104.dp),
+            // 底部浮着标签栏（约 96dp）＋安全区，结果页最后两颗按钮要留出这段。
+            .padding(start = XpSpace.page, end = XpSpace.page, bottom = 168.dp),
     ) {
         Spacer(Modifier.height(XpSpace.m))
-        ResultHero(outcome = outcome, skin = skin, figure = figure, showBody = persona)
+        ResultHero(outcome = outcome, figure = figure, showBody = persona, accent = skin.accentColor())
 
         if (outcome.radar.isNotEmpty()) {
             Spacer(Modifier.height(XpSpace.m))
@@ -1013,7 +1034,37 @@ private fun ResultView(
 
         if (!persona) {
             Spacer(Modifier.height(XpSpace.m))
-            XpCard { Text(outcome.blurb, style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink) }
+            GlassPanel(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    outcome.blurb,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = XpColors.Ink,
+                    modifier = Modifier.padding(XpSpace.l),
+                )
+            }
+        }
+        if (outcome.insights.isNotEmpty()) {
+            Spacer(Modifier.height(XpSpace.m))
+            GlassPanel(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth().padding(XpSpace.l)) {
+                    Text(
+                        stringResource(R.string.games_result_analysis),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = XpColors.Ink,
+                    )
+                    outcome.insights.forEach { line ->
+                        Row(Modifier.padding(top = XpSpace.s)) {
+                            Text("·", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
+                            Text(
+                                line,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = XpColors.Ink,
+                                modifier = Modifier.padding(start = 6.dp),
+                            )
+                        }
+                    }
+                }
+            }
         }
         if (game.note.isNotBlank()) {
             Text(
@@ -1120,59 +1171,36 @@ private fun resultFigure(
     }
 }
 
-/** Persona card / score card: one accent surface with the big emoji, the title and the headline figure. */
+/** 结果抬头：一张玻璃卡，字数最少的那种——类型名 + 一句判断 + 关键数字。 */
 @Composable
-private fun ResultHero(outcome: GameOutcome, skin: GameSkin, figure: ScoreFigure, showBody: Boolean) {
-    val accent = skin.accentColor()
-    Box(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(XpRadius.xl))
-            .background(skin.cardGradient()),
-    ) {
-        GameMotifGraphic(skin = skin, modifier = Modifier.matchParentSize(), strength = 0.22f)
+private fun ResultHero(outcome: GameOutcome, figure: ScoreFigure, showBody: Boolean, accent: Color) {
+    GlassPanel(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(XpRadius.xl)) {
         Column(Modifier.fillMaxWidth().padding(XpSpace.page)) {
             Text(
                 stringResource(R.string.games_result_your),
                 style = MaterialTheme.typography.labelSmall,
-                color = accent,
+                color = XpColors.InkSecondary,
             )
-            Row(
-                Modifier.padding(top = XpSpace.s),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    Modifier.size(76.dp)
-                        .clip(RoundedCornerShape(XpRadius.l))
-                        .background(XpColors.Card),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(outcome.emoji, style = MaterialTheme.typography.displayMedium)
-                }
-                Column(Modifier.weight(1f).padding(start = XpSpace.m)) {
+            Text(
+                outcome.title,
+                style = MaterialTheme.typography.headlineLarge,
+                color = XpColors.Ink,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            if (figure.value.isNotBlank()) {
+                Row(Modifier.padding(top = XpSpace.s), verticalAlignment = Alignment.Bottom) {
                     Text(
-                        outcome.title,
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = XpColors.Ink,
+                        figure.value,
+                        style = MaterialTheme.typography.displayMedium,
+                        color = accent,
                     )
-                    if (figure.value.isNotBlank()) {
-                        Row(
-                            Modifier.padding(top = 2.dp),
-                            verticalAlignment = Alignment.Bottom,
-                        ) {
-                            Text(
-                                figure.value,
-                                style = MaterialTheme.typography.displayMedium,
-                                color = accent,
-                            )
-                            if (figure.unit.isNotBlank()) {
-                                Text(
-                                    figure.unit,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = XpColors.InkSecondary,
-                                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
-                                )
-                            }
-                        }
+                    if (figure.unit.isNotBlank()) {
+                        Text(
+                            figure.unit,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = XpColors.InkSecondary,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                        )
                     }
                 }
             }
@@ -1181,7 +1209,7 @@ private fun ResultHero(outcome: GameOutcome, skin: GameSkin, figure: ScoreFigure
                     figure.label,
                     style = MaterialTheme.typography.labelMedium,
                     color = XpColors.InkSecondary,
-                    modifier = Modifier.padding(top = XpSpace.s),
+                    modifier = Modifier.padding(top = XpSpace.xs),
                 )
             }
             if (showBody) {
@@ -1209,52 +1237,62 @@ private fun RadarCard(
     skin: GameSkin,
     reduced: Boolean,
 ) {
-    XpCard {
-        Text(
-            stringResource(R.string.games_result_radar_title),
-            style = MaterialTheme.typography.titleSmall,
-            color = XpColors.Ink,
-        )
-        RadarChart(
-            points = points,
-            skin = skin,
-            reduced = reduced,
-            showLabels = true,
-            modifier = Modifier.fillMaxWidth().height(250.dp).padding(top = XpSpace.s),
-        )
-        points.forEach { point ->
-            val emoji = axes.firstOrNull { it.label == point.label }?.emoji.orEmpty()
-            Row(
-                Modifier.fillMaxWidth().padding(top = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    if (emoji.isBlank()) point.label else "$emoji ${point.label}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XpColors.Ink,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.width(88.dp),
-                )
-                Box(
-                    Modifier.weight(1f)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(XpRadius.pill))
-                        .background(XpColors.Fill),
-                ) {
-                    Box(
-                        Modifier.fillMaxHeight()
-                            .fillMaxWidth(point.value.coerceIn(0f, 1f))
-                            .background(skin.accentColor()),
-                    )
+    GlassPanel(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(XpRadius.xl)) {
+        Column(Modifier.fillMaxWidth().padding(XpSpace.l)) {
+            Text(
+                stringResource(R.string.games_result_radar_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = XpColors.Ink,
+            )
+            RadarChart(
+                points = points,
+                skin = skin,
+                reduced = reduced,
+                showLabels = true,
+                modifier = Modifier.fillMaxWidth().height(250.dp).padding(top = XpSpace.s),
+            )
+            points.forEach { point ->
+                val axis = axes.firstOrNull { it.label == point.label }
+                Column(Modifier.fillMaxWidth().padding(top = XpSpace.m)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            point.label,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = XpColors.Ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.width(64.dp),
+                        )
+                        Box(
+                            Modifier.weight(1f)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(XpRadius.pill))
+                                .background(XpColors.Fill),
+                        ) {
+                            Box(
+                                Modifier.fillMaxHeight()
+                                    .fillMaxWidth(point.value.coerceIn(0f, 1f))
+                                    .background(skin.accentColor()),
+                            )
+                        }
+                        Text(
+                            stringResource(R.string.games_percent, (point.value * 100).roundToInt()),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = XpColors.InkSecondary,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.width(44.dp),
+                        )
+                    }
+                    val note = axis?.band(point.value) ?: axis?.blurb
+                    if (!note.isNullOrBlank()) {
+                        Text(
+                            note,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = XpColors.InkSecondary,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                 }
-                Text(
-                    stringResource(R.string.games_percent, (point.value * 100).roundToInt()),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XpColors.InkSecondary,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.width(44.dp),
-                )
             }
         }
     }
@@ -1362,7 +1400,7 @@ private fun ShareCard(
                 Modifier.fillMaxWidth()
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Brush.horizontalGradient(listOf(skin.accentColor(), skin.accentEndColor()))),
+                    .background(skin.accentColor()),
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(outcome.emoji, style = MaterialTheme.typography.titleLarge)

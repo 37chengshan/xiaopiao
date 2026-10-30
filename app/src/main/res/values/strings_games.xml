@@ -6,6 +6,12 @@
     <string name="games_count_unit">个小游戏</string>
     <string name="games_hub_sub">点开就玩 · 单局 1–5 分钟</string>
     <string name="games_meta">约 %1$d 题 · %2$d 分钟</string>
+    <string name="games_meta_short">%1$d 分钟</string>
+    <string name="games_row_meta">%1$d 题 · %2$d 分钟</string>
+    <string name="games_hub_count">%1$d 个小游戏</string>
+    <string name="games_group_personality">性格测试</string>
+    <string name="games_group_guess">猜一猜</string>
+    <string name="games_group_challenge">小挑战</string>
     <string name="games_mode_persona">人格</string>
     <string name="games_mode_challenge">挑战</string>
     <string name="games_mode_radar">雷达</string>
@@ -36,7 +42,7 @@
     <string name="games_result_saved">本局省下</string>
     <string name="games_result_of">/ %1$d</string>
     <string name="games_result_radar">最突出的一维</string>
-    <string name="games_result_radar_title">五维分布</string>
+    <string name="games_result_radar_title">维度分布</string>
     <string name="games_share_title">分享卡片</string>
     <string name="games_share_footer">今日小票 · 游戏</string>
     <string name="games_copy">复制文案</string>
@@ -46,21 +52,17 @@
     <string name="games_another">换一个</string>
     <string name="games_disclaimer">娱乐，不构成建议</string>
 
-    <string name="games_tag_wallet_persona">10 个问题，测出钱包性格</string>
-    <string name="games_tag_spend_duel">30 道两难，看你花钱路数</string>
-    <string name="games_tag_receipt_guess">猜小票上的价格</string>
-    <string name="games_tag_blind_box">把价格猜进正确区间</string>
-    <string name="games_tag_daily_tasks">抽 10 条小任务，做几条算几条</string>
-    <string name="games_tag_save_challenge">8 幕情景，看你能省多少</string>
-    <string name="games_tag_ledger_quiz">15 道判断题，账本冷知识</string>
-    <string name="games_tag_spend_radar">5 道量表，画出五维花钱图</string>
 
-    <string name="games_howto_wallet_persona">从发工资的第一件事，到购物车里躺了很久的东西，10 个问题，看看你的钱包是什么性格。</string>
+        <string name="games_result_analysis">分析</string>
+    <string name="games_howto_spend_profile">12 道量表，六个维度各两题：计划力、冲动度、享乐度、社交度、节俭度、新鲜度。答案没有好坏，只画轮廓。</string>
+    <string name="games_howto_big_five">20 道量表，基于 IPIP Mini-IPIP 短表：外向、宜人、尽责、情绪稳定、开放，正反各两题。</string>
+    <string name="games_howto_saving_style">10 个四选一，看看你更像哪种存钱的人：自动、目标、应急、随手、极简、享受。</string>
+<string name="games_howto_wallet_persona">从发工资的第一件事，到购物车里躺了很久的东西，10 个问题，看看你的钱包是什么性格。</string>
     <string name="games_howto_spend_duel">30 道两难选择，没有标准答案。选着选着，你的花钱路数就浮出来了。</string>
     <string name="games_howto_receipt_guess">看一件小票上的东西，猜它大概多少钱。选完立刻揭晓真实价格。</string>
     <string name="games_howto_blind_box">不看具体数字，只选价格区间。8 个盲盒，看看你离真实价格差多远。</string>
     <string name="games_howto_daily_tasks">随机抽 10 条小任务，做一条算一条。不打卡，不评判。</string>
     <string name="games_howto_save_challenge">8 幕生活情景，每一幕都有个省钱的选择。看看这一局你能省下多少。</string>
     <string name="games_howto_ledger_quiz">15 道判断题，全是账本里的冷知识。答错也有解释。</string>
-    <string name="games_howto_spend_radar">5 道量表，画出你的花钱五维图：计划、冲动、社交、体验、极简。</string>
+    <string name="games_howto_spend_radar">6 道量表，画出你的花钱六维图：计划、冲动、社交、体验、极简、新鲜。</string>
 </resources>
