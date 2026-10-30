@@ -25,6 +25,13 @@ import { cs, s, opening } from "../strings";
 import { scenePose } from "./scenePose";
 import { GlassFilter } from "../parts/GlassFilter";
 import { IMG } from "../lib/assets";
+function lensGlide(v: number) {
+  const p = Math.max(0, Math.min(0.9999, v)) * 4;
+  const i = Math.floor(p);
+  const g = i < 3 ? Math.max(0, Math.min(1, (p - i - 0.62) / 0.38)) : 0;
+  return { pos: i + g * g * (3 - 2 * g), stretch: Math.sin(Math.PI * g) };
+}
+
 export const CHAPTERS = ["glass", "record", "stats", "circle"] as const;
 export type Chapter = (typeof CHAPTERS)[number];
 export function ConceptScreen({
@@ -42,6 +49,8 @@ export function ConceptScreen({
   );
   const [selected, setSelected] = useState(0);
   const [pressed, setPressed] = useState(false);
+  // A tap or drag pins the lens to the chosen tab until the next scroll hands it back to the camera.
+  const [manual, setManual] = useState(false);
 
   const [phase, setPhase] = useState(0);
   const [cents, setCents] = useState(0);
@@ -49,8 +58,10 @@ export function ConceptScreen({
   useMotionValueEvent(progress, "change", (v) => {
     queueMicrotask(() => {
     setPhase(Math.min(3, Math.floor(v * 4)));
-    if (chapter === "glass" && !pressed)
+    if (chapter === "glass" && !pressed) {
       setSelected(Math.min(3, Math.floor(v * 4)));
+      setManual(false);
+    }
     // The week's total is already on screen when the bars are, so it counts up from the start;
     // the new entry counts up as it is parsed.
     if (chapter === "record")
@@ -83,6 +94,13 @@ export function ConceptScreen({
   const recapTransform = useTransform(progress, scenePose.recap.input, scenePose.recap.output);
   const liquidCard = useTransform(progress, scenePose.liquid.input, scenePose.liquid.output);
   const liquidOpacity = useTransform(progress, [0, 0.1], [0.5, 1]);
+  // The lens holds on each tab for most of its quarter, then glides to the next one; mid-glide it
+  // stretches along the travel and clears into a lens (--lens 0 → 1 → 0).
+  const lensStretch = useTransform(progress, (v) => lensGlide(v).stretch);
+  const lensTransform = useTransform(progress, (v) => {
+    const { pos, stretch } = lensGlide(v);
+    return `translate3d(${pos * 53}px, 0px, 0px) scale(${1 + 0.24 * stretch}, ${1 - 0.1 * stretch})`;
+  });
   const tagLift = useTransform(progress, scenePose.tag.input, scenePose.tag.output);
   const tagOpacity = useTransform(progress, [0, 0.55, 0.68], [0, 0, 1]);
   const buttonPress = useTransform(progress, scenePose.buttonPress.input, scenePose.buttonPress.output);
@@ -130,6 +148,7 @@ export function ConceptScreen({
             onPointerDown={(e) => {
               e.currentTarget.setPointerCapture(e.pointerId);
               setPressed(true);
+              setManual(true);
               const r = e.currentTarget.getBoundingClientRect();
               setSelected(
                 Math.min(
@@ -161,10 +180,14 @@ export function ConceptScreen({
             />
             <span className="cp-glass__dock-tint" aria-hidden="true" />
             <span className="cp-glass__dock-specular" aria-hidden="true" />
-            <span
-              className="cp-glass__capsule"
+            <motion.span
+              className={`cp-glass__capsule${manual ? " is-manual" : ""}`}
               aria-hidden="true"
-              style={{ transform: `translate3d(${selected * 53}px, 0, 0) scale(${pressed ? 0.94 : 1})` }}
+              style={
+                manual
+                  ? { transform: `translate3d(${selected * 53}px, 0, 0) scale(${pressed ? 0.94 : 1})` }
+                  : ({ transform: lensTransform, "--lens": lensStretch } as never)
+              }
             />
             {[
               { Icon: Receipt, label: "today" },
@@ -179,7 +202,10 @@ export function ConceptScreen({
                   label as "today" | "record" | "circle" | "cards",
                 )}
                 aria-pressed={selected === i}
-                onClick={() => setSelected(i)}
+                onClick={() => {
+                  setSelected(i);
+                  setManual(true);
+                }}
               >
                 <Icon size={19} strokeWidth={1.65} />
               </button>
