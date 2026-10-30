@@ -1,5 +1,11 @@
 package com.xiaopiao.app.ui.settings
 
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.outlined.BatterySaver
+import androidx.compose.material.icons.outlined.Schedule
+
 import com.xiaopiao.app.R
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.components.XpSheet
@@ -85,11 +91,14 @@ fun ReceiptSection(soundOn: Boolean, onSound: (Boolean) -> Unit) {
 fun CaptureSection(
     listenerEnabled: Boolean,
     listenerConnected: Boolean,
+    lastSeenAt: Long,
     postGranted: Boolean,
     onOpenListenerSettings: () -> Unit,
     onRequestPost: () -> Unit,
     onReconnect: () -> Unit,
+    onOpenAppSettings: () -> Unit,
 ) {
+    val now = rememberUpdatedClock()
     GroupedSection(header = "自动记账", dividerInset = IconInset) {
         item {
             GroupedRow(
@@ -117,6 +126,22 @@ fun CaptureSection(
         }
         item {
             GroupedRow(
+                title = stringResource(R.string.capture_last_seen),
+                value = lastSeenText(lastSeenAt, now),
+                leading = { IconTile(Icons.Outlined.Schedule, tint = XpColors.Info, background = XpColors.InfoSoft) },
+            )
+        }
+        item {
+            GroupedRow(
+                title = stringResource(R.string.capture_keep_alive),
+                value = stringResource(R.string.capture_keep_alive_hint),
+                leading = { IconTile(Icons.Outlined.BatterySaver, tint = XpColors.InkSecondary, background = XpColors.Fill) },
+                chevron = true,
+                onClick = onOpenAppSettings,
+            )
+        }
+        item {
+            GroupedRow(
                 title = "小票提醒",
                 value = if (postGranted) "已允许" else "去允许",
                 leading = { IconTile(Icons.Outlined.NotificationsActive, tint = XpColors.Warning, background = XpColors.WarningSoft) },
@@ -124,6 +149,30 @@ fun CaptureSection(
                 onClick = if (postGranted) null else onRequestPost,
             )
         }
+    }
+}
+
+/** Re-reads the clock every 30s so "3 分钟前" never goes stale while the screen stays open. */
+@Composable
+private fun rememberUpdatedClock(): Long {
+    val now by produceState(initialValue = System.currentTimeMillis()) {
+        while (true) {
+            delay(30_000)
+            value = System.currentTimeMillis()
+        }
+    }
+    return now
+}
+
+@Composable
+private fun lastSeenText(lastSeenAt: Long, now: Long): String {
+    if (lastSeenAt <= 0L) return stringResource(R.string.capture_last_seen_never)
+    val ago = (now - lastSeenAt).coerceAtLeast(0L)
+    return when {
+        ago < 60_000 -> stringResource(R.string.capture_just_now)
+        ago < 3_600_000 -> stringResource(R.string.capture_ago_minutes, (ago / 60_000).toInt())
+        ago < 86_400_000 -> stringResource(R.string.capture_ago_hours, (ago / 3_600_000).toInt())
+        else -> stringResource(R.string.capture_ago_days, (ago / 86_400_000).toInt())
     }
 }
 

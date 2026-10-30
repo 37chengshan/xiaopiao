@@ -159,8 +159,12 @@ object PaymentNotificationParser {
         """(?i)payment\s+(?:successful|amount|of|sent|received)|amount\s+paid|paid\s*[¥￥]|\b(?:yuan|rmb)\b|\brefund(?:ed)?\b""",
     )
 
+    /** Precompiled: this runs on every notification, once for the cheap gate and once for the rules. */
+    private val invisible = Regex("[\\u200b-\\u200f\\u00a0\\ufeff]")
+    private val whitespace = Regex("\\s+")
+
     fun normalize(title: String, text: String): String =
-        "$title $text".replace(Regex("[\\u200b-\\u200f\\u00a0\\ufeff]"), " ").replace(Regex("\\s+"), " ").trim()
+        "$title $text".replace(invisible, " ").replace(whitespace, " ").trim()
 
     private fun isRelated(t: String): Boolean = relatedWords.any { t.contains(it) } || relatedEn.containsMatchIn(t)
 

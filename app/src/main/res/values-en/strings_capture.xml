@@ -4,4 +4,12 @@
     <string name="capture_off">Off</string>
     <string name="capture_reconnect">Reconnect</string>
     <string name="capture_reconnect_hint">Tap if it stopped</string>
+    <string name="capture_last_seen">Last notification</string>
+    <string name="capture_last_seen_never">None yet</string>
+    <string name="capture_just_now">Just now</string>
+    <string name="capture_ago_minutes">%1$d min ago</string>
+    <string name="capture_ago_hours">%1$d h ago</string>
+    <string name="capture_ago_days">%1$d d ago</string>
+    <string name="capture_keep_alive">Background access</string>
+    <string name="capture_keep_alive_hint">Enable in system settings</string>
 </resources>
