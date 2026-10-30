@@ -93,3 +93,5 @@ Web 默认访问同源 `/v1`；需要独立同站域名时，可在构建环境�
 `POST /v1/auth/register|login|verify|resend|forgot|reset|logout`；`GET /v1/auth/me`。注册邮箱、用户名、15–128 字符密码。验证码10分钟有效、最多5次尝试；重设密码立即撤销该账号全部会话。原生请求以 `client: native` 获取不透明 bearer；Web 只获取 HttpOnly Cookie。
 
 `POST /v1/chat`：首次传 `{messages:[{role,content}],timezone}`；收到 `tool_calls` 后本机执行，携带 `{runId,results:[{id,data}]}` 继续。SSE 类型为 `status / token / tool_calls / done / error`。关闭连接会中断上游。
+
+`POST /v1/ledger/push`（`{deviceId,txns,categories}`，≤500 条，LWW）、`GET /v1/ledger/changes?since=&limit=`（含墓碑）。只收结构化字段，账单原文一律拒收；鉴权同上，且要求已验证邮箱。完整字段、错误码与客户端流程见 `docs/API-SYNC.md`。

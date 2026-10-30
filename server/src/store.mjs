@@ -23,7 +23,41 @@ export function store(path) {
     CREATE TABLE IF NOT EXISTS sessions (digest TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS codes (user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, purpose TEXT NOT NULL, digest TEXT NOT NULL, expires INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(user_id,purpose));
     CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, state TEXT NOT NULL, expires INTEGER NOT NULL);
-    CREATE TABLE IF NOT EXISTS limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);`);
+    CREATE TABLE IF NOT EXISTS limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS ledger_seq (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, value INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS ledger_txns (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      id TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL,
+      direction TEXT NOT NULL,
+      merchant TEXT NOT NULL,
+      category TEXT NOT NULL,
+      occurred_at INTEGER NOT NULL,
+      source TEXT NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      card_last4 TEXT,
+      updated_at INTEGER NOT NULL,
+      deleted INTEGER NOT NULL DEFAULT 0,
+      device_id TEXT NOT NULL,
+      seq INTEGER NOT NULL,
+      PRIMARY KEY (user_id, id)
+    );
+    CREATE INDEX IF NOT EXISTS ledger_txns_pull ON ledger_txns (user_id, seq);
+    CREATE TABLE IF NOT EXISTS ledger_categories (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      id TEXT NOT NULL,
+      label TEXT NOT NULL,
+      icon_key TEXT NOT NULL,
+      hue TEXT NOT NULL,
+      direction TEXT,
+      hidden INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      deleted INTEGER NOT NULL DEFAULT 0,
+      seq INTEGER NOT NULL,
+      PRIMARY KEY (user_id, id)
+    );
+    CREATE INDEX IF NOT EXISTS ledger_categories_pull ON ledger_categories (user_id, seq);`);
   return db;
 }
 export function publicUser(row) { return { id: row.id, email: row.email, username: row.username, verified: Boolean(row.verified) }; }
