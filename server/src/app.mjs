@@ -2,27 +2,47 @@ import { createServer } from 'node:http';
 import { isIP } from 'node:net';
 import { randomInt, randomUUID } from 'node:crypto';
 import { hash, secret, passwordHash, passwordMatches, publicUser } from './store.mjs';
+import { createLedger, LIMITS as LEDGER } from './ledger.mjs';
 const errors = {
   INVALID_INPUT: [400, '请检查输入内容'], INVALID_CREDENTIALS: [401, '账号或密码不正确'],
   UNAUTHORIZED: [401, '请重新登录'], EMAIL_UNVERIFIED: [403, '请先验证邮箱'],
   ACCOUNT_EXISTS: [409, '该邮箱或用户名暂不可用'], RATE_LIMITED: [429, '操作太频繁，请稍后再试'],
   MAIL_UNAVAILABLE: [503, '邮件服务暂不可用，请稍后再试'], CODE_INVALID: [400, '验证码错误或已过期'],
   RUN_INVALID: [409, '这次对话已过期，请重新发送'], MODEL_UNAVAILABLE: [503, 'AI 暂时不可用，可继续使用本机记账'],
+  LEDGER_TOO_MANY: [400, '一次最多同步 500 条'], LEDGER_PAYLOAD_TOO_LARGE: [413, '这次提交的数据太大，请分批同步'],
 };
 function fail(code) { throw Object.assign(new Error(code), { code }); }
 function text(value, max = 256) { if (typeof value !== 'string' || !value.trim() || value.length > max) fail('INVALID_INPUT'); return value.trim(); }
 function emailOf(value) { const email = text(value, 254).toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail('INVALID_INPUT'); return email; }
 function passwordOf(value) { if (typeof value !== 'string' || value.length < 15 || value.length > 128) fail('INVALID_INPUT'); return value; }
+function numberParam(url, name, fallback) {
+  const raw = url.searchParams.get(name);
+  if (raw === null || raw === '') return fallback;
+  if (!/^\d{1,16}$/.test(raw)) fail('INVALID_INPUT');
+  return Number(raw);
+}
 function cookieToken(req) { return /(?:^|;\s*)xp_session=([A-Za-z0-9_-]+)/.exec(req.headers.cookie ?? '')?.[1]; }
-async function bodyOf(req) {
+const PAYLOAD = { default: 96_000, ledger: 512_000 };
+async function bodyOf(req, limit = PAYLOAD.default, tooLarge = 'INVALID_INPUT') {
   if (!req.headers['content-type']?.startsWith('application/json')) fail('INVALID_INPUT');
-  let raw = ''; for await (const chunk of req) { raw += chunk; if (Buffer.byteLength(raw) > 96_000) fail('INVALID_INPUT'); }
+  let raw = ''; for await (const chunk of req) { raw += chunk; if (Buffer.byteLength(raw) > limit) fail(tooLarge); }
   try { const value = JSON.parse(raw); if (!value || typeof value !== 'object' || Array.isArray(value)) fail('INVALID_INPUT'); return value; } catch { fail('INVALID_INPUT'); }
 }
 /** Dev previews move between loopback ports; production stays pinned to one exact HTTPS origin. */
 const loopbackOrigin = /^http:\/\/(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?$/;
 export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173', production = false, trustedProxy = false }) {
   const dummyPassword = passwordHash(secret());
+  const ledger = createLedger({ db });
+  const ledgerOf = req => {
+    const user = userOf(req);
+    if (!user.verified) fail('EMAIL_UNVERIFIED');
+    return user;
+  };
+  const count = (value, max) => {
+    if (value === undefined) return undefined;
+    if (!Number.isSafeInteger(value) || value < 0 || value > max) fail('INVALID_INPUT');
+    return value;
+  };
   const active = new Set();
   let authWork = 0;
   const locks = new Set();
@@ -90,9 +110,29 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       const ip = trustedProxy && typeof forwarded === 'string' && isIP(forwarded) ? forwarded : req.socket.remoteAddress;
       rate(`global:${ip}`, 300, 60_000);
       if (url.pathname === '/v1/auth/me' && req.method === 'GET') return json({ user: publicUser(userOf(req)) });
+      if (url.pathname === '/v1/ledger/changes' && req.method === 'GET') {
+        const user = ledgerOf(req);
+        rate(`ledger:${user.id}`, 900, 3600_000);
+        const since = count(numberParam(url, 'since', 0), Number.MAX_SAFE_INTEGER);
+        const limit = count(numberParam(url, 'limit', LEDGER.defaultPage), LEDGER.page) ?? LEDGER.defaultPage;
+        if (limit < 1) fail('INVALID_INPUT');
+        return json(ledger.changes(user.id, since, limit));
+      }
       if (req.method !== 'POST') return json({ error: 'NOT_FOUND' }, 404);
-      const body = await bodyOf(req);
+      const ledgerPush = url.pathname === '/v1/ledger/push';
+      const body = await bodyOf(req, ledgerPush ? PAYLOAD.ledger : PAYLOAD.default, ledgerPush ? 'LEDGER_PAYLOAD_TOO_LARGE' : 'INVALID_INPUT');
       const native = body.client === 'native' && !requestOrigin && !req.headers['sec-fetch-site'];
+      if (ledgerPush) {
+        const user = ledgerOf(req);
+        rate(`ledger-push:${user.id}`, 300, 3600_000);
+        const deviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : '';
+        if (!deviceId || deviceId.length > LEDGER.deviceId) fail('INVALID_INPUT');
+        const txns = body.txns ?? [];
+        const categories = body.categories ?? [];
+        if (!Array.isArray(txns) || !Array.isArray(categories)) fail('INVALID_INPUT');
+        if (txns.length + categories.length > LEDGER.items) fail('LEDGER_TOO_MANY');
+        return json(ledger.push(user.id, deviceId, txns, categories));
+      }
       if (url.pathname.startsWith('/v1/auth/')) {
         rate(`auth:${ip}`, 30);
         if (authWork >= 3) fail('RATE_LIMITED');
