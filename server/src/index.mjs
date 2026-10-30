@@ -8,7 +8,8 @@ const production = process.env.NODE_ENV === 'production';
 const origin = process.env.APP_ORIGIN ?? 'http://localhost:5173';
 // Local debugging only: codes go to data/dev-mail.log instead of AgentMail. Throws under NODE_ENV=production.
 const sendMail = devMailSender({ enabled: process.env.XP_DEV_MAIL === '1', production })
-  ?? createAgentMailSender({ apiKey: process.env.AGENTMAIL_API_KEY, inboxId: process.env.AGENTMAIL_INBOX_ID });
+  ?? createAgentMailSender({ apiKey: process.env.AGENTMAIL_API_KEY, inboxId: process.env.AGENTMAIL_INBOX_ID,
+    relayUrl: process.env.AGENTMAIL_RELAY_URL, relayKey: process.env.AGENTMAIL_RELAY_KEY });
 const app = createApp({
   db: store(process.env.DB_PATH ?? './data/xiaopiao.sqlite'), production, origin, trustedProxy: process.env.TRUST_PROXY === '1',
   agent: createAgent({ apiKey: providerKey(providerFromEnv()), provider: providerFromEnv() }),

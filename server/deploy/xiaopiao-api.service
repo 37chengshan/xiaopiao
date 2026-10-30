@@ -21,6 +21,9 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
+# Huawei's internal DNS overlaps Tailscale's CGNAT drop range. This mount is
+# private to this service; it does not change the host resolver or Tailscale.
+BindReadOnlyPaths=/etc/xiaopiao/resolv.conf:/etc/resolv.conf
 ReadWritePaths=/var/lib/xiaopiao
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 MemoryMax=768M

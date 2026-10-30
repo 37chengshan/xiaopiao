@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Today Receipt database backup
+
+[Timer]
+OnCalendar=*-*-* 03:20:00 Asia/Shanghai
+RandomizedDelaySec=10m
+Persistent=true
+Unit=xiaopiao-backup.service
+
+[Install]
+WantedBy=timers.target

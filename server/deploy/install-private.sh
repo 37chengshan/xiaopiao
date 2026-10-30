@@ -23,6 +23,7 @@ ln -s /opt/xiaopiao/node-runtime/node-v24.14.0-linux-x64 /opt/xiaopiao/runtime
 ln -s "/opt/xiaopiao/releases/$release" /opt/xiaopiao/current
 /opt/xiaopiao/runtime/bin/node --check /opt/xiaopiao/current/src/index.mjs
 install -m 0644 /opt/xiaopiao/current/deploy/xiaopiao-api.service /etc/systemd/system/xiaopiao-api.service
+install -m 0644 /opt/xiaopiao/current/deploy/resolv.conf /etc/xiaopiao/resolv.conf
 systemctl daemon-reload
 systemctl enable --now xiaopiao-api.service
 curl --fail --silent --show-error --retry 5 --retry-delay 1 --retry-connrefused http://127.0.0.1:8787/healthz

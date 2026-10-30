@@ -25,3 +25,21 @@ test('provider errors cannot expose keys or response content', async () => {
   const sender = createAgentMailSender({ apiKey: 'test-placeholder', inboxId: 'receipt@example.test', fetcher: async () => new Response('sensitive upstream response', { status: 403 }) });
   await assert.rejects(sender({ to: 'person@example.test', purpose: 'verify', code: '123456' }), error => error.message === 'MAIL_UNAVAILABLE');
 });
+test('an optional private relay requires a paired secret and an exact HTTPS send path', () => {
+  const base = { apiKey: 'test-placeholder', inboxId: 'receipt@example.test' };
+  assert.throws(() => createAgentMailSender({ ...base, relayUrl: 'https://relay.example/__mail/send' }));
+  for (const relayUrl of ['http://relay.example/__mail/send', 'https://relay.example/other', 'https://relay.example/__mail/send?url=other']) {
+    assert.throws(() => createAgentMailSender({ ...base, relayUrl, relayKey: 'test-relay-secret-placeholder-32-characters' }));
+  }
+});
+test('the private relay preserves provider authorization, timeout and idempotency', async () => {
+  let call;
+  const sender = createAgentMailSender({ apiKey: 'test-placeholder', inboxId: 'receipt@example.test', relayUrl: 'https://relay.example/__mail/send', relayKey: 'test-relay-secret-placeholder-32-characters',
+    fetcher: async (url, options) => { call = { url, options }; return new Response(); } });
+  await sender({ to: 'receipt@example.test', purpose: 'verify', code: '123456' });
+  assert.equal(call.url, 'https://relay.example/__mail/send');
+  assert.equal(call.options.headers['X-Xiaopiao-Relay-Key'], 'test-relay-secret-placeholder-32-characters');
+  assert.equal(call.options.headers.Authorization, 'Bearer test-placeholder');
+  assert.equal(call.options.redirect, 'error');
+  assert.match(call.options.headers['Idempotency-Key'], /^[a-f0-9]{64}$/);
+});
