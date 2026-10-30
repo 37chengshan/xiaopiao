@@ -487,6 +487,7 @@ private fun LedgerList(
                         LedgerSummaryCard(summary, hidden, onToggleHidden, budget, onOpenBudget, onOpenCalendar = onOpenCalendar.takeIf { !allEmpty })
                         // Arriving from a chart narrows the list; say so, or two bills look like the whole month.
                         if (!filter.isDefault) ActiveFilterChip(filter, onClear = onClearConditions)
+                        com.xiaopiao.app.ui.capture.CaptureNudge()
                     }
                 }
             }

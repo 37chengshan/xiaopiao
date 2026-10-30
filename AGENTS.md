@@ -51,6 +51,7 @@ npm run check && npm run build   # 改动后都要过
 ## 工程约定
 
 - 先做最小改动，匹配现有风格；Compose UI 复用 `ui/components/Base.kt` 与 `ui/theme/Tokens.kt`（`XpColors` 等）里的 design tokens，不要硬编码颜色/间距。
+- **状态反馈**：每个用户动作都要有可见结果（进行中 / 成功 / 失败），保存类先写成功再关弹窗，系统/网络类必须有超时和失败下一步。规则见 `docs/APP-DESIGN.md` §7.7 与 §7.7.1，App 与 Web 都适用；验收时逐个按钮点。
 - 金额一律用 `Cents`（`Long`，单位分，见 `domain/Models.kt`），展示用 `Cents.yuan()`（`domain/Money.kt`），不要用浮点表示钱。
 - 优先级按 Spec §7 的 P0/P1/P2 排序；不删需求，只调顺序。
 - 需求改动同步更新 `docs/SPEC.md`（写明日期与原因）。

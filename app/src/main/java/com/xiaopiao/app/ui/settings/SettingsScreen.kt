@@ -25,7 +25,6 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.capture.CaptureStatus
-import com.xiaopiao.app.capture.PaymentListenerService
 import com.xiaopiao.app.data.CaptureLogEntry
 import com.xiaopiao.app.importer.ImportSummary
 import com.xiaopiao.app.ui.components.NavScaffold
@@ -179,7 +178,6 @@ fun SettingsScreen(
                         postGranted = postGranted,
                         onOpenListenerSettings = { NotificationAccess.openListenerSettings(context) },
                         onRequestPost = { postLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
-                        onReconnect = { PaymentListenerService.reconnect(context) },
                         onOpenAppSettings = { NotificationAccess.openAppSettings(context) },
                     )
                 }

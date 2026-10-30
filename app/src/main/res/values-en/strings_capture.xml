@@ -12,4 +12,7 @@
     <string name="capture_ago_days">%1$d d ago</string>
     <string name="capture_keep_alive">Background access</string>
     <string name="capture_keep_alive_hint">Enable in system settings</string>
+    <string name="capture_reconnect_trying">Connecting…</string>
+    <string name="capture_reconnect_failed">Still off · restart the phone</string>
+    <string name="capture_reconnect_failed_detail">The system did not reconnect within 6 seconds. Restart the phone, or switch notification access off and on, then try again.</string>
 </resources>

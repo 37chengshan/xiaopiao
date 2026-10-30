@@ -95,9 +95,9 @@ fun CaptureSection(
     postGranted: Boolean,
     onOpenListenerSettings: () -> Unit,
     onRequestPost: () -> Unit,
-    onReconnect: () -> Unit,
     onOpenAppSettings: () -> Unit,
 ) {
+    val reconnect = com.xiaopiao.app.ui.capture.rememberReconnect()
     val now = rememberUpdatedClock()
     GroupedSection(header = "自动记账", dividerInset = IconInset) {
         item {
@@ -117,10 +117,16 @@ fun CaptureSection(
             item {
                 GroupedRow(
                     title = stringResource(R.string.capture_reconnect),
-                    value = stringResource(R.string.capture_reconnect_hint),
+                    value = stringResource(
+                        when (reconnect.phase) {
+                            com.xiaopiao.app.ui.capture.ReconnectPhase.Trying -> R.string.capture_reconnect_trying
+                            com.xiaopiao.app.ui.capture.ReconnectPhase.Failed -> R.string.capture_reconnect_failed
+                            else -> R.string.capture_reconnect_hint
+                        },
+                    ),
                     leading = { IconTile(Icons.Outlined.Refresh, tint = XpColors.Warning, background = XpColors.WarningSoft) },
                     chevron = true,
-                    onClick = onReconnect,
+                    onClick = reconnect::run,
                 )
             }
         }

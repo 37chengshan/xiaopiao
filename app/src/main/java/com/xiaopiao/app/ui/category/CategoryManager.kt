@@ -77,6 +77,7 @@ fun CategoryManagerScreen(categories: CategoryRepository, onDismiss: () -> Unit)
     var dragOffset by remember { mutableFloatStateOf(0f) }
     // null = editor closed, otherwise the row being edited (def == null means 「新建」).
     var editor by remember { mutableStateOf<CategoryEditorTarget?>(null) }
+    val toast = com.xiaopiao.app.ui.components.rememberXpToast()
     val rowPx = with(LocalDensity.current) { RowHeight.toPx() }
 
     // Mirror the flow unless a drag is in flight, so a reorder write does not fight the finger.
@@ -87,6 +88,7 @@ fun CategoryManagerScreen(categories: CategoryRepository, onDismiss: () -> Unit)
         }
     }
 
+    Box(Modifier.fillMaxSize()) {
     NavScaffold(
         title = "分类",
         scroll = NavScrollNone,
@@ -157,12 +159,15 @@ fun CategoryManagerScreen(categories: CategoryRepository, onDismiss: () -> Unit)
             }
         }
     }
+    com.xiaopiao.app.ui.components.XpToastHost(toast, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+    }
 
     editor?.let { target ->
         CategoryEditorSheet(
             categories = categories,
             initial = target.def,
             onDone = { editor = null },
+            onSaved = toast::show,
         )
     }
 }

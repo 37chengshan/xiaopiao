@@ -67,6 +67,8 @@ internal fun CategoryEditorSheet(
     categories: CategoryRepository,
     initial: CategoryDef?,
     onDone: () -> Unit,
+    /** Result line for the page's toast; called only after the write landed. */
+    onSaved: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val haptics = rememberXpHaptics()
@@ -76,6 +78,8 @@ internal fun CategoryEditorSheet(
     var direction by remember { mutableStateOf(initial?.direction) }
     var confirmingDelete by remember { mutableStateOf(false) }
     var deleteCount by remember { mutableStateOf(0) }
+    var saving by remember { mutableStateOf(false) }
+    var saveError by remember { mutableStateOf<String?>(null) }
 
     val preview = CategoryDef(
         id = initial?.id ?: "preview",
@@ -195,20 +199,39 @@ internal fun CategoryEditorSheet(
             }
 
             Spacer(Modifier.height(XpSpace.xl))
+            saveError?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = XpColors.Negative, modifier = Modifier.padding(bottom = XpSpace.s))
+            }
             XpButton(
-                text = if (initial == null) "新建分类" else "保存",
+                text = when {
+                    saving -> "保存中…"
+                    initial == null -> "新建分类"
+                    else -> "保存"
+                },
                 onClick = {
-                    haptics.confirm()
+                    saving = true
+                    saveError = null
+                    // Close only after the write lands: closing the sheet cancels this scope, which used to
+                    // drop the insert before it ran (新建分类 never saved).
                     scope.launch {
-                        if (initial == null) {
-                            categories.create(label.trim(), iconKey, hue, direction)
-                        } else {
-                            categories.update(initial.copy(label = label.trim(), iconKey = iconKey, hue = hue.key, direction = direction))
+                        val name = label.trim()
+                        runCatching {
+                            if (initial == null) {
+                                categories.create(name, iconKey, hue, direction)
+                            } else {
+                                categories.update(initial.copy(label = name, iconKey = iconKey, hue = hue.key, direction = direction))
+                            }
+                        }.onSuccess {
+                            haptics.confirm()
+                            onSaved(if (initial == null) "已新建「$name」" else "已保存「$name」")
+                            onDone()
+                        }.onFailure {
+                            saving = false
+                            saveError = "没保存上，再试一次"
                         }
                     }
-                    onDone()
                 },
-                enabled = canSave,
+                enabled = canSave && !saving,
                 modifier = Modifier.fillMaxWidth(),
             )
             if (initial != null && initial.isCustom) {
@@ -237,9 +260,15 @@ internal fun CategoryEditorSheet(
             confirmLabel = "删除",
             destructive = true,
             onConfirm = {
-                scope.launch { categories.deleteCustom(initial.id) }
                 confirmingDelete = false
-                onDone()
+                scope.launch {
+                    runCatching { categories.deleteCustom(initial.id) }
+                        .onSuccess {
+                            onSaved("已删除「${initial.label}」")
+                            onDone()
+                        }
+                        .onFailure { saveError = "没删掉，再试一次" }
+                }
             },
             onDismiss = { confirmingDelete = false },
         )

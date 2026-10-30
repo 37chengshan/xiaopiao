@@ -12,4 +12,7 @@
     <string name="capture_ago_days">%1$d 天前</string>
     <string name="capture_keep_alive">后台保活</string>
     <string name="capture_keep_alive_hint">按系统设置开启</string>
+    <string name="capture_reconnect_trying">正在连接…</string>
+    <string name="capture_reconnect_failed">没连上 · 重启手机再试</string>
+    <string name="capture_reconnect_failed_detail">6 秒内系统没有接上。重启手机，或把「通知使用权」关掉再打开，然后再点一次。</string>
 </resources>

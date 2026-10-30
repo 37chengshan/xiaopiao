@@ -69,11 +69,11 @@ class OnboardingPrefs(private val context: Context) {
     suspend fun reset() { context.onboardStore.edit { it[doneKey] = false } }
 }
 
-/** Four pages: receipt, gestures, privacy, optional account. The entire tour can be skipped. */
+/** Five pages: receipt, gestures, auto-capture setup, privacy, optional account. The entire tour can be skipped. */
 @Composable
 fun OnboardingHost(onLogin: () -> Unit = {}, signedIn: Boolean = false, onDone: () -> Unit) {
     var page by rememberSaveable { mutableIntStateOf(0) }
-    val pages = 4
+    val pages = 5
     val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
     // Same top bar as every other page: nothing to name (the title belongs to the story), 跳过 in the right capsule.
     NavScaffold(
@@ -100,7 +100,8 @@ fun OnboardingHost(onLogin: () -> Unit = {}, signedIn: Boolean = false, onDone: 
                 when (p) {
                     0 -> PagePaper()
                     1 -> PageGestures()
-                    2 -> PagePrivacy()
+                    2 -> PageCapture()
+                    3 -> PagePrivacy()
                     else -> PageAccount(onLogin)
                 }
             }
@@ -196,6 +197,19 @@ private fun GestureRow(
             Text(body, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
         }
     }
+    }
+}
+
+@Composable
+private fun PageCapture() {
+    val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+        PageHead(
+            if (en) "Pay, and it's\nalready written." else "付完款，\n账已经记好了。",
+            if (en) "Daily Slip reads WeChat and Alipay payment notifications. Three switches, once." else "读微信、支付宝的付款通知自动记账。开三个开关，只需一次。",
+        )
+        Spacer(Modifier.height(XpSpace.xl))
+        com.xiaopiao.app.ui.capture.CaptureSetupSteps()
     }
 }
 
