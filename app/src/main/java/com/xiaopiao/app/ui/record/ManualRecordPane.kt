@@ -99,19 +99,25 @@ internal fun ManualRecordPane(
     onOpenCategoryManager: () -> Unit = {},
     editing: Txn? = null,
     onDelete: () -> Unit = {},
+    /** A new row pre-filled from voice: same fields as [editing], but saving adds instead of updating. */
+    prefill: Txn? = null,
 ) {
+    val seed = editing ?: prefill
     val openedAt = remember { System.currentTimeMillis() }
     val opened = remember(openedAt) {
-        Calendar.getInstance().apply { timeInMillis = editing?.occurredAt ?: openedAt }
+        Calendar.getInstance().apply { timeInMillis = seed?.occurredAt ?: openedAt }
     }
-    var draft by remember { mutableStateOf(RecordDraft(amount = editing?.let { draftAmountOf(it.amountCents) }.orEmpty())) }
-    var merchant by rememberSaveable { mutableStateOf(editing?.merchant.orEmpty()) }
-    var direction by remember { mutableStateOf(editing?.direction ?: Direction.OUT) }
-    var dayStart by remember { mutableStateOf(startOfDay(editing?.occurredAt ?: openedAt)) }
+    var draft by remember {
+        mutableStateOf(RecordDraft(amount = seed?.takeIf { it.amountCents > 0 }?.let { draftAmountOf(it.amountCents) }.orEmpty()))
+    }
+    var merchant by rememberSaveable { mutableStateOf(seed?.merchant.orEmpty()) }
+    var direction by remember { mutableStateOf(seed?.direction ?: Direction.OUT) }
+    var dayStart by remember { mutableStateOf(startOfDay(seed?.occurredAt ?: openedAt)) }
     var hour by rememberSaveable { mutableIntStateOf(opened.get(Calendar.HOUR_OF_DAY)) }
     var minute by rememberSaveable { mutableIntStateOf(opened.get(Calendar.MINUTE)) }
     var chosenId by rememberSaveable {
-        mutableStateOf(editing?.let { it.categoryId.ifBlank { CategoryDefaults.idFor(it.category) } }.orEmpty())
+        // A voice line without an amount carries no real category guess: leave the grid on its default.
+        mutableStateOf(seed?.takeIf { editing != null || it.amountCents > 0 }?.let { it.categoryId.ifBlank { CategoryDefaults.idFor(it.category) } }.orEmpty())
     }
     var calendarOpen by remember { mutableStateOf(false) }
     var timeOpen by remember { mutableStateOf(false) }

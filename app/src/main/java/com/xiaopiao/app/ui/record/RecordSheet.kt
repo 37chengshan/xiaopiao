@@ -37,10 +37,14 @@ class RecordSheetState {
         private set
     internal var onDeleteEditing: (Txn) -> Unit = {}
         private set
+    /** A new row pre-filled by voice; the pane saves it as an add. */
+    var prefill by mutableStateOf<Txn?>(null)
+        private set
 
-    fun openManual() {
+    fun openManual(prefill: Txn? = null) {
         textPrefill = null
         editing = null
+        this.prefill = prefill
         mode = RecordMode.Manual
     }
 
@@ -48,6 +52,7 @@ class RecordSheetState {
     fun openEdit(txn: Txn, onDelete: (Txn) -> Unit) {
         textPrefill = null
         editing = txn
+        prefill = null
         onDeleteEditing = onDelete
         mode = RecordMode.Manual
     }
@@ -64,6 +69,7 @@ class RecordSheetState {
         mode = null
         textPrefill = null
         editing = null
+        prefill = null
     }
 }
 
@@ -87,13 +93,14 @@ fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
         Box(Modifier.fillMaxWidth()) {
         when (mode) {
             // Keyed by the row so switching from one edit to another (or to 记一笔) starts a fresh draft.
-            RecordMode.Manual -> androidx.compose.runtime.key(state.editing?.id) {
+            RecordMode.Manual -> androidx.compose.runtime.key(state.editing?.id, state.prefill) {
                 val editing = state.editing
                 ManualRecordPane(
                     defs = defs,
                     onClose = state::dismiss,
                     onOpenCategoryManager = { managerOpen = true },
                     editing = editing,
+                    prefill = state.prefill,
                     onDelete = { editing?.let { state.onDeleteEditing(it) }; state.dismiss() },
                     onSubmit = { txn, keepOpen ->
                         scope.launch {

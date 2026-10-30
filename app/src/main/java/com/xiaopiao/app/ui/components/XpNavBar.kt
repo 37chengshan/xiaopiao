@@ -166,6 +166,10 @@ fun XpNavBar(
     onPlus: () -> Unit,
     modifier: Modifier = Modifier,
     onPlusLongPress: (() -> Unit)? = null,
+    /** While the long press is held: finger travel from the press point (px, negative = up). */
+    onPlusHold: ((Float) -> Unit)? = null,
+    /** The long press ended (finger lifted or the gesture was taken away). */
+    onPlusRelease: (() -> Unit)? = null,
     hidden: Boolean = false,
     /** Page content to sample. Non-null turns the capsules and ⊕ into liquid glass; null keeps the opaque bar. */
     backdrop: Backdrop? = null,
@@ -220,7 +224,7 @@ fun XpNavBar(
             // ⊕: one element for both states.
             // Taller than the capsule: the raised disc must stay inside the touch area.
             Slot(lerpF(g.plus0, g.plus1, pos), lerpF(NavBarGeometry.PLUS, s, pos), 1f, top = 0f, height = NavBarGeometry.HEIGHT + NavBarGeometry.TOP) {
-                NavBarPlus(spec, p, interactive, capsuleColor, onPlus, onPlusLongPress, backdrop)
+                NavBarPlus(spec, p, interactive, capsuleColor, onPlus, onPlusLongPress, backdrop, onPlusHold, onPlusRelease)
             }
         }
     }
@@ -375,9 +379,13 @@ private fun NavBarTab(item: NavBarItem, selected: Boolean, enabled: Boolean, onC
 private fun NavBarPlus(
     spec: NavBarSpec, p: Float, enabled: Boolean, ring: Color, onClick: () -> Unit, onLongPress: (() -> Unit)?,
     backdrop: Backdrop? = null,
+    onHold: ((Float) -> Unit)? = null,
+    onRelease: (() -> Unit)? = null,
 ) {
     val haptics = rememberXpHaptics()
     var pressed by remember { mutableStateOf(false) }
+    val hold by rememberUpdatedState(onHold)
+    val release by rememberUpdatedState(onRelease)
     val press by animateFloatAsState(if (pressed) 0.92f else 1f, spring(0.55f, 450f), label = "plusPress")
     val click by rememberUpdatedState(onClick)
     val long by rememberUpdatedState(onLongPress)
@@ -398,7 +406,16 @@ private fun NavBarPlus(
                     } else if (long != null) {
                         haptics.thud()
                         long?.invoke()
-                        waitForUpOrCancellation()
+                        // Hold-to-talk: follow the finger until it lifts, so sliding up can cancel.
+                        val origin = up.position
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == up.id } ?: break
+                            if (!change.pressed) break
+                            change.consume()
+                            hold?.invoke(change.position.y - origin.y)
+                        }
+                        release?.invoke()
                         pressed = false
                     } else {
                         waitForUpOrCancellation()

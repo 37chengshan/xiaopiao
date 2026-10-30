@@ -123,6 +123,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     val merchantState = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     val record = rememberRecordSheetState()
     val voiceHost = com.xiaopiao.app.ui.record.rememberVoiceHost(container)
+    val voiceCancelPx = com.xiaopiao.app.ui.record.rememberVoiceCancelThresholdPx()
     val context = androidx.compose.ui.platform.LocalContext.current
     val onboarding = remember { com.xiaopiao.app.ui.onboarding.OnboardingPrefs(context.applicationContext) }
     val onboarded by onboarding.observeDone().collectAsState(initial = null)
@@ -233,6 +234,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 onFold = { go(NavModel.destination(NavSlot.Fold, lastLedger) ?: NavTab.Ledger) },
                 onPlus = { record.openManual() },
                 onPlusLongPress = { voiceHost.request() },
+                onPlusHold = { dy -> voiceHost.hold(dy, voiceCancelPx) },
+                onPlusRelease = { voiceHost.release() },
                 hidden = navBarHidden && current == NavTab.Chat.route,
                 backdrop = glass,
             )
@@ -331,8 +334,9 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     }
         com.xiaopiao.app.ui.record.VoiceOverlay(
             host = voiceHost,
-            onTranscript = { text -> record.openText(text) },
+            onRecord = { txn -> record.openManual(prefill = txn) },
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 104.dp),
+            backdrop = glass,
         )
     }
     RecordSheetHost(record, container)

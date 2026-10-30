@@ -77,7 +77,12 @@ class VoiceController(
     /** Set by [stop]: the capture loop finalises the stream itself, so two threads never touch it. */
     @Volatile
     private var stopRequested = false
+    /** Set by [cancel]: the loop drops what it heard and flushes the cached stream instead of finishing. */
+    @Volatile
+    private var cancelRequested = false
     private var watchdog: Job? = null
+    @Volatile
+    private var usingLocal = false
 
     // System recogniser, kept only as a fallback.
     private var recognizer: SpeechRecognizer? = null
@@ -102,11 +107,14 @@ class VoiceController(
         transcript = null
         pendingModel = null
         stopRequested = false
+        cancelRequested = false
         if (!hasPermission) {
             error = "没有麦克风权限"
             return
         }
-        when (val choice = AsrChoice.pick(language, preference, models.installedIds())) {
+        val choice = AsrChoice.pick(language, preference, models.installedIds())
+        android.util.Log.i(TAG, "start $language $preference -> ${choice.javaClass.simpleName}")
+        when (choice) {
             is AsrChoice.Ready -> startLocal(choice.model)
             is AsrChoice.NeedsDownload -> pendingModel = choice.model
             AsrChoice.Off -> startSystem()
@@ -114,6 +122,7 @@ class VoiceController(
     }
 
     private fun startLocal(model: AsrModel) {
+        usingLocal = true
         scope.launch {
             // Hotwords are a Chinese-model feature: the English small model ships no BPE vocabulary.
             if (language == AsrLanguage.ZH) {
@@ -121,6 +130,8 @@ class VoiceController(
                 runCatching { models.writeHotwords(language, hotwords) }
             }
             val opened = engine.open(model, language)
+            android.util.Log.i(TAG, "open ${model.id} ok=${opened != null}")
+            if (cancelRequested) return@launch
             if (opened == null) {
                 // Half-deleted model or an ABI we did not ship: do not strand the user.
                 models.delete(model)
@@ -161,18 +172,26 @@ class VoiceController(
         }
         try {
             recorder.startRecording()
+            android.util.Log.i(TAG, "recording stop=$stopRequested")
+            val startedAt = android.os.SystemClock.elapsedRealtime()
             while (listening) {
+                if (cancelRequested) break
                 val read = recorder.read(buffer, 0, buffer.size)
                 if (read <= 0) continue
                 val samples = FloatArray(read) { buffer[it] / 32_768f }
                 rms = rms + (level(samples) - rms) * 0.35f
                 val text = session.accept(samples)
                 if (text.isNotBlank()) partial = SpokenAmounts.normalize(text)
-                if (session.endpointed || stopRequested) {
-                    finishLocal(partial)
+                // Hold-to-talk: the finger decides when the sentence ends, so a pause is not an end. The
+                // model's endpoint is ignored; only release ([stop]) or the safety cap finishes.
+                if (cancelRequested) break
+                if (stopRequested || android.os.SystemClock.elapsedRealtime() - startedAt > MaxListenMs) {
+                    finishLocal(session, partial)
                     return
                 }
             }
+            // Cancelled: finish() also resets the cached stream, so the next press starts from silence.
+            runCatching { session.finish() }
         } catch (e: Exception) {
             error = "录音出错了，再试一次"
             listening = false
@@ -182,8 +201,11 @@ class VoiceController(
         }
     }
 
-    private fun finishLocal(fallback: String) {
-        val text = runCatching { session?.finish().orEmpty() }.getOrDefault("")
+    private fun finishLocal(session: AsrSession, fallback: String) {
+        val text = runCatching { session.finish() }.getOrDefault("")
+        // Only lengths reach logcat, never the words.
+        android.util.Log.i(TAG, "finish chars=${text.length} partial=${fallback.length}")
+        if (cancelRequested) return
         val spoken = text.ifBlank { fallback }
         listening = false
         if (spoken.isBlank()) {
@@ -195,16 +217,16 @@ class VoiceController(
 
     /** Ask for the final result; the capture loop finalises a local stream, the system one answers later. */
     fun stop() {
-        if (session != null) {
-            stopRequested = true
-            return
-        }
+        stopRequested = true
+        // Local model: the capture loop — or its start-up, if the finger lifted while the model was still
+        // loading — sees the flag and finalises.
+        if (usingLocal) return
         if (recognizer != null) runCatching { recognizer?.stopListening() }
         listening = false
     }
 
     fun cancel() {
-        stopRequested = true
+        cancelRequested = true
         capture?.cancel()
         capture = null
         watchdog?.cancel()
@@ -240,6 +262,7 @@ class VoiceController(
     // ------------------------------------------------------------------ system fallback
 
     private fun startSystem() {
+        usingLocal = false
         if (systemUnusable) {
             error = NoModelHint
             return
@@ -359,3 +382,8 @@ private val ServiceErrors = setOf(
 )
 
 private const val NoModelHint = "这台手机的语音服务用不了，去设置 › 语音模型 下载一个，或点输入法上的麦克风"
+
+/** Safety cap for one held sentence; a ledger line never takes this long. */
+private const val MaxListenMs = 30_000L
+
+private const val TAG = "XpVoice"
