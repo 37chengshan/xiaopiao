@@ -16,15 +16,21 @@ test('mail relay refuses wrong hostname/path, origin and secret before contactin
 });
 test('mail relay has a fixed sender destination, strips relay secret and suppresses provider output', async () => {
   let call;
-  const relay = createMailRelay(async (url, options) => { call = { url, options }; return new Response('private provider response'); });
+  const relay = createMailRelay(async (url, options) => {
+    // Workers rejects this mode before making the request, unlike Node fetch.
+    if (options.redirect === 'error') throw new TypeError('Unsupported Worker redirect mode');
+    call = { url, options }; return new Response('private provider response');
+  });
   const response = await relay(request(), env);
   assert.equal(response.status, 200); assert.equal(await response.text(), '');
   assert.equal(call.url, 'https://api.agentmail.to/v0/inboxes/self%40example.test/messages/send');
   assert.equal(call.options.headers['X-Xiaopiao-Relay-Key'], undefined);
-  assert.equal(call.options.redirect, 'error');
+  assert.equal(call.options.redirect, 'manual');
   assert.equal(call.options.headers['Idempotency-Key'], 'a'.repeat(64));
   const failure = createMailRelay(async () => new Response('sensitive failure', { status: 403 }));
   assert.equal((await failure(request(), env)).status, 503);
+  const redirect = createMailRelay(async () => Response.redirect('https://other.example'));
+  assert.equal((await redirect(request(), env)).status, 503);
 });
 test('mail relay bounds bodies and rejects additional fields without forwarding', async () => {
   let calls = 0; const relay = createMailRelay(async () => { calls++; return new Response(); });

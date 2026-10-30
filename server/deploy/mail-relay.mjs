@@ -41,8 +41,10 @@ export function createMailRelay(fetcher = fetch) {
           !['验证你的今日小票邮箱 / Verify your email', '重设今日小票密码 / Reset your password'].includes(body.subject) ||
           typeof body.text !== 'string' || body.text.length > 2000) return reply(400);
       const upstream = await fetcher(`https://api.agentmail.to/v0/inboxes/${encodeURIComponent(env.INBOX_ID)}/messages/send`, {
-        method: 'POST', redirect: 'error', signal: AbortSignal.timeout(9000),
-        headers: { Authorization: authorization, 'Content-Type': 'application/json', 'Idempotency-Key': idempotency },
+        // Workers supports manual/follow only. 3xx remains a failure and must
+        // never forward the provider credential to a redirected destination.
+        method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(9000),
+        headers: { Authorization: authorization, 'Content-Type': 'application/json', 'Idempotency-Key': idempotency, 'User-Agent': 'Xiaopiao-Agent/1.0' },
         body: JSON.stringify(body),
       });
       await upstream.body?.cancel();

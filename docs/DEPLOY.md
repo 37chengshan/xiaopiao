@@ -36,6 +36,7 @@ Cloudflare 对象：DNS record `286ee016236ffe6abc0c2d4090e323e4`；Origin Rules
 | `/opt/xiaopiao/current` | 原子切换的 release symlink |
 | `/opt/xiaopiao/node-runtime/node-v24.14.0-linux-x64` | 隔离 Node 运行时 |
 | `/etc/xiaopiao/server.env` | root:root 600，由 systemd 读取后传给服务进程 |
+| `/etc/xiaopiao/mail-relay.key` | root:root 600，独立随机 relay secret；Worker 加密绑定 `RELAY_KEY`，服务端 env 中为 `AGENTMAIL_RELAY_KEY` |
 | `/etc/xiaopiao/tls/origin.key` | root:root 600，只在原站生成，从未导出 |
 | `/etc/xiaopiao/tls/origin.pem` | Origin CA 证书 |
 | `/etc/xiaopiao/cloudflare-realip.conf` | 网关信任链与 Cloudflare peer 白名单 |
@@ -49,6 +50,18 @@ Cloudflare 对象：DNS record `286ee016236ffe6abc0c2d4090e323e4`；Origin Rules
 
 原机 DNS `100.125.1.250` 的回包落入现有 Tailscale CGNAT drop 段，查询超时。没有修改原机 DNS、iptables 或 Tailscale；systemd 的 `BindReadOnlyPaths` 仅给今日小票挂载专用 resolver（223.5.5.5 / 119.29.29.29），已在该 namespace 内验证解析和模型 API 出网。
 
+## 邮件 relay Worker
+
+2026-10-29 经 tt 批准，启用免费 Worker `xiaopiao-mail-relay`，唯一 route 为 `xiaopiao.citygenius.top/__mail/send`（route ID `5a4af9bb4ff04005b727f10ae36a71c7`）。没有通配路径或其它域名绑定；`workers.dev`、preview、observability 与 logpush 均关闭，已从 Cloudflare API 读回。线上模块与 `server/deploy/mail-relay.mjs` 完全一致。
+
+ECS 以 `AGENTMAIL_RELAY_URL=https://xiaopiao.citygenius.top/__mail/send` 与成对的 `AGENTMAIL_RELAY_KEY` 接入。随机 secret 存放在 ECS `/etc/xiaopiao/mail-relay.key` 和 `/etc/xiaopiao/server.env`（均 root:root 600），Worker 中存为加密 secret binding `RELAY_KEY`。AgentMail provider key 只持久化在 ECS，随单次服务端请求传给 Worker，Worker 不持久化它。非敏感绑定 `INBOX_ID` 固定发件 inbox，`ORIGIN_IP` 固定 ECS 公网地址。
+
+Worker 同时校验 Cloudflare 提供的客户端 IP 和独立 secret，只接受 POST、固定 hostname/path、两类验证码主题与有限字段，流式 body 上限 8192 字节。只转发到 AgentMail 官方固定 inbox 的发送端点，不接受自定义 URL；不跟随重定向，3xx 或上游错误统一失败，响应不回传邮件内容。Workers 使用 `redirect: manual`；Node 支持的 `redirect: error` 在该运行时不可用，已有回归测试。公网缺少 secret / 伪造 IP 的请求实测 403。
+
+撤销 relay 时只删除上述 route 与该 Worker，并移除 ECS env 中的成对 relay 配置、重启 `xiaopiao-api`；直接发送会恢复为先前受 CloudFront 403 阻塞的状态。不要改全区设置或其它 Worker。更改 Worker 后需重新核对模块内容、route、subdomain 与 logging 设置。
+
+Android 的 `AccountClient` 已发送 `client: native` 并保存返回会话，后续通过 Bearer 访问，无 Origin / Sec-Fetch-Site。使用已构建进 `https://xiaopiao.citygenius.top` 的安装包即可，无需 relay secret、额外请求头或 CORS 配置。新构建仍需传入 `-Pxiaopiao.apiBaseUrl=https://xiaopiao.citygenius.top`；默认构建值为空。本轮验证的是公网 native API 协议，真机 UI 验收由 tt 使用现有安装包继续。
+
 ## 备份、更新与回滚
 
 每日 `xiaopiao-backup.timer` 在 Asia/Shanghai 03:20 加最多 10 分钟随机延迟运行，`Persistent=true`，保留 30 天日备份。`backup.sh` 调用既有 `backup.mjs`，SQLite online backup API 包含 WAL，不直接拷贝活动数据库主文件。手动执行：
@@ -59,7 +72,9 @@ sudo systemctl status xiaopiao-backup.service --no-pager
 systemctl list-timers xiaopiao-backup.timer
 ```
 
-已做一次备份副本重新打开及 `PRAGMA quick_check=ok`，并确认 ledger 表存在。备份与实例同盘，**没有异机灾备**；完整 archive 是 `/var/backups/xiaopiao/opt-xiaopiao-20261030.tgz`，包含保留的旧 release、新 release 和隔离运行时；第一轮更新前 DB 是 `/var/lib/xiaopiao/backups/pre-1e9574723f61.sqlite`。
+已做一次备份副本重新打开及 `PRAGMA quick_check=ok`，并确认 ledger 表存在。收尾验收前另做了在线备份，仅清理经自有邮箱与 QA 用户名双重确认的部署测试账号，未涉及其它账号；重跑成功后保留一个已验证 QA 账号，会话均已退出。
+
+备份与实例同盘，**没有异机灾备**；完整 archive 是 `/var/backups/xiaopiao/opt-xiaopiao-20261030.tgz`，包含保留的旧 release、新 release 和隔离运行时；第一轮更新前 DB 是 `/var/lib/xiaopiao/backups/pre-1e9574723f61.sqlite`。
 
 重新部署先在本机 `server/` 跑 `npm test && npm run check`。只打包 runtime 所需文件，不包含 env、data、node_modules：
 
@@ -97,13 +112,13 @@ curl --fail http://127.0.0.1:8787/healthz
 |---|---|
 | 本机测试 | 68/68，通过 `npm run check`；含可选 relay 的安全测试 |
 | a 公网 healthz | HTTPS 200，`{"ok":true}` |
-| b self-inbox 原生账号 / ledger | 当前阻塞：华为云到 AgentMail 返回 CloudFront 403；注册安全失败为 MAIL_UNAVAILABLE，未留下账号 |
+| b self-inbox 原生账号 / ledger | 通过：公网 native register=201 → 真实自有邮箱收码 → verify → login → push / changes → logout；退出后访问=401。额外圈子 create/list/leave 通过；测试交易 tombstone、圈子已清理 |
 | c restart / enable | API restart 后公网 200；API/nginx/timer 均 enabled、active |
 | d Origin | HTTP 精确生产源 200、外源 403；ego-browser 同源 preflight=204 且 ACAO 正确，example.com 跨源请求在网络面返回 403 并被浏览器拒绝 |
 | 真实 IP / 伪造头 | 与 Cloudflare trace 的客户端 IP 匹配；伪造内部 IP / XFF 未写入限流 key |
 | 备份恢复检查 | 副本可打开、quick_check=ok、ledger schema 存在 |
 | 模型 | 从服务 namespace 认证 GET /models=200；尚未验收真实模型对话 |
 
-AgentMail 相同 key 在 Mac 可正常读自己的 inbox；从 ECS 使用两种 User-Agent 均收到 CloudFront `Request blocked`。因此不能把配置好 key 等同于注册可用。已向协调者申请新增免费且只路由该主机名特定路径的邮件 relay Worker；未经追加授权不会创建该资源。Cloudflare `full` 仅保证加密，当前全区配置没有开启 origin 证书严格校验；未为此改动全区 SSL。
+AgentMail 相同 key 在 Mac 可正常读自己的 inbox；从 ECS 使用两种 User-Agent 均收到 CloudFront `Request blocked`。因此不能把配置好 key 等同于注册可用。tt 已批准并启用下述免费、精确路由的邮件 relay Worker。Cloudflare `full` 仅保证加密，当前全区配置没有开启 origin 证书严格校验；未为此改动全区 SSL。
 
 配置依据：[Cloudflare Origin Rule API](https://developers.cloudflare.com/rules/origin-rules/create-api/)、[Origin CA certificate API](https://developers.cloudflare.com/api/resources/origin_ca_certificates/methods/create/)、[Cloudflare IP ranges API](https://developers.cloudflare.com/api/resources/ips/methods/list/)。线上结果以本次实际验收为准。
