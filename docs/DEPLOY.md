@@ -32,7 +32,7 @@ Cloudflare 对象：DNS record `286ee016236ffe6abc0c2d4090e323e4`；Origin Rules
 
 | 路径 | 用途 / 权限 |
 |---|---|
-| `/opt/xiaopiao/releases/<release>` | 只读代码 release；当前 `e5873e0ee535`，前一版 `f84e8fc06f26` 和旧 `6f41d712f246` 保留 |
+| `/opt/xiaopiao/releases/<release>` | 只读代码 release；当前 `4f5d7f11725d`；账号修复前版 `9d58f101ca6e`、防御版 `e5873e0ee535` 与更旧版本保留 |
 | `/opt/xiaopiao/current` | 原子切换的 release symlink |
 | `/opt/xiaopiao/node-runtime/node-v24.14.0-linux-x64` | 隔离 Node 运行时 |
 | `/etc/xiaopiao/server.env` | root:root 600，由 systemd 读取后传给服务进程 |
@@ -128,3 +128,9 @@ AgentMail 相同 key 在 Mac 可正常读自己的 inbox；从 ECS 使用两种 
 tt 已明确批准并完成 `89fcf19` 的 API/unit/nginx 上线，生产 release `e5873e0ee535`；runtime archive、线上文件、私密配置一致性均已核对，公网与真实邮件/模型/账号/账本验收通过。阈值、证据和 QMuse 权限未决项见 [SECURITY.md](SECURITY.md)。未重建或扩大邮件 Worker 路由，未 push。
 
 本轮回滚时先恢复 `/var/backups/xiaopiao/config-before-e5873e0ee535/` 中的 `xiaopiao-api.service`、`resolv.conf` 和 `nginx.conf` 到各自原路径，再将代码切回 `f84e8fc06f26`，执行 daemon-reload、API restart、nginx -t 与 reload，并验证 health。普通回滚不恢复旧 DB。部署前 DB 为 `pre-e5873e0ee535.sqlite`，部署后备份为 `api-20261030T071810-5084.sqlite`，二者均 quick_check=ok。
+
+## 2026-10-30 账号与 HTML 邮件更新
+
+经 tt 批准，新账号接口先上线 9d58f101ca6e；随后按 tt 最新要求将新密码下限改为 8 位，验证码使用 HTML 品牌模板并保留 text，当前 release=4f5d7f11725d。服务端 89/89 测试与 npm check 通过，真实自有邮箱 HTML 收件、八位密码重登及私有圈子分享回归通过。mail-relay Worker 只新增可选 html 字段，仍固定路由/IP/secret/AgentMail 发送目标，日志及备用入口关闭。
+
+本次仅更新 API/unit 和已批准的同一路由 Worker 模块；nginx、安全组、DNS 及全区设置未改。部署前 DB=/var/lib/xiaopiao/backups/pre-4f5d7f11725d.sqlite，unit/resolver 备份在 /var/backups/xiaopiao/config-before-4f5d7f11725d。账号版本回滚只切回 9d58f101ca6e，并按需还原该次 unit/resolver；不要恢复早期 nginx 快照或倒退 DB。详细契约见 API-ACCOUNT.md。
