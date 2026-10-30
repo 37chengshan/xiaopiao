@@ -3,6 +3,7 @@ import { isIP } from 'node:net';
 import { randomInt, randomUUID } from 'node:crypto';
 import { hash, secret, passwordHash, passwordMatches, publicUser } from './store.mjs';
 import { createLedger, LIMITS as LEDGER } from './ledger.mjs';
+import { createCircles, LIMITS as CIRCLE } from './circle.mjs';
 const errors = {
   INVALID_INPUT: [400, '请检查输入内容'], INVALID_CREDENTIALS: [401, '账号或密码不正确'],
   UNAUTHORIZED: [401, '请重新登录'], EMAIL_UNVERIFIED: [403, '请先验证邮箱'],
@@ -10,6 +11,12 @@ const errors = {
   MAIL_UNAVAILABLE: [503, '邮件服务暂不可用，请稍后再试'], CODE_INVALID: [400, '验证码错误或已过期'],
   RUN_INVALID: [409, '这次对话已过期，请重新发送'], MODEL_UNAVAILABLE: [503, 'AI 暂时不可用，可继续使用本机记账'],
   LEDGER_TOO_MANY: [400, '一次最多同步 500 条'], LEDGER_PAYLOAD_TOO_LARGE: [413, '这次提交的数据太大，请分批同步'],
+  CIRCLE_NOT_FOUND: [404, '圈子不存在'], POST_NOT_FOUND: [404, '内容不存在'], MEMBER_NOT_FOUND: [404, '成员不存在'],
+  CIRCLE_LIMIT: [409, '最多加入 10 个圈子'], CIRCLE_FULL: [409, '圈子已满 50 人'],
+  CIRCLE_OWNER_LEAVE: [409, '圈主还有成员时不能退出'], INVITE_INVALID: [400, '邀请码无效或已过期'],
+  FORBIDDEN: [403, '没有权限这么做'], POST_EMPTY: [400, '文字和小票至少填一个'],
+  RECEIPT_FIELD: [400, '小票卡片里有不支持的字段'], RECEIPT_RAW_TEXT: [400, '小票卡片不能包含账单原文'],
+  RECEIPT_INVALID: [400, '小票卡片格式不正确'],
 };
 function fail(code) { throw Object.assign(new Error(code), { code }); }
 function text(value, max = 256) { if (typeof value !== 'string' || !value.trim() || value.length > max) fail('INVALID_INPUT'); return value.trim(); }
@@ -33,7 +40,8 @@ const loopbackOrigin = /^http:\/\/(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})
 export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173', production = false, trustedProxy = false }) {
   const dummyPassword = passwordHash(secret());
   const ledger = createLedger({ db });
-  const ledgerOf = req => {
+  const circles = createCircles({ db });
+  const verifiedUser = req => {
     const user = userOf(req);
     if (!user.verified) fail('EMAIL_UNVERIFIED');
     return user;
@@ -95,7 +103,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       res.setHeader('Access-Control-Allow-Origin', requestOrigin); res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     }
     if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
     const url = new URL(req.url, 'http://localhost');
@@ -111,19 +119,69 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       rate(`global:${ip}`, 300, 60_000);
       if (url.pathname === '/v1/auth/me' && req.method === 'GET') return json({ user: publicUser(userOf(req)) });
       if (url.pathname === '/v1/ledger/changes' && req.method === 'GET') {
-        const user = ledgerOf(req);
+        const user = verifiedUser(req);
         rate(`ledger:${user.id}`, 900, 3600_000);
         const since = count(numberParam(url, 'since', 0), Number.MAX_SAFE_INTEGER);
         const limit = count(numberParam(url, 'limit', LEDGER.defaultPage), LEDGER.page) ?? LEDGER.defaultPage;
         if (limit < 1) fail('INVALID_INPUT');
         return json(ledger.changes(user.id, since, limit));
       }
+      if (/^\/v1\/(?:circles|posts|comments)(?:\/|$)/.test(url.pathname)) {
+        const user = verifiedUser(req);
+        const parts = url.pathname.split('/').filter(Boolean);
+        const [, root, one, two, three] = parts;
+        const me = user.id;
+        const feedLimit = () => count(numberParam(url, 'limit', CIRCLE.defaultPostsPage), CIRCLE.postsPage);
+        if (root === 'circles' && !one && req.method === 'GET') return json(circles.list(me));
+        if (root === 'circles' && !one && req.method === 'POST') {
+          rate(`circle-create:${me}`, 20, 3600_000);
+          return json({ circle: circles.create(me, (await bodyOf(req)).name) }, 201);
+        }
+        if (root === 'circles' && one === 'join' && req.method === 'POST') {
+          rate(`circle-join:${me}`, 30, 3600_000);
+          return json({ circle: circles.join(me, (await bodyOf(req)).code) });
+        }
+        if (root === 'circles' && two === 'members' && !three && req.method === 'GET') return json(circles.members(me, one));
+        if (root === 'circles' && two === 'members' && three && req.method === 'DELETE') {
+          if (parts.length !== 5) return json({ error: 'NOT_FOUND' }, 404);
+          return json(circles.removeMember(me, one, three));
+        }
+        if (root === 'circles' && two === 'invites' && !three && req.method === 'POST') {
+          rate(`circle-invite:${me}`, 60, 3600_000);
+          return json(circles.invite(me, one), 201);
+        }
+        if (root === 'circles' && two === 'leave' && !three && req.method === 'POST') return json(circles.leave(me, one));
+        if (root === 'circles' && two === 'feed' && !three && req.method === 'GET') {
+          rate(`circle-feed:${me}`, 600, 3600_000);
+          return json(circles.feed(me, one, url.searchParams.get('before'), feedLimit()));
+        }
+        if (root === 'circles' && two === 'posts' && !three && req.method === 'POST') {
+          rate(`circle-post:${me}`, 60, 3600_000);
+          return json({ post: circles.post(me, one, await bodyOf(req)) }, 201);
+        }
+        // Likes and comments live on the post, so a member needs no circle id to act on what they see.
+        if (root === 'posts' && one && !two && req.method === 'DELETE') return json(circles.removePost(me, one));
+        if (root === 'posts' && two === 'like' && !three && ['PUT', 'DELETE'].includes(req.method)) {
+          rate(`circle-like:${me}`, 300, 3600_000);
+          return json(req.method === 'PUT' ? circles.like(me, one) : circles.unlike(me, one));
+        }
+        if (root === 'posts' && two === 'comments' && !three && req.method === 'GET') {
+          return json(circles.comments(me, one, url.searchParams.get('before'),
+            count(numberParam(url, 'limit', CIRCLE.defaultCommentsPage), CIRCLE.commentsPage)));
+        }
+        if (root === 'posts' && two === 'comments' && !three && req.method === 'POST') {
+          rate(`circle-comment:${me}`, 120, 3600_000);
+          return json(circles.comment(me, one, await bodyOf(req)), 201);
+        }
+        if (root === 'comments' && one && !two && req.method === 'DELETE') return json(circles.removeComment(me, one));
+        return json({ error: 'NOT_FOUND' }, 404);
+      }
       if (req.method !== 'POST') return json({ error: 'NOT_FOUND' }, 404);
       const ledgerPush = url.pathname === '/v1/ledger/push';
       const body = await bodyOf(req, ledgerPush ? PAYLOAD.ledger : PAYLOAD.default, ledgerPush ? 'LEDGER_PAYLOAD_TOO_LARGE' : 'INVALID_INPUT');
       const native = body.client === 'native' && !requestOrigin && !req.headers['sec-fetch-site'];
       if (ledgerPush) {
-        const user = ledgerOf(req);
+        const user = verifiedUser(req);
         rate(`ledger-push:${user.id}`, 300, 3600_000);
         const deviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : '';
         if (!deviceId || deviceId.length > LEDGER.deviceId) fail('INVALID_INPUT');

@@ -57,7 +57,55 @@ export function store(path) {
       seq INTEGER NOT NULL,
       PRIMARY KEY (user_id, id)
     );
-    CREATE INDEX IF NOT EXISTS ledger_categories_pull ON ledger_categories (user_id, seq);`);
+    CREATE INDEX IF NOT EXISTS ledger_categories_pull ON ledger_categories (user_id, seq);
+    CREATE TABLE IF NOT EXISTS circles (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS circle_members (
+      circle_id TEXT NOT NULL REFERENCES circles(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      joined_at INTEGER NOT NULL,
+      PRIMARY KEY (circle_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS circle_members_user ON circle_members (user_id);
+    CREATE TABLE IF NOT EXISTS circle_invites (
+      code TEXT PRIMARY KEY,
+      circle_id TEXT NOT NULL REFERENCES circles(id) ON DELETE CASCADE,
+      created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at INTEGER NOT NULL,
+      max_uses INTEGER NOT NULL,
+      uses INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS circle_invites_circle ON circle_invites (circle_id);
+    CREATE TABLE IF NOT EXISTS circle_posts (
+      id TEXT PRIMARY KEY,
+      circle_id TEXT NOT NULL REFERENCES circles(id) ON DELETE CASCADE,
+      author_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      text TEXT NOT NULL DEFAULT '',
+      receipt TEXT,
+      created_at INTEGER NOT NULL,
+      deleted INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS circle_posts_feed ON circle_posts (circle_id, created_at);
+    CREATE TABLE IF NOT EXISTS post_likes (
+      post_id TEXT NOT NULL REFERENCES circle_posts(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (post_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS post_comments (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL REFERENCES circle_posts(id) ON DELETE CASCADE,
+      author_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      text TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      deleted INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS post_comments_post ON post_comments (post_id, created_at);`);
   return db;
 }
 export function publicUser(row) { return { id: row.id, email: row.email, username: row.username, verified: Boolean(row.verified) }; }

@@ -9,6 +9,6 @@
   "scripts": {
     "start": "node src/index.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check src/index.mjs && node --check src/app.mjs && node --check src/agent.mjs && node --check src/mail.mjs && node --check src/router.mjs && node --check src/prompt.mjs && node --check src/providers.mjs && node --check src/sanitize.mjs && node --check src/ledger.mjs"
+    "check": "node --check src/index.mjs && node --check src/app.mjs && node --check src/agent.mjs && node --check src/mail.mjs && node --check src/router.mjs && node --check src/prompt.mjs && node --check src/providers.mjs && node --check src/sanitize.mjs && node --check src/ledger.mjs && node --check src/circle.mjs"
   }
 }
