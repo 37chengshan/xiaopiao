@@ -18,5 +18,5 @@ Scope: server/ and docs/ only; no push, payments, unrelated service/DNS or zone-
 
 New remote deployment needs review of the finished changes; prior relay approval remains scoped.
 
-- [ ] Obtain approval for the concrete API/unit/nginx release, deploy, and perform sequential production acceptance.
+- [x] Obtain approval for the concrete API/unit/nginx release, deploy, and perform sequential production acceptance.
 - [ ] Verify effective QMuse table permissions and two-identity isolation through the platform.

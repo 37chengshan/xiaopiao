@@ -1,6 +1,6 @@
 # 今日小票后端安全检查与防御
 
-2026-10-30，工作分支 `deploy/huawei`。本轮候选代码与配置已完成测试和目标机配置校验；**尚未上线**，生产仍为 `f84e8fc06f26`。上一轮邮件 relay 已上线且保持原状态。本报告不是第三方渗透测试，不表示所有平台权限已经验收。
+2026-10-30，工作分支 `deploy/huawei`。tt 已在本会话明确批准，提交 `89fcf19` 的 API、systemd 与专用 nginx 已上线，生产 release 为 **`e5873e0ee535`**，前一 release `f84e8fc06f26` 保留。邮件 relay 保持原状态。本报告不是第三方渗透测试，不表示所有平台权限已经验收。
 
 ## 服务与审计范围
 
@@ -15,7 +15,7 @@
 
 源码审查覆盖 `server/src`、`server/deploy`、`server/test` 以及 Web 云服务声明和访问 facade。本 checkout 无服务端第三方 npm 依赖。没有扫描其它域名、读取用户账单或在生产执行攻击流量。
 
-## 候选策略
+## 已上线策略
 
 | 控制 | 阈值和行为 |
 |---|---|
@@ -49,9 +49,17 @@ body 按 bytes 累计，收齐后统一 UTF-8 解码，修复中文跨 chunk 被
 
 增加 13 项防御回归，与既有测试合计 81 项：UTF-8 分块、chunked 限额、恶意 URL、无鉴权大上传、慢 body 超时、并发拒绝和恢复、断开不能绕过认证配额、邮件总量、限流状态容量、模型并发/超时、上游恶意流、圈子默认 body 限额和会话上限。最终执行结果见 deployment-work/progress.md。QMuse 产物校验通过。
 
-候选 nginx 经目标机同版本 `nginx -t` 校验通过，候选 unit 经 `systemd-analyze verify` 通过。临时文件已清理，没有 reload/restart 或替换生产配置。第一次 stdin 传 nginx 配置因二次读取而失败，改用受限临时文件后完整校验通过。
+上线前 nginx 经目标机同版本 `nginx -t` 校验通过，unit 经 `systemd-analyze verify` 通过。第一次 stdin 传 nginx 配置因二次读取而失败，改用受限临时文件后完整校验通过。取得批准后已替换生产配置，API restart 和 nginx reload 完成。
 
-经 tt 批准后，仅对今日小票执行：
+本次线上验收：health=200；精确 Origin=200，外源=403；无凭据 ledger/chat=401；非法 JSON/MIME=400；未授权 relay=403。复用自有邮箱 QA 账号完成真实收码/重设密码、native 登录、真实免费模型 SSE 回答、ledger push/changes、圈子 create/list/leave、logout 和退出后 401。没有向外部收件人发信。QA 活跃会话、未删除测试交易、残留测试圈子均为 0。
+
+第一次 forgot 请求返回 MAIL_UNAVAILABLE；未更改代码或放宽防护。同一服务 mount namespace 内复用运行配置，固定 relay 发送到自有 inbox 返回 200，随后完整链路复验通过；首次失败的具体原因未证实。直接在主机原 namespace 的诊断 fetch 曾超时，不能代表应用 namespace 的状态；没有修改主机 DNS。
+
+线上 29 个 runtime 文件与批准 archive 逐字节匹配。私密 env 和 relay key 的部署前后校验一致。新增 systemd 隔离项通过 `systemctl show` 确认；API NRestarts=0，API/nginx/backup timer 均 enabled/active。已看到仅含计数的 security_summary，完成验收后 request/auth/chat 活跃数量为 0。部署前后 DB 备份均 quick_check=ok；备份仍在同盘。
+
+source archive SHA256：`e5873e0ee5357d95675bdb195aacc414fb7f77cb2ae2bc0888862f15a211bed5`。配置回滚副本位于 `/var/backups/xiaopiao/config-before-e5873e0ee535/`，部署前在线 DB 备份 `/var/lib/xiaopiao/backups/pre-e5873e0ee535.sqlite`，验收后备份 `/var/lib/xiaopiao/backups/api-20261030T071810-5084.sqlite`。
+
+本次已按以下流程上线；后续更新仍需对应批准：
 
 1. 按 DEPLOY.md 准备 source-only archive、SHA256 和 release ID，备份 DB 与专用 nginx/unit。
 2. `server/deploy/update-private.sh` 更新 API/unit：在线备份、原子 symlink、restart，health 失败恢复旧代码/unit；保留私密 env 和 resolver。

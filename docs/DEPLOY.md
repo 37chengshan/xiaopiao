@@ -32,7 +32,7 @@ Cloudflare 对象：DNS record `286ee016236ffe6abc0c2d4090e323e4`；Origin Rules
 
 | 路径 | 用途 / 权限 |
 |---|---|
-| `/opt/xiaopiao/releases/<release>` | 只读代码 release；当前 `f84e8fc06f26`，旧 `6f41d712f246` 保留 |
+| `/opt/xiaopiao/releases/<release>` | 只读代码 release；当前 `e5873e0ee535`，前一版 `f84e8fc06f26` 和旧 `6f41d712f246` 保留 |
 | `/opt/xiaopiao/current` | 原子切换的 release symlink |
 | `/opt/xiaopiao/node-runtime/node-v24.14.0-linux-x64` | 隔离 Node 运行时 |
 | `/etc/xiaopiao/server.env` | root:root 600，由 systemd 读取后传给服务进程 |
@@ -98,7 +98,7 @@ ssh -i ~/.ssh/flexus_nodejs_ed25519 root@110.41.84.190 bash -s -- /tmp/xiaopiao-
 手动代码回滚（先核对旧代码与当前 schema 的兼容性）：
 
 ```bash
-sudo ln -s /opt/xiaopiao/releases/6f41d712f246 /opt/xiaopiao/current.next
+sudo ln -s /opt/xiaopiao/releases/f84e8fc06f26 /opt/xiaopiao/current.next
 sudo mv -Tf /opt/xiaopiao/current.next /opt/xiaopiao/current
 sudo systemctl restart xiaopiao-api
 curl --fail http://127.0.0.1:8787/healthz
@@ -110,19 +110,21 @@ curl --fail http://127.0.0.1:8787/healthz
 
 | 项目 | 结果 |
 |---|---|
-| 本机测试 | 68/68，通过 `npm run check`；含可选 relay 的安全测试 |
+| 本机测试 | 81/81，通过 `npm run check`；含 relay 与新增防御回归 |
 | a 公网 healthz | HTTPS 200，`{"ok":true}` |
-| b self-inbox 原生账号 / ledger | 通过：公网 native register=201 → 真实自有邮箱收码 → verify → login → push / changes → logout；退出后访问=401。额外圈子 create/list/leave 通过；测试交易 tombstone、圈子已清理 |
+| b self-inbox 原生账号 / ledger | 前轮完整 register/verify 通过；本次加固上线后复用 QA 账号，真实自有邮箱收码 → reset → native login → push/changes → logout，退出后=401；圈子 create/list/leave 通过；测试交易 tombstone、无残留圈子和会话 |
 | c restart / enable | API restart 后公网 200；API/nginx/timer 均 enabled、active |
 | d Origin | HTTP 精确生产源 200、外源 403；ego-browser 同源 preflight=204 且 ACAO 正确，example.com 跨源请求在网络面返回 403 并被浏览器拒绝 |
 | 真实 IP / 伪造头 | 与 Cloudflare trace 的客户端 IP 匹配；伪造内部 IP / XFF 未写入限流 key |
 | 备份恢复检查 | 副本可打开、quick_check=ok、ledger schema 存在 |
-| 模型 | 从服务 namespace 认证 GET /models=200；尚未验收真实模型对话 |
+| 模型 | 本次加固上线后真实免费模型 SSE 对话通过，收到 token 和 done，无错误事件；内容未写日志 |
 
 AgentMail 相同 key 在 Mac 可正常读自己的 inbox；从 ECS 使用两种 User-Agent 均收到 CloudFront `Request blocked`。因此不能把配置好 key 等同于注册可用。tt 已批准并启用下述免费、精确路由的邮件 relay Worker。Cloudflare `full` 仅保证加密，当前全区配置没有开启 origin 证书严格校验；未为此改动全区 SSL。
 
 配置依据：[Cloudflare Origin Rule API](https://developers.cloudflare.com/rules/origin-rules/create-api/)、[Origin CA certificate API](https://developers.cloudflare.com/api/resources/origin_ca_certificates/methods/create/)、[Cloudflare IP ranges API](https://developers.cloudflare.com/api/resources/ips/methods/list/)。线上结果以本次实际验收为准。
 
-## 2026-10-30 防御候选更新
+## 2026-10-30 防御更新已上线
 
-新增防御代码、nginx 预算和 systemd 隔离已在本地完成，尚未上线，生产 release 保持本页所列版本。阈值、回归证据、QMuse 权限未决项与独立网关上线步骤见 [SECURITY.md](SECURITY.md)。部署前按该文档取得 tt 对此 API/unit/nginx 更新的批准；不需要重建或扩大邮件 Worker 路由。
+tt 已明确批准并完成 `89fcf19` 的 API/unit/nginx 上线，生产 release `e5873e0ee535`；runtime archive、线上文件、私密配置一致性均已核对，公网与真实邮件/模型/账号/账本验收通过。阈值、证据和 QMuse 权限未决项见 [SECURITY.md](SECURITY.md)。未重建或扩大邮件 Worker 路由，未 push。
+
+本轮回滚时先恢复 `/var/backups/xiaopiao/config-before-e5873e0ee535/` 中的 `xiaopiao-api.service`、`resolv.conf` 和 `nginx.conf` 到各自原路径，再将代码切回 `f84e8fc06f26`，执行 daemon-reload、API restart、nginx -t 与 reload，并验证 health。普通回滚不恢复旧 DB。部署前 DB 为 `pre-e5873e0ee535.sqlite`，部署后备份为 `api-20261030T071810-5084.sqlite`，二者均 quick_check=ok。
