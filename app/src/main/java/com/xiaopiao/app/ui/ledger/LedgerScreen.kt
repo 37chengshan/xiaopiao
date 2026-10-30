@@ -656,7 +656,12 @@ private fun FloatingDayPill(
         val g = shown ?: return@AnimatedVisibility
         Row(
             Modifier.height(30.dp)
-                .liquidGlass(backdrop, RoundedCornerShape(XpRadius.pill), blur = 8.dp, shadow = 10.dp)
+                .liquidGlass(
+                    backdrop, RoundedCornerShape(XpRadius.pill),
+                    // Rows pass right under it: mostly solid, so the date reads first and the glass shows at the rim.
+                    film = XpColors.Card.copy(alpha = if (XpColors.isDark) 0.86f else 0.84f),
+                    blur = 12.dp, shadow = 12.dp,
+                )
                 .padding(horizontal = XpSpace.m),
             verticalAlignment = Alignment.CenterVertically,
         ) {
