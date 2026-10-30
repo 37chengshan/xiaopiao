@@ -42,6 +42,7 @@ import kotlinx.coroutines.launch
 /** The three settings sub-pages that get a real push transition (docs/APP-DESIGN.md §7.5). */
 private enum class SettingsSub(val title: String) {
     Appearance("外观"),
+    Voice("语音"),
     Data("数据与隐私"),
     About("关于"),
 }
@@ -106,6 +107,8 @@ fun SettingsScreen(
                         onBack = { sub = null },
                     )
 
+                    SettingsSub.Voice -> VoicePage(container = container, onBack = { sub = null })
+
                     SettingsSub.Data -> DataPage(
                         importing = importing,
                         summary = summary,
@@ -151,6 +154,9 @@ fun SettingsScreen(
                 }
                 Box(Modifier.xpRevealLayer(index = 2)) {
                     ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }
+                }
+                Box(Modifier.xpRevealLayer(index = 3)) {
+                    VoiceModelNavSection(container) { sub = SettingsSub.Voice }
                 }
                 Box(Modifier.xpRevealLayer(index = 3)) {
                     CaptureSection(

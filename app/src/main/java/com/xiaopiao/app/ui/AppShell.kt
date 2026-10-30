@@ -122,7 +122,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     var merchantSettings by rememberSaveable { mutableStateOf(false) }
     val merchantState = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     val record = rememberRecordSheetState()
-    val voiceHost = com.xiaopiao.app.ui.record.rememberVoiceHost()
+    val voiceHost = com.xiaopiao.app.ui.record.rememberVoiceHost(container)
     val context = androidx.compose.ui.platform.LocalContext.current
     val onboarding = remember { com.xiaopiao.app.ui.onboarding.OnboardingPrefs(context.applicationContext) }
     val onboarded by onboarding.observeDone().collectAsState(initial = null)

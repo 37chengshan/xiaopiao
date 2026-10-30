@@ -10,11 +10,15 @@ import com.xiaopiao.app.data.DemoSeed
 import com.xiaopiao.app.data.RoomCategoryRepository
 import com.xiaopiao.app.data.RoomLedgerRepository
 import com.xiaopiao.app.domain.CategoryRepository
+import com.xiaopiao.app.domain.asr.AsrHotwords
+import com.xiaopiao.app.domain.asr.AsrModelManager
+import com.xiaopiao.app.domain.asr.AsrPrefs
 import com.xiaopiao.app.domain.LedgerRepository
 import com.xiaopiao.app.importer.CsvImporter
 import com.xiaopiao.app.wallet.AndroidCardCipher
 import com.xiaopiao.app.wallet.CardStore
 import com.xiaopiao.app.wallet.FileCardIo
+import kotlinx.coroutines.flow.first
 
 /** Tiny service locator. Owned by the data layer; UI only reads from it. */
 class AppContainer(context: Context) {
@@ -36,6 +40,29 @@ class AppContainer(context: Context) {
     val budget: BudgetRepository by lazy { BudgetRepository(appContext) }
     val captureProcessor: CaptureProcessor by lazy { CaptureProcessor(ledger, captureLog) }
     val csvImporter: CsvImporter by lazy { CsvImporter(appContext.contentResolver, ledger) }
+
+    /** 端侧语音（tt 2026-10-29）：模型下载进度、选择偏好，录音不上传。 */
+    val asrPrefs: AsrPrefs by lazy { AsrPrefs(appContext) }
+    val asrModels: AsrModelManager by lazy { AsrModelManager(appContext) }
+
+    /**
+     * 语音热词：账本里出现最多的商户名 + 用户自建分类名，和固定预设一起写进 hotwords 文件。
+     * 只在开始录音时算一次，读的是当前账本快照。
+     */
+    suspend fun asrHotwordSeed(): List<String> {
+        val defs = runCatching { categories.defs() }.getOrDefault(emptyList())
+        val txns = runCatching { ledger.observeAll().first() }.getOrDefault(emptyList())
+        val merchants = txns.asSequence()
+            .map { it.merchant.trim() }
+            .filter { it.isNotEmpty() }
+            .groupingBy { it }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .map { it.key }
+            .toList()
+        return AsrHotwords.dynamicFor(defs, merchants)
+    }
 
     /** 卡包（§5.5）：本机 JSON + Keystore 加密的卡号，数据不进备份。 */
     val cards: CardStore by lazy {
