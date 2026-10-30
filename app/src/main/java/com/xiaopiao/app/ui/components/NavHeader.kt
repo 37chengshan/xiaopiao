@@ -109,6 +109,8 @@ fun NavScaffold(
      * inside it), so they can turn into liquid glass by sampling the content that scrolls under them.
      */
     overlay: (@Composable BoxScope.(glass: com.kyant.backdrop.Backdrop) -> Unit)? = null,
+    /** 玻璃地面的颜色浓度（1 = 设置页那一档；游戏页用 0.55，免得彩色盖过内容）。 */
+    glassStrength: Float = 1f,
     content: @Composable BoxScope.(top: Dp) -> Unit,
 ) {
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -117,7 +119,7 @@ fun NavScaffold(
     val glass = rememberLayerBackdrop()
     Box(modifier.fillMaxSize()) {
         Box(Modifier.matchParentSize().layerBackdrop(glass).background(XpColors.CanvasGrouped)) {
-            if (glassGround) GlassGround(Modifier.matchParentSize()) { Box(Modifier.fillMaxSize()) { content(topInset + NavBarHeight) } }
+            if (glassGround) GlassGround(Modifier.matchParentSize(), strength = glassStrength) { Box(Modifier.fillMaxSize()) { content(topInset + NavBarHeight) } }
             else content(topInset + NavBarHeight)
         }
         // No bar: a soft edge fade keeps the title legible, and each group of controls floats in its own glass capsule.

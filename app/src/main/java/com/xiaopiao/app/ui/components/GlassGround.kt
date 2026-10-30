@@ -23,7 +23,7 @@ val LocalGlass = staticCompositionLocalOf<Backdrop?> { null }
  * so they refract real colour instead of flat grey. Only the ground is recorded, never the cards (no feedback loop).
  */
 @Composable
-fun GlassGround(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun GlassGround(modifier: Modifier = Modifier, strength: Float = 1f, content: @Composable () -> Unit) {
     val ground = rememberLayerBackdrop()
     val dark = XpColors.isDark
     val base = XpColors.CanvasGrouped
@@ -39,7 +39,7 @@ fun GlassGround(modifier: Modifier = Modifier, content: @Composable () -> Unit) 
                     val radius = size.width * r
                     drawCircle(Brush.radialGradient(listOf(color.copy(alpha = alpha), Color.Transparent), center = c, radius = radius), radius, c)
                 }
-                val k = if (dark) 0.6f else 1f
+                val k = (if (dark) 0.6f else 1f) * strength
                 blob(accent, 0.30f * k, 0.12f, 0.10f, 0.95f)
                 blob(highlight, 0.34f * k, 0.95f, 0.42f, 0.80f)
                 blob(tint, 0.26f * k, 0.18f, 0.86f, 0.90f)

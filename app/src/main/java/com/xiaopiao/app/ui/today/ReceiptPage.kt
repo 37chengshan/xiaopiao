@@ -61,7 +61,6 @@ import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.ui.category.CategoryTile
-import com.xiaopiao.app.ui.components.glassCard
 import com.xiaopiao.app.ui.components.AppTopActions
 import com.xiaopiao.app.ui.components.LedgerSideLeading
 import com.xiaopiao.app.ui.components.NavScaffold
@@ -125,7 +124,6 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
         "小票", rememberNavScroll(scroll),
         leading = { LedgerSideLeading() },
         trailing = { AppTopActions() },
-        glassGround = true,
     ) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             CompositionLocalProvider(LocalPaperColors provides colors, LocalReceiptFont provides settings.font) {
@@ -230,7 +228,7 @@ private val LabelWidth = 40.dp
 private fun SettingsCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Column(
         modifier.fillMaxWidth().padding(horizontal = XpSpace.l)
-            .glassCard(RoundedCornerShape(XpRadius.contentCard))
+            .clip(RoundedCornerShape(XpRadius.contentCard)).background(XpColors.Card)
             .padding(vertical = 4.dp),
     ) { content() }
 }
@@ -368,7 +366,7 @@ private fun CategoryCard(defs: List<CategoryDef>, excluded: Set<String>, onChang
     val spend = remember(defs) { defs.filter { it.fits(Direction.OUT) && !it.hidden }.sortedBy { it.sortOrder } }
     Column(
         Modifier.fillMaxWidth().padding(start = XpSpace.l, end = XpSpace.l, top = XpSpace.m)
-            .glassCard(RoundedCornerShape(XpRadius.contentCard)).padding(vertical = XpSpace.m),
+            .clip(RoundedCornerShape(XpRadius.contentCard)).background(XpColors.Card).padding(vertical = XpSpace.m),
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l), verticalAlignment = Alignment.CenterVertically) {
             Text("印哪些分类", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = XpColors.Ink)

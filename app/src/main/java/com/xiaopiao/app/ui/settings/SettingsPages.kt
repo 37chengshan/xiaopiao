@@ -93,7 +93,7 @@ fun AppearancePage(
 ) {
     val scroll = rememberScrollState()
     NavScaffold(
-        "外观", rememberNavScroll(scroll), onBack = onBack, backLabel = "设置", glassGround = true,
+        "外观", rememberNavScroll(scroll), onBack = onBack, backLabel = "设置",
     ) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             XpReveal(index = 0) { AppearanceSection(mode, onMode) }
@@ -126,7 +126,7 @@ fun DataPage(
     val scroll = rememberScrollState()
     NavScaffold(
         "数据与隐私", rememberNavScroll(scroll), onBack = onBack,
-        backLabel = "设置", glassGround = true,
+        backLabel = "设置",
     ) { top ->
         Column(
             Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp),
@@ -161,7 +161,7 @@ fun DataPage(
 fun AboutPage(onPrivacy: () -> Unit, onBack: () -> Unit) {
     val scroll = rememberScrollState()
     NavScaffold(
-        "关于", rememberNavScroll(scroll), onBack = onBack, backLabel = "设置", glassGround = true,
+        "关于", rememberNavScroll(scroll), onBack = onBack, backLabel = "设置",
     ) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             XpReveal(index = 0) { AboutSection(onPrivacy) }

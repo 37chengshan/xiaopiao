@@ -211,6 +211,12 @@ object XpColors {
     /** Translucent bar background for nav / tab bars. */
     val Material get() = p.material
 
+    /**
+     * Brand coral (docs/BRAND.md): the launcher tile, splash and sign-in mark only. Never a UI accent — the
+     * accent stays the theme's blue. Same in every theme, like the launcher icon.
+     */
+    val Brand = androidx.compose.ui.graphics.Color(0xFFFF6B4A)
+
     /** Receipt paper keeps its own surface so the printed object never becomes UI chrome. */
     val Paper get() = p.paper
     val PaperShade get() = p.paperShade

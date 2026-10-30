@@ -101,9 +101,11 @@ fun ReceiptPrinter(
                 },
             contentAlignment = Alignment.Center,
         ) {
+            // Part of the device, not body text: a fixed 12dp so a large system font cannot push ¥ off the glass.
+            val lcdSize = with(androidx.compose.ui.platform.LocalDensity.current) { 12.dp.toSp() }
             Text(
                 lcd, maxLines = 1, softWrap = false,
-                style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7CFFA0), letterSpacing = 0.5.sp),
+                style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = lcdSize, fontWeight = FontWeight.Bold, color = Color(0xFF7CFFA0), letterSpacing = 0.5.sp),
             )
         }
         // Print key.

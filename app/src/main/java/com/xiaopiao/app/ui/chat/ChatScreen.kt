@@ -123,8 +123,6 @@ import kotlinx.coroutines.launch
 /** Characters per second for the streaming reply; dt-based, so refresh rate cannot change it. */
 private const val StreamCharsPerSecond = 78f
 
-/** Drawer travel applied to the page while the drawer is open (ChatGPT pushes the content a little). */
-private val DrawerPagePush = 24.dp
 
 /**
  * AI page (v7, docs/APP-DESIGN.md §3.4). Top bar: ☰ · segment · receipt strip · new chat. Body: one soft
@@ -640,12 +638,14 @@ fun ChatScreen(
         else drawer.animateTo(if (drawerOpen) 1f else 0f, com.xiaopiao.app.ui.theme.XpMotion.snappy())
     }
 
+    // The page is recorded for the session drawer, a glass sheet that rises over it (a sibling, never its parent).
+    val pageGlass = com.kyant.backdrop.backdrops.rememberLayerBackdrop()
     Box(Modifier.fillMaxSize().background(chatBackdrop())) {
         // Same glass top bar as 记账 (docs/DESIGN.md §4.1): ☰ on the left, 小票 + 设置 on the right.
         NavScaffold(
             "AI",
             NavScrollNone,
-            modifier = Modifier.graphicsLayer { translationX = if (reduced) 0f else DrawerPagePush.toPx() * drawer.value },
+            modifier = Modifier.layerBackdrop(pageGlass),
             leading = { NavIconButton(Icons.Outlined.Menu, "会话", onClick = { drawerOpen = true }) },
             trailing = { AppTopActions() },
         ) { top ->
@@ -733,9 +733,6 @@ fun ChatScreen(
             )
         }
 
-        // Edge swipe to open; the drawer itself handles drag-to-close.
-        ChatDrawerEdge(onOpen = { drawerOpen = true }, modifier = Modifier.align(Alignment.CenterStart))
-
         ChatDrawer(
             open = drawerOpen,
             sessions = sessions,
@@ -773,6 +770,7 @@ fun ChatScreen(
             activeSessionId = activeSession,
             accountLabel = accountUser?.username ?: "登录你的账号",
             onOpenAccount = { drawerOpen = false; accountOpen = true },
+            backdrop = pageGlass,
         )
     }
 }

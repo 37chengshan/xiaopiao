@@ -1,5 +1,9 @@
 package com.xiaopiao.app.ui.ledger
 
+import com.xiaopiao.app.ui.components.liquidGlass
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.Backdrop
 import androidx.compose.material.icons.outlined.CalendarMonth
 import com.xiaopiao.app.domain.BudgetSummary
 import androidx.compose.animation.AnimatedContent
@@ -105,14 +109,16 @@ fun LedgerSummaryCard(
     /** 按天查看 sits in the card's top-right corner (tt: inside the card, not a row of its own). Null hides it. */
     onOpenCalendar: (() -> Unit)? = null,
 ) {
+    // The card's colour and arc are recorded on their own, so the controls on the card can be liquid glass
+    // (tt 2026-10-30: 彩色卡片上的小控件) that bends the arc instead of sitting on it as flat white.
+    val ground = rememberLayerBackdrop()
     Box(
         modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(XpRadius.contentCard))
-            .background(LedgerHighlight.card),
+            .clip(RoundedCornerShape(XpRadius.contentCard)),
     ) {
         // The reference's soft decorative circle: one arc, clipped by the card, no gradient.
         // matchParentSize keeps it out of the card's measured height.
-        Box(Modifier.matchParentSize()) {
+        Box(Modifier.matchParentSize().layerBackdrop(ground).background(LedgerHighlight.card)) {
             Box(
                 Modifier.size(210.dp).offset(x = 150.dp, y = (-96).dp)
                     .clip(CircleShape).background(LedgerHighlight.decor),
@@ -142,7 +148,14 @@ fun LedgerSummaryCard(
                     if (onOpenCalendar != null) {
                         Spacer(Modifier.weight(1f))
                         Row(
-                            Modifier.height(28.dp).clip(RoundedCornerShape(XpRadius.pill)).background(LedgerHighlight.pill)
+                            Modifier.height(28.dp)
+                                .liquidGlass(
+                                    ground, RoundedCornerShape(XpRadius.pill),
+                                    film = LedgerHighlight.pill.copy(alpha = if (XpColors.isDark) 0.72f else 0.45f),
+                                    blur = 4.dp, lensHeight = 6.dp, lensAmount = 10.dp, shadow = 8.dp,
+                                    fallback = LedgerHighlight.pill,
+                                )
+                                .clip(RoundedCornerShape(XpRadius.pill))
                                 .pressableClick(haptic = false, scaleDown = 0.96f, onClick = onOpenCalendar)
                                 .padding(horizontal = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -181,7 +194,7 @@ fun LedgerSummaryCard(
                 }
                 Spacer(Modifier.height(16.dp))
             }
-            BudgetStrip(budget = budget, hidden = hidden, onClick = onOpenBudget)
+            BudgetStrip(budget = budget, hidden = hidden, ground = ground, onClick = onOpenBudget)
         }
     }
 }
@@ -217,12 +230,20 @@ private fun SummaryColumn(label: String, cents: Cents, hidden: Boolean, modifier
  * set one themselves. Never advice — the budget is the user's own number (product principles).
  */
 @Composable
-private fun BudgetStrip(budget: BudgetSummary?, hidden: Boolean, onClick: () -> Unit) {
+private fun BudgetStrip(budget: BudgetSummary?, hidden: Boolean, ground: Backdrop, onClick: () -> Unit) {
     val text = budgetLineText(budget, hidden)
+    val shape = RoundedCornerShape(14.dp)
     Row(
-        Modifier.fillMaxWidth().height(41.dp).background(LedgerHighlight.strip)
+        Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp).fillMaxWidth().height(41.dp)
+            .liquidGlass(
+                ground, shape,
+                film = LedgerHighlight.strip.copy(alpha = if (XpColors.isDark) 0.70f else 0.62f),
+                blur = 6.dp, lensHeight = 8.dp, lensAmount = 12.dp, shadow = 10.dp,
+                fallback = LedgerHighlight.strip,
+            )
+            .clip(shape)
             .pressableClick(haptic = false, onClick = onClick)
-            .padding(start = XpSpace.page, end = XpSpace.l),
+            .padding(start = XpSpace.page - 8.dp, end = XpSpace.m),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {

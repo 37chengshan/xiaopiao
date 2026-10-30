@@ -69,7 +69,7 @@ fun Modifier.glassRim(shape: Shape): Modifier = border(
 )
 
 /** How much of the card colour stays over the blur: enough for text contrast, little enough to read as glass. */
-const val GlassSurfaceAlpha = 0.74f
+const val GlassSurfaceAlpha = 0.66f
 
 /** True inside a sheet / dialog whose page is blurred behind it: fills there should stay translucent too. */
 val LocalSheetGlass = androidx.compose.runtime.compositionLocalOf { false }
