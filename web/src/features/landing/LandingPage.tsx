@@ -1,36 +1,42 @@
+import { useMotionValue } from "framer-motion";
 import { useLocale } from "@/lib/strings";
 import "./landing.css";
 import { CursorHalo } from "./cursor/CursorHalo";
 import { useHaloEnabled } from "./hooks/useMediaQuery";
-import { AiFirst } from "./sections/AiFirst";
-import { Archive } from "./sections/Archive";
+import { Nav } from "./parts/Nav";
+import { PillHero } from "./sections/PillHero";
+import { PhoneLaunch } from "./sections/PhoneLaunch";
 import { Bento } from "./sections/Bento";
-import { Demo } from "./sections/Demo";
-import { Footer } from "./sections/Footer";
-import { Hero } from "./sections/Hero";
-import { Outro } from "./sections/Outro";
+import { Accordion } from "./sections/Accordion";
+import { Shelf } from "./sections/Shelf";
+import { Mosaic } from "./sections/Mosaic";
 import { Privacy } from "./sections/Privacy";
+import { Closing } from "./sections/Closing";
 
 /**
- * Landing v2 (docs/WEB-SPEC.md §L, tt 2026-10-28): the whole page is one receipt being printed.
- * The hero owns the nav because the nav is part of its opening timeline.
+ * Landing v4 (tt 2026-10-29): a launch page rather than a poster. One argument in order —
+ * open with the day (scroll-driven capsule), show the phone that lives on it (3D app screens),
+ * let the interface move (bento), explain the five things (accordion), prove the archive (3D shelf),
+ * then the wall, the defaults, the questions, and the way in.
  */
 export function LandingPage() {
   useLocale();
   const halo = useHaloEnabled();
+  const heroProgress = useMotionValue(0);
 
   return (
-    <div className="lp min-h-svh overflow-x-clip antialiased">
+    <div className="lx">
+      <Nav progress={heroProgress} />
       <main>
-        <Hero />
-        <Demo />
-        <Archive />
+        <PillHero progress={heroProgress} />
+        <PhoneLaunch />
         <Bento />
-        <AiFirst />
+        <Accordion />
+        <Shelf />
+        <Mosaic />
         <Privacy />
-        <Outro />
+        <Closing />
       </main>
-      <Footer />
       {halo ? <CursorHalo /> : null}
     </div>
   );

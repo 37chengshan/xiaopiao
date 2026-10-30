@@ -65,8 +65,9 @@ export function CursorHalo() {
         height: DIAMETER,
         marginLeft: -DIAMETER / 2,
         marginTop: -DIAMETER / 2,
+        // The soft trailing halo is tt's own requirement (tt#63, revised 2026-10-28).
         background:
-          "radial-gradient(circle, rgb(255 138 0 / 0.18) 0%, rgb(255 170 60 / 0.09) 34%, rgb(255 200 120 / 0) 68%)",
+          "radial-gradient(circle, rgb(255 138 0 / 0.18) 0%, rgb(255 170 60 / 0.09) 34%, rgb(255 200 120 / 0) 68%)", // taste-skill-ignore
       }}
       className="pointer-events-none fixed top-0 left-0 z-[80] rounded-full"
     />

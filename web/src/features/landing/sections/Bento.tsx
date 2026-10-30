@@ -1,217 +1,247 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useLocale } from "@/lib/strings";
+import { dayRemark, dayTitle, type SpendKind } from "../dayTitle";
+import { SPEND_ITEMS, receiptAmount } from "../lib/days";
+import { useCountUp, useInViewOnce, useRotator } from "../hooks/useLiveMotion";
 import { s } from "../strings";
-import { IMG } from "../lib/assets";
-import { ClockProvider, Reveal, SplitText, useClock, useInViewOnce } from "../lib/motion";
 
-/** L4 — six cards, each a quiet live fragment of the product, all reading one clock (maya-lind-bento). */
-export function Bento() {
-  useLocale();
-  const { ref, inView } = useInViewOnce(0.12);
+/**
+ * Bento: seven cards, each one a real interface fragment with its own small motion. Only the last card is
+ * interactive (tap what you spent and the day's title is recomputed with the app's own rules).
+ */
+const SPARK = [0.42, 0.6, 0.34, 0.72, 0.55, 0.9, 0.64];
+const WAVE = [6, 12, 20, 9, 26, 14, 7, 18, 24, 11, 5, 16, 28, 13, 8, 21, 10, 25, 15, 6, 19, 27, 12, 9, 22, 17, 7, 14];
+const SHOP = [
+  { key: "bento.shop.mon", v: 0.52 },
+  { key: "bento.shop.tue", v: 0.66 },
+  { key: "bento.shop.wed", v: 0.44 },
+  { key: "bento.shop.thu", v: 0.78 },
+  { key: "bento.shop.fri", v: 1 },
+  { key: "bento.shop.sat", v: 0.9 },
+  { key: "bento.shop.sun", v: 0.58 },
+] as const;
+
+const MEMBERS = [
+  { who: "bento.awards.m1", title: "bento.awards.1" },
+  { who: "bento.awards.m2", title: "bento.awards.2" },
+  { who: "bento.awards.m3", title: "bento.awards.4" },
+  { who: "bento.awards.m4", title: "bento.awards.1" },
+] as const;
+
+function TodayCard() {
+  const [ref, seen] = useInViewOnce<HTMLDivElement>();
+  const value = useCountUp(136_00, seen, { drift: 50 });
   return (
-    <section id="features" ref={ref} className="relative mx-auto w-full max-w-[1320px] px-4 py-24 sm:px-6 lg:py-32">
-      <div className="max-w-[720px]">
-        <p className="lp-card-kicker">{s("bento.eyebrow")}</p>
-        <h2 className="mt-3 text-[clamp(32px,4vw,56px)] font-semibold leading-[1.04] tracking-[-0.03em]">
-          <SplitText as="span" text={s("bento.title")} active={inView} />
-        </h2>
-        <p className="mt-4 max-w-[52ch] text-[16px] leading-[1.75] text-[var(--lp-ink)]">{s("bento.body")}</p>
+    <article className="lx-card lx-card--today" ref={ref}>
+      <p className="lx-card__label">{s("bento.today")}</p>
+      <p className="lx-card__big">
+        <span className="lx-card__unit">¥</span>
+        <span className="lx-card__digits">{(value / 100).toFixed(2)}</span>
+      </p>
+      <div className="lx-card__meta">
+        <span>{s("bento.today.count")}</span>
+        <span className="lx-card__delta">↓ {s("bento.today.delta")}</span>
       </div>
-
-      <ClockProvider>
-        <div className="lp-bento mt-10">
-          <Reveal delay={0} className="col-span-12 md:col-span-5">
-            <VoiceCard active={inView} />
-          </Reveal>
-          <Reveal delay={1} className="col-span-12 md:col-span-4">
-            <SubsCard active={inView} />
-          </Reveal>
-          <Reveal delay={2} className="col-span-12 md:col-span-3">
-            <BudgetCard active={inView} />
-          </Reveal>
-          <Reveal delay={3} className="col-span-12 md:col-span-4">
-            <CircleCard active={inView} />
-          </Reveal>
-          <Reveal delay={4} className="col-span-12 md:col-span-4">
-            <RegretCard />
-          </Reveal>
-          <Reveal delay={5} className="col-span-12 md:col-span-4">
-            <ShopCard active={inView} />
-          </Reveal>
-        </div>
-      </ClockProvider>
-    </section>
+      <div className={`lx-spark${seen ? " is-live" : ""}`} aria-hidden="true">
+        {SPARK.map((h, i) => (
+          <i key={i} style={{ ["--h" as string]: `${h * 100}%`, ["--d" as string]: `${i * 60}ms` }} />
+        ))}
+      </div>
+    </article>
   );
 }
 
-function VoiceCard({ active }: { active: boolean }) {
-  const t = useClock();
-  const phase = t % 9;
-  const listening = active && phase < 2.2;
-  const bars = useMemo(() => Array.from({ length: 30 }, (_, i) => i), []);
+function NotifyCard() {
   return (
-    <div className="lp-card h-full">
-      <p className="lp-card-kicker">{s("bento.voice.title")}</p>
-      <div className="mt-4 flex flex-1 flex-col justify-center gap-4">
-        <div className="flex items-center gap-3 rounded-2xl bg-[rgba(255,138,0,0.08)] px-3 py-3">
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--lp-orange)] text-[13px] text-white">●</span>
-          <div className="lp-wave flex-1">
-            {bars.map((i) => {
-              const wobble = listening ? 0.32 + 0.68 * Math.abs(Math.sin(t * 2.4 + i * 0.55) * Math.cos(t * 1.1 + i * 0.21)) : 0.12;
-              return <i key={i} style={{ transform: `scaleY(${wobble})`, opacity: listening ? 0.85 : 0.3 }} />;
-            })}
+    <article className="lx-card lx-card--notify">
+      <p className="lx-card__label">{s("bento.notify")}</p>
+      <div className="lx-notify" aria-hidden="true">
+        <div className="lx-notify__toast">
+          <span className="lx-notify__dot" />
+          <span className="lx-notify__text">{s("bento.notify.line")}</span>
+          <span className="lx-notify__amt">28.00</span>
+        </div>
+        <div className="lx-notify__list">
+          <div className="lx-notify__row">
+            <span>09:20</span>
+            <span>{s("spend.metro")}</span>
+            <span>¥4.00</span>
+          </div>
+          <div className="lx-notify__row">
+            <span>11:30</span>
+            <span>{s("spend.tea")}</span>
+            <span>¥16.00</span>
+          </div>
+          <div className="lx-notify__row lx-notify__row--fresh">
+            <span>12:30</span>
+            <span>{s("bento.notify.row")}</span>
+            <span>¥28.00</span>
           </div>
         </div>
-        <p className="text-[13px] text-[var(--lp-ink-2)]">{listening ? s("bento.voice.listening") : s("bento.voice.said")}</p>
-        <div
-          className="flex items-center justify-between rounded-xl border border-[rgba(27,23,18,0.08)] bg-white px-3 py-2.5 text-[13px]"
-          style={{ opacity: listening ? 0.25 : 1, transform: listening ? "translateY(4px)" : "none", transition: "opacity .4s, transform .4s" }}
-        >
-          <span>{s("bento.voice.row")}</span>
-          <span className="text-[var(--lp-orange-deep)]" aria-hidden>
-            ✓
-          </span>
-        </div>
       </div>
-    </div>
+      <p className="lx-card__foot">{s("bento.notify.foot")}</p>
+    </article>
   );
 }
 
-function SubsCard({ active }: { active: boolean }) {
-  const t = useClock();
-  const phase = active ? t : 0;
-  const subs = [
-    { name: "iCloud", amount: "¥6", period: s("bento.perMonth") },
-    { name: "视频会员", amount: "¥25", period: s("bento.perMonth") },
-    { name: "网易云", amount: "¥15", period: s("bento.perMonth") },
-  ];
+function AiCard() {
   return (
-    <div className="lp-card h-full">
-      <p className="lp-card-kicker">{s("bento.subs.title")}</p>
-      <p className="mt-2 text-[13px] text-[var(--lp-ink-2)]">{s("bento.subs.body")}</p>
-      <ul className="mt-4 flex flex-1 flex-col gap-2">
-        {subs.map((row, i) => (
-          <li
-            key={row.name}
-            className="flex items-center justify-between rounded-lg bg-[rgba(27,23,18,0.04)] px-2.5 py-2 text-[13px]"
-            style={{ opacity: phase > 0.4 + i * 0.5 ? 1 : 0, transform: phase > 0.4 + i * 0.5 ? "none" : "translateX(-10px)", transition: "opacity .45s, transform .45s" }}
-          >
-            <span>{row.name} · {row.amount}{row.period}</span>
-            <span className="num text-[var(--lp-ink-3)]">{["72", "300", "180"][i]}{s("bento.perYear")}</span>
+    <article className="lx-card lx-card--ai">
+      <p className="lx-card__label">{s("bento.ai")}</p>
+      <div className="lx-chat" aria-hidden="true">
+        <p className="lx-chat__q">{s("bento.ai.q")}</p>
+        <p className="lx-chat__a">{s("bento.ai.a")}</p>
+        <div className="lx-wave">
+          {WAVE.map((h, i) => (
+            <i key={i} style={{ ["--h" as string]: `${h * 3.4}%`, ["--d" as string]: `${(i % 9) * 90}ms` }} />
+          ))}
+        </div>
+      </div>
+      <p className="lx-card__foot">{s("bento.ai.hint")}</p>
+    </article>
+  );
+}
+
+function AwardsCard() {
+  const [ref, seen] = useInViewOnce<HTMLDivElement>();
+  const index = useRotator(MEMBERS.length, seen, 2400);
+  return (
+    <article className="lx-card lx-card--awards" ref={ref}>
+      <p className="lx-card__label">{s("bento.awards")}</p>
+      <ul className="lx-awards" aria-live="polite">
+        {MEMBERS.map((member, i) => (
+          <li key={member.who} className={`lx-awards__row${i === index ? " is-active" : ""}`}>
+            <span className="lx-awards__who">
+              <i aria-hidden="true">{s(member.who).slice(0, 1)}</i>
+              {s(member.who)}
+            </span>
+            <span className="lx-awards__title">{s(member.title)}</span>
           </li>
         ))}
       </ul>
-      <div className="mt-3 flex items-baseline justify-between border-t border-[rgba(27,23,18,0.08)] pt-3">
-        <span className="text-[13px] text-[var(--lp-ink-3)]">{s("bento.subs.annual")}</span>
-        <span className="num text-[20px] font-semibold">¥{Math.round(Math.min(1, Math.max(0, phase / 2.2)) * 552)}</span>
-      </div>
-    </div>
+      <p className="lx-card__foot">{s("bento.awards.foot")}</p>
+    </article>
   );
 }
 
-function BudgetCard({ active }: { active: boolean }) {
-  const t = useClock();
-  const p = active ? Math.min(0.68, (t / 1.6) * 0.68) : 0.68;
-  const r = 42;
-  const c = 2 * Math.PI * r;
+function PrintCard() {
+  const [ref, seen] = useInViewOnce<HTMLDivElement>();
   return (
-    <div className="lp-card h-full items-center text-center">
-      <p className="lp-card-kicker self-start">{s("bento.budget.title")}</p>
-      <div className="relative mt-3 grid flex-1 place-items-center">
-        <svg viewBox="0 0 110 110" className="size-[132px]">
-          <circle className="lp-ring-track" cx="55" cy="55" r={r} />
-          <circle className="lp-ring-arc" cx="55" cy="55" r={r} strokeDasharray={c} strokeDashoffset={c * (1 - p)} />
-        </svg>
-        <div className="absolute text-center">
-          <p className="num text-[22px] font-semibold">{Math.round(p * 100)}%</p>
-          <p className="text-[10.5px] text-[var(--lp-ink-3)]">{s("bento.budget.used")}</p>
+    <article className="lx-card lx-card--print" ref={ref}>
+      <p className="lx-card__label">
+        <span className={`lx-pulse${seen ? " is-live" : ""}`} aria-hidden="true" />
+        {s("bento.print")}
+      </p>
+      <p className="lx-card__body">{s("bento.print.line")}</p>
+      <div className={`lx-feed${seen ? " is-live" : ""}`} aria-hidden="true">
+        <span className="lx-feed__bar" />
+      </div>
+      <p className="lx-card__foot">{s("bento.print.eta")}</p>
+    </article>
+  );
+}
+
+function ShopCard() {
+  const [ref, seen] = useInViewOnce<HTMLDivElement>();
+  return (
+    <article className="lx-card lx-card--shop" ref={ref}>
+      <p className="lx-card__label">{s("bento.shop")}</p>
+      <div className={`lx-bars${seen ? " is-live" : ""}`} aria-hidden="true">
+        {SHOP.map((d, i) => (
+          <div className="lx-bars__col" key={d.key}>
+            <span style={{ ["--h" as string]: `${d.v * 100}%`, ["--d" as string]: `${i * 70}ms` }} />
+            <em>{s(d.key)}</em>
+          </div>
+        ))}
+      </div>
+      <p className="lx-card__foot">{s("bento.shop.foot")}</p>
+    </article>
+  );
+}
+
+function StampCard() {
+  const locale = useLocale();
+  const [picked, setPicked] = useState<ReadonlySet<number>>(() => new Set<number>());
+  const spends = [...picked].map((i) => ({ kind: SPEND_ITEMS[i].kind as SpendKind, cents: SPEND_ITEMS[i].cents }));
+  const total = spends.reduce((sum, x) => sum + x.cents, 0);
+  const title = total === 0 ? null : s(`title.${dayTitle(spends)}` as Parameters<typeof s>[0]);
+  const remark = s(dayRemark(total));
+
+  const toggle = (i: number) => {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  };
+
+  return (
+    <article className="lx-card lx-card--stamp">
+      <div className="lx-stamp__intro">
+        <p className="lx-card__label">{s("bento.stamp.title")}</p>
+        <p className="lx-card__body">{s("bento.stamp.lead")}</p>
+        <div className="lx-stamp__sum">
+          <span className="lx-stamp__sumLabel">{s("bento.stamp.total")}</span>
+          <span className="lx-stamp__sumValue">¥{receiptAmount(total)}</span>
+          <span className="lx-stamp__sumCount">
+            {picked.size === 0 ? s("bento.stamp.empty") : locale === "en" ? `${picked.size}×` : `${picked.size} 笔`}
+          </span>
         </div>
+        <div className={`lx-stamp__badge${title ? " is-on" : ""}`} aria-live="polite">
+          <span className="lx-stamp__badgeText">{title ?? "—"}</span>
+        </div>
+        <p className="lx-stamp__remark">{title ? remark : s("bento.stamp.hint")}</p>
+        {picked.size > 0 ? (
+          <button type="button" className="lx-textbtn" onClick={() => setPicked(new Set())} data-cursor="link">
+            {s("bento.stamp.reset")}
+          </button>
+        ) : null}
       </div>
-      <p className="text-[13px] text-[var(--lp-ink-2)]">{s("bento.budget.left")}</p>
-    </div>
-  );
-}
-
-function CircleCard({ active }: { active: boolean }) {
-  const t = useClock();
-  const reactions = ["🍵", "❤️", "😂", "👍", "👀"];
-  const phase = active ? t % 7 : 7;
-  return (
-    <div className="lp-card h-full !p-0">
-      <div className="relative h-[150px] w-full overflow-hidden">
-        <img src={IMG.friendsTable} alt={s("bento.circle.title")} loading="lazy" className="size-full object-cover" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_40%,rgba(20,16,12,0.55))]" aria-hidden />
-      </div>
-      <div className="flex flex-1 flex-col p-5">
-        <p className="lp-card-kicker">{s("bento.circle.title")}</p>
-        <p className="mt-2 text-[13px] leading-[1.6] text-[var(--lp-ink-2)]">{s("bento.circle.body")}</p>
-        <div className="mt-auto flex items-center gap-1.5 pt-3">
-          {reactions.map((emoji, i) => (
-            <span
-              key={emoji}
-              className="grid size-7 place-items-center rounded-full bg-[rgba(255,255,255,0.9)] text-[13px] shadow-[0_2px_6px_rgba(0,0,0,0.12)]"
-              style={{
-                opacity: phase > 0.8 + i * 0.7 ? 1 : 0,
-                transform: phase > 0.8 + i * 0.7 ? "translateY(0) scale(1)" : "translateY(6px) scale(.8)",
-                transition: "opacity .4s, transform .45s cubic-bezier(.22,1,.36,1)",
-              }}
+      <div className="lx-stamp__grid" role="group" aria-label={s("bento.stamp.title")}>
+        {SPEND_ITEMS.map((item, i) => {
+          const on = picked.has(i);
+          return (
+            <button
+              key={item.label}
+              type="button"
+              className={`lx-spend${on ? " is-on" : ""}`}
+              aria-pressed={on}
+              onClick={() => toggle(i)}
+              data-cursor="card"
             >
-              {emoji}
-            </span>
-          ))}
-        </div>
+              <span className="lx-spend__shot">
+                <img src={item.img} alt="" loading="lazy" decoding="async" />
+              </span>
+              <span className="lx-spend__name">{s(item.label as Parameters<typeof s>[0])}</span>
+              <span className="lx-spend__check" aria-hidden="true">
+                ✓
+              </span>
+            </button>
+          );
+        })}
       </div>
-    </div>
+    </article>
   );
 }
 
-function RegretCard() {
-  const [cups, setCups] = useState(2);
-  const saved = cups * 15 * 52;
+export function Bento() {
   return (
-    <div className="lp-card h-full">
-      <p className="lp-card-kicker">{s("bento.regret.title")}</p>
-      <p className="mt-2 text-[13px] text-[var(--lp-ink-2)]">{s("bento.regret.less")}</p>
-      <input
-        type="range"
-        min={0}
-        max={6}
-        step={1}
-        value={cups}
-        onChange={(e) => setCups(Number(e.target.value))}
-        aria-label={s("bento.regret.less")}
-        className="mt-4 h-1.5 w-full appearance-none rounded-full bg-[rgba(27,23,18,0.12)] accent-[var(--lp-orange)]"
-      />
-      <div className="mt-4 flex items-baseline justify-between">
-        <span className="text-[13px] text-[var(--lp-ink-3)]">{s("bento.regret.year")}</span>
-        <span className="num text-[26px] font-semibold">¥{saved.toLocaleString("en-US")}</span>
+    <section id="bento" className="lx-bento">
+      <header className="lx-sechead">
+        <p className="lx-eyebrow">03</p>
+        <h2 className="lx-h2">{s("bento.heading")}</h2>
+        <p className="lx-lead">{s("bento.lead")}</p>
+      </header>
+      <div className="lx-bento__grid">
+        <TodayCard />
+        <NotifyCard />
+        <AiCard />
+        <AwardsCard />
+        <PrintCard />
+        <ShopCard />
+        <StampCard />
       </div>
-      <p className="mt-auto pt-3 text-[13px] text-[var(--lp-ink-3)]">{s("bento.regret.note")}</p>
-    </div>
-  );
-}
-
-function ShopCard({ active }: { active: boolean }) {
-  const t = useClock();
-  const p = active ? Math.min(1, t / 1.8) : 1;
-  const heights = [42, 58, 36, 72, 64, 88];
-  return (
-    <div className="lp-card h-full !p-0">
-      <div className="relative h-[140px] w-full overflow-hidden">
-        <img src={IMG.shopCounter} alt={s("bento.shop.title")} loading="lazy" className="size-full object-cover" />
-      </div>
-      <div className="flex flex-1 flex-col p-5">
-        <p className="lp-card-kicker">{s("bento.shop.title")}</p>
-        <div className="lp-bars mt-3">
-          {heights.map((h, i) => (
-            <i key={i} style={{ height: `${h * Math.min(1, Math.max(0, p * 1.6 - i * 0.08))}%` }} />
-          ))}
-        </div>
-        <div className="mt-auto flex items-center justify-between pt-3 text-[13px] text-[var(--lp-ink-3)]">
-          <span>{s("bento.shop.body")}</span>
-          <span className="rounded-full bg-[rgba(27,23,18,0.06)] px-2 py-0.5">{s("bento.shop.k")}</span>
-        </div>
-      </div>
-    </div>
+    </section>
   );
 }

@@ -1,0 +1,290 @@
+/* Only the opening: original navigation and the capsule opening remain the page's vocabulary. */
+.lx .lx-hero__row--english {
+  line-height: 0.9;
+  letter-spacing: -0.065em;
+  font-weight: 660;
+  position: relative;
+  z-index: 2;
+}
+.lx-opening-context {
+  position: absolute;
+  bottom: clamp(34px, 6vh, 65px);
+  left: var(--margin);
+  right: var(--margin);
+  z-index: 4;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+  pointer-events: none;
+}
+.lx-opening-context__intro {
+  max-width: 36ch;
+}
+.lx-opening-context__intro > strong {
+  font-size: 16px;
+  font-weight: 550;
+  letter-spacing: -0.02em;
+}
+.lx-opening-context__intro > p {
+  text-wrap: pretty;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--ink-2);
+  margin-top: 10px;
+  max-width: 35ch;
+}
+.lx-opening-context__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--ink-3);
+  line-height: 1.7;
+}
+.lx-opening-context__meta > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  color: var(--ink-2);
+  text-decoration: none;
+  pointer-events: auto;
+}
+.lx-scroll-cue {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 38px;
+  padding: 12px 20px 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  position: relative;
+  z-index: 3;
+  min-width: 68px;
+  min-height: 85px;
+}
+.lx-scroll-cue__arrows {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 24px;
+  height: 41px;
+}
+.lx-scroll-cue__arrows > svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.35;
+  flex: none;
+  margin-top: -9px;
+  color: #66665e;
+  opacity: 0.24;
+}
+.lx-scroll-cue__arrows > svg:first-child {
+  margin-top: 0;
+}
+.lx-scroll-cue__label {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+  opacity: 0.65;
+  line-height: 1.5;
+}
+.lx-opening-geometry {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  isolation: isolate;
+}
+.lx-opening-orb {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+}
+.lx-opening-orb--amber {
+  width: 115px;
+  height: 115px;
+  left: 2%;
+  top: 24%;
+  background: #e6b56e;
+  opacity: 0.55;
+}
+.lx-opening-orb--gold {
+  width: 160px;
+  height: 160px;
+  right: -2%;
+  bottom: 13%;
+  background: #eed078;
+  opacity: 0.45;
+}
+.lx-opening-glass {
+  position: absolute;
+  display: block;
+  background: linear-gradient(
+    132deg,
+    rgb(255 255 255 / 45%),
+    rgb(255 255 255 / 8%) 45%,
+    rgb(255 255 255 / 25%)
+  );
+  border: 1px solid rgb(255 255 255 / 80%);
+  backdrop-filter: blur(15px) saturate(125%);
+  box-shadow:
+    inset 2px 3px 3px rgb(255 255 255 / 85%),
+    inset -2px -3px 4px rgb(90 85 60 / 13%),
+    0 16px 30px -24px rgb(75 71 44 / 24%);
+}
+.lx-opening-glass--plate {
+  left: -65px;
+  top: 15%;
+  width: 220px;
+  height: 290px;
+  border-radius: 38px;
+}
+.lx-opening-glass--lens {
+  right: -70px;
+  bottom: 11%;
+  width: 250px;
+  height: 250px;
+  border-radius: 50%;
+  box-shadow:
+    inset 8px 6px 5px rgb(255 255 255 / 70%),
+    inset -5px -6px 5px rgb(98 92 65 / 12%),
+    0 10px 25px -19px rgb(75 71 44 / 22%);
+}
+.lx-opening-wire {
+  position: absolute;
+  width: 130px;
+  height: 130px;
+  right: 8%;
+  top: 18%;
+  border: 1px solid rgb(132 134 111 / 18%);
+  border-radius: 27px;
+  transform: rotate(28deg);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lx-scroll-cue__arrows > svg {
+    animation: lx-chevron-breathe 1.9s ease-in-out infinite;
+  }
+  .lx-scroll-cue__arrows > svg:nth-child(2) {
+    animation-delay: 0.16s;
+  }
+  .lx-scroll-cue__arrows > svg:nth-child(3) {
+    animation-delay: 0.32s;
+  }
+  @keyframes lx-chevron-breathe {
+    0%,
+    70%,
+    100% {
+      opacity: 0.16;
+      transform: translateY(0);
+    }
+    35% {
+      opacity: 0.7;
+      transform: translateY(3px);
+    }
+  }
+}
+@media (max-width: 720px) {
+  .lx-opening-context {
+    bottom: 28px;
+    left: 22px;
+    right: 22px;
+    display: block;
+  }
+  .lx-opening-context__intro {
+    max-width: 100%;
+  }
+  .lx-opening-context__intro > strong {
+    font-size: 13px;
+  }
+  .lx-opening-context__intro > p {
+    font-size: 12px;
+    margin-top: 5px;
+    max-width: 29ch;
+    line-height: 1.7;
+  }
+  .lx-opening-context__meta {
+    margin-top: 13px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 9px;
+  }
+  .lx-opening-context__meta > a {
+    min-height: 32px;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .lx-opening-context__meta > a > svg {
+    height: 14px;
+    width: 14px;
+  }
+  .lx-scroll-cue {
+    margin-top: 35px;
+    gap: 10px;
+  }
+  .lx-opening-orb--amber {
+    width: 70px;
+    height: 70px;
+    left: -20px;
+    top: 19%;
+  }
+  .lx-opening-glass--plate {
+    width: 130px;
+    height: 180px;
+    left: -85px;
+    top: 16%;
+    border-radius: 25px;
+  }
+  .lx-opening-orb--gold {
+    width: 90px;
+    height: 90px;
+    right: -48px;
+    bottom: 22%;
+    opacity: 0.3;
+  }
+  .lx-opening-glass--lens {
+    width: 170px;
+    height: 170px;
+    right: -125px;
+    bottom: 20%;
+    opacity: 0.6;
+  }
+  .lx-opening-wire {
+    width: 70px;
+    height: 70px;
+    right: -36px;
+    top: 25%;
+    border-radius: 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lx-scroll-cue__arrows > svg {
+    animation: none;
+    opacity: 0.35;
+  }
+  .lx-opening-context {
+    position: relative;
+    inset: auto;
+    padding: 30px var(--margin);
+    opacity: 1 !important;
+  }
+  .lx-opening-geometry {
+    opacity: 0.55 !important;
+  }
+  .lx-scroll-cue {
+    opacity: 1 !important;
+  }
+}
+/* Coloured geometry crosses the lenses as a stripe, rather than a disc centred inside a white ring. */
+.lx-opening-orb--amber{width:150px;height:46px;left:-30px;top:27%;border-radius:30px;transform:rotate(-32deg)}
+.lx-opening-orb--gold{width:210px;height:60px;right:-52px;bottom:21%;border-radius:35px;transform:rotate(36deg)}
+.lx-hero__center{gap:0}
+@media(max-width:720px){.lx-opening-orb--amber{width:80px;height:24px;left:-35px;top:22%}.lx-opening-orb--gold{width:100px;height:28px;right:-57px;bottom:26%}}

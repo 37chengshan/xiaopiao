@@ -1,0 +1,558 @@
+/* Scoped concept art inside the existing phone. The original page, navigation and sections are retained. */
+.pc-art {
+  position: absolute;
+  width: 260px;
+  height: 560px;
+  inset: 0 auto auto 0;
+  transform-origin: 0 0;
+  color: #242b20;
+  font-family: Arial, "PingFang SC", sans-serif;
+  --mark-paper: #f9f9f1;
+  overflow: hidden;
+}
+.pc-art * {
+  box-sizing: border-box;
+}
+.pc-art h4 {
+  margin: 0;
+  line-height: 1.4;
+}
+.pc-art p {
+  margin: 0;
+  line-height: 1.6;
+}
+.cp-appname {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.3;
+}
+.cp-appname > svg {
+  width: 26px;
+  height: 26px;
+}
+/* Glass: a real photograph behind real glass, so the rim has something to bend. */
+.cp-glass {
+  position: absolute;
+  inset: 0;
+  background: #cfc6ad;
+}
+.cp-glass__photo {
+  position: absolute;
+  inset: 0;
+  width: 260px;
+  height: 560px;
+  object-fit: cover;
+  object-position: 50% 50%;
+}
+.cp-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 42% at 30% 6%, rgb(20 17 10 / 62%) 0%, rgb(20 17 10 / 26%) 46%, rgb(20 17 10 / 0%) 78%), linear-gradient(180deg, rgb(22 19 12 / 28%) 0%, rgb(22 19 12 / 6%) 36%, rgb(16 14 10 / 14%) 100%);
+}
+.cp-glass__greeting {
+  position: absolute;
+  top: 65px;
+  left: 23px;
+  z-index: 2;
+  color: #fbf8ee;
+}
+.cp-glass__greeting > svg {
+  width: 26px;
+  height: 26px;
+}
+.cp-glass__greeting h4 {
+  font-size: 12px;
+  font-weight: 400;
+  margin: 12px 0 0;
+}
+.cp-glass__greeting > strong {
+  font-size: 31px;
+  line-height: 1.25;
+  letter-spacing: -0.07em;
+  font-weight: 500;
+}
+.cp-liquid {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 205px;
+  padding: 20px;
+  border-radius: 24px;
+  background: rgb(255 255 255 / 33%);
+  border: 1px solid rgb(255 255 255 / 68%);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow:
+    inset 1px 1px 1px rgb(255 255 255 / 75%),
+    0 9px 17px rgb(64 78 35 / 9%);
+  transform: rotate(-6deg);
+}
+.cp-liquid > div {
+  display: flex;
+  justify-content: space-between;
+}
+.cp-liquid > p {
+  font-size: 13px;
+  color: #4b523c;
+  margin: 20px 0 0 !important;
+}
+.cp-liquid > strong {
+  display: block;
+  font-size: 43px;
+  line-height: 1.25;
+  font-weight: 400;
+  letter-spacing: -0.07em;
+}
+.cp-liquid > strong > span {
+  font-size: 24px;
+  opacity: 0.55;
+}
+.cp-liquid > small {
+  display: block;
+  font-size: 9px;
+  margin-top: 15px;
+  color: #526142;
+}
+.cp-liquid > small > span {
+  margin: 0 8px;
+}
+.cp-glass__dock {
+  position: absolute;
+  bottom: 36px;
+  left: 25px;
+  right: 25px;
+  padding: 15px;
+  display: flex;
+  justify-content: space-around;
+  gap: 15px;
+  background: rgb(255 255 255 / 38%);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgb(255 255 255 / 55%);
+  border-radius: 25px;
+}
+.cp-glass__dock > svg {
+  width: 19px;
+  height: 19px;
+}
+.cp-mode-glass .cp-home {
+  background: #4c583c;
+}
+.cp-mode-glass .cp-liquid {
+  animation: cp-glass-settle 1300ms var(--ds-ease) both;
+}
+/* Record: a spoken line becomes a confirmed structured entry. */
+.cp-record {
+  padding: 66px 22px 30px;
+  height: 100%;
+  background: #f6f4ee;
+}
+.cp-record__bubble {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: #e5e6da;
+  padding: 13px 15px;
+  border-radius: 16px 16px 3px 16px;
+  font-size: 16px;
+  margin-top: 36px;
+  margin-left: 18px;
+}
+.cp-entry {
+  background: #fffef8;
+  border-radius: 19px;
+  padding: 23px 20px;
+  margin: 23px 6px 0;
+  box-shadow: 0 10px 25px -20px #858675;
+  animation: cp-entry-in 900ms var(--ds-ease) both;
+}
+.cp-entry > span {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+}
+.cp-entry > strong {
+  font-size: 46px;
+  font-weight: 400;
+  letter-spacing: -0.07em;
+  display: block;
+  line-height: 1.5;
+  margin-top: 12px;
+}
+.cp-entry > strong > span {
+  font-size: 25px;
+  color: #a4aa98;
+}
+.cp-entry > p {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #6b8250 !important;
+}
+.cp-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 65px;
+  margin-top: 13px;
+}
+.cp-wave > i {
+  width: 3px;
+  background: #a0ab8d;
+  border-radius: 3px;
+  animation: cp-wave 800ms ease-in-out 2 alternate;
+}
+.cp-fauxbutton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #292e23;
+  color: #f5f5ea;
+  padding: 11px 15px;
+  border-radius: 25px;
+  font-size: 12px;
+  margin-top: 10px;
+}
+/* Stats: a stable seven-day total, bars assemble once on entry. */
+.cp-stats {
+  padding: 65px 22px 28px;
+  background: #f8f7f0;
+  height: 100%;
+}
+.cp-stats > p {
+  font-size: 12px;
+  margin-top: 22px !important;
+}
+.cp-stats > strong {
+  font-size: 46px;
+  font-weight: 400;
+  letter-spacing: -0.07em;
+  line-height: 1.5;
+}
+.cp-stats > strong > span {
+  font-size: 25px;
+  color: #a0a590;
+}
+.cp-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  height: 118px;
+  margin: 16px 0 22px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #dde0d2;
+}
+.cp-chart > i {
+  width: 18px;
+  border-radius: 4px 4px 0 0;
+  background: #a7b59b;
+  transform-origin: bottom;
+  animation: cp-bar-in 900ms var(--ds-ease) both;
+}
+.cp-chart > i:nth-child(6) {
+  background: #ffac3d;
+}
+.cp-category {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  padding-bottom: 11px;
+  margin-top: 15px;
+  font-size: 11px;
+  gap: 8px;
+}
+.cp-category > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cp-category > b {
+  font-size: 11px;
+  font-weight: 400;
+  color: #6c765f;
+}
+.cp-category > i {
+  height: 3px;
+  background: #b6c0a5;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  border-radius: 3px;
+}
+.cp-stats > small {
+  font-size: 9px;
+  color: #8a9180;
+  display: block;
+  margin-top: 22px;
+  text-align: center;
+}
+/* Circle: separate people, a shared recap — no public ledger. */
+.cp-circle {
+  padding: 65px 22px 25px;
+  background: #eee7d9;
+  height: 100%;
+}
+.cp-orbit {
+  position: relative;
+  width: 200px;
+  height: 190px;
+  margin: 22px auto 5px;
+}
+.cp-orbit::before {
+  content: "";
+  position: absolute;
+  border: 1px dashed #c9c6b1;
+  border-radius: 50%;
+  inset: 25px 8px;
+  transform: rotate(-20deg);
+}
+.cp-avatar {
+  display: grid;
+  place-items: center;
+  width: 57px;
+  height: 57px;
+  border: 4px solid #eee7d9;
+  border-radius: 50%;
+  position: absolute;
+  font-size: 11px;
+  z-index: 2;
+}
+.cp-avatar--one {
+  background: #f9d58a;
+  top: 0;
+  left: 75px;
+}
+.cp-avatar--two {
+  background: #c2cfaa;
+  top: 97px;
+  left: 0;
+}
+.cp-avatar--three {
+  background: #d0bba6;
+  top: 112px;
+  right: 0;
+}
+.cp-orbit__heart {
+  display: grid;
+  place-items: center;
+  position: absolute;
+  left: 75px;
+  top: 80px;
+  color: #ad724e;
+}
+.cp-avatar {
+  animation: cp-screen-in 900ms var(--ds-ease) both;
+}
+.cp-avatar--two {
+  animation-delay: 100ms;
+}
+.cp-avatar--three {
+  animation-delay: 200ms;
+}
+.cp-recap {
+  background: #faf9f1;
+  border-radius: 18px;
+  padding: 20px 16px;
+  margin-top: 15px;
+}
+.cp-recap > span {
+  font-size: 10px;
+  color: #8b8d7c;
+}
+.cp-recap > h4 {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 9px 0 15px;
+  letter-spacing: -0.05em;
+}
+.cp-recap > div {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 55px;
+}
+.cp-recap i {
+  height: 75%;
+  background: #c1c9ac;
+  flex: 1;
+  border-radius: 3px;
+}
+.cp-recap i:nth-child(2n) {
+  height: 50%;
+}
+.cp-recap i:nth-child(3n) {
+  height: 100%;
+  background: #e1bb80;
+}
+.cp-circle > small {
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #7b826c;
+  margin-top: 23px;
+}
+@keyframes cp-screen-in {
+  from {
+    opacity: 0.4;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes cp-glass-settle {
+  from {
+    transform: translateY(22px) rotate(4deg);
+  }
+  to {
+    transform: translateY(0) rotate(-6deg);
+  }
+}
+@keyframes cp-entry-in {
+  from {
+    opacity: 0.3;
+    transform: translateY(20px) rotate(3deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+}
+@keyframes cp-bar-in {
+  from {
+    transform: scaleY(0.15);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes cp-wave {
+  from {
+    transform: scaleY(0.35);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.lx-phone__concept-window {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #f6f4ee;
+}
+.lx-launch__phonewrap {
+  isolation: isolate;
+}
+.lx-phone__camera-crop {
+  position: absolute;
+  inset: -35px -60px;
+  overflow: hidden;
+  border-radius: 35px;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-art * {
+    animation: none !important;
+    transition: none !important;
+  }
+  .lx-launch__concept-summaries {
+    display: grid;
+    gap: 24px;
+    margin-top: 30px;
+  }
+  .lx-launch__concept-summaries article {
+    display: grid;
+    gap: 8px;
+  }
+  .lx-launch__concept-summaries h3 {
+    font-size: 22px;
+  }
+  .lx-launch__concept-summaries p {
+    font-size: 15px;
+    line-height: 1.7;
+  }
+}
+/* Only the existing phone window is cropped during a close-up; narration and neighbouring sections do not move. */
+.lx-launch__phonewrap {
+  overflow: hidden;
+  min-height: 0;
+  padding-block: 18px;
+}
+.lx-launch__num .lx-launch__digits {
+  font-size: clamp(24px, 3vw, 40px);
+}
+@media (max-width: 900px) {
+  .lx-launch__num .lx-launch__digits {
+    font-size: 25px;
+  }
+}
+/* Hardware stays whole throughout the camera path. Only the actual screen masks its content. */
+.lx-launch__phonewrap{overflow:visible;padding-block:20px;perspective-origin:50% 50%}
+.lx-launch .lx-phone{width:min(340px,25vw,calc(72svh * 9 / 19.4));transform-origin:50% 50%}
+.lx-launch .lx-phone__body{background:linear-gradient(122deg,#b5b9be 0%,#393b42 4%,#101115 17%,#181a20 80%,#7c828b 97%,#d1d5db 100%);box-shadow:inset 1px 1px 1px #e1e4e8,inset -1px -1px 1px #111318,0 35px 55px -32px rgb(21 24 32 / 48%)}
+.lx-launch__detail-hint{font-size:11px;color:var(--ink-3);line-height:1.6;margin-top:16px}
+.cp-glass{isolation:isolate;background:#cfc6ad}
+.cp-glass__greeting{z-index:3;color:#fdfbf3;text-shadow:0 1px 3px rgb(18 14 6 / 70%),0 6px 18px rgb(18 14 6 / 55%)}
+.cp-glass__greeting>strong{font-size:27px;font-weight:500;letter-spacing:-.04em;text-shadow:0 2px 14px rgb(20 16 8 / 45%)}
+.cp-glass__greeting h4{color:rgb(253 251 243 / 86%);font-weight:500}
+.cp-glass .cp-liquid{z-index:1;top:212px;padding:18px;border-radius:22px;background:rgb(252 250 240 / 46%);border:1px solid rgb(255 255 255 / 62%);backdrop-filter:blur(16px) saturate(165%);box-shadow:0 18px 34px -22px rgb(24 18 8 / 55%),inset 0 1px 0 rgb(255 255 255 / 78%),inset 0 -1px 0 rgb(28 24 10 / 12%);transform:rotate(-2deg);animation:none;color:#2c2a1e}
+.cp-glass .cp-liquid>p{color:#4a4536}.cp-glass .cp-liquid>small{color:#575239}
+.cp-glass .cp-glass__dock{position:absolute;z-index:4;left:19px;right:19px;top:464px;bottom:auto;height:62px;padding:5px;display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-radius:31px;overflow:hidden;background:transparent;border:1px solid rgb(255 255 255 / 58%);box-shadow:0 16px 30px -20px rgb(20 16 8 / 58%);touch-action:pan-y;-webkit-backdrop-filter:blur(18px) saturate(135%) brightness(1.07) var(--lx-dock-filter);backdrop-filter:blur(18px) saturate(135%) brightness(1.07) var(--lx-dock-filter)}
+.cp-glass__dock-tint{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(180deg,rgb(255 255 255 / 66%),rgb(252 251 246 / 44%))}
+.cp-glass__dock-specular{position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 1px 0 rgb(255 255 255 / 95%),inset 0 -1px 0 rgb(255 255 255 / 42%),inset 0 -9px 14px -10px rgb(30 26 12 / 26%)}
+.cp-glass__capsule{position:absolute;top:6px;left:6.5px;width:50px;height:50px;border-radius:50%;pointer-events:none;background:rgb(255 255 255 / 76%);box-shadow:inset 0 1px 0 rgb(255 255 255 / 98%),inset 0 0 0 1px rgb(255 255 255 / 45%),inset 0 -4px 9px rgb(40 34 16 / 12%),0 3px 8px -4px rgb(30 26 12 / 24%);transition:transform .42s cubic-bezier(.22,1,.36,1)}
+.cp-glass__dock button{position:relative;z-index:2;padding:0;min-width:0;height:50px;width:100%;border:0;border-radius:50%;display:grid;place-items:center;background:none;color:#2b2618;cursor:pointer;transition:transform 160ms cubic-bezier(.23,1,.32,1)}
+.cp-glass__dock button[aria-pressed="true"]{color:#1d1a10}
+.cp-glass__dock button:active{transform:scale(.94)}
+.cp-glass__dock button:focus-visible{outline:2px solid #7c4d16;outline-offset:1px}
+.cp-glass__dock button>svg{pointer-events:none;filter:drop-shadow(0 1px 1px rgb(255 255 255 / 55%))}
+.cp-glass__dock.is-pressed button[aria-pressed="true"]{transform:scale(.96)}
+@media(max-width:900px){.lx-launch .lx-phone{width:min(204px,52vw,calc(50svh * 9 / 19.4))}.lx-launch__detail-hint{font-size:10px}}
+@media(prefers-contrast:more),(prefers-reduced-transparency:reduce){.cp-glass__dock{backdrop-filter:none!important}.cp-glass .cp-glass__dock{background:#f7f6eb!important;border:1px solid #6f795e!important}.cp-glass__dock button[aria-pressed="true"]{background:#dce3ce}}
+@media(prefers-reduced-motion:reduce){.cp-glass .cp-glass__dock{transform:none!important}}
+/* Camera stage: the viewport is the lens. There is no local rectangle around the moving hardware. */
+.lx-launch .lx-launch__stage{isolation:isolate}
+.lx-launch .lx-launch__grid{position:relative;max-width:none;width:100%;height:100%;margin:0;padding:0;display:block}
+.lx-launch .lx-launch__phonewrap{position:absolute;inset:0;overflow:visible;padding:0;pointer-events:none;perspective:1800px}
+.lx-launch .lx-phone{pointer-events:auto;will-change:transform}
+.lx-launch .lx-launch__copy{position:absolute;left:8%;top:50%;width:31%;max-width:440px;z-index:5;will-change:transform,opacity}
+.lx-launch .lx-launch__copy.is-camera-right{left:auto;right:8%}
+.lx-launch .lx-launch__steps{height:330px}
+.lx-launch .lx-launch__step{background:transparent}
+.lx-launch .lx-launch__title{line-height:1.16;font-size:clamp(30px,3.2vw,46px);max-width:15ch;text-wrap:balance}
+.lx-launch .lx-launch__dots{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);z-index:6;gap:10px}
+.lx-launch .lx-launch__line{line-height:1.8;font-size:16px;max-width:32ch}
+@media(max-width:900px){.lx-launch .lx-launch__copy,.lx-launch .lx-launch__copy.is-camera-right{left:22px;right:22px;top:120px;width:auto;max-width:none;transform:none!important}.lx-launch .lx-launch__steps{height:150px}.lx-launch .lx-launch__title{font-size:26px;line-height:1.25;max-width:none}.lx-launch .lx-launch__line{font-size:13px;line-height:1.8;max-width:40ch}.lx-launch__detail-hint{display:none}.lx-launch .lx-launch__dots{bottom:30px}.lx-launch .lx-launch__copy>.lx-eyebrow{display:none}}
+@media(prefers-reduced-motion:reduce){.lx-launch .lx-launch__grid{position:static;display:grid;max-width:var(--maxw);height:auto;padding:0 var(--margin);margin:auto}.lx-launch .lx-launch__copy,.lx-launch .lx-launch__copy.is-camera-right{position:static;width:auto;max-width:none;transform:none!important;opacity:1!important}.lx-launch .lx-launch__steps{height:auto}.lx-launch .lx-launch__phonewrap{position:relative;inset:auto;pointer-events:auto}.lx-launch .lx-phone{transform:none!important}.lx-launch .lx-launch__dots{display:none}}
+/* Contents tell their own story; they do not rely on moving the phone to look alive. */
+.cp-record .cp-entry,.cp-circle .cp-avatar,.cp-chart>i,.cp-recap i{animation:none}
+.cp-wave>i{animation-iteration-count:infinite}
+.cp-entry strong,.cp-stats>strong{font-variant-numeric:tabular-nums}
+.cp-fauxbutton{font-size:10px;line-height:1.5}
+.cp-fauxbutton.is-down{box-shadow:inset 0 2px 6px rgb(30 26 12 / 22%)}
+.cp-tag{position:absolute;right:18px;top:18px;display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:rgb(74 92 48 / 22%);color:#33401f;font-size:9px;font-weight:600;letter-spacing:.04em}
+.cp-chart{position:relative}
+.cp-chart__peak{position:absolute;right:0;top:-16px;padding:2px 7px;border-radius:999px;background:#2f3a22;color:#f4f2e4;font-size:8.5px;letter-spacing:.02em;white-space:nowrap}
+.lx-launch:not(.is-live) .pc-art *{animation-play-state:paused!important}
+.lx-launch .lx-launch__copy{pointer-events:none}
+/* Each concept gets a read / approach / detail / return beat, rather than crossing a chapter in one wheel tick. */
+.lx-launch{height:440svh}
+.lx-launch .lx-dot,.lx-launch .lx-dot.is-on{width:44px;height:44px;background:transparent;position:relative}
+.lx-launch .lx-dot::before{content:"";position:absolute;top:20px;left:8px;right:8px;height:3px;border-radius:3px;background:rgb(20 20 19 / 16%);transition:transform 180ms ease,background-color 180ms ease}
+.lx-launch .lx-dot.is-on::before{left:0;right:0;background:var(--ink)}
+@media(hover:hover) and (pointer:fine){.lx-launch .lx-dot:hover::before{background:var(--ink-3)}}
+@media(max-width:900px){.lx-launch{height:420svh}}
+@media(prefers-reduced-motion:reduce){.lx-launch{height:auto}}
