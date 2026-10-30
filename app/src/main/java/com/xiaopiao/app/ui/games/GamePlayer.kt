@@ -1013,6 +1013,7 @@ private fun ResultView(
 ) {
     val context = LocalContext.current
     val haptics = rememberXpHaptics()
+    val clipLabel = stringResource(R.string.games_clip_label)
     var copied by remember(outcome) { mutableStateOf(false) }
     val figure = resultFigure(game, deck, answers, outcome)
     val persona = game.mode == GameMode.Persona
@@ -1089,7 +1090,7 @@ private fun ResultView(
             onClick = {
                 val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 manager.setPrimaryClip(
-                    ClipData.newPlainText(context.getString(R.string.games_clip_label), outcome.shareText),
+                    ClipData.newPlainText(clipLabel, outcome.shareText),
                 )
                 copied = true
                 haptics.confirm()

@@ -219,9 +219,9 @@ private fun BudgetCard(period: BudgetPeriod, status: BudgetStatus?, onOpen: () -
             .padding(horizontal = XpSpace.l, vertical = XpSpace.m),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("${period.label}预算", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
+            Text(com.xiaopiao.app.ui.UiLabels.title("${period.label}预算"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
             Text(
-                if (status == null) "设置" else "编辑",
+                com.xiaopiao.app.ui.UiLabels.title(if (status == null) "设置" else "编辑"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = XpColors.Accent,
                 modifier = Modifier.clip(PillShape).pressableClick(haptic = false, onClick = onEdit)
@@ -292,7 +292,7 @@ private fun CategoryBudgetSection(
 ) {
     Column(Modifier.fillMaxWidth().clip(CardShape).background(XpColors.Card).padding(vertical = XpSpace.m)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l), verticalAlignment = Alignment.CenterVertically) {
-            Text("分类预算", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
+            Text(com.xiaopiao.app.ui.UiLabels.title("分类预算"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
             Text(
                 "添加",
                 style = MaterialTheme.typography.bodyMedium,

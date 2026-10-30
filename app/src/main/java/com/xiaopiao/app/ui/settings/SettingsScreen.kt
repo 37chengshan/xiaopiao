@@ -185,7 +185,7 @@ fun SettingsScreen(
                 AiEntrySection(autoEntry) { enabled -> scope.launch { aiPrefs.setAutoEntry(enabled) } }
                 Box(Modifier.xpRevealLayer(index = 0)) {
                     AppearanceNavSection(
-                        value = "${mode.label} · ${colorTheme.label}",
+                        value = "${com.xiaopiao.app.ui.UiLabels.title(mode.label)} · ${com.xiaopiao.app.ui.UiLabels.title(colorTheme.label)}",
                         onOpen = { sub = SettingsSub.Appearance },
                     )
                 }

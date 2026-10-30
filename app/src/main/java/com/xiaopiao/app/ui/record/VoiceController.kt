@@ -146,6 +146,9 @@ class VoiceController(
     }
 
     private fun record(session: AsrSession) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            error = "需要麦克风权限才能录音"; listening = false; return
+        }
         val minBuffer = AudioRecord.getMinBufferSize(
             16_000,
             AudioFormat.CHANNEL_IN_MONO,

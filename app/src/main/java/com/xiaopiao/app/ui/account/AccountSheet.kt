@@ -49,7 +49,6 @@ import com.xiaopiao.app.R
 import com.xiaopiao.app.domain.AccountValidation
 import com.xiaopiao.app.domain.AccountIssue
 import com.xiaopiao.app.network.ApiException
-import com.xiaopiao.app.ui.components.glassCard
 
 @Composable
 fun AccountSheet(client: AccountClient, onDismiss: () -> Unit) {
@@ -210,15 +209,15 @@ private val SceneHeight = 236.dp
 @Composable
 private fun LoginScene(reduced: Boolean, modifier: Modifier = Modifier) {
     val drift = rememberInfiniteTransition(label = "loginDrift")
-    val t by drift.animateFloat(
+    val t = drift.animateFloat(
         0f, 1f, infiniteRepeatable(tween(5200, easing = LinearEasing), RepeatMode.Reverse), label = "loginT",
     )
-    val phase = if (reduced) 0.5f else t
+    fun phase() = if (reduced) 0.5f else t.value
     Box(modifier.fillMaxWidth().height(SceneHeight + 96.dp)) {
         // Slips first, so the mark sits above them.
-        Slip(Modifier.align(Alignment.TopCenter).offset(x = (-92).dp, y = (150 + 6 * phase).dp), -14f + 3f * phase)
-        Slip(Modifier.align(Alignment.TopCenter).offset(x = 96.dp, y = (164 - 8 * phase).dp), 11f - 2f * phase)
-        Slip(Modifier.align(Alignment.TopCenter).offset(x = 6.dp, y = (196 + 5 * phase).dp), -3f + 2f * phase)
+        Slip(Modifier.align(Alignment.TopCenter).offset(x = (-92).dp, y = 150.dp).graphicsLayer { translationY = 6.dp.toPx() * phase() }) { -14f + 3f * phase() }
+        Slip(Modifier.align(Alignment.TopCenter).offset(x = 96.dp, y = 164.dp).graphicsLayer { translationY = -8.dp.toPx() * phase() }) { 11f - 2f * phase() }
+        Slip(Modifier.align(Alignment.TopCenter).offset(x = 6.dp, y = 196.dp).graphicsLayer { translationY = 5.dp.toPx() * phase() }) { -3f + 2f * phase() }
         Column(Modifier.align(Alignment.TopCenter).padding(top = 52.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
                 Modifier.size(64.dp)
@@ -242,10 +241,10 @@ private fun LoginScene(reduced: Boolean, modifier: Modifier = Modifier) {
 
 /** One receipt slip: paper, a few printed lines, a torn bottom edge. */
 @Composable
-private fun Slip(modifier: Modifier, angle: Float) {
+private fun Slip(modifier: Modifier, angle: () -> Float) {
     val shape = TornBottom
     Column(
-        modifier.graphicsLayer { rotationZ = angle }
+        modifier.graphicsLayer { rotationZ = angle() }
             .size(width = 96.dp, height = 124.dp)
             .shadow(10.dp, shape)
             .clip(shape)

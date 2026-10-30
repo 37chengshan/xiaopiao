@@ -29,9 +29,10 @@ enum class NavSide { Ledger, Social }
 enum class NavSlot { Ledger, Receipt, Insights, Plus, Fold, Chat, Circle, Games }
 
 /** 设置 → 打开 App 时进入. */
-enum class LaunchSide(val label: String) {
+enum class LaunchSide(private val zhLabel: String) {
     Ledger("记账"),
-    Social("AI · 圈子"),
+    Social("AI · 圈子");
+    val label: String get() = if (java.util.Locale.getDefault().language != "en") zhLabel else if (this == Ledger) "Ledger" else "AI · Circles"
 }
 
 /**

@@ -414,7 +414,7 @@ private fun ActiveFilterChip(filter: LedgerFilter, onClear: () -> Unit) {
         when (filter.range) {
             LedgerRange.Month -> {}
             LedgerRange.Custom -> {
-                val fmt = java.text.SimpleDateFormat("M/d", java.util.Locale.getDefault())
+                val fmt = java.text.SimpleDateFormat("M/d", androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
                 val from = filter.customFrom?.let { fmt.format(java.util.Date(it)) } ?: "…"
                 val to = filter.customTo?.let { fmt.format(java.util.Date(it)) } ?: "…"
                 add("$from–$to")

@@ -23,7 +23,6 @@ import com.xiaopiao.app.domain.AccountValidation
 import com.xiaopiao.app.network.AccountClient
 import com.xiaopiao.app.network.ApiException
 import com.xiaopiao.app.ui.components.NavIconButton
-import com.xiaopiao.app.ui.components.glassCard
 import com.xiaopiao.app.ui.theme.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch

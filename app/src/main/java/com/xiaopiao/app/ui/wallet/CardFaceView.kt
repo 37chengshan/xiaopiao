@@ -167,33 +167,19 @@ fun BankCardBody(
 ) {
     val face = card.face
     Column(modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (card.showBankName) {
-                Text(
-                    card.bankName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = face.onBg.copy(alpha = 0.8f),
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f),
-                )
-            } else {
-                Spacer(Modifier.weight(1f))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Canvas(Modifier.width(36.dp).height(25.dp)) {
+                val metal = listOf(Color(0xFFE4D6A5), Color(0xFFBCA46A), Color(0xFFF3E5B4))
+                drawRoundRect(Brush.linearGradient(metal), cornerRadius = CornerRadius(4.dp.toPx()))
+                val etch = Color(0xFF85734D).copy(alpha = 0.65f)
+                drawLine(etch, Offset(size.width * 0.33f, 0f), Offset(size.width * 0.33f, size.height), 1.dp.toPx())
+                drawLine(etch, Offset(size.width * 0.67f, 0f), Offset(size.width * 0.67f, size.height), 1.dp.toPx())
+                drawLine(etch, Offset(0f, size.height * 0.5f), Offset(size.width, size.height * 0.5f), 1.dp.toPx())
             }
-            Text(
-                if (hidden) "••••" else "本月 ${spend.cents.yuan()}",
-                style = MaterialTheme.typography.bodySmall,
-                color = face.onBg.copy(alpha = 0.8f),
-                maxLines = 1,
-            )
-        }
-        Spacer(Modifier.height(10.dp))
-        Canvas(Modifier.width(36.dp).height(25.dp)) {
-            val metal = listOf(Color(0xFFE4D6A5), Color(0xFFBCA46A), Color(0xFFF3E5B4))
-            drawRoundRect(Brush.linearGradient(metal), cornerRadius = CornerRadius(4.dp.toPx()))
-            val etch = Color(0xFF85734D).copy(alpha = 0.65f)
-            drawLine(etch, Offset(size.width * 0.33f, 0f), Offset(size.width * 0.33f, size.height), 1.dp.toPx())
-            drawLine(etch, Offset(size.width * 0.67f, 0f), Offset(size.width * 0.67f, size.height), 1.dp.toPx())
-            drawLine(etch, Offset(0f, size.height * 0.5f), Offset(size.width, size.height * 0.5f), 1.dp.toPx())
+            Spacer(Modifier.width(12.dp))
+            if (card.showBankName) Text(card.bankName, modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall, color = face.onBg.copy(alpha = 0.8f), maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(8.dp))
         Text(

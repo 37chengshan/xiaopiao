@@ -87,7 +87,7 @@ fun GroupedSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(header, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+                Text(com.xiaopiao.app.ui.UiLabels.title(header), style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
                 headerTrailing?.invoke()
             }
         } else {

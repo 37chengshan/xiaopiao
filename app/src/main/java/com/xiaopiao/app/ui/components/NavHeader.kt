@@ -146,7 +146,7 @@ fun NavScaffold(
             // A page with nothing to name (引导页) still gets the same bar and capsules, just no centre text.
             if (title.isNotEmpty()) Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(NavBarHeight), contentAlignment = Alignment.Center) {
                 Text(
-                    title, Modifier.padding(horizontal = 112.dp),
+                    com.xiaopiao.app.ui.UiLabels.title(title), Modifier.padding(horizontal = 112.dp),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = XpColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
@@ -161,7 +161,7 @@ fun NavScaffold(
                         ) {
                             // The visible label already names the destination, so the chevron adds no words for TalkBack.
                             Icon(Icons.Outlined.ArrowBackIosNew, contentDescription = null, tint = XpColors.Ink, modifier = Modifier.size(16.dp))
-                            Text(backLabel, style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink)
+                            Text(com.xiaopiao.app.ui.UiLabels.title(backLabel), style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink)
                         }
                     }
                 }
