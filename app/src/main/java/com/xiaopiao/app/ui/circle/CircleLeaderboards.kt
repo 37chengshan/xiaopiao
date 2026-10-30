@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.R
 import com.xiaopiao.app.domain.DAY_MS
 import com.xiaopiao.app.domain.startOfDay
+import com.xiaopiao.app.domain.yuanGrouped
 import com.xiaopiao.app.ui.components.GroupedSection
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.SelectCapsule
@@ -162,7 +163,7 @@ internal fun CircleLeaderboardContent(
                     text = stringResource(R.string.circle_lb_invite),
                     onClick = { onInvite?.invoke() },
                     enabled = onInvite != null,
-                    style = XpButtonStyle.Secondary,
+                    style = XpButtonStyle.Primary,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -330,7 +331,7 @@ private fun CircleRankRow(
             when (type) {
                 LeaderboardType.LeastSpent, LeaderboardType.MostSpent ->
                     MoneyText(
-                        cents = row.value,
+                        amount = row.value.yuanGrouped(),
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = XpColors.Ink,
                     )

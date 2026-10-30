@@ -17,7 +17,7 @@
     <string name="circle_home_save">保存</string>
     <string name="circle_home_empty_title">群里还很安静</string>
     <string name="circle_home_empty_body">家人发出第一张小票后，这里就会热闹起来。</string>
-    <string name="circle_home_composer">说点什么… 只保存在本机</string>
+    <string name="circle_home_composer">说点什么…</string>
     <string name="circle_home_local_note">这个群只在这台手机上，发出去的消息不会离开设备。</string>
     <string name="circle_home_games_title">游戏</string>
     <string name="circle_home_games_meta">%1$d 个小游戏 · 娱乐，不构成建议</string>

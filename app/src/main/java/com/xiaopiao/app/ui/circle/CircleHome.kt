@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -82,6 +83,8 @@ private val ComposerHeight = 88.dp
 fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenGames: () -> Unit = {}) {
     // The feed runs under the glass tab bar; the composer floats above it (0 once the keyboard covers the bar).
     val BottomGlassInset = if (WindowInsets.isImeVisible) 0.dp else LocalTabBarInset.current
+    // 输入框高度随字体长大（1.3 倍时 88dp 不够），底部留白跟着放大，最后一条才不会被压住。
+    val composerInset = ComposerHeight * LocalDensity.current.fontScale.coerceIn(1f, 1.6f)
     val now = remember { System.currentTimeMillis() }
     var book by remember { mutableStateOf(CircleDemo.book(now)) }
     val circle = book.current()
@@ -153,7 +156,7 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                     translationY = (1f - feedIn.value) * 10.dp.toPx()
                 },
                 // Runs under the glass header; the composer floats above the bar.
-                contentPadding = PaddingValues(top = top + XpSpace.xs, bottom = ComposerHeight + BottomGlassInset + XpSpace.s),
+                contentPadding = PaddingValues(top = top + XpSpace.xs, bottom = composerInset + BottomGlassInset + XpSpace.s),
             ) {
                 item(key = "circle-award") {
                     CircleAwardCard(
@@ -218,6 +221,18 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                     )
                 }
             }
+            // 输入框和底栏之间那道缝会露出被切断的文字，铺一层渐隐底色收住（聊天界面的常规做法）。
+            Box(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                    .height(composerInset + BottomGlassInset + XpSpace.l)
+                    .background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            0f to XpColors.Canvas.copy(alpha = 0f),
+                            0.35f to XpColors.Canvas,
+                            1f to XpColors.Canvas,
+                        ),
+                    ),
+            )
             CircleComposer(
                 draft = draft,
                 onDraftChange = { draft = it },
