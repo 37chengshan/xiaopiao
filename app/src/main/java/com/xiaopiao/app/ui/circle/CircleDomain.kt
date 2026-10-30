@@ -44,6 +44,7 @@ data class Circle(
     val members: List<CircleMember>,
     val posts: List<CirclePost>,
     val invite: CircleInvite,
+    val comments: List<CircleComment> = emptyList(),
 ) {
     fun member(id: String): CircleMember? = members.firstOrNull { it.id == id }
     fun owner(): CircleMember? = member(ownerId)
@@ -330,8 +331,11 @@ fun leaderboard(circle: Circle, type: LeaderboardType, now: Long, viewerId: Stri
 
 /** Per-member weekly titles used by the award card; deterministic per week. */
 fun weeklyTitle(circle: Circle, member: CircleMember, now: Long): CircleBadge {
-    val seed = (member.id.hashCode() * 131 + weekStart(now).toInt()) and 0x7fffffff
-    return BADGE_POOL[seed % BADGE_POOL.size]
+    // The week picks where the circle starts in the pool; members step through it by 3 (coprime with the pool
+    // size), so nobody in one circle shares a title with anyone else that week.
+    val week = ((weekStart(now) / 86_400_000L) and 0x7fffffff).toInt()
+    val position = circle.members.indexOfFirst { it.id == member.id }.coerceAtLeast(0)
+    return BADGE_POOL[(week + position * 3) % BADGE_POOL.size]
 }
 
 fun awardSystemPost(circle: Circle, now: Long): SystemPost {

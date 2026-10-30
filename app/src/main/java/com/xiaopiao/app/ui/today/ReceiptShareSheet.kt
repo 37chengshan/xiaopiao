@@ -84,7 +84,7 @@ class ShareContent(
 /** "分享小票" sheet: the receipt on a pick-your-own gradient card, 完整/简版, 分享 / 保存图片 / 复制文字. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReceiptShareSheet(content: ShareContent, onDismiss: () -> Unit) {
+fun ReceiptShareSheet(content: ShareContent, onDismiss: () -> Unit, onShareToCircle: (() -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val haptics = rememberXpHaptics()
@@ -146,8 +146,11 @@ fun ReceiptShareSheet(content: ShareContent, onDismiss: () -> Unit) {
                 }
                 ShareAction(Icons.Outlined.Groups, "发到圈子") {
                     haptics.select()
-                    ReceiptShare.copyText(context, plain)
-                    toast("小票文字已复制，去圈子粘贴")
+                    // Into the circle feed as a receipt post (tt: 小票打印分享圈子需要做好), not a pasted text.
+                    if (onShareToCircle != null) onShareToCircle() else {
+                        ReceiptShare.copyText(context, plain)
+                        toast("小票文字已复制，去圈子粘贴")
+                    }
                 }
                 ShareAction(Icons.Outlined.ContentCopy, "复制文字") {
                     haptics.select()

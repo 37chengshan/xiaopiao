@@ -62,9 +62,20 @@ data class ReceiptPost(
     val authorId: String,
     val dayStart: Long,
     val items: List<CircleItem>,
+    /** What the author typed above the receipt (朋友圈-style post); blank = the receipt alone. */
+    val caption: String = "",
 ) : CirclePost {
     val totalCents: Cents get() = items.sumOf { it.cents }
 }
+
+/** A reply under a post. Lives on its [Circle], like the posts. */
+data class CircleComment(
+    val id: String,
+    val postId: String,
+    val authorId: String,
+    val text: String,
+    val at: Long,
+)
 
 data class TextPost(
     override val id: String,
@@ -227,7 +238,7 @@ object CircleDemo {
             members = members(),
             posts = feed(now),
             invite = newInvite(now - 3 * HOUR, seed = 42L),
-        )
+        ).let { it.copy(comments = comments(it.posts)) }
         val roomies = Circle(
             id = "roomies",
             name = "合租三人组",
@@ -282,8 +293,8 @@ object CircleDemo {
 
         fun item(merchant: String, cents: Cents, category: Category) = CircleItem(merchant, cents, category)
 
-        fun receipt(id: String, author: String, offset: Int, hour: Int, minute: Int, items: List<CircleItem>) {
-            posts += ReceiptPost(id, at(offset, hour, minute), author, day(offset), items)
+        fun receipt(id: String, author: String, offset: Int, hour: Int, minute: Int, items: List<CircleItem>, caption: String = "") {
+            posts += ReceiptPost(id, at(offset, hour, minute), author, day(offset), items, caption)
         }
 
         fun text(id: String, author: String, offset: Int, hour: Int, minute: Int, body: String) {
@@ -308,8 +319,8 @@ object CircleDemo {
                 item("菜市场", 3200, Category.GROCERY),
                 item("鲜牛奶", 1990, Category.GROCERY),
             ),
+            caption = "鱼新鲜，晚上回来吃",
         )
-        text("t-mom-2", "mom", -2, 19, 46, "鱼新鲜，晚上回来吃")
         system("s-weekly", -1, 8, 5, "家庭周报出炉", "每人一份周报已生成，去「洞察」看分类构成和头衔。")
         receipt(
             "r-sister-1", "sister", -1, 12, 35, listOf(
@@ -317,10 +328,9 @@ object CircleDemo {
                 item("奶茶", 1600, Category.DRINK),
                 item("电影票", 4500, Category.FUN),
             ),
+            caption = "食堂今天的糖醋排骨居然不甜",
         )
-        text("t-sister-1", "sister", -1, 12, 40, "食堂今天的糖醋排骨居然不甜")
-        receipt("r-dad-1", "dad", -1, 21, 10, emptyList())
-        text("t-dad-1", "dad", -1, 21, 12, "今天在单位吃，钱包休息一天")
+        receipt("r-dad-1", "dad", -1, 21, 10, emptyList(), caption = "今天在单位吃，钱包休息一天")
         system("s-title", -1, 21, 30, "妹妹 本周头衔「奶茶续命王」", "家庭头衔是娱乐标签，不构成建议。")
         receipt(
             "r-me-1", MY_ID, -1, 22, 5, listOf(
@@ -329,8 +339,8 @@ object CircleDemo {
                 item("喜茶", 2400, Category.DRINK),
                 item("淘宝", 8900, Category.SHOPPING),
             ),
+            caption = "淘宝那单是给家里买的路由器",
         )
-        text("t-me-1", MY_ID, -1, 22, 8, "淘宝那单是给家里买的路由器")
         receipt(
             "r-me-0", MY_ID, 0, 12, 20, listOf(
                 item("地铁", 400, Category.TRANSPORT),
@@ -344,6 +354,21 @@ object CircleDemo {
                 item("蜜雪冰城", 700, Category.DRINK),
             ),
         )
+        text("t-mom-0", "mom", 0, 13, 5, "周末谁回家吃饭？我好买菜")
         return posts.sortedBy { it.at }
+    }
+
+    /** Replies under the seeded posts (same deterministic clock as [feed]). */
+    fun comments(posts: List<CirclePost>): List<CircleComment> {
+        val at = posts.associate { it.id to it.at }
+        fun c(id: String, postId: String, author: String, text: String, afterMin: Int): CircleComment? =
+            at[postId]?.let { CircleComment(id, postId, author, text, it + afterMin * MINUTE) }
+        return listOfNotNull(
+            c("c-1", "r-mom-2", "dad", "我七点到", 6),
+            c("c-2", "r-mom-2", MY_ID, "给我留块鱼肚子", 12),
+            c("c-3", "r-sister-1", "mom", "电影票又是你请的？", 30),
+            c("c-4", "r-me-1", "dad", "路由器我来装", 15),
+            c("c-5", "t-mom-0", "sister", "我回！", 3),
+        )
     }
 }
