@@ -61,6 +61,7 @@ enum class ScanMode(val title: String, val hint: String) {
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
+@androidx.annotation.OptIn(markerClass = [androidx.camera.core.ExperimentalGetImage::class])
 fun CardScannerSheet(
     mode: ScanMode,
     onDismiss: () -> Unit,

@@ -23,9 +23,9 @@ async function fixture(t) {
 }
 test('public account policy and validation failures identify the password field', async t => {
   const f = await fixture(t);
-  const p = await f.call('policy'); assert.equal(p.status, 200); assert.equal(p.data.passwordMin, 15);
+  const p = await f.call('policy'); assert.equal(p.status, 200); assert.equal(p.data.passwordMin, 8);
   assert.equal(p.data.profileEditing, true);
-  const r = await f.call('register', { email: 'other@example.test', username: 'other', password: 'test-short', client: 'native' });
+  const r = await f.call('register', { email: 'other@example.test', username: 'other', password: 'short', client: 'native' });
   assert.equal(r.status, 400); assert.equal(r.data.field, 'password');
 });
 test('profile updates preserve identity and require a verified account', async t => {
@@ -67,6 +67,15 @@ test('legacy short credentials survive logout/login and email IME punctuation is
   assert.equal(first.status, 200);
   assert.equal((await f.call('logout', {}, first.data.token)).status, 200);
   assert.equal((await f.call('login', { identifier: ' QA@EXAMPLE.TEST ', password: legacy, client: 'native' })).status, 200);
-  const invalidNew = await f.call('register', { email: 'new@example.test', username: 'newuser', password: legacy });
-  assert.equal(invalidNew.status, 400); assert.equal(invalidNew.data.field, 'password');
+  const shorter = await f.call('register', { email: 'new@example.test', username: 'newuser', password: 'short' });
+  assert.equal(shorter.status, 400); assert.equal(shorter.data.field, 'password');
+});
+
+test('new eight-character passwords register, verify, logout and log in', async t => {
+  const f = await fixture(t);
+  const reg = await f.call('register', { email: 'eight@example.test', username: 'eightuser', password: 'test1234', client: 'native' });
+  assert.equal(reg.status, 201);
+  assert.equal((await f.call('verify', { code: f.mail.at(-1).code }, reg.data.token)).status, 200);
+  assert.equal((await f.call('logout', {}, reg.data.token)).status, 200);
+  assert.equal((await f.call('login', { identifier: 'eightuser', password: 'test1234', client: 'native' })).status, 200);
 });

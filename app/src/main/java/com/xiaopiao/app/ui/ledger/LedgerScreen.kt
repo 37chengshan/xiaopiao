@@ -277,25 +277,13 @@ fun LedgerScreen(
                 when (mode) {
                     "search" -> NavIconButton(Icons.Outlined.Tune, if (filter.activeCount > 0) "筛选 ${filter.activeCount}" else "筛选", onClick = { filterOpen = true })
                     "select" -> {
-                        Text(
-                            if (selection?.size == visible.size && visible.isNotEmpty()) "取消全选" else "全选",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = XpColors.Accent,
-                            modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill))
-                                .pressableClick(haptic = false) {
-                                    val ids = visible.map { it.id }.toSet()
-                                    selection = if (selection == ids) emptySet() else ids
-                                }
-                                .padding(horizontal = XpSpace.s, vertical = XpSpace.xs),
-                        )
-                        Text(
-                            "取消",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                            color = XpColors.Accent,
-                            modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill))
-                                .pressableClick(haptic = false) { selection = null }
-                                .padding(horizontal = XpSpace.s, vertical = XpSpace.xs),
-                        )
+                        val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
+                        val all = selection?.size == visible.size && visible.isNotEmpty()
+                        com.xiaopiao.app.ui.components.NavTextAction(if (all) if (en) "Clear" else "取消全选" else if (en) "Select all" else "全选", {
+                            val ids = visible.map { it.id }.toSet()
+                            selection = if (selection == ids) emptySet() else ids
+                        })
+                        com.xiaopiao.app.ui.components.NavTextAction(if (en) "Cancel" else "取消", { selection = null })
                     }
 
                     else -> AppTopActions()
@@ -426,7 +414,7 @@ private fun ActiveFilterChip(filter: LedgerFilter, onClear: () -> Unit) {
         when (filter.range) {
             LedgerRange.Month -> {}
             LedgerRange.Custom -> {
-                val fmt = java.text.SimpleDateFormat("M/d", java.util.Locale.getDefault())
+                val fmt = java.text.SimpleDateFormat("M/d", androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
                 val from = filter.customFrom?.let { fmt.format(java.util.Date(it)) } ?: "…"
                 val to = filter.customTo?.let { fmt.format(java.util.Date(it)) } ?: "…"
                 add("$from–$to")
@@ -532,7 +520,7 @@ private fun LedgerList(
                         placementSpec = spring(dampingRatio = 1f, stiffness = 520f),
                     )
                     .padding(top = CardGap)
-                    .staggerIn(if (selection != null) 0 else index, reduceMotion),
+                    ,
             ) {
                 LedgerDayCard(
                     group = group,

@@ -64,10 +64,10 @@ private val IconInset = 58.dp
 
 @Composable
 fun AppearanceSection(mode: ThemeMode, onMode: (ThemeMode) -> Unit) {
-    GroupedSection(header = "外观") {
+    GroupedSection(header = com.xiaopiao.app.ui.UiLabels.title("外观")) {
         item {
             Box(Modifier.fillMaxWidth().padding(XpSpace.m)) {
-                Segmented(ThemeMode.entries.map { it.label }, mode.ordinal, { onMode(ThemeMode.entries[it]) })
+                Segmented(ThemeMode.entries.map { com.xiaopiao.app.ui.UiLabels.title(it.label) }, mode.ordinal, { onMode(ThemeMode.entries[it]) })
             }
         }
     }
@@ -75,10 +75,10 @@ fun AppearanceSection(mode: ThemeMode, onMode: (ThemeMode) -> Unit) {
 
 @Composable
 fun ReceiptSection(soundOn: Boolean, onSound: (Boolean) -> Unit) {
-    GroupedSection(header = "小票", dividerInset = IconInset) {
+    GroupedSection(header = com.xiaopiao.app.ui.UiLabels.title("小票"), dividerInset = IconInset) {
         item {
             GroupedRow(
-                title = "打印音效",
+                title = com.xiaopiao.app.ui.UiLabels.title("打印音效"),
                 leading = { IconTile(Icons.Outlined.VolumeUp, tint = XpColors.Info, background = XpColors.InfoSoft) },
                 trailing = { XpSwitch(soundOn, onSound) },
                 onClick = { onSound(!soundOn) },
@@ -99,10 +99,10 @@ fun CaptureSection(
 ) {
     val reconnect = com.xiaopiao.app.ui.capture.rememberReconnect()
     val now = rememberUpdatedClock()
-    GroupedSection(header = "自动记账", dividerInset = IconInset) {
+    GroupedSection(header = com.xiaopiao.app.ui.UiLabels.title("自动记账"), dividerInset = IconInset) {
         item {
             GroupedRow(
-                title = "通知读取",
+                title = com.xiaopiao.app.ui.UiLabels.title("通知读取"),
                 value = when {
                     !listenerEnabled -> stringResource(R.string.capture_off)
                     listenerConnected -> stringResource(R.string.capture_connected)
@@ -148,7 +148,7 @@ fun CaptureSection(
         }
         item {
             GroupedRow(
-                title = "小票提醒",
+                title = com.xiaopiao.app.ui.UiLabels.title("小票提醒"),
                 value = if (postGranted) "已允许" else "去允许",
                 leading = { IconTile(Icons.Outlined.NotificationsActive, tint = XpColors.Warning, background = XpColors.WarningSoft) },
                 chevron = !postGranted,
@@ -199,14 +199,14 @@ fun EditionSwitchSection(inMerchant: Boolean, onSwitch: () -> Unit) {
 fun AboutSection(onPrivacy: () -> Unit) {
     val context = LocalContext.current
     val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "—"
-    GroupedSection(header = "关于", dividerInset = IconInset) {
+    GroupedSection(header = com.xiaopiao.app.ui.UiLabels.title("关于"), dividerInset = IconInset) {
         item {
             GroupedRow(
-                title = "隐私说明", value = "了解更多", chevron = true,
+                title = com.xiaopiao.app.ui.UiLabels.title("隐私说明"), value = com.xiaopiao.app.ui.UiLabels.title("了解更多"), chevron = true,
                 leading = { IconTile(Icons.Outlined.Lock) }, onClick = onPrivacy,
             )
         }
-        item { GroupedRow(title = "版本", value = version, leading = { IconTile(Icons.Outlined.Info) }) }
+        item { GroupedRow(title = com.xiaopiao.app.ui.UiLabels.title("版本"), value = version, leading = { IconTile(Icons.Outlined.Info) }) }
     }
 }
 
@@ -216,7 +216,7 @@ fun AboutSection(onPrivacy: () -> Unit) {
 fun PrivacySheet(onDismiss: () -> Unit) {
     XpSheet(onDismiss, containerColor = XpColors.Canvas) {
         Column(Modifier.padding(bottom = XpSpace.xl)) {
-            Text("隐私说明", Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s), style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
+            Text(com.xiaopiao.app.ui.UiLabels.title("隐私说明"), Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s), style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
             GroupedSection(dividerInset = IconInset) {
                 listOf(
                     "通知原文只在本机解析，不会上传",
@@ -233,10 +233,10 @@ fun PrivacySheet(onDismiss: () -> Unit) {
 
 @Composable
 fun ReplayOnboardingSection(onReplay: () -> Unit) {
-    GroupedSection(header = "引导") {
+    GroupedSection(header = com.xiaopiao.app.ui.UiLabels.title("引导")) {
         item {
             GroupedRow(
-                title = "重看引导",
+                title = com.xiaopiao.app.ui.UiLabels.title("重看引导"),
                 leading = { IconTile(Icons.Outlined.Lightbulb, tint = XpColors.Warning, background = XpColors.WarningSoft) },
                 onClick = onReplay,
             )
@@ -247,7 +247,7 @@ fun ReplayOnboardingSection(onReplay: () -> Unit) {
 /** 主题配色: five three-colour swatches spread with weights, so 360dp and 411dp both fit; the name sits under each. */
 @Composable
 fun ColorThemeSection(theme: ColorTheme, onTheme: (ColorTheme) -> Unit) {
-    GroupedSection(header = "主题配色") {
+    GroupedSection(header = com.xiaopiao.app.ui.UiLabels.title("主题配色")) {
         item {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = XpSpace.s, vertical = XpSpace.m),
@@ -302,10 +302,10 @@ private fun ThemeSwatch(choice: ColorTheme, selected: Boolean, onClick: () -> Un
 
 @Composable
 fun LaunchSideSection(side: LaunchSide, onSide: (LaunchSide) -> Unit) {
-    GroupedSection(header = "打开 App 时进入") {
+    GroupedSection(header = com.xiaopiao.app.ui.UiLabels.title("打开 App 时进入")) {
         item {
             Box(Modifier.fillMaxWidth().padding(XpSpace.m)) {
-                Segmented(LaunchSide.entries.map { it.label }, side.ordinal, { onSide(LaunchSide.entries[it]) })
+                Segmented(LaunchSide.entries.map { com.xiaopiao.app.ui.UiLabels.title(it.label) }, side.ordinal, { onSide(LaunchSide.entries[it]) })
             }
         }
     }

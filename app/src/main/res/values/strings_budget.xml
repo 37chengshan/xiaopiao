@@ -1,0 +1,33 @@
+<resources>
+    <string name="budget_card_spent">已花 ¥%1$s</string>
+    <string name="budget_card_limit">预算 ¥%1$s</string>
+    <string name="budget_card_remaining">剩余 ¥%1$s</string>
+    <string name="budget_card_over">已超出 ¥%1$s</string>
+    <string name="budget_card_allowance">还剩 %1$d 天 · 每天还可花 ¥%2$s</string>
+    <string name="budget_detail_day">每日预算明细</string>
+    <string name="budget_detail_week">每周预算明细</string>
+    <string name="budget_detail_month">每月预算明细</string>
+    <string name="budget_detail_category_title">%1$s · 月预算明细</string>
+    <string name="budget_detail_transaction">支出详情</string>
+    <string name="budget_detail_back">返回上一级</string>
+    <string name="budget_detail_close">关闭明细</string>
+    <string name="budget_detail_previous">上一周期</string>
+    <string name="budget_detail_next">下一周期</string>
+    <string name="budget_detail_spent">支出合计</string>
+    <string name="budget_detail_count">%1$d 笔支出</string>
+    <string name="budget_detail_current_limit">当前设置的预算</string>
+    <string name="budget_detail_edit">编辑预算</string>
+    <string name="budget_detail_daily_spend">七天花费</string>
+    <string name="budget_detail_weekly_spend">每周花费</string>
+    <string name="budget_detail_ranking">支出排行</string>
+    <string name="budget_detail_category">分类</string>
+    <string name="budget_detail_merchant">商户</string>
+    <string name="budget_detail_time">时间</string>
+    <string name="budget_detail_source">记录方式</string>
+    <string name="budget_detail_note">备注</string>
+    <string name="budget_detail_transactions">支出明细</string>
+    <string name="budget_detail_empty">这段时间还没有支出</string>
+    <string name="budget_detail_empty_hint">这里只统计支出，收入不占用预算。</string>
+    <string name="budget_detail_all_ranks">查看全部 %1$d 项排行</string>
+    <string name="budget_detail_view">查看支出明细</string>
+</resources>

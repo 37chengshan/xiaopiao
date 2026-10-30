@@ -40,6 +40,15 @@ import com.xiaopiao.app.network.AccountClient
 import com.xiaopiao.app.ui.theme.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import com.xiaopiao.app.R
+import com.xiaopiao.app.domain.AccountValidation
+import com.xiaopiao.app.domain.AccountIssue
+import com.xiaopiao.app.network.ApiException
 
 @Composable
 fun AccountSheet(client: AccountClient, onDismiss: () -> Unit) {
@@ -52,6 +61,8 @@ fun AccountSheet(client: AccountClient, onDismiss: () -> Unit) {
 @Composable
 fun AccountPage(client: AccountClient, onDismiss: () -> Unit) {
     val user by client.user.collectAsState()
+    val policy by client.policy.collectAsState()
+    if (user?.verified == true) { AccountProfilePage(client, onDismiss); return }
     val reduced = rememberReducedMotion()
     val entrance = remember { Animatable(0.7f) }
     LaunchedEffect(reduced) { if (reduced) entrance.snapTo(1f) else entrance.animateTo(1f, tween(XpTiming.PushIn, easing = XpEase.out)) }
@@ -63,13 +74,27 @@ fun AccountPage(client: AccountClient, onDismiss: () -> Unit) {
     var email by rememberSaveable { mutableStateOf("") }
     var username by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var fieldErrors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    val focus = remember { listOf("identifier", "email", "username", "password", "confirmPassword", "code").associateWith { FocusRequester() } }
     var code by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     fun perform(action: String = mode) {
         if (busy) return
-        busy = true; error = null; notice = null
+        val values = mapOf("identifier" to identifier, "email" to email, "username" to username, "password" to password, "confirmPassword" to confirmPassword, "code" to code)
+        fieldErrors = AccountValidation.validate(action, values, policy).mapValues { (_, issue) -> when (issue) {
+            AccountIssue.REQUIRED -> copy("请填写此项", "This field is required")
+            AccountIssue.EMAIL -> copy("请输入有效的邮箱地址", "Enter a valid email address")
+            AccountIssue.USERNAME -> copy("3–30 位字母、数字或下划线，以字母开头", "Use 3–30 letters, digits or underscores, starting with a letter")
+            AccountIssue.PASSWORD_LENGTH -> copy("密码需要 ${policy.passwordMin}–${policy.passwordMax} 个字符", "Use ${policy.passwordMin}–${policy.passwordMax} characters")
+            AccountIssue.PASSWORD_CONFIRM -> copy("两次输入的密码不一致", "Passwords do not match")
+            AccountIssue.CODE -> copy("请输入 6 位数字验证码", "Enter the 6-digit code")
+        } }
+        error = null; notice = null
+        if (fieldErrors.isNotEmpty()) { focus[fieldErrors.keys.first()]?.requestFocus(); return }
+        busy = true
         scope.launch {
             try {
                 val fields = when (action) {
@@ -81,7 +106,7 @@ fun AccountPage(client: AccountClient, onDismiss: () -> Unit) {
                     else -> emptyMap()
                 }
                 if (action == "logout") client.logout() else client.auth(action, fields)
-                password = ""
+                password = ""; confirmPassword = ""
                 when (action) {
                     "register" -> { mode = "verify"; notice = copy("验证码已发送到邮箱", "Check your email for a code") }
                     "forgot" -> { mode = "reset"; notice = copy("如果邮箱已注册，我们会发送验证码", "If registered, a code will arrive by email") }
@@ -91,19 +116,19 @@ fun AccountPage(client: AccountClient, onDismiss: () -> Unit) {
                     "logout" -> mode = "login"
                 }
             } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { error = e.message ?: copy("连接失败，请重试", "Connection failed. Try again") }
+            catch (e: Exception) {
+                val field = (e as? ApiException)?.field ?: if ((e as? ApiException)?.code == "CODE_INVALID") "code" else null
+                if (field != null && field in focus) {
+                    fieldErrors = mapOf(field to (e.message ?: copy("请检查此项", "Check this field")))
+                    focus[field]?.requestFocus()
+                } else error = e.message ?: copy("连接失败，请重试", "Connection failed. Try again")
+            }
             finally { busy = false }
         }
     }
-    LaunchedEffect(Unit) { runCatching { client.refresh() } }
+    LaunchedEffect(Unit) { client.refreshPolicy(); runCatching { client.refresh() } }
     androidx.activity.compose.BackHandler { onDismiss() }
-    // The brand scene is recorded on its own; the form card is liquid glass that bends the slips behind its top
-    // edge (tt 2026-10-30: 登录页做成液态玻璃的感觉). The page itself stays plain.
-    val scene = rememberLayerBackdrop()
-    Box(Modifier.fillMaxSize().background(XpColors.Canvas)) {
-        Box(Modifier.fillMaxSize().layerBackdrop(scene).background(XpColors.Canvas)) {
-            LoginScene(reduced, Modifier.align(Alignment.TopCenter).statusBarsPadding())
-        }
+    AccountBackdrop(scene = { LoginScene(reduced, Modifier.align(Alignment.TopCenter).statusBarsPadding()) }) {
         Column(
             Modifier.fillMaxSize().systemBarsPadding().imePadding().verticalScroll(rememberScrollState())
                 .padding(horizontal = XpSpace.l),
@@ -111,17 +136,13 @@ fun AccountPage(client: AccountClient, onDismiss: () -> Unit) {
         ) {
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = onDismiss, enabled = !busy) { Text(copy("返回", "Back"), color = XpColors.InkSecondary) }
+                AccountClose(onClick = { if (!busy) onDismiss() }, description = copy("返回", "Back"))
             }
             Spacer(Modifier.height(SceneHeight - 48.dp))
             Column(
                 Modifier.widthIn(max = 480.dp).fillMaxWidth()
                     .graphicsLayer { alpha = entrance.value; translationY = if (reduced) 0f else (1f - entrance.value) * XpSpace.xl.toPx() }
-                    .liquidGlass(
-                        scene, androidx.compose.foundation.shape.RoundedCornerShape(XpRadius.xl),
-                        film = XpColors.Card.copy(alpha = if (XpColors.isDark) 0.78f else 0.70f),
-                        blur = 14.dp, lensHeight = 24.dp, lensAmount = 36.dp, shadow = 28.dp,
-                    )
+                    .accountGlass(androidx.compose.foundation.shape.RoundedCornerShape(XpRadius.xl))
                     .padding(horizontal = XpSpace.xl, vertical = XpSpace.xl),
                 verticalArrangement = Arrangement.spacedBy(XpSpace.m),
             ) {
@@ -135,11 +156,24 @@ fun AccountPage(client: AccountClient, onDismiss: () -> Unit) {
                 AnimatedContent(targetState = if (user?.verified == true) "account" else mode,
                     transitionSpec = { ((fadeIn(tween(XpTiming.PopOut, easing = XpEase.out)) + slideInVertically(tween(if (reduced) 0 else XpTiming.PopOut, easing = XpEase.out)) { if (reduced) 0 else it / 20 }) togetherWith fadeOut(tween(if (reduced) 0 else XpTiming.Press))).using(SizeTransform(sizeAnimationSpec = { _, _ -> tween(if (reduced) 0 else XpTiming.PopOut, easing = XpEase.out) })) }, label = "accountFields") { formMode ->
                     Column(verticalArrangement = Arrangement.spacedBy(XpSpace.m)) {
-                    if (formMode == "login") LoginField(identifier, { identifier = it }, label = { Text(copy("邮箱或用户名", "Email or username")) }, singleLine = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
-                    if (formMode in listOf("register", "forgot", "reset")) LoginField(email, { email = it }, label = { Text(copy("邮箱", "Email")) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), singleLine = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
-                    if (formMode == "register") LoginField(username, { username = it }, label = { Text(copy("用户名", "Username")) }, supportingText = { Text(copy("3–30 位字母、数字或下划线，以字母开头", "3–30 letters, digits or underscores; start with a letter")) }, singleLine = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
-                    if (formMode in listOf("login", "register", "reset")) LoginField(password, { password = it }, label = { Text(copy("密码", "Password")) }, supportingText = { Text(copy("至少 15 个字符", "At least 15 characters")) }, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), singleLine = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
-                    if (formMode in listOf("verify", "reset")) LoginField(code, { code = it.filter(Char::isDigit).take(6) }, label = { Text(copy("6 位邮箱验证码", "6-digit email code")) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, enabled = !busy, modifier = Modifier.fillMaxWidth())
+                    @Composable
+                    fun input(key: String, value: String, change: (String) -> Unit, label: String, hint: String? = null, type: KeyboardType = KeyboardType.Text) {
+                        OutlinedTextField(value, { change(it); fieldErrors = fieldErrors - key; error = null }, label = { Text(label) },
+                            supportingText = if (fieldErrors[key] != null || hint != null) ({ Text(fieldErrors[key] ?: hint.orEmpty()) }) else null,
+                            isError = key in fieldErrors, singleLine = true, enabled = !busy,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(XpRadius.m),
+                            keyboardOptions = KeyboardOptions(keyboardType = type), modifier = Modifier.fillMaxWidth().focusRequester(focus.getValue(key)))
+                    }
+                    if (formMode == "login") input("identifier", identifier, { identifier = it }, copy("邮箱或用户名", "Email or username"))
+                    if (formMode in listOf("register", "forgot", "reset")) input("email", email, { email = it }, copy("邮箱", "Email"), type = KeyboardType.Email)
+                    if (formMode == "register") input("username", username, { username = it }, copy("用户名", "Username"), copy("3–30 位字母、数字或下划线，以字母开头", "3–30 letters, digits or underscores; start with a letter"))
+                    if (formMode in listOf("login", "register", "reset")) AccountPasswordField(password, { password = it; fieldErrors = fieldErrors - "password" }, copy("密码", "Password"),
+                        error = fieldErrors["password"], hint = if (formMode == "login") null else copy("${policy.passwordMin}–${policy.passwordMax} 个字符", "${policy.passwordMin}–${policy.passwordMax} characters"),
+                        enabled = !busy, modifier = Modifier.fillMaxWidth().focusRequester(focus.getValue("password")))
+                    if (formMode in listOf("register", "reset")) AccountPasswordField(confirmPassword, { confirmPassword = it; fieldErrors = fieldErrors - "confirmPassword" }, copy("再次输入密码", "Confirm password"),
+                        error = fieldErrors["confirmPassword"], enabled = !busy, modifier = Modifier.fillMaxWidth().focusRequester(focus.getValue("confirmPassword")))
+                    if (formMode in listOf("verify", "reset")) input("code", code, { code = it.filter { c -> c in '0'..'9' }.take(6) }, copy("6 位邮箱验证码", "6-digit email code"), type = KeyboardType.Number)
+
                 }
                 }
                 error?.let { Text(it, color = XpColors.Negative, style = MaterialTheme.typography.bodySmall) }
@@ -153,7 +187,7 @@ fun AccountPage(client: AccountClient, onDismiss: () -> Unit) {
                     })
                 }
                 if (user?.verified != true) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = { error = null; mode = if (mode == "login") "register" else "login" }, enabled = !busy) { Text(if (mode == "login") copy("创建账号", "Create account") else copy("返回登录", "Back to sign in")) }
+                    TextButton(onClick = { fieldErrors = emptyMap(); error = null; password = ""; confirmPassword = ""; mode = if (mode == "login") "register" else "login" }, enabled = !busy) { Text(if (mode == "login") copy("创建账号", "Create account") else copy("返回登录", "Back to sign in")) }
                     TextButton(onClick = { if (mode == "verify") perform("resend") else { mode = "forgot"; error = null } }, enabled = !busy && client.configured) { Text(if (mode == "verify") copy("重新发送", "Resend code") else copy("忘记密码？", "Forgot password?")) }
                 }
                 if (user == null) TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
@@ -175,15 +209,15 @@ private val SceneHeight = 236.dp
 @Composable
 private fun LoginScene(reduced: Boolean, modifier: Modifier = Modifier) {
     val drift = rememberInfiniteTransition(label = "loginDrift")
-    val t by drift.animateFloat(
+    val t = drift.animateFloat(
         0f, 1f, infiniteRepeatable(tween(5200, easing = LinearEasing), RepeatMode.Reverse), label = "loginT",
     )
-    val phase = if (reduced) 0.5f else t
+    fun phase() = if (reduced) 0.5f else t.value
     Box(modifier.fillMaxWidth().height(SceneHeight + 96.dp)) {
         // Slips first, so the mark sits above them.
-        Slip(Modifier.align(Alignment.TopCenter).offset(x = (-92).dp, y = (150 + 6 * phase).dp), -14f + 3f * phase)
-        Slip(Modifier.align(Alignment.TopCenter).offset(x = 96.dp, y = (164 - 8 * phase).dp), 11f - 2f * phase)
-        Slip(Modifier.align(Alignment.TopCenter).offset(x = 6.dp, y = (196 + 5 * phase).dp), -3f + 2f * phase)
+        Slip(Modifier.align(Alignment.TopCenter).offset(x = (-92).dp, y = 150.dp).graphicsLayer { translationY = 6.dp.toPx() * phase() }) { -14f + 3f * phase() }
+        Slip(Modifier.align(Alignment.TopCenter).offset(x = 96.dp, y = 164.dp).graphicsLayer { translationY = -8.dp.toPx() * phase() }) { 11f - 2f * phase() }
+        Slip(Modifier.align(Alignment.TopCenter).offset(x = 6.dp, y = 196.dp).graphicsLayer { translationY = 5.dp.toPx() * phase() }) { -3f + 2f * phase() }
         Column(Modifier.align(Alignment.TopCenter).padding(top = 52.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
                 Modifier.size(64.dp)
@@ -207,10 +241,10 @@ private fun LoginScene(reduced: Boolean, modifier: Modifier = Modifier) {
 
 /** One receipt slip: paper, a few printed lines, a torn bottom edge. */
 @Composable
-private fun Slip(modifier: Modifier, angle: Float) {
+private fun Slip(modifier: Modifier, angle: () -> Float) {
     val shape = TornBottom
     Column(
-        modifier.graphicsLayer { rotationZ = angle }
+        modifier.graphicsLayer { rotationZ = angle() }
             .size(width = 96.dp, height = 124.dp)
             .shadow(10.dp, shape)
             .clip(shape)

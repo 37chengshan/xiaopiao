@@ -36,7 +36,8 @@ export function createMailRelay(fetcher = fetch) {
       const data = new Uint8Array(bytes); let offset = 0;
       for (const part of parts) { data.set(part, offset); offset += part.length; }
       const body = JSON.parse(new TextDecoder().decode(data));
-      if (Object.keys(body).some(k => !['to', 'subject', 'text'].includes(k)) ||
+      if (Object.keys(body).some(k => !['to', 'subject', 'text', 'html'].includes(k)) ||
+          (body.html !== undefined && (typeof body.html !== 'string' || body.html.length > 8000)) ||
           !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.to ?? '') ||
           !['验证你的今日小票邮箱 / Verify your email', '重设今日小票密码 / Reset your password'].includes(body.subject) ||
           typeof body.text !== 'string' || body.text.length > 2000) return reply(400);

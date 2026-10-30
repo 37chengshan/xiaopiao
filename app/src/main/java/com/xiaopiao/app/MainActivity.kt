@@ -25,6 +25,9 @@ import kotlinx.coroutines.launch
 class OpenRequest(val target: String)
 
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(com.xiaopiao.app.ui.settings.AppLanguage.wrap(newBase))
+    }
     private var openRequest by mutableStateOf<OpenRequest?>(null)
 
     /**

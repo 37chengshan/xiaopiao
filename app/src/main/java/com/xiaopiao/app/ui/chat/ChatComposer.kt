@@ -99,6 +99,14 @@ fun ChatComposer(
 ) {
     val reduced = com.xiaopiao.app.ui.components.rememberReducedMotion()
     val plan = ChatInput.plan(value, streaming, attachments.size)
+    val liveValue = androidx.compose.runtime.rememberUpdatedState(value)
+    val liveChange = androidx.compose.runtime.rememberUpdatedState(onValueChange)
+    // Move the SAME editor between layouts: recreating it on the first/last character dismisses IME.
+    val editor = remember(focusRequester) {
+        androidx.compose.runtime.movableContentOf<Modifier> { fieldModifier ->
+            Field(liveValue.value, liveChange.value, focusRequester, fieldModifier)
+        }
+    }
     val shape = RoundedCornerShape(30.dp)
 
     Column(modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.s)) {
@@ -139,22 +147,12 @@ fun ChatComposer(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     PlusButton(onPlus)
-                    Field(
-                        value = value,
-                        onValueChange = onValueChange,
-                        focusRequester = focusRequester,
-                        modifier = Modifier.weight(1f).padding(horizontal = XpSpace.s),
-                    )
+                    editor(Modifier.weight(1f).padding(horizontal = XpSpace.s))
                     PrimaryButton(plan.primary, onSend = onSend, onVoice = onVoice, onStop = onStop)
                 }
             } else {
                 Column(Modifier.fillMaxWidth().padding(start = XpSpace.m, end = XpSpace.s, top = XpSpace.s, bottom = 6.dp)) {
-                    Field(
-                        value = value,
-                        onValueChange = onValueChange,
-                        focusRequester = focusRequester,
-                        modifier = Modifier.fillMaxWidth().padding(end = XpSpace.xs),
-                    )
+                    editor(Modifier.fillMaxWidth().padding(end = XpSpace.xs))
                     Row(
                         Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         verticalAlignment = Alignment.CenterVertically,

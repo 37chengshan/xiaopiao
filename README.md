@@ -1,19 +1,102 @@
-# 今日小票 (xiaopiao)
+<div align="center">
 
-每天打印一张会说话的 AI 小票：无感记账、小圈子周报、头衔成就；用户自愿贡献的匿名聚合数据，变成楼下小店老板的经营参考。
+<img src="web/public/favicon.svg" width="72" height="72" alt="今日小票图标" />
 
-- **赛事**：Alipay 智能体涌现奖（Emergent Agent Award）Season 1，主报「生活好帮手」
-- **截止**：2026-12-06（按 12-05 提交）
-- **形态**：Android 原生 App（Kotlin + Jetpack Compose）；`web/` 为 QMuse Web 智能体，是比赛提交物
-- **Spec**：[`docs/SPEC.md`](docs/SPEC.md) · [`docs/BRIEF.md`](docs/BRIEF.md)
-- **协作约定**：[`AGENTS.md`](AGENTS.md)（`CLAUDE.md` 引用同一份）
+# 今日小票
 
-## 构建
+### 把一天的生活，打印成一张会说话的小票。
+
+少一点手动记账，多一点看懂日常的乐趣。
+
+**Daily Receipt · Android + Web · AI Agent**
+
+[下载 Android APK](https://github.com/37chengshan/xiaopiao/releases/latest) · [看看能做什么](#一天的小事都有回声) · [本地运行](#本地运行)
+
+</div>
+
+![夜晚的书桌上，一台热敏打印机正在吐出小票](web/public/img/landing-hero-night-desk.webp)
+
+<p align="center"><sub>产品氛围图；App 中的小票以屏幕动画呈现，无需购买打印机。</sub></p>
+
+午饭、地铁、咖啡、又一次自动续费——钱花出去了，生活也发生了。
+
+今日小票把这些零散的记录整理成一本账，再把一天变成一张小票：有明细、有合计，也有一句轻松的点评。你可以看看、撕下、分享，然后继续过自己的日子。
+
+## 一天的小事，都有回声
+
+| 你想做的事 | 今日小票怎么帮忙 |
+|---|---|
+| 少花点时间记账 | Android 授权后识别支付宝／微信支付通知；也支持手动、一句话、语音和 CSV 导入。 |
+| 看懂今天花了什么 | 把支出整理成每日小票，用打印、盖章与撕纸动效，给一天一个小小的收尾。 |
+| 问问自己的账本 | 用自然语言查询和汇总，AI 调用只读工具取数，再把结果呈现出来。 |
+| 找到消费的节奏 | 按时间和分类看统计，自己设定预算，回看钱花在了哪里。 |
+| 留意悄悄续费的订阅 | 从重复扣费里识别周期，看看下次扣款和累计花费，查阅取消指引。 |
+| 做个“如果当时”的算术题 | 在后悔模拟器里调整消费情景，看看金额如何变化。 |
+| 和熟悉的人多一点互动 | 在小圈子里分享小票、看周报、收集头衔，也玩一点轻量小游戏。 |
+
+> 当前为持续迭代的开发体验版。不同版本与平台的功能覆盖可能不同；部分场景使用样例数据，不代表真实用户或商户案例。
+
+## 从记录到一张小票
+
+**记下来 → 理清楚 → 打印出来 → 由你决定是否分享。**
+
+- **记录尽量轻。** 通知识别、语音和导入服务于同一份账本，记录可以修改，重复数据会去重。
+- **数字说清楚。** 金额以整数分保存；统计来自记录，AI 负责组织表达与呈现。
+- **反馈看得见。** 打印的纸条、撕下的动作、轻触反馈和可关闭的声音，让记账多一点手感。
+- **不登录也能记。** 先在手机上使用，按需登录，再使用账号与结构化账本同步能力。
+
+## 你的账本，你来做主
+
+我们给 AI 划了清楚的边界：记录、总结、提醒和模拟，选择始终留给人。
+
+- 支付通知原文、账单原文和图片在本机解析；云端同步使用结构化字段。
+- 端侧语音模型按需下载，录音留在手机。
+- 模型凭据保存在服务端，不放进 App 或浏览器。
+- 不替你下单，不做购物推荐、比价导购或投资收益判断。
+- 订阅侦探提供取消指引，由你亲自操作。
+
+## 也关心街角的小店
+
+今日小票还有一个“小店版”的探索方向：让用户**自愿授权的匿名聚合信息**，成为社区小店理解消费需求的参考。
+
+数据贡献默认关闭、单独授权、可以撤回；只展示聚合结果，样本不足 20 的格子不展示。小游戏的表达与真实交易数据分开。这部分仍在迭代，界面里的模拟场景不等于已经接入真实商户经营数据。
+
+## 开始体验
+
+前往 [Releases](https://github.com/37chengshan/xiaopiao/releases/latest) 下载 APK，在 Android 8.0 及以上设备安装。通知自动记账等能力需要你在手机上单独授权；不授权也可以手动记账。
+
+Web 版本位于 [`web/`](web/)，通过 QMuse 提供比赛体验入口。此仓库同时保留 Android、Web 和自建 API 的实现。
+
+## 本地运行
+
+Android 需要 JDK 17、Android SDK（compileSdk 37），并在本机配置 SDK 路径：
 
 ```bash
-./gradlew :app:assembleDebug   # 需要 JDK 17 与 Android SDK（local.properties 指向 sdk.dir，不入库）
+./gradlew :app:assembleDebug
+./gradlew :app:testDebugUnitTest
 ```
 
-## 提交物
+Web：
 
-封面 16:9、90 秒视频、说明材料——待补。
+```bash
+cd web
+npm install
+npm run dev
+```
+
+账号与 AI 的本地服务配置见 [`server/README.md`](server/README.md)。模型和邮件密钥只配置在服务端；不要把个人凭据提交进仓库。
+
+| 目录 | 内容 |
+|---|---|
+| [`app/`](app/) | Kotlin、Jetpack Compose、Room、DataStore、WorkManager 与端侧语音 |
+| [`web/`](web/) | React、TypeScript、Vite 与 QMuse Web 体验 |
+| [`server/`](server/) | Node.js API、认证、结构化账本同步与流式 Agent |
+| [`docs/`](docs/) | 产品设计、需求、接口与运行说明 |
+
+更详细的开发说明见 [RUNBOOK](docs/RUNBOOK.md)，产品定义见 [SPEC](docs/SPEC.md)。
+
+---
+
+今日小票是 **Alipay 智能体涌现奖（Emergent Agent Award）Season 1** 参赛作品，方向为「生活好帮手」。
+
+欢迎通过 [Issues](https://github.com/37chengshan/xiaopiao/issues) 留下使用反馈、问题和想法。希望它让你更了解自己的生活，也少一点被记账追着跑的感觉。

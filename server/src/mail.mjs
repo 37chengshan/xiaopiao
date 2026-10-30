@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { verificationHtml } from './mail-template.mjs';
 
 /** Only server code can send verification mail. Never expose provider keys or response bodies. */
 export function createAgentMailSender({ apiKey, inboxId, relayUrl, relayKey, fetcher = fetch }) {
@@ -19,6 +20,7 @@ export function createAgentMailSender({ apiKey, inboxId, relayUrl, relayKey, fet
         ...(relayUrl ? { 'X-Xiaopiao-Relay-Key': relayKey } : {}),
       },
       body: JSON.stringify({ to, subject: purpose === 'verify' ? '验证你的今日小票邮箱 / Verify your email' : '重设今日小票密码 / Reset your password',
+        html: verificationHtml(purpose, code),
         text: `你的今日小票验证码是 ${code}，10 分钟内有效。请勿分享给他人。如果不是你操作的，请忽略本邮件。\n\nYour Daily Receipt code is ${code}. It expires in 10 minutes. Do not share it. If you did not request this, ignore this email.`,
       }),
     });

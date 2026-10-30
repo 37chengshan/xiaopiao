@@ -91,6 +91,12 @@ class NavModelTest {
         assertEquals(LaunchSide.Social, prefs.observeLaunch().first())
         prefs.setLaunch(LaunchSide.Ledger)
         assertEquals(LaunchSide.Ledger, prefs.observeLaunch().first())
-        assertNotNull(LaunchSide.entries.firstOrNull { it.label == "AI · 圈子" })
+        val originalLocale = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.SIMPLIFIED_CHINESE)
+            assertEquals("AI · 圈子", LaunchSide.Social.label)
+            java.util.Locale.setDefault(java.util.Locale.ENGLISH)
+            assertEquals("AI · Circles", LaunchSide.Social.label)
+        } finally { java.util.Locale.setDefault(originalLocale) }
     }
 }

@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +45,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.xiaopiao.app.R
+import com.xiaopiao.app.ui.category.rememberCategoryDefs
 import com.xiaopiao.app.AppContainer
 import com.xiaopiao.app.domain.BudgetMath
 import com.xiaopiao.app.domain.BudgetPeriod
@@ -104,6 +107,8 @@ fun BudgetPage(
     val settings: BudgetSettings by settingsFlow.collectAsStateWithLifecycle(initialValue = BudgetSettings())
     val txns: List<Txn> by container.ledger.observeAll()
         .collectAsStateWithLifecycle(initialValue = emptyList())
+    val defs = rememberCategoryDefs(container.categories)
+    var detail by remember { mutableStateOf<BudgetDetailTarget?>(null) }
     var editing by remember { mutableStateOf<BudgetEditTarget?>(null) }
 
     val statuses = remember(settings, txns, now) { BudgetMath.statuses(settings, txns, now) }
@@ -127,6 +132,7 @@ fun BudgetPage(
                 BudgetCard(
                     period = period,
                     status = status,
+                    onOpen = { detail = BudgetDetailTarget(period) },
                     onEdit = { editing = BudgetEditTarget.ForPeriod(period, settings.limitOf(period)) },
                 )
             }
@@ -134,6 +140,7 @@ fun BudgetPage(
                 budgets = categories,
                 onAdd = { editing = BudgetEditTarget.ForCategory(null, 0L) },
                 onEdit = { editing = BudgetEditTarget.ForCategory(it.category, it.limit) },
+                onOpen = { detail = BudgetDetailTarget(BudgetPeriod.Month, it.category) },
             )
         }
     }
@@ -157,6 +164,15 @@ fun BudgetPage(
         ) { top -> body(Modifier.fillMaxSize(), top) }
     }
 
+    detail?.let { selected ->
+        BudgetDetailSheet(selected, settings, txns, defs, now,
+            onDismiss = { detail = null },
+            onEdit = {
+                detail = null
+                editing = selected.category?.let { BudgetEditTarget.ForCategory(it, settings.categoryLimits[it] ?: 0L) }
+                    ?: BudgetEditTarget.ForPeriod(selected.period, settings.limitOf(selected.period))
+            })
+    }
     val target = editing
     if (target != null) {
         BudgetEditSheet(
@@ -196,15 +212,16 @@ sealed interface BudgetEditTarget {
 }
 
 @Composable
-private fun BudgetCard(period: BudgetPeriod, status: BudgetStatus?, onEdit: () -> Unit) {
+private fun BudgetCard(period: BudgetPeriod, status: BudgetStatus?, onOpen: () -> Unit, onEdit: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().clip(CardShape).background(XpColors.Card)
+            .clickable(onClickLabel = stringResource(R.string.budget_detail_view), onClick = onOpen)
             .padding(horizontal = XpSpace.l, vertical = XpSpace.m),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("${period.label}预算", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
+            Text(com.xiaopiao.app.ui.UiLabels.title("${period.label}预算"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
             Text(
-                if (status == null) "设置" else "编辑",
+                com.xiaopiao.app.ui.UiLabels.title(if (status == null) "设置" else "编辑"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = XpColors.Accent,
                 modifier = Modifier.clip(PillShape).pressableClick(haptic = false, onClick = onEdit)
@@ -218,32 +235,31 @@ private fun BudgetCard(period: BudgetPeriod, status: BudgetStatus?, onEdit: () -
                 color = XpColors.InkSecondary,
                 modifier = Modifier.padding(top = XpSpace.xs, bottom = 2.dp),
             )
+            Text(stringResource(R.string.budget_detail_view), style = MaterialTheme.typography.bodySmall,
+                color = XpColors.Accent, modifier = Modifier.padding(top = XpSpace.s))
             return@Column
         }
-        Row(Modifier.padding(top = XpSpace.s), verticalAlignment = Alignment.Bottom) {
-            Text("已花 ¥${status.spent.yuan()}", style = BigNumber, color = XpColors.Ink, maxLines = 1, modifier = Modifier.weight(1f))
-            Text("预算 ¥${status.limit.yuan()}", style = Money, color = XpColors.InkSecondary, maxLines = 1)
+        Column(Modifier.fillMaxWidth().padding(top = XpSpace.s), verticalArrangement = Arrangement.spacedBy(XpSpace.xs)) {
+            Text(stringResource(R.string.budget_card_spent, status.spent.yuan()), style = BigNumber, color = XpColors.Ink)
+            Text(stringResource(R.string.budget_card_limit, status.limit.yuan()), style = Money, color = XpColors.InkSecondary)
         }
         BudgetBar(status.ratio, Modifier.padding(top = XpSpace.s))
-        Row(Modifier.padding(top = XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.fillMaxWidth().padding(top = XpSpace.s), verticalArrangement = Arrangement.spacedBy(XpSpace.xs)) {
             val over = status.remaining < 0
             Text(
-                if (over) "已超出 ¥${(-status.remaining).yuan()}" else "剩余 ¥${status.remaining.yuan()}",
+                stringResource(if (over) R.string.budget_card_over else R.string.budget_card_remaining,
+                    (if (over) -status.remaining else status.remaining).yuan()),
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (over) XpColors.Negative else XpColors.Ink,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
             )
-            Spacer(Modifier.width(XpSpace.s))
             Text(
-                "还剩 ${status.daysLeft} 天 · 每天还可花 ¥${status.perDayLeft.yuan()}",
+                stringResource(R.string.budget_card_allowance, status.daysLeft, status.perDayLeft.coerceAtLeast(0).yuan()),
                 style = MaterialTheme.typography.bodySmall,
                 color = XpColors.InkSecondary,
-                maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
+                modifier = Modifier.fillMaxWidth(),
             )
+            Text(stringResource(R.string.budget_detail_view), style = MaterialTheme.typography.bodySmall,
+                color = XpColors.Accent, modifier = Modifier.padding(top = XpSpace.xs))
         }
     }
 }
@@ -272,10 +288,11 @@ private fun CategoryBudgetSection(
     budgets: List<com.xiaopiao.app.domain.CategoryBudget>,
     onAdd: () -> Unit,
     onEdit: (com.xiaopiao.app.domain.CategoryBudget) -> Unit,
+    onOpen: (com.xiaopiao.app.domain.CategoryBudget) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().clip(CardShape).background(XpColors.Card).padding(vertical = XpSpace.m)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l), verticalAlignment = Alignment.CenterVertically) {
-            Text("分类预算", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
+            Text(com.xiaopiao.app.ui.UiLabels.title("分类预算"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
             Text(
                 "添加",
                 style = MaterialTheme.typography.bodyMedium,
@@ -295,21 +312,25 @@ private fun CategoryBudgetSection(
         }
         budgets.forEach { budget ->
             Row(
-                Modifier.fillMaxWidth().pressableClick(haptic = false) { onEdit(budget) }
+                Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.budget_detail_view)) { onOpen(budget) }
                     .padding(horizontal = XpSpace.l, vertical = XpSpace.s),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(budget.category.label, style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink, maxLines = 1, modifier = Modifier.weight(1f))
+                    Column(verticalArrangement = Arrangement.spacedBy(XpSpace.xs)) {
+                        Text(budget.category.label, style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
                         Text(
                             "¥${budget.spent.yuan()} / ¥${budget.limit.yuan()}",
                             style = MaterialTheme.typography.bodySmall,
                             color = XpColors.InkSecondary,
-                            maxLines = 1,
                         )
                     }
                     BudgetBar(budget.ratio, Modifier.padding(top = 6.dp), height = 4.dp)
+                    Text(stringResource(R.string.budget_detail_view), style = MaterialTheme.typography.bodySmall,
+                        color = XpColors.Accent, modifier = Modifier.padding(top = XpSpace.xs))
+                }
+                androidx.compose.material3.TextButton(onClick = { onEdit(budget) }) {
+                    Text(stringResource(R.string.budget_detail_edit), color = XpColors.Accent)
                 }
             }
         }

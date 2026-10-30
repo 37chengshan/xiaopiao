@@ -38,11 +38,11 @@ private val IconInset = 58.dp
  */
 @Composable
 fun AppearanceNavSection(value: String, onOpen: () -> Unit) {
-    GroupedSection(header = "外观", dividerInset = IconInset) {
+    GroupedSection(header = com.xiaopiao.app.ui.UiLabels.title("外观"), dividerInset = IconInset) {
         item {
             GroupedRow(
-                title = "主题与配色",
-                subtitle = "跟随系统、浅色、深色；五套主题配色",
+                title = com.xiaopiao.app.ui.UiLabels.title("主题与配色"),
+                subtitle = com.xiaopiao.app.ui.UiLabels.title("跟随系统、浅色、深色；五套主题配色"),
                 value = value,
                 leading = { IconTile(Icons.Outlined.Palette, tint = XpColors.Info, background = XpColors.InfoSoft) },
                 chevron = true,
@@ -54,11 +54,11 @@ fun AppearanceNavSection(value: String, onOpen: () -> Unit) {
 
 @Composable
 fun DataNavSection(onOpen: () -> Unit) {
-    GroupedSection(header = "数据", dividerInset = IconInset) {
+    GroupedSection(header = com.xiaopiao.app.ui.UiLabels.title("数据"), dividerInset = IconInset) {
         item {
             GroupedRow(
-                title = "数据与隐私",
-                subtitle = "导入账单、通知记录、清空数据",
+                title = com.xiaopiao.app.ui.UiLabels.title("数据与隐私"),
+                subtitle = com.xiaopiao.app.ui.UiLabels.title("导入账单、通知记录、清空数据"),
                 leading = { IconTile(Icons.Outlined.Storage, tint = XpColors.Positive, background = XpColors.PositiveSoft) },
                 chevron = true,
                 onClick = onOpen,
@@ -72,8 +72,8 @@ fun AboutNavSection(onOpen: () -> Unit) {
     GroupedSection(dividerInset = IconInset) {
         item {
             GroupedRow(
-                title = "关于",
-                value = "隐私说明 · 版本",
+                title = com.xiaopiao.app.ui.UiLabels.title("关于"),
+                value = com.xiaopiao.app.ui.UiLabels.title("隐私说明 · 版本"),
                 leading = { IconTile(Icons.Outlined.Info) },
                 chevron = true,
                 onClick = onOpen,
@@ -93,7 +93,7 @@ fun AppearancePage(
 ) {
     val scroll = rememberScrollState()
     NavScaffold(
-        "外观", rememberNavScroll(scroll), onBack = onBack, backLabel = "设置",
+        com.xiaopiao.app.ui.UiLabels.title("外观"), rememberNavScroll(scroll), onBack = onBack, backLabel = "设置",
     ) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             XpReveal(index = 0) { AppearanceSection(mode, onMode) }
@@ -125,7 +125,7 @@ fun DataPage(
 ) {
     val scroll = rememberScrollState()
     NavScaffold(
-        "数据与隐私", rememberNavScroll(scroll), onBack = onBack,
+        com.xiaopiao.app.ui.UiLabels.title("数据与隐私"), rememberNavScroll(scroll), onBack = onBack,
         backLabel = "设置",
     ) { top ->
         Column(
@@ -161,7 +161,7 @@ fun DataPage(
 fun AboutPage(onPrivacy: () -> Unit, onBack: () -> Unit) {
     val scroll = rememberScrollState()
     NavScaffold(
-        "关于", rememberNavScroll(scroll), onBack = onBack, backLabel = "设置",
+        com.xiaopiao.app.ui.UiLabels.title("关于"), rememberNavScroll(scroll), onBack = onBack, backLabel = "设置",
     ) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             XpReveal(index = 0) { AboutSection(onPrivacy) }

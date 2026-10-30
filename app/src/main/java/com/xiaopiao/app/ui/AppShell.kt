@@ -102,15 +102,15 @@ import androidx.compose.ui.draw.drawBehind
 import com.xiaopiao.app.ui.theme.XpEase
 
 /** The user edition's bar: 记账 · 小票 · ⊕ · 统计 | 圈子, and 账单 · ⊕ | AI · 圈子 · 游戏 once 圈子 is open. */
-private val UserNavSpec = NavBarSpec(
+private val UserNavSpec get() = NavBarSpec(
     a = NavBarItem(NavTab.Ledger.route, NavTab.Ledger.label, NavGlyph.Ledger),
     b = NavBarItem(NavTab.Receipt.route, NavTab.Receipt.label, NavGlyph.Receipt),
     c = NavBarItem(NavTab.Insights.route, NavTab.Insights.label, NavGlyph.Chart),
-    fold = NavBarItem("fold", "账单", NavGlyph.Ledger),
+    fold = NavBarItem("fold", if (java.util.Locale.getDefault().language == "en") "Ledger" else "账单", NavGlyph.Ledger),
     entry = NavBarItem(NavTab.Circle.route, NavTab.Circle.label, NavGlyph.People),
     sa = NavBarItem(NavTab.Chat.route, NavTab.Chat.label, NavGlyph.Chat),
     sb = NavBarItem(NavTab.Games.route, NavTab.Games.label, NavGlyph.Gamepad),
-    plusLabel = "记一笔", plusDescription = "记一笔 · 长按说一句",
+    plusLabel = if (java.util.Locale.getDefault().language == "en") "Record" else "记一笔", plusDescription = if (java.util.Locale.getDefault().language == "en") "Record · Hold to speak" else "记一笔 · 长按说一句",
 )
 
 @Composable
@@ -226,7 +226,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         contentWindowInsets = WindowInsets(0),
         bottomBar = {
             // Standalone pages (settings) own the screen; no tabs.
-            if (NavModel.showsTabBar(current)) XpNavBar(
+            XpNavBar(
                 spec = UserNavSpec,
                 social = side == NavSide.Social,
                 selectedId = NavModel.selected(current)?.route,
@@ -236,7 +236,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 onPlusLongPress = { voiceHost.request() },
                 onPlusHold = { dy -> voiceHost.hold(dy, voiceCancelPx) },
                 onPlusRelease = { voiceHost.release() },
-                hidden = navBarHidden && current == NavTab.Chat.route,
+                hidden = !NavModel.showsTabBar(current) || (navBarHidden && current == NavTab.Chat.route),
                 backdrop = glass,
             )
         },
@@ -257,7 +257,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         XpColors.CanvasGrouped
                     },
                 )
-                .padding(top = top, bottom = if (underBar) 0.dp else padding.calculateBottomPadding()),
+                .padding(top = top, bottom = if (underBar || !NavModel.showsTabBar(current)) 0.dp else padding.calculateBottomPadding()),
         ) {
             CompositionLocalProvider(
                 com.xiaopiao.app.ui.components.LocalTabBarInset provides
@@ -270,7 +270,10 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 // screen does not "pop". No slide — that would slow down a dozens-times-a-day action.
                 enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) },
                 exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90)) },
-                popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) },
+                popEnterTransition = {
+                    if (initialState.destination.route == "settings") androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(200, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { -it / 8 } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(160))
+                    else androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120))
+                },
                 popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90)) },
             ) {
                 composable(NavTab.Ledger.route) {
@@ -297,12 +300,12 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 composable(
                     "settings",
                     enterTransition = {
-                        androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.spring(0.9f, 340f)) { it / 3 } +
+                        androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(220, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { it / 4 } +
                             androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(160))
                     },
                     exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140)) },
                     popExitTransition = {
-                        androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.spring(0.9f, 320f)) { it / 3 } +
+                        androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(200, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { it / 4 } +
                             androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140))
                     },
                 ) {
@@ -313,7 +316,12 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         backLabel = settingsBack.value,
                     )
                 }
-                composable(NavTab.Receipt.route) {
+                composable(NavTab.Receipt.route,
+                    enterTransition = { androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(180, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { it / 14 } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150)) },
+                    exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120)) },
+                    popEnterTransition = { androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(180, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { -it / 14 } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150)) },
+                    popExitTransition = { androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(160, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { it / 14 } + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120)) },
+                ) {
                     ReceiptPage(container, receiptHost)
                 }
                 composable(NavTab.Chat.route) {

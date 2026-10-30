@@ -35,6 +35,9 @@ import kotlinx.coroutines.delay
  * through `graphicsLayer`.
  */
 object XpTiming {
+    /** Sparse login light drifting behind glass, in milliseconds. */
+    const val AccountAmbient = 32_000
+
     /** Page / block entrance. */
     const val Enter = MotionMath.ENTER_MS
 
@@ -156,6 +159,7 @@ fun XpReveal(
  * 1/4 of the width with a fade (220ms), the page underneath drifts 1/8 to the left; popping reverses in
  * 180ms. The last pushed page is remembered so the exit has something to draw.
  */
+@OptIn(androidx.activity.ExperimentalActivityApi::class)
 @Composable
 fun XpPushHost(
     page: (@Composable () -> Unit)?,
@@ -170,8 +174,10 @@ fun XpPushHost(
     SideEffect { if (page != null) last = page }
     val active = page ?: last
     var progress by remember { mutableFloatStateOf(0f) }
+    var backGesture by remember { mutableStateOf(false) }
 
-    LaunchedEffect(page != null, reduced) {
+    LaunchedEffect(page != null, reduced, backGesture) {
+        if (backGesture) return@LaunchedEffect
         val target = if (page != null) 1f else 0f
         if (reduced) {
             progress = target
@@ -205,7 +211,16 @@ fun XpPushHost(
                 },
             ) { active() }
         }
-        BackHandler(enabled = page != null) { onBack() }
+        androidx.activity.compose.PredictiveBackHandler(enabled = page != null) { events ->
+            backGesture = true
+            try {
+                events.collect { event -> if (!reduced) progress = 1f - event.progress }
+                onBack()
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                // The existing transition restores the live page when the gesture is cancelled.
+            } finally { backGesture = false }
+        }
+        BackHandler(enabled = page == null && progress > 0f) { /* consume repeated back during exit */ }
     }
 }
 

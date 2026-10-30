@@ -15,6 +15,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "com.xiaopiao.app.verification.LedgerSyncCheck"
         // 端侧语音只给真机（arm64）和模拟器（x86_64）打包；v7a/x86 的 so 不进 APK。
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")

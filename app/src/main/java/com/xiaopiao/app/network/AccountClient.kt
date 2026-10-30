@@ -17,20 +17,22 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 
 data class AccountUser(val id: String, val email: String, val username: String, val verified: Boolean)
-class ApiException(val code: String, message: String) : Exception(message)
+class ApiException(val code: String, message: String, val field: String? = null) : Exception(message)
 
 /** Application-owned session only; never stores the model key or a QMuse identity. */
-class AccountClient(context: Context) {
+class AccountClient(context: Context, private val apiBaseUrl: String = BuildConfig.API_BASE_URL) {
     private val prefs = context.getSharedPreferences("account-v1", Context.MODE_PRIVATE)
     private val cipher = AndroidCardCipher("xp_account_v1")
     private var token: String? = prefs.getString("session", null)?.let(cipher::open)
     private val mutableUser = MutableStateFlow(prefs.getString("user", null)?.let { runCatching { parseUser(Json.parseToJsonElement(it).jsonObject) }.getOrNull() })
     val user = mutableUser.asStateFlow()
-    val configured: Boolean get() = BuildConfig.API_BASE_URL.isNotBlank()
+    private val mutablePolicy = MutableStateFlow(com.xiaopiao.app.domain.AccountPolicy())
+    val policy = mutablePolicy.asStateFlow()
+    val configured: Boolean get() = apiBaseUrl.isNotBlank()
     private fun parseUser(o: JsonObject) = AccountUser(o.getValue("id").jsonPrimitive.content, o.getValue("email").jsonPrimitive.content, o.getValue("username").jsonPrimitive.content, o.getValue("verified").jsonPrimitive.boolean)
     private fun connection(path: String): HttpURLConnection {
         if (!configured) throw ApiException("NOT_CONFIGURED", "云端连接尚未配置，可以继续本机记账")
-        val uri = URI(BuildConfig.API_BASE_URL)
+        val uri = URI(apiBaseUrl)
         require(uri.scheme == "https" || (BuildConfig.DEBUG && uri.host in listOf("127.0.0.1", "localhost", "10.0.2.2")))
         return (uri.resolve(path).toURL().openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000; readTimeout = 25_000
@@ -49,17 +51,27 @@ class AccountClient(context: Context) {
             val obj = runCatching { Json.parseToJsonElement(result).jsonObject }.getOrElse { throw ApiException("NETWORK", "连接失败，请稍后重试") }
             if (!ok) {
                 if (c.responseCode == 401) clear()
-                throw ApiException(obj["error"]?.jsonPrimitive?.content ?: "NETWORK", obj["message"]?.jsonPrimitive?.content ?: "连接失败，请重试")
+                throw ApiException(obj["error"]?.jsonPrimitive?.content ?: "NETWORK", obj["message"]?.jsonPrimitive?.content ?: "连接失败，请重试", obj["field"]?.jsonPrimitive?.contentOrNull)
             }
             obj
         } finally { c.disconnect() }
     }
     suspend fun auth(action: String, fields: Map<String, String>) {
-        val obj = request("/v1/auth/$action", buildJsonObject { fields.forEach { (k,v) -> put(k,v) }; put("client", "native") })
+        val obj = request("/v1/auth/$action", buildJsonObject { fields.forEach { (k,v) -> put(k, if (k == "email" || k == "identifier") com.xiaopiao.app.domain.AccountValidation.identifier(v) else v) }; put("client", "native") })
         withContext(Dispatchers.IO) {
             obj["token"]?.jsonPrimitive?.content?.let { token = it; prefs.edit().putString("session", cipher.seal(it)).commit() }
             obj["user"]?.jsonObject?.let { mutableUser.value = parseUser(it); prefs.edit().putString("user", it.toString()).commit() }
         }
+    }
+    suspend fun refreshPolicy() {
+        try {
+            val obj = request("/v1/auth/policy")
+            val min = obj["passwordMin"]?.jsonPrimitive?.intOrNull ?: 8
+            val max = obj["passwordMax"]?.jsonPrimitive?.intOrNull ?: 128
+            if (min in 8..128 && max in min..128) mutablePolicy.value = com.xiaopiao.app.domain.AccountPolicy(
+                min, max, obj["profileEditing"]?.jsonPrimitive?.booleanOrNull == true)
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { /* Older server: retain the verified 8-character policy. */ }
     }
     suspend fun refresh() {
         if (token == null || !configured) return

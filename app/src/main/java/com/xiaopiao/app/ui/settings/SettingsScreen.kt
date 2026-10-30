@@ -68,9 +68,27 @@ fun SettingsScreen(
     var postGranted by remember { mutableStateOf(NotificationAccess.postNotificationsGranted(context)) }
     var importing by remember { mutableStateOf(false) }
     var summary by remember { mutableStateOf<ImportSummary?>(null) }
+    var logoutConfirm by remember { mutableStateOf(false) }
+    var loggingOut by remember { mutableStateOf(false) }
+    var logoutError by remember { mutableStateOf<String?>(null) }
+    val accountEn = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
     var privacyOpen by remember { mutableStateOf(false) }
     var demoMessage by remember { mutableStateOf<String?>(null) }
     var sub by rememberSaveable { mutableStateOf<SettingsSub?>(null) }
+    if (logoutConfirm) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { if (!loggingOut) logoutConfirm = false },
+        title = { androidx.compose.material3.Text(if (accountEn) "Sign out?" else "退出登录？") },
+        text = { androidx.compose.material3.Text(if (accountEn) "Your ledger stays on this device. Cloud sync pauses until you sign in again." else "本机账本会保留，重新登录前暂停云端同步。") },
+        confirmButton = { androidx.compose.material3.TextButton(enabled = !loggingOut, onClick = {
+            loggingOut = true
+            scope.launch {
+                try { container.account.logout(); logoutError = null }
+                catch (_: Exception) { logoutError = if (accountEn) "Signed out on this device. Server session revocation could not be confirmed." else "已退出本机登录，云端会话注销未确认，请联网后检查。" }
+                finally { loggingOut = false; logoutConfirm = false }
+            }
+        }) { androidx.compose.material3.Text(if (loggingOut) if (accountEn) "Signing out…" else "正在退出…" else if (accountEn) "Sign out" else "退出登录") } },
+        dismissButton = { androidx.compose.material3.TextButton(enabled = !loggingOut, onClick = { logoutConfirm = false }) { androidx.compose.material3.Text(if (accountEn) "Cancel" else "取消") } },
+    )
     val logFlow = remember(container) { container.captureLog.observeRecent() }
     val log: List<CaptureLogEntry> by logFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val listenerConnected by CaptureStatus.connected.collectAsStateWithLifecycle()
@@ -155,10 +173,19 @@ fun SettingsScreen(
             Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
                 val sync by container.ledgerSync.status.collectAsState()
                 AccountNavSection(user?.username, user?.email, user?.verified == true, syncNote(sync).takeIf { user?.verified == true }) { sub = SettingsSub.Account }
+                if (user != null) com.xiaopiao.app.ui.components.GroupedSection {
+                    item { com.xiaopiao.app.ui.components.GroupedRow(
+                        title = if (accountEn) "Sign out" else "退出登录", titleColor = com.xiaopiao.app.ui.theme.XpColors.Negative,
+                        onClick = { logoutConfirm = true }) }
+                }
+                logoutError?.let { androidx.compose.material3.Text(it,
+                    modifier = Modifier.padding(horizontal = com.xiaopiao.app.ui.theme.XpSpace.page),
+                    color = com.xiaopiao.app.ui.theme.XpColors.Negative) }
+                LanguageSection()
                 AiEntrySection(autoEntry) { enabled -> scope.launch { aiPrefs.setAutoEntry(enabled) } }
                 Box(Modifier.xpRevealLayer(index = 0)) {
                     AppearanceNavSection(
-                        value = "${mode.label} · ${colorTheme.label}",
+                        value = "${com.xiaopiao.app.ui.UiLabels.title(mode.label)} · ${com.xiaopiao.app.ui.UiLabels.title(colorTheme.label)}",
                         onOpen = { sub = SettingsSub.Appearance },
                     )
                 }

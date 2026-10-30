@@ -18,8 +18,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 
 /**
- * 设备验证（docs/APP-DESIGN.md §5.5）：API 28+ 走系统 [BiometricPrompt]（允许设备凭据），
- * API 26–27 退回锁屏密码确认。不引第三方库，验证与业务分离。
+ * 设备验证（docs/APP-DESIGN.md §5.5）：API 29+ 走系统 [BiometricPrompt]（允许设备凭据），
+ * API 26–28 退回锁屏密码确认。不引第三方库，验证与业务分离。
  */
 class DeviceAuthGuard(
     private val activity: Activity?,
@@ -31,7 +31,7 @@ class DeviceAuthGuard(
             onResult(false)
             return
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val callback = object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = onResult(true)
                 override fun onAuthenticationError(code: Int, msg: CharSequence?) = onResult(false)

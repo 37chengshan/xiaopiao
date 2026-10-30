@@ -146,7 +146,7 @@ fun NavScaffold(
             // A page with nothing to name (引导页) still gets the same bar and capsules, just no centre text.
             if (title.isNotEmpty()) Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(NavBarHeight), contentAlignment = Alignment.Center) {
                 Text(
-                    title, Modifier.padding(horizontal = 112.dp),
+                    com.xiaopiao.app.ui.UiLabels.title(title), Modifier.padding(horizontal = 112.dp),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = XpColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
@@ -161,7 +161,7 @@ fun NavScaffold(
                         ) {
                             // The visible label already names the destination, so the chevron adds no words for TalkBack.
                             Icon(Icons.Outlined.ArrowBackIosNew, contentDescription = null, tint = XpColors.Ink, modifier = Modifier.size(16.dp))
-                            Text(backLabel, style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink)
+                            Text(com.xiaopiao.app.ui.UiLabels.title(backLabel), style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink)
                         }
                     }
                 }
@@ -185,7 +185,7 @@ private val LocalInCapsule = staticCompositionLocalOf { false }
  * [NavTouchTarget] tall so every button can hit 48dp. The extra 4dp is invisible touch room below the glass.
  */
 @Composable
-private fun GlassCapsule(backdrop: LayerBackdrop, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+internal fun GlassCapsule(backdrop: LayerBackdrop, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     val dark = XpColors.isDark
     val film = if (dark) Color(0xFF1C1C1E).copy(alpha = 0.42f) else Color.White.copy(alpha = 0.42f)
     val drop = Color.Black.copy(alpha = if (dark) 0.32f else 0.10f)
@@ -270,17 +270,10 @@ fun NavTextAction(
     val source = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val haptics = rememberXpHaptics()
-    Box(
-        modifier.height(40.dp).clip(CapsuleShape)
-            .graphicsLayer { alpha = if (pressed) 0.7f else 1f }
-            .clickable(source, null) { haptics.select(); onClick() }
-            .padding(horizontal = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-            color = tint, maxLines = 1, overflow = TextOverflow.Ellipsis,
-        )
+    Box(modifier.height(NavTouchTarget).clickable(source, null) { haptics.select(); onClick() }, contentAlignment = Alignment.TopCenter) {
+        Box(Modifier.height(NavBarHeight).clip(CapsuleShape).graphicsLayer { alpha = if (pressed) 0.7f else 1f }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+            Text(text, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), color = tint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
