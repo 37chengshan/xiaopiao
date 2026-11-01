@@ -273,6 +273,8 @@ object XpMotion {
 /** Easing curves (docs/APP-DESIGN.md §7). Strong ease-out for color/opacity and anything entering. */
 object XpEase {
     val out = androidx.compose.animation.core.CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
+    /** Exits accelerate away: they are leaving, nobody needs to watch them settle. */
+    val exit = androidx.compose.animation.core.CubicBezierEasing(0.4f, 0f, 1f, 1f)
 }
 
 /** Inter carries Latin text and every digit; CJK falls through to the system font. */

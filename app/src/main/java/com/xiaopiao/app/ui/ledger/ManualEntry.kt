@@ -49,6 +49,7 @@ import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 
 /** Manual entry / edit form: direction, big tabular amount, category grid, merchant, day, keypad. */
 @Composable
@@ -63,7 +64,7 @@ fun ManualEntryForm(initial: Txn?, now: Long, onSubmit: (Txn) -> Unit) {
     val cents = AmountEntry.toCents(amount)
 
     Column(verticalArrangement = Arrangement.spacedBy(XpSpace.m)) {
-        Segmented(listOf("支出", "收入"), if (direction == Direction.OUT) 0 else 1, {
+        Segmented(listOf(tr("支出", "Expense"), tr("收入", "Income")), if (direction == Direction.OUT) 0 else 1, {
             direction = if (it == 0) Direction.OUT else Direction.IN
         })
         MoneyText(
@@ -81,7 +82,7 @@ fun ManualEntryForm(initial: Txn?, now: Long, onSubmit: (Txn) -> Unit) {
         DayChips(day, initial?.occurredAt, now) { day = it }
         Keypad { key -> amount = AmountEntry.press(amount, key) }
         XpButton(
-            text = if (initial == null) "记下来" else "保存修改",
+            text = if (initial == null) tr("记下来", "Save entry") else tr("保存修改", "Save changes"),
             onClick = {
                 haptics.confirm()
                 onSubmit(buildTxn(initial, now, cents, direction, merchant, category, day))
@@ -139,7 +140,7 @@ private fun MerchantField(value: String, onChange: (String) -> Unit) {
     TextField(
         value = value, onValueChange = { onChange(it.take(30)) },
         modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(12.dp),
-        placeholder = { Text("商家 / 备注（可不填）", color = XpColors.InkTertiary) },
+        placeholder = { Text(tr("商家 / 备注（可不填）", "Merchant / note (optional)"), color = XpColors.InkTertiary) },
         colors = quietFieldColors(),
     )
 }
@@ -181,7 +182,7 @@ private fun Keypad(onKey: (String) -> Unit) {
                         contentAlignment = Alignment.Center,
                     ) {
                         if (key == AmountEntry.BACKSPACE) {
-                            Icon(Icons.Outlined.Backspace, contentDescription = "删除", tint = XpColors.Ink, modifier = Modifier.size(22.dp))
+                            Icon(Icons.Outlined.Backspace, contentDescription = tr("删除", "Delete"), tint = XpColors.Ink, modifier = Modifier.size(22.dp))
                         } else {
                             Text(
                                 key, color = XpColors.Ink,

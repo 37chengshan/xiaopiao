@@ -2,6 +2,7 @@ package com.xiaopiao.app.ui.circle
 
 import com.xiaopiao.app.domain.DAY_MS
 import com.xiaopiao.app.domain.startOfDay
+import com.xiaopiao.app.ui.tr
 import java.util.Calendar
 
 /**
@@ -226,7 +227,7 @@ fun weekWindowLabel(now: Long): String {
     c.timeInMillis = end
     val to = "${c.get(Calendar.MONTH) + 1}/${c.get(Calendar.DAY_OF_MONTH)}"
     val week = c.get(Calendar.WEEK_OF_YEAR)
-    return "$from–$to · 第 $week 周"
+    return tr("$from–$to · 第 $week 周", "$from–$to · week $week")
 }
 
 fun weekSpendOf(circle: Circle, memberId: String, now: Long): Long {
@@ -262,16 +263,16 @@ fun streakDays(circle: Circle, memberId: String, now: Long): Int {
 }
 
 private val BADGE_POOL = listOf(
-    CircleBadge("🌱", "第一天"),
-    CircleBadge("🧾", "三张连打"),
-    CircleBadge("🍜", "吃饭规律"),
-    CircleBadge("☕", "咖啡续命"),
-    CircleBadge("🛒", "囤货达人"),
-    CircleBadge("🚇", "通勤战士"),
-    CircleBadge("🌙", "早睡省钱"),
-    CircleBadge("🎯", "预算守门"),
-    CircleBadge("🧊", "冷静选手"),
-    CircleBadge("💛", "最会过日子"),
+    CircleBadge("🌱", tr("第一天", "First day")),
+    CircleBadge("🧾", tr("三张连打", "Three receipts in a row")),
+    CircleBadge("🍜", tr("吃饭规律", "Regular meals")),
+    CircleBadge("☕", tr("咖啡续命", "Coffee lifeline")),
+    CircleBadge("🛒", tr("囤货达人", "Stock-up pro")),
+    CircleBadge("🚇", tr("通勤战士", "Commute warrior")),
+    CircleBadge("🌙", tr("早睡省钱", "Early night saver")),
+    CircleBadge("🎯", tr("预算守门", "Budget keeper")),
+    CircleBadge("🧊", tr("冷静选手", "Cool-headed spender")),
+    CircleBadge("💛", tr("最会过日子", "Best at daily life")),
 )
 
 fun badgesFor(circle: Circle, memberId: String, now: Long): List<CircleBadge> {
@@ -346,7 +347,7 @@ fun awardSystemPost(circle: Circle, now: Long): SystemPost {
     return SystemPost(
         id = "award-${weekStart(now)}",
         at = now,
-        title = "本周家庭颁奖",
+        title = tr("本周家庭颁奖", "This week's family awards"),
         body = titles,
     )
 }

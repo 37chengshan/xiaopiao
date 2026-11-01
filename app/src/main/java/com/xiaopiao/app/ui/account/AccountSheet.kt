@@ -38,6 +38,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.xiaopiao.app.network.AccountClient
 import com.xiaopiao.app.ui.theme.*
+import com.xiaopiao.app.ui.tr
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.outlined.Close
@@ -234,7 +235,7 @@ private fun LoginScene(reduced: Boolean, modifier: Modifier = Modifier) {
                 )
             }
             Spacer(Modifier.height(XpSpace.s))
-            Text("今日小票", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+            Text(tr("今日小票", "Daily Receipt"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
         }
     }
 }

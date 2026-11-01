@@ -1,6 +1,7 @@
 package com.xiaopiao.app.ui.components
 
 import androidx.compose.animation.core.Animatable
+import com.xiaopiao.app.ui.motion.XpMotion
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.interaction.DragInteraction
@@ -108,7 +109,7 @@ fun <T> SnapPicker(
             if (centred in items.indices) {
                 bounceIndex = centred
                 bounce.snapTo(1.08f)
-                bounce.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 520f))
+                bounce.animateTo(1f, XpMotion.bouncy())
             }
         }
     }

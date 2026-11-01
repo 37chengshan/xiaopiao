@@ -70,9 +70,11 @@ import com.xiaopiao.app.ui.components.rememberNavScroll
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.TimeZone
+import com.xiaopiao.app.ui.tr
 
 private const val STRIP_DAYS = 30
 
@@ -121,7 +123,7 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
 
     val scroll = rememberScrollState()
     NavScaffold(
-        "小票", rememberNavScroll(scroll),
+        tr("小票", "Receipt"), rememberNavScroll(scroll),
         leading = { LedgerSideLeading() },
         trailing = { AppTopActions() },
     ) { top ->
@@ -137,16 +139,16 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
             }
 
             SettingsCard(Modifier.padding(top = XpSpace.l)) {
-                PickerRow("日期") {
+                PickerRow(tr("日期", "Date")) {
                     DayPicker(all, today, selectedDay, Modifier.weight(1f)) { selectedDay = it }
                     Box(
                         Modifier.padding(end = XpSpace.s).size(36.dp).clip(CircleShape).background(XpColors.Fill)
                             .pressableClick(onClick = { calendarOpen = true }),
                         contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Outlined.CalendarMonth, contentDescription = "日历：选择任意一天", tint = XpColors.Ink, modifier = Modifier.size(18.dp)) }
+                    ) { Icon(Icons.Outlined.CalendarMonth, contentDescription = tr("日历：选择任意一天", "Calendar: pick any day"), tint = XpColors.Ink, modifier = Modifier.size(18.dp)) }
                 }
                 Rule()
-                PickerRow("纸张") {
+                PickerRow(tr("纸张", "Paper")) {
                     val themes = PaperTheme.entries
                     SnapPicker(
                         themes, themes.indexOf(settings.theme), { i -> scope.launch { host.prefs.setTheme(themes[i]) } },
@@ -154,7 +156,7 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
                     ) { t, on -> PaperSwatch(t, on) }
                 }
                 Rule()
-                PickerRow("墨色") {
+                PickerRow(tr("墨色", "Ink")) {
                     val inkIndex = InkChoices.indexOf(settings.customInk).let { if (it < 0) InkChoices.size else it }
                     SnapPicker(
                         InkChoices + listOf(CustomInk), inkIndex,
@@ -163,7 +165,7 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
                             scope.launch { host.prefs.setCustomInk(argb) }
                         },
                         Modifier.weight(1f), itemWidth = 32.dp, spacing = 10.dp,
-                        label = { argb -> if (argb == null) "原色" else if (argb == CustomInk) "自调颜色" else "墨色" },
+                        label = { argb -> if (argb == null) tr("原色", "Default") else if (argb == CustomInk) tr("自调颜色", "Custom") else tr("墨色", "Ink") },
                     ) { argb, on -> InkDot(argb, on, hue) }
                 }
                 if (settings.customInk != null && settings.customInk !in InkChoices) {
@@ -176,7 +178,7 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
                     )
                 }
                 Rule()
-                PickerRow("字体") {
+                PickerRow(tr("字体", "Font")) {
                     val fonts = ReceiptFont.entries
                     SnapPicker(
                         fonts, settings.font.ordinal, { i -> scope.launch { host.prefs.setFont(fonts[i]) } },
@@ -186,8 +188,8 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
                 Rule()
                 val presets = ReceiptPreset.entries
                 var custom by rememberSaveable { mutableStateOf(settings.content.preset == null) }
-                PickerRow("内容") {
-                    val labels = presets.map { it.label } + "自定义"
+                PickerRow(tr("内容", "Content")) {
+                    val labels = presets.map { it.label } + tr("自定义", "Custom")
                     SnapPicker(
                         labels, if (custom) presets.size else settings.content.preset?.ordinal ?: presets.size,
                         { i ->
@@ -214,9 +216,9 @@ fun ReceiptPage(container: AppContainer, host: ReceiptHost) {
                 androidx.compose.material3.TextButton(onClick = {
                     state.selectedDateMillis?.let { selectedDay = DayPick.localDayFromUtc(it).coerceAtMost(today) }
                     calendarOpen = false
-                }) { Text("选择", color = XpColors.Ink) }
+                }) { Text(tr("选择", "Pick"), color = XpColors.Ink) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { calendarOpen = false }) { Text("取消", color = XpColors.InkSecondary) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { calendarOpen = false }) { Text(tr("取消", "Cancel"), color = XpColors.InkSecondary) } },
         ) { DatePicker(state) }
     }
 }
@@ -250,7 +252,12 @@ private fun Rule() {
     Box(Modifier.fillMaxWidth().padding(start = XpSpace.l + LabelWidth).height(0.5.dp).background(XpColors.Hairline))
 }
 
-private val Weekdays = arrayOf("日", "一", "二", "三", "四", "五", "六")
+private fun weekdayInitial(dow: Int): String {
+    val zh = arrayOf("日", "一", "二", "三", "四", "五", "六")
+    val en = arrayOf("S", "M", "T", "W", "T", "F", "S")
+    val i = (dow - 1).coerceIn(0, 6)
+    return tr(zh[i], en[i])
+}
 
 /** Last [STRIP_DAYS] days, oldest first; the centred day is the one printed. Dots mark days with entries. */
 @Composable
@@ -268,7 +275,7 @@ private fun DayPicker(all: List<Txn>, today: Long, selected: Long, modifier: Mod
                 .background(if (on) XpColors.Primary else Color.Transparent).padding(vertical = 5.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(Weekdays[cal.get(Calendar.DAY_OF_WEEK) - 1], fontSize = 10.sp, color = if (on) XpColors.OnPrimary.copy(alpha = 0.7f) else XpColors.InkSecondary)
+            Text(weekdayInitial(cal.get(Calendar.DAY_OF_WEEK)), fontSize = 10.sp, color = if (on) XpColors.OnPrimary.copy(alpha = 0.7f) else XpColors.InkSecondary)
             Text("${cal.get(Calendar.DAY_OF_MONTH)}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (on) XpColors.OnPrimary else XpColors.Ink)
             Box(Modifier.padding(top = 2.dp).size(3.dp).clip(CircleShape).background(if (d in withData) (if (on) XpColors.OnPrimary else XpColors.Accent) else Color.Transparent))
         }
@@ -316,7 +323,7 @@ private fun InkDot(argb: Int?, on: Boolean, hue: Float) {
         contentAlignment = Alignment.Center,
     ) {
         when (argb) {
-            null -> Text("原", fontSize = 10.sp, color = XpColors.InkSecondary)
+            null -> Text(tr("原", "Auto"), fontSize = 10.sp, color = XpColors.InkSecondary)
             CustomInk -> Icon(Icons.Outlined.Palette, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
         }
     }
@@ -369,16 +376,17 @@ private fun CategoryCard(defs: List<CategoryDef>, excluded: Set<String>, onChang
             .clip(RoundedCornerShape(XpRadius.contentCard)).background(XpColors.Card).padding(vertical = XpSpace.m),
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l), verticalAlignment = Alignment.CenterVertically) {
-            Text("印哪些分类", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = XpColors.Ink)
+            Text(tr("印哪些分类", "Categories to print"), Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = XpColors.Ink)
             val printed = spend.count { it.id !in excluded }
             Text(
-                if (excluded.isEmpty()) "全部" else "$printed / ${spend.size} · 全部",
+                if (excluded.isEmpty()) tr("全部", "All") else tr("$printed / ${spend.size} · 全部", "$printed / ${spend.size} · All"),
                 Modifier.clip(RoundedCornerShape(XpRadius.pill)).pressableClick { onChange(emptySet()) }.padding(horizontal = 6.dp, vertical = 2.dp),
                 fontSize = 12.sp, color = if (excluded.isEmpty()) XpColors.InkSecondary else XpColors.Accent,
             )
         }
         Text(
-            "没选中的不印在小票上，账本里照常保留。", Modifier.padding(horizontal = XpSpace.l, vertical = 2.dp),
+            tr("没选中的不印在小票上，账本里照常保留。", "Unselected categories stay off the receipt and remain in the ledger."),
+            Modifier.padding(horizontal = XpSpace.l, vertical = 2.dp),
             fontSize = 11.sp, color = XpColors.InkTertiary,
         )
         LazyRow(

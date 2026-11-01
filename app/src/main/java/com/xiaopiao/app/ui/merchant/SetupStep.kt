@@ -49,6 +49,7 @@ import com.xiaopiao.app.merchant.ExperimentStatus
 import com.xiaopiao.app.merchant.ExperimentTemplate
 import com.xiaopiao.app.merchant.ExperimentTemplates
 import com.xiaopiao.app.ui.components.XpCard
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.delay
@@ -73,7 +74,7 @@ fun SetupStep(current: Experiment?, onPublish: (ExperimentTemplate) -> Unit) {
         FlowPage {
             if (current != null && current.status != ExperimentStatus.ENDED) RunningBanner(current)
             Column(Modifier.padding(horizontal = XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                Text("选一个二选一模板", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+                Text(tr("选一个二选一模板", "Pick a this-or-that template"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
                 ExperimentTemplates.all.forEachIndexed { i, t ->
                     Reveal(i) {
                         SelectableCard(selected == t, { selected = t }) {
@@ -88,16 +89,19 @@ fun SetupStep(current: Experiment?, onPublish: (ExperimentTemplate) -> Unit) {
                     }
                 }
             }
-            Text("顾客会看到", Modifier.padding(horizontal = XpSpace.l), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+            Text(tr("顾客会看到", "What customers see"), Modifier.padding(horizontal = XpSpace.l), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
             Box(Modifier.padding(horizontal = XpSpace.l)) {
                 AnimatedContent(selected, label = "preview") { Preview(it) }
             }
             Column(Modifier.padding(horizontal = XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                 Text(
-                    "只会推给已授权的邻居，以「游戏表态」收集，和真实消费分开存放。",
+                    tr(
+                        "只会推给已授权的邻居，以「游戏表态」收集，和真实消费分开存放。",
+                        "Only sent to neighbours who opted in, collected as game answers and stored apart from real spending.",
+                    ),
                     style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                 )
-                MerchantButton("发布实验", { launching = true }, enabled = !launching, clay = true)
+                MerchantButton(tr("发布实验", "Publish experiment"), { launching = true }, enabled = !launching, clay = true)
             }
         }
         if (launching) LaunchOverlay(selected)
@@ -108,8 +112,10 @@ fun SetupStep(current: Experiment?, onPublish: (ExperimentTemplate) -> Unit) {
 private fun RunningBanner(exp: Experiment) {
     Box(Modifier.padding(horizontal = XpSpace.l)) {
         XpCard {
-            Text("已有一个${exp.status.label}的实验", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-            Text("「${exp.template.title}」。发布新的会替换它，之前的游戏表态不会带过去。", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+            Text(tr("已有一个${exp.status.label}的实验", "An experiment is already ${exp.status.label}"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+            Text(
+                tr("「${exp.template.title}」。发布新的会替换它，之前的游戏表态不会带过去。", "“${exp.template.title}”. Publishing a new one replaces it — earlier game answers do not carry over."),
+                style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         }
     }
 }
@@ -118,7 +124,7 @@ private fun RunningBanner(exp: Experiment) {
 @Composable
 private fun Preview(t: ExperimentTemplate) {
     XpCard {
-        Text("楼下的芋泥奶茶铺 想听听你的想法", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+        Text(tr("楼下的芋泥奶茶铺 想听听你的想法", "The taro milk tea shop downstairs wants your take"), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         Text(t.question, Modifier.padding(vertical = XpSpace.s), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
         Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
             t.options.forEach { o ->
@@ -132,7 +138,7 @@ private fun Preview(t: ExperimentTemplate) {
                 }
             }
         }
-        Text("← 左滑选左边 · 右滑选右边 →", Modifier.fillMaxWidth().padding(top = XpSpace.s), style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary, textAlign = TextAlign.Center)
+        Text(tr("← 左滑选左边 · 右滑选右边 →", "← Swipe left for left · swipe right for right →"), Modifier.fillMaxWidth().padding(top = XpSpace.s), style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary, textAlign = TextAlign.Center)
     }
 }
 
@@ -162,8 +168,8 @@ private fun LaunchOverlay(t: ExperimentTemplate) {
                     .graphicsLayer { rotationZ = lift.value * 8f }
                     .scale(0.9f + 0.4f * pop.value),
             )
-            Text("实验已发布！", Modifier.scale(pop.value), style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
-            Text("「${t.title}」正在送往邻居的手机", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+            Text(tr("实验已发布！", "Experiment published!"), Modifier.scale(pop.value), style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
+            Text(tr("「${t.title}」正在送往邻居的手机", "“${t.title}” is on its way to neighbours' phones"), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         }
     }
 }

@@ -59,6 +59,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.xiaopiao.app.ui.theme.ThemeMode
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 
 private val IconInset = 58.dp
 
@@ -149,7 +150,7 @@ fun CaptureSection(
         item {
             GroupedRow(
                 title = com.xiaopiao.app.ui.UiLabels.title("小票提醒"),
-                value = if (postGranted) "已允许" else "去允许",
+                value = if (postGranted) tr("已允许", "Allowed") else tr("去允许", "Allow"),
                 leading = { IconTile(Icons.Outlined.NotificationsActive, tint = XpColors.Warning, background = XpColors.WarningSoft) },
                 chevron = !postGranted,
                 onClick = if (postGranted) null else onRequestPost,
@@ -187,7 +188,7 @@ fun EditionSwitchSection(inMerchant: Boolean, onSwitch: () -> Unit) {
     GroupedSection(dividerInset = IconInset) {
         item {
             GroupedRow(
-                title = if (inMerchant) "切换到个人版" else "切换到小店版", chevron = true,
+                title = if (inMerchant) tr("切换到个人版", "Switch to Personal") else tr("切换到小店版", "Switch to Shop edition"), chevron = true,
                 leading = { IconTile(if (inMerchant) Icons.Outlined.Person else Icons.Outlined.Storefront, selected = true) },
                 onClick = onSwitch,
             )
@@ -219,10 +220,10 @@ fun PrivacySheet(onDismiss: () -> Unit) {
             Text(com.xiaopiao.app.ui.UiLabels.title("隐私说明"), Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s), style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
             GroupedSection(dividerInset = IconInset) {
                 listOf(
-                    "通知原文只在本机解析，不会上传",
-                    "只留金额、商家、时间、分类",
-                    "只有你主动开启小店版，才会汇总匿名数据",
-                    "随时可清空全部数据",
+                    tr("通知原文只在本机解析，不会上传", "Notification text is parsed on this phone only and never uploaded"),
+                    tr("只留金额、商家、时间、分类", "Only the amount, merchant, time and category are kept"),
+                    tr("只有你主动开启小店版，才会汇总匿名数据", "Anonymous totals are only collected if you turn on Shop edition"),
+                    tr("随时可清空全部数据", "You can erase all of it at any time"),
                 ).forEachIndexed { i, line ->
                     item(i) { GroupedRow(title = line, titleMaxLines = 3, leading = { IconTile(Icons.Outlined.Lock) }) }
                 }
@@ -268,8 +269,9 @@ fun ColorThemeSection(theme: ColorTheme, onTheme: (ColorTheme) -> Unit) {
 private fun ThemeSwatch(choice: ColorTheme, selected: Boolean, onClick: () -> Unit) {
     val (accent, highlight, tint) = choice.swatches(XpColors.isDark)
     val shape = RoundedCornerShape(14.dp)
+    val name = com.xiaopiao.app.ui.UiLabels.title(choice.label)
     Column(
-        Modifier.semantics { contentDescription = "主题 ${choice.label}" }
+        Modifier.semantics { contentDescription = tr("主题 $name", "Theme: $name") }
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -291,7 +293,7 @@ private fun ThemeSwatch(choice: ColorTheme, selected: Boolean, onClick: () -> Un
             }
         }
         Text(
-            choice.label,
+            name,
             style = MaterialTheme.typography.labelMedium,
             color = if (selected) XpColors.Ink else XpColors.InkSecondary,
             maxLines = 1,

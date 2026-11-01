@@ -57,6 +57,15 @@ class LedgerFilterTest {
         assertTrue(LedgerFilter().apply(listOf(last), now).contains(last))
     }
 
+    @Test fun defaultWindowKeepsTheLastSevenDaysEarlyInTheMonth() {
+        val first = at(2026, 11, 1, 9)
+        val (from, _) = LedgerFilter().window(first)
+        assertEquals(at(2026, 10, 26, 0), from)
+        val sixDaysAgo = txn(100, at(2026, 10, 26, 8))
+        val sevenDaysAgo = txn(100, at(2026, 10, 25, 23))
+        assertEquals(listOf(sixDaysAgo), LedgerFilter().apply(listOf(sixDaysAgo, sevenDaysAgo), first))
+    }
+
     @Test fun lastMonthAndYearWindowsAreDistinct() {
         val lastMonth = LedgerFilter(range = LedgerRange.LastMonth)
         assertEquals(listOf(september), lastMonth.apply(listOf(september) + october + lastYear, now))

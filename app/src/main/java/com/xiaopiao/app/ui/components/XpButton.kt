@@ -1,6 +1,7 @@
 package com.xiaopiao.app.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import com.xiaopiao.app.ui.motion.XpMotion
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -62,29 +63,28 @@ fun XpButton(
         XpButtonStyle.Destructive -> { bgTarget = XpColors.Fill; fgTarget = XpColors.Negative }
         XpButtonStyle.Plain -> { bgTarget = Color.Transparent; fgTarget = XpColors.Accent }
     }
-    val bg by animateColorAsState(bgTarget, tween(160, easing = XpEase.out), label = "btnBg")
-    val fg by animateColorAsState(fgTarget, tween(160, easing = XpEase.out), label = "btnFg")
+    val bg by animateColorAsState(bgTarget, XpMotion.fade(160), label = "btnBg")
+    val fg by animateColorAsState(fgTarget, XpMotion.fade(160), label = "btnFg")
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val haptics = rememberXpHaptics()
     val reduced = rememberReducedMotion()
     // Press = 0.96 scale + 7% ink veil, landing on the first frame (docs/APP-DESIGN.md §7.5).
-    val press by animateFloatAsState(
+    val press = animateFloatAsState(
         targetValue = if (pressed) 1f else 0f,
-        animationSpec = if (pressed) tween(com.xiaopiao.app.ui.motion.XpTiming.Press) else spring(dampingRatio = 1f, stiffness = 900f),
+        animationSpec = if (pressed) XpMotion.pressIn() else XpMotion.pressOut(0.001f),
         label = "btnPress",
     )
-    val pressScale = if (reduced) 1f else 1f - 0.04f * press
     val shape = RoundedCornerShape(XpRadius.pill)
     Row(
         modifier
             .alpha(if (enabled) 1f else 0.45f)
-            .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
+            .graphicsLayer { val k = if (reduced) 1f else 1f - 0.04f * press.value; scaleX = k; scaleY = k }
             .clip(shape)
             .background(bg)
             .drawWithContent {
                 drawContent()
-                if (press > 0f) drawRect(XpColors.Ink.copy(alpha = 0.07f * press))
+                press.value.let { p -> if (p > 0f) drawRect(XpColors.Ink.copy(alpha = 0.07f * p)) }
             }
             .clickable(source, null, enabled = enabled) { haptics.select(); onClick() }
             .defaultMinSize(minWidth = 56.dp)

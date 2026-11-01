@@ -91,12 +91,13 @@ class NavModelTest {
         assertEquals(LaunchSide.Social, prefs.observeLaunch().first())
         prefs.setLaunch(LaunchSide.Ledger)
         assertEquals(LaunchSide.Ledger, prefs.observeLaunch().first())
-        val originalLocale = java.util.Locale.getDefault()
+        // Labels follow the app's own language switch (ui.AppLocale), not the JVM default locale.
+        val original = com.xiaopiao.app.ui.AppLocale.english
         try {
-            java.util.Locale.setDefault(java.util.Locale.SIMPLIFIED_CHINESE)
+            com.xiaopiao.app.ui.AppLocale.english = false
             assertEquals("AI · 圈子", LaunchSide.Social.label)
-            java.util.Locale.setDefault(java.util.Locale.ENGLISH)
+            com.xiaopiao.app.ui.AppLocale.english = true
             assertEquals("AI · Circles", LaunchSide.Social.label)
-        } finally { java.util.Locale.setDefault(originalLocale) }
+        } finally { com.xiaopiao.app.ui.AppLocale.english = original }
     }
 }

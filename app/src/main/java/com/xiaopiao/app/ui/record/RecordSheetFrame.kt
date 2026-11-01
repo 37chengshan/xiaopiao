@@ -52,6 +52,8 @@ import com.xiaopiao.app.ui.theme.XpRadius
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.withFrameNanos
 
 /**
  * The 记一笔 sheet's own window. M3's ModalBottomSheet hard-codes its hide spec (FastEffects), so the
@@ -74,8 +76,11 @@ internal fun RecordSheetFrame(
     val progress = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        if (reduced) progress.snapTo(1f)
-        else progress.animateTo(1f, spring(dampingRatio = 0.86f, stiffness = 380f))
+        // One frame first: the sheet's keypad and grids are composed and measured on this frame, so the move
+        // itself starts from a laid-out surface instead of stuttering on frame one. Then a plain 200ms ease-out
+        // (no spring overshoot: on a full-height sheet the rebound reads as jitter, not bounce).
+        withFrameNanos { }
+        if (reduced) progress.snapTo(1f) else progress.animateTo(1f, tween(200, easing = XpEase.out))
     }
     LaunchedEffect(closing) {
         if (!closing) return@LaunchedEffect
@@ -91,10 +96,10 @@ internal fun RecordSheetFrame(
         } else {
             // Lift a hair before dropping only when the sheet is still fully open. A half-dragged
             // sheet should continue in the direction the finger left it.
-            if (visible > 0.98f) progress.animateTo(1.012f, tween(70, easing = XpEase.out))
+            if (visible > 0.98f) progress.animateTo(1.008f, tween(40, easing = XpEase.out))
             progress.animateTo(
                 0f,
-                spring(dampingRatio = 0.72f, stiffness = 300f, visibilityThreshold = 0.0001f),
+                spring(dampingRatio = 0.92f, stiffness = 1600f, visibilityThreshold = 0.0001f),
             )
         }
         onClosed()
@@ -110,7 +115,10 @@ internal fun RecordSheetFrame(
     ) {
         val view = LocalView.current
         SideEffect { (view.parent as? DialogWindowProvider)?.window?.setDimAmount(0f) }
-        val blurred = rememberWindowBlurBehind()
+        // Blur only once the sheet has landed (derivedStateOf: reading progress.value directly here would
+        // recompose the whole sheet every frame of its own animation).
+        val settled by remember { derivedStateOf { progress.value > 0.995f } }
+        val blurred = rememberWindowBlurBehind(enabled = settled)
         Box(Modifier.fillMaxSize()) {
             // Scrim fades with the sheet, including while it is dragged down. The alpha is a draw-phase
             // read, so dragging never recomposes the page.

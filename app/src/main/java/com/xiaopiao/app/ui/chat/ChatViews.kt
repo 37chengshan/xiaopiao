@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.XpCard
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -103,28 +104,28 @@ data class ChatView(
 }
 
 private fun periodLabel(period: String?): String? = when (period) {
-    "today" -> "今天"; "week" -> "本周"; "month" -> "本月"; else -> null
+    "today" -> tr("今天", "Today"); "week" -> tr("本周", "This week"); "month" -> tr("本月", "This month"); else -> null
 }
 
 @Composable
 fun ChatViewCard(view: ChatView, modifier: Modifier = Modifier) {
     XpCard(modifier.padding(horizontal = XpSpace.l)) {
         val title = view.title ?: when (view.kind) {
-            "spend_summary" -> "支出合计"
-            "category_split" -> "分类占比"
-            "trend" -> "按天走势"
-            "entries" -> "最近明细"
-            "peak" -> "最大的一笔"
-            "weekly_report" -> "本周小票"
-            "subscriptions" -> "规律扣款"
-            else -> "待确认草稿"
+            "spend_summary" -> tr("支出合计", "Total spend")
+            "category_split" -> tr("分类占比", "By category")
+            "trend" -> tr("按天走势", "Daily trend")
+            "entries" -> tr("最近明细", "Recent entries")
+            "peak" -> tr("最大的一笔", "Biggest entry")
+            "weekly_report" -> tr("本周小票", "This week's receipt")
+            "subscriptions" -> tr("规律扣款", "Recurring charges")
+            else -> tr("待确认草稿", "Drafts to confirm")
         }
         Text(title, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         when (view.kind) {
             "spend_summary" -> {
                 Row(Modifier.padding(top = XpSpace.s), verticalAlignment = Alignment.Bottom) {
                     MoneyText(view.totalCents ?: 0L, style = MaterialTheme.typography.titleLarge)
-                    val tail = listOfNotNull(view.count?.let { "$it 笔" }, periodLabel(view.period)).joinToString(" · ")
+                    val tail = listOfNotNull(view.count?.let { tr("$it 笔", "$it entries") }, periodLabel(view.period)).joinToString(" · ")
                     if (tail.isNotEmpty()) Text(tail, Modifier.padding(start = XpSpace.s, bottom = 3.dp), style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
                 }
             }
@@ -134,7 +135,7 @@ fun ChatViewCard(view: ChatView, modifier: Modifier = Modifier) {
             }
             "weekly_report" -> Row(Modifier.padding(top = XpSpace.s), verticalAlignment = Alignment.Bottom) {
                 MoneyText(view.totalCents ?: 0L, style = MaterialTheme.typography.titleLarge)
-                val tail = listOfNotNull(view.count?.let { "$it 笔" }, view.weekLabel, view.topCategory).joinToString(" · ")
+                val tail = listOfNotNull(view.count?.let { tr("$it 笔", "$it entries") }, view.weekLabel, view.topCategory).joinToString(" · ")
                 if (tail.isNotEmpty()) Text(tail, Modifier.padding(start = XpSpace.s, bottom = 3.dp), style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
             }
             "trend" -> TrendRow(view)

@@ -40,8 +40,9 @@ import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 
-private const val NO_AMOUNT_HINT = "没听清金额，补一个数字就行"
+private val NO_AMOUNT_HINT: String get() = tr("没听清金额，补一个数字就行", "Couldn't catch an amount — just add a number")
 
 /**
  * 「一句话」 entry. The sentence is parsed locally by [QuickParser] and shown as confirm cards;
@@ -91,12 +92,12 @@ internal fun TextRecordPane(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("一句话记账", style = MaterialTheme.typography.headlineSmall, color = XpColors.Ink)
-            Pill("一句话")
+            Text(tr("一句话记账", "One-line entry"), style = MaterialTheme.typography.headlineSmall, color = XpColors.Ink)
+            Pill(tr("一句话", "One line"))
         }
 
         Text(
-            "把一句话拆成账单，确认后才入账",
+            tr("把一句话拆成账单，确认后才入账", "Turns one sentence into entries — nothing is saved until you confirm"),
             style = MaterialTheme.typography.bodySmall,
             color = XpColors.InkSecondary,
         )
@@ -111,7 +112,7 @@ internal fun TextRecordPane(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("比如：午饭32 骑车2", color = XpColors.InkTertiary) },
+            placeholder = { Text(tr("比如：午饭32 骑车2", "e.g. lunch 32, bike 2"), color = XpColors.InkTertiary) },
             shape = RoundedCornerShape(XpRadius.m),
             colors = recordFieldColors(),
             maxLines = 3,
@@ -128,7 +129,7 @@ internal fun TextRecordPane(
                 ) {
                     Icon(
                         Icons.Outlined.ArrowUpward,
-                        contentDescription = "解析",
+                        contentDescription = tr("解析", "Parse"),
                         tint = if (input.isNotBlank()) XpColors.OnPrimary else XpColors.InkTertiary,
                         modifier = Modifier.size(20.dp),
                     )

@@ -40,6 +40,7 @@ import com.xiaopiao.app.ui.components.XpButton
 import com.xiaopiao.app.ui.components.XpButtonSize
 import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.XpSheet
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -81,8 +82,8 @@ fun RevenueCsvSheet(
             withContext(Dispatchers.IO) {
                 val resolver = context.contentResolver
                 val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
-                    ?: error("读不到这个文件")
-                require(bytes.size <= MAX_BYTES) { "文件太大了（上限 2MB）" }
+                    ?: error(tr("读不到这个文件", "This file could not be read"))
+                require(bytes.size <= MAX_BYTES) { tr("文件太大了（上限 2MB）", "File is too large (2MB max)") }
                 val utf8 = String(bytes, Charsets.UTF_8)
                 // Excel on Chinese Windows still exports GBK; fall back only when UTF-8 clearly failed.
                 if (utf8.contains('\uFFFD')) String(bytes, charset("GB18030")) else utf8
@@ -91,7 +92,7 @@ fun RevenueCsvSheet(
             preview = RevenueCsv.parse(text, today, existingDays)
             loading = false
         }.onFailure {
-            error = it.message ?: "这个文件读不了"
+            error = it.message ?: tr("这个文件读不了", "This file cannot be opened")
             loading = false
         }
     }
@@ -107,9 +108,9 @@ fun RevenueCsvSheet(
         Column(
             Modifier.verticalScroll(rememberScrollState()).padding(horizontal = XpSpace.l).padding(bottom = XpSpace.xl),
         ) {
-            Text("导入营收 CSV", style = MaterialTheme.typography.headlineMedium, color = XpColors.Ink)
+            Text(tr("导入营收 CSV", "Import revenue CSV"), style = MaterialTheme.typography.headlineMedium, color = XpColors.Ink)
             Text(
-                "每天一行，列顺序：日期、营收、订单（订单可不填）。",
+                tr("每天一行，列顺序：日期、营收、订单（订单可不填）。", "One row per day: date, revenue, orders (orders optional)."),
                 style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                 modifier = Modifier.padding(top = 2.dp),
             )
@@ -137,12 +138,12 @@ fun RevenueCsvSheet(
                         Icon(Icons.Outlined.UploadFile, contentDescription = null, tint = XpColors.Ink, modifier = Modifier.size(26.dp))
                     }
                     Text(
-                        if (loading) "正在读文件…" else error ?: "选一个 CSV 文件，先看预览再导入",
+                        if (loading) tr("正在读文件…", "Reading the file…") else error ?: tr("选一个 CSV 文件，先看预览再导入", "Pick a CSV file, check the preview, then import"),
                         style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary,
                         modifier = Modifier.padding(top = XpSpace.m),
                     )
                     XpButton(
-                        "选择 CSV 文件",
+                        tr("选择 CSV 文件", "Choose a CSV file"),
                         { launcher.launch(mimeTypes) },
                         modifier = Modifier.padding(top = XpSpace.m),
                         enabled = !loading,
@@ -159,12 +160,12 @@ fun RevenueCsvSheet(
                     Modifier.fillMaxWidth().padding(top = XpSpace.s),
                     horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
                 ) {
-                    PreviewCount("可导入", "${current.importDays} 天", XpColors.Positive, Modifier.weight(1f))
-                    PreviewCount("重复", "${current.duplicates.size} 天", XpColors.Warning, Modifier.weight(1f))
-                    PreviewCount("认不出", "${current.invalid.size} 行", XpColors.Negative, Modifier.weight(1f))
+                    PreviewCount(tr("可导入", "Importable"), tr("${current.importDays} 天", "${current.importDays} d"), XpColors.Positive, Modifier.weight(1f))
+                    PreviewCount(tr("重复", "Duplicate"), tr("${current.duplicates.size} 天", "${current.duplicates.size} d"), XpColors.Warning, Modifier.weight(1f))
+                    PreviewCount(tr("认不出", "Unreadable"), tr("${current.invalid.size} 行", "${current.invalid.size} rows"), XpColors.Negative, Modifier.weight(1f))
                 }
                 Text(
-                    "可导入合计 ${RevenueBook.money(current.importTotalCents)}",
+                    tr("可导入合计 ${RevenueBook.money(current.importTotalCents)}", "Importable total ${RevenueBook.money(current.importTotalCents)}"),
                     style = MaterialTheme.typography.labelMedium, color = XpColors.Ink,
                     modifier = Modifier.padding(top = XpSpace.m),
                 )
@@ -180,7 +181,7 @@ fun RevenueCsvSheet(
                         )
                         Spacer(Modifier.weight(1f))
                         Text(
-                            if (row.orders > 0) "${row.orders} 单" else "订单未填",
+                            if (row.orders > 0) tr("${row.orders} 单", "${row.orders} orders") else tr("订单未填", "No orders"),
                             style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary,
                             modifier = Modifier.padding(end = XpSpace.s),
                         )
@@ -193,42 +194,45 @@ fun RevenueCsvSheet(
                 }
                 if (current.importDays > 6) {
                     Text(
-                        "还有 ${current.importDays - 6} 天没列出来",
+                        tr("还有 ${current.importDays - 6} 天没列出来", "…and ${current.importDays - 6} more days not listed"),
                         style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary,
                         modifier = Modifier.padding(top = XpSpace.xs),
                     )
                 }
                 if (current.duplicates.isNotEmpty()) {
                     Text(
-                        "重复的 ${current.duplicates.size} 天你已经记过，会跳过，不会覆盖。",
+                        tr(
+                            "重复的 ${current.duplicates.size} 天你已经记过，会跳过，不会覆盖。",
+                            "${current.duplicates.size} of these days already have entries; they are skipped, never overwritten.",
+                        ),
                         style = MaterialTheme.typography.labelSmall, color = XpColors.Warning,
                         modifier = Modifier.padding(top = XpSpace.s),
                     )
                 }
                 current.invalid.take(5).forEach { row ->
                     Text(
-                        "第 ${row.line} 行 · ${row.error}",
+                        tr("第 ${row.line} 行 · ${row.error}", "Line ${row.line} · ${row.error}"),
                         style = MaterialTheme.typography.labelSmall, color = XpColors.Negative,
                         modifier = Modifier.padding(top = XpSpace.xs),
                     )
                 }
                 if (current.invalid.size > 5) {
                     Text(
-                        "还有 ${current.invalid.size - 5} 行认不出",
+                        tr("还有 ${current.invalid.size - 5} 行认不出", "…and ${current.invalid.size - 5} more lines could not be read"),
                         style = MaterialTheme.typography.labelSmall, color = XpColors.Negative,
                         modifier = Modifier.padding(top = XpSpace.xs),
                     )
                 }
 
                 XpButton(
-                    "导入 ${current.importDays} 天",
+                    tr("导入 ${current.importDays} 天", "Import ${current.importDays} days"),
                     { onImport(RevenueCsv.entries(current)) },
                     modifier = Modifier.fillMaxWidth().padding(top = XpSpace.l),
                     enabled = current.importDays > 0,
                 )
                 Row(Modifier.fillMaxWidth().padding(top = XpSpace.s), horizontalArrangement = Arrangement.Center) {
                     XpButton(
-                        "换一个文件", { launcher.launch(mimeTypes) },
+                        tr("换一个文件", "Choose another file"), { launcher.launch(mimeTypes) },
                         style = XpButtonStyle.Secondary, size = XpButtonSize.Small,
                     )
                 }

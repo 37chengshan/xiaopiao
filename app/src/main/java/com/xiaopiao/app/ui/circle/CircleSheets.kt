@@ -25,6 +25,7 @@ import com.xiaopiao.app.ui.components.XpSheet
 import com.xiaopiao.app.ui.components.XpSwitch
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 
 /**
  * Per-member visibility matrix. Tapping a family member shows what that member shares; only the "我"
@@ -45,9 +46,12 @@ fun CircleShareSheet(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
                 .padding(horizontal = XpSpace.l),
         ) {
-            Text("谁能看到什么", style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
+            Text(tr("谁能看到什么", "Who can see what"), style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
             Text(
-                "共享范围按项授权，默认只给汇总、不给明细。撤回后，群里已经发过的小票也会立刻脱敏。",
+                tr(
+                    "共享范围按项授权，默认只给汇总、不给明细。撤回后，群里已经发过的小票也会立刻脱敏。",
+                    "Sharing is granted line by line: totals by default, never details. Revoking also masks receipts already posted.",
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = XpColors.InkSecondary,
                 modifier = Modifier.padding(top = XpSpace.xs),
@@ -59,7 +63,8 @@ fun CircleShareSheet(
                 }
             }
             GroupedSection(
-                header = if (selected.isMe) "家人能看到的" else "「${selected.name}」愿意分享的",
+                header = if (selected.isMe) tr("家人能看到的", "What your family can see")
+                else tr("「${selected.name}」愿意分享的", "What ${selected.name} shares"),
                 margin = 0.dp,
                 dividerInset = XpSpace.l,
             ) {
@@ -80,7 +85,7 @@ fun CircleShareSheet(
                             GroupedRow(
                                 title = share.label,
                                 subtitle = share.hint,
-                                value = if (selected.shows(share)) "已共享" else "未共享",
+                                value = if (selected.shows(share)) tr("已共享", "Shared") else tr("未共享", "Not shared"),
                             )
                         }
                     }
@@ -88,9 +93,15 @@ fun CircleShareSheet(
             }
             Text(
                 if (selected.isMe) {
-                    "改动立即生效。单笔明细是小票全文的前提；关掉今日总额，明细与小票也会一起隐藏。"
+                    tr(
+                        "改动立即生效。单笔明细是小票全文的前提；关掉今日总额，明细与小票也会一起隐藏。",
+                        "Changes apply immediately. Transaction details gate the full receipt; turning off today's total hides both.",
+                    )
                 } else {
-                    "家人的共享范围由 TA 自己决定，这里只能看。圈子数据只在家人之间，绝不进商家聚合。"
+                    tr(
+                        "家人的共享范围由 TA 自己决定，这里只能看。圈子数据只在家人之间，绝不进商家聚合。",
+                        "Each family member controls their own sharing, so this is read-only. Circle data stays in the circle, never in merchant aggregates.",
+                    )
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = XpColors.InkSecondary,

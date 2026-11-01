@@ -33,6 +33,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.sqrt
+import com.xiaopiao.app.ui.tr
 
 /**
  * Speech recognition, on-device first (docs/APP-DESIGN.md §4.3).
@@ -109,7 +110,7 @@ class VoiceController(
         stopRequested = false
         cancelRequested = false
         if (!hasPermission) {
-            error = "没有麦克风权限"
+            error = tr("没有麦克风权限", "No microphone access")
             return
         }
         val choice = AsrChoice.pick(language, preference, models.installedIds())
@@ -147,7 +148,7 @@ class VoiceController(
 
     private fun record(session: AsrSession) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            error = "需要麦克风权限才能录音"; listening = false; return
+            error = tr("需要麦克风权限才能录音", "Microphone access is needed to record"); listening = false; return
         }
         val minBuffer = AudioRecord.getMinBufferSize(
             16_000,
@@ -155,7 +156,7 @@ class VoiceController(
             AudioFormat.ENCODING_PCM_16BIT,
         )
         if (minBuffer <= 0) {
-            error = "这台手机录不了音"
+            error = tr("这台手机录不了音", "This phone cannot record audio")
             listening = false
             return
         }
@@ -169,7 +170,7 @@ class VoiceController(
         )
         if (recorder.state != AudioRecord.STATE_INITIALIZED) {
             recorder.release()
-            error = "麦克风被占用了，等一会儿再试"
+            error = tr("麦克风被占用了，等一会儿再试", "The microphone is busy — try again in a moment")
             listening = false
             return
         }
@@ -196,7 +197,7 @@ class VoiceController(
             // Cancelled: finish() also resets the cached stream, so the next press starts from silence.
             runCatching { session.finish() }
         } catch (e: Exception) {
-            error = "录音出错了，再试一次"
+            error = tr("录音出错了，再试一次", "Recording failed — try again")
             listening = false
         } finally {
             runCatching { recorder.stop() }
@@ -212,7 +213,7 @@ class VoiceController(
         val spoken = text.ifBlank { fallback }
         listening = false
         if (spoken.isBlank()) {
-            error = "没听清，再说一次"
+            error = tr("没听清，再说一次", "Did not catch that — say it again")
         } else {
             transcript = SpokenAmounts.normalize(spoken)
         }
@@ -282,7 +283,7 @@ class VoiceController(
         listening = true
         runCatching { r.startListening(intent) }.onFailure {
             listening = false
-            error = "语音没启动，再试一次"
+            error = tr("语音没启动，再试一次", "Voice did not start — try again")
             return
         }
         // tt's phone binds the service and never calls back; do not sit on 「在听」 forever.
@@ -341,18 +342,18 @@ class VoiceController(
                     return
                 }
                 this@VoiceController.error = when (errorCode) {
-                    SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "没听清，再说一次"
-                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "没有麦克风权限"
-                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "识别服务连不上，先手打吧"
+                    SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> tr("没听清，再说一次", "Did not catch that — say it again")
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> tr("没有麦克风权限", "No microphone access")
+                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> tr("识别服务连不上，先手打吧", "Cannot reach the speech service — type it instead")
                     in ServiceErrors -> NoModelHint
-                    else -> "语音没成功，再试一次"
+                    else -> tr("语音没成功，再试一次", "Voice input failed — try again")
                 }
             }
 
             override fun onResults(results: android.os.Bundle?) {
                 listening = false
                 val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                if (text.isNullOrBlank()) error = "没听清，再说一次" else transcript = SpokenAmounts.normalize(text)
+                if (text.isNullOrBlank()) error = tr("没听清，再说一次", "Did not catch that — say it again") else transcript = SpokenAmounts.normalize(text)
             }
 
             override fun onPartialResults(partialResults: android.os.Bundle?) {
@@ -384,7 +385,7 @@ private val ServiceErrors = setOf(
     SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE,
 )
 
-private const val NoModelHint = "这台手机的语音服务用不了，去设置 › 语音模型 下载一个，或点输入法上的麦克风"
+private val NoModelHint = tr("这台手机的语音服务用不了，去设置 › 语音模型 下载一个，或点输入法上的麦克风", "Speech is not available on this phone. Download a voice model in Settings › Voice models, or use the keyboard mic")
 
 /** Safety cap for one held sentence; a ledger line never takes this long. */
 private const val MaxListenMs = 30_000L

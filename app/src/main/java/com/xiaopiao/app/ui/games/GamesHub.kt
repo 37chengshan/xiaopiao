@@ -18,7 +18,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BatterySaver
+import androidx.compose.material.icons.outlined.Casino
 import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.Casino
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Groups
@@ -74,6 +76,7 @@ import com.xiaopiao.app.ui.theme.Contrast
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 
 /**
  * 游戏 hub（docs/APP-DESIGN.md §5.3）。
@@ -85,13 +88,18 @@ import com.xiaopiao.app.ui.theme.XpSpace
 @Composable
 fun GamesHub(onBack: () -> Unit, onOpenSettings: (() -> Unit)? = null) {
     var openId by rememberSaveable { mutableStateOf<String?>(null) }
+    var wheelOpen by rememberSaveable { mutableStateOf(false) }
     val game = openId?.let(GameContent::byId)
 
-    BackHandler(enabled = game == null) { onBack() }
+    BackHandler(enabled = game == null && !wheelOpen) { onBack() }
 
     XpPushHost(
-        page = game?.let { selected -> { GamePlayer(game = selected, onExit = { openId = null }) } },
-        onBack = { openId = null },
+        page = when {
+            wheelOpen -> { { WheelGame(onBack = { wheelOpen = false }) } }
+            game != null -> { { GamePlayer(game = game, onExit = { openId = null }) } }
+            else -> null
+        },
+        onBack = { wheelOpen = false; openId = null },
         modifier = Modifier.fillMaxSize(),
     ) {
         NavScaffold(
@@ -106,14 +114,24 @@ fun GamesHub(onBack: () -> Unit, onOpenSettings: (() -> Unit)? = null) {
                     bottom = LocalTabBarInset.current + XpSpace.l,
                 ),
             ) {
-                item(key = "games-hero") {
-                    Column(Modifier.padding(horizontal = XpSpace.page)) {
-                        GamesHero(
-                            game = GameContent.byId("type-16") ?: GameContent.games.first(),
-                            onOpen = { openId = (GameContent.byId("type-16") ?: GameContent.games.first()).id },
-                        )
-                        Spacer(Modifier.height(XpSpace.l))
-                        GamesHeader(count = GameContent.games.size)
+                // 转盘：和其他游戏同一套行样式（GroupedSection + GroupedRow），不另做卡片。
+                item(key = "games-wheel") {
+                    GroupedSection(header = tr("工具", "Tools"), dividerInset = 58.dp) {
+                        item(key = "wheel") {
+                            GroupedRow(
+                                title = tr("转盘", "Wheel"),
+                                subtitle = tr("自己定扇面，转到哪个就是哪个", "Your own slices, the wheel decides"),
+                                leading = {
+                                    IconTile(
+                                        icon = Icons.Outlined.Casino,
+                                        tint = XpColors.Accent,
+                                        background = XpColors.AccentSoft,
+                                    )
+                                },
+                                chevron = true,
+                                onClick = { wheelOpen = true },
+                            )
+                        }
                     }
                 }
                 GameCategory.entries.forEach { category ->

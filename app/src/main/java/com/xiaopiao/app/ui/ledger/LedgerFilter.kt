@@ -44,9 +44,18 @@ import com.xiaopiao.app.ui.components.XpSheet
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 
 /** Time window of the ledger list (docs/APP-DESIGN.md §3.2, 采纳 §3.7 的 chip 组). */
-enum class LedgerRange(val label: String) { Month("本月"), LastMonth("上月"), Year("今年"), Custom("自定义") }
+enum class LedgerRange(private val zhLabel: String, private val enLabel: String) {
+    Month("本月", "This month"),
+    LastMonth("上月", "Last month"),
+    Year("今年", "This year"),
+    Custom("自定义", "Custom"),
+    ;
+
+    val label: String get() = tr(zhLabel, enLabel)
+}
 
 /**
  * Everything the 筛选 sheet can narrow. Kept as a value class so it is testable without Compose and
@@ -86,7 +95,8 @@ data class LedgerFilter(
 
     /** Half-open window `[from, to)` the filter applies to. */
     fun window(now: Long): Pair<Long, Long> = when (range) {
-        LedgerRange.Month -> LedgerRanges.monthStart(now) to LedgerRanges.nextMonthStart(now)
+        // 本月, but never fewer than the last 7 days: on the 1st the list would otherwise hold a single day (tt 2026-11-01).
+        LedgerRange.Month -> minOf(LedgerRanges.monthStart(now), startOfDay(now) - 6 * DAY_MS) to LedgerRanges.nextMonthStart(now)
         LedgerRange.LastMonth -> LedgerRanges.lastMonthStart(now) to LedgerRanges.monthStart(now)
         LedgerRange.Year -> LedgerRanges.yearStart(now) to Long.MAX_VALUE
         LedgerRange.Custom -> {
@@ -164,21 +174,21 @@ fun LedgerFilterSheet(
 
     XpSheet(onDismiss = onDismiss) {
         Box(Modifier.fillMaxWidth().padding(horizontal = XpSpace.page, vertical = XpSpace.s)) {
-            Text("筛选", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.align(Alignment.Center))
+            Text(tr("筛选", "Filters"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.align(Alignment.Center))
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.page)) {
             Column(Modifier.fillMaxWidth().heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
-                GroupLabel("收支")
+                GroupLabel(tr("收支", "Type"))
                 Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.m)) {
-                    LedgerChip("支出", draft.direction == Direction.OUT) {
+                    LedgerChip(tr("支出", "Expense"), draft.direction == Direction.OUT) {
                         draft = draft.copy(direction = if (draft.direction == Direction.OUT) null else Direction.OUT)
                     }
-                    LedgerChip("收入", draft.direction == Direction.IN) {
+                    LedgerChip(tr("收入", "Income"), draft.direction == Direction.IN) {
                         draft = draft.copy(direction = if (draft.direction == Direction.IN) null else Direction.IN)
                     }
                 }
 
-                GroupLabel("时间")
+                GroupLabel(tr("时间", "Time"))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(XpSpace.m), verticalArrangement = Arrangement.spacedBy(XpSpace.m)) {
                     LedgerRange.entries.forEach { range ->
                         LedgerChip(range.label, draft.range == range) {
@@ -198,7 +208,7 @@ fun LedgerFilterSheet(
                         horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
                     ) {
                         DateCapsule(
-                            label = draft.customFrom?.let { dateLabel(it, today) } ?: "起始日期",
+                            label = draft.customFrom?.let { dateLabel(it, today) } ?: tr("起始日期", "Start date"),
                             active = picking == true,
                             modifier = Modifier.weight(1f),
                         ) {
@@ -207,7 +217,7 @@ fun LedgerFilterSheet(
                         }
                         Text("—", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkTertiary)
                         DateCapsule(
-                            label = draft.customTo?.let { dateLabel(it, today) } ?: "结束日期",
+                            label = draft.customTo?.let { dateLabel(it, today) } ?: tr("结束日期", "End date"),
                             active = picking == false,
                             modifier = Modifier.weight(1f),
                         ) {
@@ -230,7 +240,7 @@ fun LedgerFilterSheet(
                     }
                 }
 
-                GroupLabel("分类")
+                GroupLabel(tr("分类", "Category"))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(XpSpace.s), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                     Category.entries.forEach { category ->
                         LedgerChip(category.label, category in draft.categories) {
@@ -241,7 +251,7 @@ fun LedgerFilterSheet(
                     }
                 }
 
-                GroupLabel("金额")
+                GroupLabel(tr("金额", "Amount"))
                 Row(
                     Modifier.fillMaxWidth().padding(top = XpSpace.xs),
                     verticalAlignment = Alignment.CenterVertically,
@@ -249,18 +259,18 @@ fun LedgerFilterSheet(
                 ) {
                     AmountCapsule(
                         cents = draft.minCents,
-                        placeholder = "最低金额",
+                        placeholder = tr("最低金额", "Min"),
                         modifier = Modifier.weight(1f),
                     ) { draft = draft.copy(minCents = it) }
                     Text("—", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkTertiary)
                     AmountCapsule(
                         cents = draft.maxCents,
-                        placeholder = "最高金额",
+                        placeholder = tr("最高金额", "Max"),
                         modifier = Modifier.weight(1f),
                     ) { draft = draft.copy(maxCents = it) }
                 }
 
-                GroupLabel("来源")
+                GroupLabel(tr("来源", "Source"))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(XpSpace.s), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                     Source.entries.forEach { source ->
                         LedgerChip(source.label, source in draft.sources) {
@@ -274,14 +284,14 @@ fun LedgerFilterSheet(
             // Footer: two halves, text links only — the sheet's single primary action is 确认 (accent text, 600).
             Row(Modifier.fillMaxWidth().padding(vertical = XpSpace.m)) {
                 Text(
-                    "重置",
+                    tr("重置", "Reset"),
                     style = MaterialTheme.typography.labelLarge,
                     color = XpColors.Accent,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f).clip(RoundedCornerShape(XpRadius.pill)).clickable { draft = LedgerFilter() }.padding(vertical = XpSpace.m),
                 )
                 Text(
-                    "确认",
+                    tr("确认", "Apply"),
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                     color = XpColors.Accent,
                     textAlign = TextAlign.Center,

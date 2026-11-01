@@ -44,6 +44,7 @@ import com.xiaopiao.app.ui.components.XpButtonSize
 import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.XpSheet
 import com.xiaopiao.app.ui.components.XpSwitch
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpFonts
 import com.xiaopiao.app.ui.theme.XpRadius
@@ -108,50 +109,50 @@ fun AddCardSheet(
                 .padding(horizontal = XpSpace.page).padding(bottom = XpSpace.l),
             verticalArrangement = Arrangement.spacedBy(XpSpace.m),
         ) {
-            Text("添加卡片", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.padding(top = XpSpace.s))
-            Segmented(listOf("银行卡", "会员卡"), if (kind == AddCardKind.Bank) 0 else 1, onSelect = { kind = if (it == 0) AddCardKind.Bank else AddCardKind.Member })
+            Text(tr("添加卡片", "Add card"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.padding(top = XpSpace.s))
+            Segmented(listOf(tr("银行卡", "Bank card"), tr("会员卡", "Member card")), if (kind == AddCardKind.Bank) 0 else 1, onSelect = { kind = if (it == 0) AddCardKind.Bank else AddCardKind.Member })
 
             if (kind == AddCardKind.Bank) {
                 Field(
                     value = if (pan.isEmpty()) "" else CardBin.groups(pan),
                     onValueChange = { pan = CardBin.digitsOnly(it).take(19) },
-                    placeholder = "卡号（15–19 位）",
+                    placeholder = tr("卡号（15–19 位）", "Card number (15–19 digits)"),
                     keyboard = KeyboardType.Number,
                     mono = true,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                    XpButton("拍照识别", { scanMode = ScanMode.CardNumber; scanOpen = true }, style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
+                    XpButton(tr("拍照识别", "Scan photo"), { scanMode = ScanMode.CardNumber; scanOpen = true }, style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
                     if (pan.isNotEmpty() && !CardBin.looksValid(pan)) {
-                        Text("卡号看起来不完整", style = MaterialTheme.typography.bodySmall, color = XpColors.Warning, modifier = Modifier.padding(top = 8.dp))
+                        Text(tr("卡号看起来不完整", "Card number looks incomplete"), style = MaterialTheme.typography.bodySmall, color = XpColors.Warning, modifier = Modifier.padding(top = 8.dp))
                     }
                 }
-                Field(value = bankName, onValueChange = { bankName = it }, placeholder = "银行（BIN 自动识别）")
-                Label("卡种")
+                Field(value = bankName, onValueChange = { bankName = it }, placeholder = tr("银行（BIN 自动识别）", "Bank (auto-detected from BIN)"))
+                Label(tr("卡种", "Card type"))
                 Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                    Chip("储蓄卡", type == BankCardType.Debit) { type = BankCardType.Debit }
-                    Chip("信用卡", type == BankCardType.Credit) { type = BankCardType.Credit }
+                    Chip(tr("储蓄卡", "Debit card"), type == BankCardType.Debit) { type = BankCardType.Debit }
+                    Chip(tr("信用卡", "Credit card"), type == BankCardType.Credit) { type = BankCardType.Credit }
                 }
                 if (type == BankCardType.Credit) {
-                    Label("账单日")
+                    Label(tr("账单日", "Statement day"))
                     DayChips(statementDay) { statementDay = it }
-                    Label("还款日")
+                    Label(tr("还款日", "Due day"))
                     DayChips(dueDay) { dueDay = it }
                 }
-                Field(value = nickname, onValueChange = { nickname = it }, placeholder = "卡片名称（可选）")
-                Label("卡面")
+                Field(value = nickname, onValueChange = { nickname = it }, placeholder = tr("卡片名称（可选）", "Card name (optional)"))
+                Label(tr("卡面", "Card design"))
                 FaceRow(face) { face = it; faceTouched = true }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("显示银行名", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
+                    Text(tr("显示银行名", "Show bank name"), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
                     XpSwitch(showBank, onCheckedChange = { showBank = it })
                 }
                 XpButton(
-                    text = "保存银行卡",
+                    text = tr("保存银行卡", "Save bank card"),
                     onClick = {
                         onSaveBank(
                             BankCard(
                                 id = "",
                                 nickname = nickname,
-                                bankName = bankName.ifBlank { "银行卡" },
+                                bankName = bankName.ifBlank { tr("银行卡", "Bank card") },
                                 brand = CardBin.identify(pan).brand,
                                 type = type,
                                 face = face,
@@ -166,31 +167,37 @@ fun AddCardSheet(
                     modifier = Modifier.fillMaxWidth().padding(top = XpSpace.s),
                 )
             } else {
-                Field(value = storeName, onValueChange = { storeName = it }, placeholder = "店名")
+                Field(value = storeName, onValueChange = { storeName = it }, placeholder = tr("店名", "Store name"))
                 Field(
                     value = memberNo, onValueChange = { memberNo = it.filter { c -> c.isLetterOrDigit() }.take(32) },
-                    placeholder = "会员号 / 条形码内容", mono = true,
+                    placeholder = tr("会员号 / 条形码内容", "Member number / barcode content"), mono = true,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                    XpButton("扫码录入", { scanMode = ScanMode.MemberCode; scanOpen = true }, style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
+                    XpButton(tr("扫码录入", "Scan code"), { scanMode = ScanMode.MemberCode; scanOpen = true }, style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
                 }
-                Label("展示方式")
+                Label(tr("展示方式", "Display as"))
                 Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                    Chip("二维码", codeFormat == MemberCodeFormat.Qr) { codeFormat = MemberCodeFormat.Qr }
-                    Chip("条形码", codeFormat == MemberCodeFormat.Code128) { codeFormat = MemberCodeFormat.Code128 }
+                    Chip(tr("二维码", "QR code"), codeFormat == MemberCodeFormat.Qr) { codeFormat = MemberCodeFormat.Qr }
+                    Chip(tr("条形码", "Barcode"), codeFormat == MemberCodeFormat.Code128) { codeFormat = MemberCodeFormat.Code128 }
                 }
-                Field(value = points, onValueChange = { points = it.filter(Char::isDigit).take(9) }, placeholder = "积分（可选）", keyboard = KeyboardType.Number)
-                Field(value = balance, onValueChange = { balance = it.filter { c -> c.isDigit() || c == '.' }.take(10) }, placeholder = "余额（可选）", keyboard = KeyboardType.Decimal)
-                Label("到期提醒")
+                Field(value = points, onValueChange = { points = it.filter(Char::isDigit).take(9) }, placeholder = tr("积分（可选）", "Points (optional)"), keyboard = KeyboardType.Number)
+                Field(value = balance, onValueChange = { balance = it.filter { c -> c.isDigit() || c == '.' }.take(10) }, placeholder = tr("余额（可选）", "Balance (optional)"), keyboard = KeyboardType.Decimal)
+                Label(tr("到期提醒", "Expiry reminder"))
                 Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                    listOf(0 to "不提醒", 1 to "1 个月", 3 to "3 个月", 6 to "6 个月", 12 to "1 年").forEach { (m, label) ->
+                    listOf(
+                        0 to tr("不提醒", "No reminder"),
+                        1 to tr("1 个月", "1 month"),
+                        3 to tr("3 个月", "3 months"),
+                        6 to tr("6 个月", "6 months"),
+                        12 to tr("1 年", "1 year"),
+                    ).forEach { (m, label) ->
                         Chip(label, expiryMonths == m) { expiryMonths = m }
                     }
                 }
-                Label("卡面")
+                Label(tr("卡面", "Card design"))
                 FaceRow(memberFace) { memberFace = it }
                 XpButton(
-                    text = "保存会员卡",
+                    text = tr("保存会员卡", "Save member card"),
                     onClick = {
                         val expiry = if (expiryMonths == 0) 0L else {
                             java.util.Calendar.getInstance().apply { add(java.util.Calendar.MONTH, expiryMonths) }.timeInMillis
@@ -198,7 +205,7 @@ fun AddCardSheet(
                         onSaveMember(
                             MemberCard(
                                 id = "",
-                                storeName = storeName.ifBlank { "会员卡" },
+                                storeName = storeName.ifBlank { tr("会员卡", "Member card") },
                                 memberNo = memberNo,
                                 face = memberFace,
                                 codeFormat = codeFormat,
@@ -292,7 +299,7 @@ private fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
 private fun DayChips(selected: Int, onSelect: (Int) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         listOf(0, 5, 8, 10, 15, 20, 25, 28).forEach { day ->
-            Chip(if (day == 0) "未设置" else "$day 日", selected == day) { onSelect(day) }
+            Chip(if (day == 0) tr("未设置", "Not set") else tr("$day 日", "Day $day"), selected == day) { onSelect(day) }
         }
     }
 }

@@ -2,6 +2,7 @@ package com.xiaopiao.app.ui.chat
 
 import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.Direction
+import com.xiaopiao.app.ui.tr
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
@@ -56,7 +57,7 @@ object LocalAgentTools {
                 }) } }
                 put("unit", "cents")
             }
-            "read_circle" -> buildJsonObject { put("shared", false); put("message", "没有可用的已授权圈子数据，不得使用演示成员推断") }
+            "read_circle" -> buildJsonObject { put("shared", false); put("message", tr("没有可用的已授权圈子数据，不得使用演示成员推断", "No authorised Circles data available; do not infer from demo members")) }
             else -> buildJsonObject { put("error", "TOOL_NOT_ALLOWED") }
         }
     }

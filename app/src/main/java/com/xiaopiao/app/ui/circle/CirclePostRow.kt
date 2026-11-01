@@ -38,6 +38,7 @@ import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 
 /** One feed row: receipt card, text bubble or centred system message. */
 @Composable
@@ -108,12 +109,12 @@ private fun ReceiptMessage(
                                     color = XpColors.InkSecondary,
                                 )
                                 Spacer(Modifier.width(6.dp))
-                                CircleChip("未共享")
+                                CircleChip(tr("未共享", "Not shared"))
                             }
                         }
                         if (post.items.isEmpty() && view.totalCents != null) {
                             Text(
-                                "今天钱包休息",
+                                tr("今天钱包休息", "Wallet resting today"),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = XpColors.InkSecondary,
                                 modifier = Modifier.padding(top = 2.dp),
@@ -132,8 +133,8 @@ private fun ReceiptMessage(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     when {
-                        slices == null -> CircleChip("分类未共享")
-                        slices.isEmpty() -> CircleChip("今天没有支出")
+                        slices == null -> CircleChip(tr("分类未共享", "Categories not shared"))
+                        slices.isEmpty() -> CircleChip(tr("今天没有支出", "No spending today"))
                         else -> {
                             slices.take(3).forEach { CircleChip("${it.category.label} ${it.percent}%") }
                             if (slices.size > 3) CircleChip("+${slices.size - 3}")
@@ -170,7 +171,7 @@ private fun ReceiptMessage(
                         }
                         if (detail.size > 4) {
                             Text(
-                                "还有 ${detail.size - 4} 笔",
+                                tr("还有 ${detail.size - 4} 笔", "${detail.size - 4} more entries"),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = XpColors.InkTertiary,
                             )
@@ -184,7 +185,7 @@ private fun ReceiptMessage(
                     ReceiptBody(post)
                 } else if (author.shows(CircleShare.ReceiptFull)) {
                     Spacer(Modifier.height(XpSpace.s + 2.dp))
-                    CircleChip("小票全文要先开单笔明细")
+                    CircleChip(tr("小票全文要先开单笔明细", "Open item rows to share the full receipt"))
                 }
 
                 Spacer(Modifier.height(XpSpace.s + 2.dp))
@@ -237,7 +238,7 @@ private fun DetailHiddenChip() {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Icon(Icons.Outlined.Lock, contentDescription = null, tint = XpColors.InkTertiary, modifier = Modifier.size(11.dp))
-        Text("单笔明细未共享", style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary, maxLines = 1)
+        Text(tr("单笔明细未共享", "Item rows not shared"), style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary, maxLines = 1)
     }
 }
 
@@ -253,7 +254,7 @@ private fun ReceiptBody(post: ReceiptPost) {
             .padding(horizontal = XpSpace.s + 2.dp, vertical = XpSpace.s),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text("NO.$serial · ${post.items.size} 笔", style = mono, color = XpColors.InkSecondary)
+        Text(tr("NO.$serial · ${post.items.size} 笔", "NO.$serial · ${post.items.size} entries"), style = mono, color = XpColors.InkSecondary)
         Text("------------------------", style = mono, color = XpColors.InkTertiary, maxLines = 1)
         post.items.forEach { item ->
             Row(Modifier.fillMaxWidth()) {
@@ -263,11 +264,11 @@ private fun ReceiptBody(post: ReceiptPost) {
         }
         Text("------------------------", style = mono, color = XpColors.InkTertiary, maxLines = 1)
         Row(Modifier.fillMaxWidth()) {
-            Text("合计", style = mono, color = XpColors.Ink)
+            Text(tr("合计", "Total"), style = mono, color = XpColors.Ink)
             Spacer(Modifier.weight(1f))
             Text("¥${post.totalCents.yuanGrouped()}", style = mono, color = XpColors.Ink)
         }
-        Text("谢谢惠顾", style = mono, color = XpColors.InkTertiary, maxLines = 1)
+        Text(tr("谢谢惠顾", "Thank you"), style = mono, color = XpColors.InkTertiary, maxLines = 1)
     }
 }
 
@@ -313,7 +314,7 @@ private fun TextMessage(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(timeLabel(post.at), style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary)
-                if (post.localOnly) CircleChip("仅本机")
+                if (post.localOnly) CircleChip(tr("仅本机", "On this phone only"))
             }
         }
         if (mine) {

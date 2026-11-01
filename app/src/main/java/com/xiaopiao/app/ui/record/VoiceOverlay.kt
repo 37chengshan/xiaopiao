@@ -53,7 +53,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
@@ -72,6 +71,8 @@ import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.xiaopiao.app.ui.components.liquidGlass
+import com.xiaopiao.app.ui.tr
 
 /** How far (dp) the finger must travel up from where the hold began before release means 「取消」. */
 private val CancelLift = 72.dp
@@ -128,7 +129,7 @@ class VoiceHostState(
     fun permissionResult(granted: Boolean) {
         requested = false
         if (!granted) {
-            outcome = VoiceOutcome.Problem("没有麦克风权限，去系统设置里允许")
+            outcome = VoiceOutcome.Problem(tr("没有麦克风权限，去系统设置里允许", "No microphone access — allow it in system settings"))
             return
         }
         open = true
@@ -175,7 +176,7 @@ class VoiceHostState(
                 throw e
             } catch (e: Exception) {
                 downloading = false
-                downloadError = e.message ?: "下载失败"
+                downloadError = e.message ?: tr("下载失败", "Download failed")
             }
         }
     }
@@ -333,16 +334,12 @@ private fun Modifier.voiceGlass(backdrop: Backdrop?, shape: RoundedCornerShape, 
     return if (backdrop == null || reduced) {
         this.clip(shape).background(if (armed) XpColors.Negative.copy(alpha = 0.12f).compositeOver(XpColors.Card) else XpColors.Card)
     } else {
-        this.drawBackdrop(
-            backdrop = backdrop,
-            shape = { shape },
-            effects = {
-                vibrancy()
-                blur(12.dp.toPx())
-                lens(10.dp.toPx(), 16.dp.toPx())
-            },
-            shadow = { Shadow(radius = 18.dp, color = rim) },
-            onDrawSurface = { drawRect(film) },
+        this.liquidGlass(
+            backdrop, shape,
+            film = film, rim = rim,
+            blur = 12.dp, lensHeight = 10.dp, lensAmount = 16.dp,
+            shadow = 18.dp,
+            interactive = false,
         )
     }
 }

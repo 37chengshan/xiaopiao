@@ -4,6 +4,7 @@ import com.xiaopiao.app.domain.Cents
 import com.xiaopiao.app.domain.DailyReceipt
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Txn
+import com.xiaopiao.app.ui.tr
 import java.util.Calendar
 import kotlin.math.roundToInt
 
@@ -36,11 +37,15 @@ object ReceiptLayout {
     const val COMMENT_COLS = 18
     /** Item rows shown under their category before "还有 N 笔" kicks in (collapsed = what gets printed on screen). */
     const val MAX_ROWS = 6
-    const val DEFAULT_STAMP = "钱包休眠者"
-    const val TAGLINE = "认真生活，留下凭证。"
-    const val NOTICE_TEXT = "仅作记录 · 非正式票据"
-    const val FOOTER_TEXT = "— 今日小票 · 存根联 —"
+    val DEFAULT_STAMP = tr("钱包休眠者", "Dormant wallet")
+    val TAGLINE = tr("认真生活，留下凭证。", "Living earnestly, keeping the receipts.")
+    val NOTICE_TEXT = tr("仅作记录 · 非正式票据", "Records only · not a tax invoice")
+    val FOOTER_TEXT = tr("— 今日小票 · 存根联 —", "— Today's receipt · customer copy —")
     private val WEEKDAYS = arrayOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
+    private val WEEKDAYS_EN = arrayOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+
+    /** [dow] is 0..6 from [Calendar.DAY_OF_WEEK] - 1. */
+    private fun weekdayName(dow: Int): String = tr(WEEKDAYS[dow], WEEKDAYS_EN[dow])
 
     /** Terminal-style column width: CJK and emoji take two columns, joiners and variation selectors none. */
     fun displayWidth(text: String): Int = text.codePoints().toArray().sumOf { cpWidth(it) }
@@ -99,13 +104,16 @@ object ReceiptLayout {
 
     fun dayLabel(dayStart: Long): String {
         val c = Calendar.getInstance().apply { timeInMillis = dayStart }
-        return "${c.get(Calendar.MONTH) + 1}月${c.get(Calendar.DAY_OF_MONTH)}日 ${WEEKDAYS[c.get(Calendar.DAY_OF_WEEK) - 1]}"
+        val month = c.get(Calendar.MONTH) + 1
+        val day = c.get(Calendar.DAY_OF_MONTH)
+        val weekday = weekdayName(c.get(Calendar.DAY_OF_WEEK) - 1)
+        return tr("${month}月${day}日 $weekday", "$weekday, $month/$day")
     }
 
     /** "2026-10-27 周二". */
     fun isoDay(dayStart: Long): String {
         val c = Calendar.getInstance().apply { timeInMillis = dayStart }
-        return "%04d-%02d-%02d %s".format(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH), WEEKDAYS[c.get(Calendar.DAY_OF_WEEK) - 1])
+        return "%04d-%02d-%02d %s".format(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH), weekdayName(c.get(Calendar.DAY_OF_WEEK) - 1))
     }
 
     fun clock(ms: Long): String {
@@ -122,13 +130,13 @@ object ReceiptLayout {
 
     /** "较昨日 −12%"; a dash when there is no sensible baseline. */
     fun deltaText(todayOut: Cents, previousOut: Cents?, isToday: Boolean): String {
-        val base = if (isToday) "较昨日" else "较前日"
+        val base = if (isToday) tr("较昨日", "vs yesterday") else tr("较前日", "vs previous day")
         if (previousOut == null || previousOut <= 0L) return "$base —"
         val pct = ((todayOut - previousOut) * 100.0 / previousOut).roundToInt()
         return when {
-            pct == 0 -> "$base 持平"
-            pct > 0 -> "$base +$pct%"
-            else -> "$base −${-pct}%"
+            pct == 0 -> tr("$base 持平", "flat $base")
+            pct > 0 -> tr("$base +$pct%", "up $pct% $base")
+            else -> tr("$base −${-pct}%", "down ${-pct}% $base")
         }
     }
 
@@ -144,25 +152,25 @@ object ReceiptLayout {
         val spend = items.filter { it.direction == Direction.OUT }
         val total = spend.sumOf { it.amountCents }
         if (spend.isEmpty() || total == 0L) return DEFAULT_STAMP
-        if (total >= 500_00) return "豪横的一天"
-        if (spend.size >= 8) return "记账狂魔"
-        if (total < 20_00) return "小确幸日"
-        if (spend.size == 1) return "一笔入魂"
+        if (total >= 500_00) return tr("豪横的一天", "Big spender day")
+        if (spend.size >= 8) return tr("记账狂魔", "Logging machine")
+        if (total < 20_00) return tr("小确幸日", "Small joys day")
+        if (spend.size == 1) return tr("一笔入魂", "One-entry day")
         val top = spend.groupBy { it.category }.maxBy { (_, rows) -> rows.sumOf { it.amountCents } }.key
         return when (top) {
-            com.xiaopiao.app.domain.Category.MEAL -> "干饭人"
-            com.xiaopiao.app.domain.Category.DRINK -> "续命专家"
-            com.xiaopiao.app.domain.Category.SNACK -> "零食收藏家"
-            com.xiaopiao.app.domain.Category.GROCERY -> "生活管家"
-            com.xiaopiao.app.domain.Category.TRANSPORT -> "通勤侠"
-            com.xiaopiao.app.domain.Category.SHOPPING -> "快乐剁手侠"
-            com.xiaopiao.app.domain.Category.FUN -> "快乐买单人"
-            com.xiaopiao.app.domain.Category.SUBSCRIPTION -> "会员收藏家"
-            com.xiaopiao.app.domain.Category.HOUSING -> "安居打工人"
-            com.xiaopiao.app.domain.Category.HEALTH -> "健康守护者"
-            com.xiaopiao.app.domain.Category.SOCIAL -> "人情大使"
-            com.xiaopiao.app.domain.Category.LEARNING -> "学习投资人"
-            com.xiaopiao.app.domain.Category.OTHER -> "认真生活家"
+            com.xiaopiao.app.domain.Category.MEAL -> tr("干饭人", "Rice bowl regular")
+            com.xiaopiao.app.domain.Category.DRINK -> tr("续命专家", "Caffeine lifeline")
+            com.xiaopiao.app.domain.Category.SNACK -> tr("零食收藏家", "Snack collector")
+            com.xiaopiao.app.domain.Category.GROCERY -> tr("生活管家", "Household manager")
+            com.xiaopiao.app.domain.Category.TRANSPORT -> tr("通勤侠", "Commuter hero")
+            com.xiaopiao.app.domain.Category.SHOPPING -> tr("快乐剁手侠", "Happy shopper")
+            com.xiaopiao.app.domain.Category.FUN -> tr("快乐买单人", "Fun spender")
+            com.xiaopiao.app.domain.Category.SUBSCRIPTION -> tr("会员收藏家", "Membership collector")
+            com.xiaopiao.app.domain.Category.HOUSING -> tr("安居打工人", "Home body")
+            com.xiaopiao.app.domain.Category.HEALTH -> tr("健康守护者", "Health keeper")
+            com.xiaopiao.app.domain.Category.SOCIAL -> tr("人情大使", "Social ambassador")
+            com.xiaopiao.app.domain.Category.LEARNING -> tr("学习投资人", "Learning investor")
+            com.xiaopiao.app.domain.Category.OTHER -> tr("认真生活家", "Earnest liver")
         }
     }
 
@@ -183,26 +191,31 @@ object ReceiptLayout {
         fun dash() { if (out.lastOrNull()?.kind != LineKind.DASH) out += ReceiptLine(LineKind.DASH) }
         val spend = receipt.items.filter { it.direction == Direction.OUT }
         out += ReceiptLine(LineKind.BLANK)
-        out += ReceiptLine(LineKind.TITLE, if (isToday) "今日小票" else "往日小票")
+        out += ReceiptLine(LineKind.TITLE, if (isToday) tr("今日小票", "Today's receipt") else tr("往日小票", "Past receipt"))
         out += ReceiptLine(LineKind.SUBTITLE, TAGLINE)
         out += ReceiptLine(LineKind.DASH)
-        out += ReceiptLine(LineKind.META, "日期", isoDay(receipt.dayStart))
-        out += ReceiptLine(LineKind.META, "出票", clock(meta.printedAtMs))
+        out += ReceiptLine(LineKind.META, tr("日期", "Date"), isoDay(receipt.dayStart))
+        out += ReceiptLine(LineKind.META, tr("出票", "Printed"), clock(meta.printedAtMs))
         out += ReceiptLine(LineKind.DASH)
         if (content.total) {
             if (spend.isEmpty()) {
-                out += ReceiptLine(LineKind.BIG, "今日无消费")
+                out += ReceiptLine(LineKind.BIG, tr("今日无消费", "No spending today"))
             } else {
-                out += ReceiptLine(LineKind.TOTAL, if (isToday) "今日支出" else "当日支出", moneyFixed(receipt.totalOutCents), receipt.totalOutCents)
+                out += ReceiptLine(
+                    LineKind.TOTAL,
+                    if (isToday) tr("今日支出", "Spent today") else tr("当日支出", "Spent that day"),
+                    moneyFixed(receipt.totalOutCents),
+                    receipt.totalOutCents,
+                )
             }
             out += ReceiptLine(LineKind.NOTICE, NOTICE_TEXT)
             val income = receipt.items.filter { it.direction == Direction.IN }.sumOf { it.amountCents }
-            if (income > 0) out += ReceiptLine(LineKind.INCOME, "收入", money(income, "+"), income, positive = true)
+            if (income > 0) out += ReceiptLine(LineKind.INCOME, tr("收入", "Income"), money(income, "+"), income, positive = true)
         }
         if (receipt.items.isNotEmpty()) {
             if (content.items || brief) {
                 dash()
-                out += ReceiptLine(LineKind.HEADER, "分类 / 明细", "金额")
+                out += ReceiptLine(LineKind.HEADER, tr("分类 / 明细", "Category / items"), tr("金额", "Amount"))
                 out += groupLines(receipt.items, expanded, brief)
             }
             if (content.bars) {
@@ -212,7 +225,8 @@ object ReceiptLayout {
             if (content.weekCompare && !brief) {
                 dash()
                 out += ReceiptLine(
-                    LineKind.STATS, "笔数 ${receipt.items.size}", deltaText(receipt.totalOutCents, meta.previousOutCents, isToday),
+                    LineKind.STATS, tr("笔数 ${receipt.items.size}", "${receipt.items.size} entries"),
+                    deltaText(receipt.totalOutCents, meta.previousOutCents, isToday),
                     extra = weekDayNumber(receipt.dayStart),
                 )
             }
@@ -272,7 +286,7 @@ object ReceiptLayout {
             }
         }
         if (!brief) items.filter { it.direction == Direction.IN }.forEach { rows += itemLine(it) }
-        if (hidden > 0) rows += ReceiptLine(LineKind.MORE, "…另有 $hidden 笔明细", extra = hidden)
+        if (hidden > 0) rows += ReceiptLine(LineKind.MORE, tr("…另有 $hidden 笔明细", "…$hidden more entries"), extra = hidden)
         return rows
     }
 
@@ -294,7 +308,7 @@ object ReceiptLayout {
             LineKind.META, LineKind.HEADER, LineKind.INCOME, LineKind.CATEGORY -> row(l.left, l.right)
             LineKind.ITEM -> row(l.left, l.right, "   ")
             LineKind.TOTAL -> "${l.left} ${l.right}"
-            LineKind.STATS -> "${l.left}  ${l.right}  本周第 ${l.extra} 天"
+            LineKind.STATS -> "${l.left}  ${l.right}  " + tr("本周第 ${l.extra} 天", "day ${l.extra} of the week")
             LineKind.STAMP_SPACE -> "[ ${l.left} ]"
             LineKind.MORE -> l.left
             LineKind.SHARE_BAR -> row(l.left, l.right)

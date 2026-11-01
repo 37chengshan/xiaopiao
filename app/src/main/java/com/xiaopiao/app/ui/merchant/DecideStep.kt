@@ -41,6 +41,7 @@ import com.xiaopiao.app.merchant.Decision
 import com.xiaopiao.app.merchant.Experiment
 import com.xiaopiao.app.merchant.Suggestion
 import com.xiaopiao.app.ui.components.XpCard
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 import java.text.SimpleDateFormat
@@ -58,7 +59,13 @@ fun DecideStep(
     onSetup: () -> Unit,
 ) {
     if (experiment == null) {
-        FlowEmpty(Icons.Outlined.Lightbulb, "先做个实验再决定", "有了实验结果，这里会给你 3 个可以试试的选择。", "去发起实验", onSetup)
+        FlowEmpty(
+            Icons.Outlined.Lightbulb,
+            tr("先做个实验再决定", "Run an experiment first"),
+            tr("有了实验结果，这里会给你 3 个可以试试的选择。", "Once you have results, you get 3 options to try."),
+            tr("去发起实验", "Start an experiment"),
+            onSetup,
+        )
         return
     }
     AnimatedContent(
@@ -80,7 +87,10 @@ private fun Picker(suggestions: List<Suggestion>, onAdopt: (Suggestion) -> Unit)
     FlowPage(horizontal = XpSpace.l, spacing = XpSpace.s) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
             Text(
-                "基于这轮结果，有 3 个可以试试的方向。选哪个、要不要选，都由你决定。",
+                tr(
+                    "基于这轮结果，有 3 个可以试试的方向。选哪个、要不要选，都由你决定。",
+                    "Based on this round, here are 3 directions to try. Which one — or none — is your call.",
+                ),
                 Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary,
             )
         }
@@ -90,12 +100,12 @@ private fun Picker(suggestions: List<Suggestion>, onAdopt: (Suggestion) -> Unit)
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                             IconTile(Icons.Outlined.Lightbulb, size = 28.dp, selected = pickedId == s.id)
-                            Text("可以试试…", style = MaterialTheme.typography.labelMedium, color = XpColors.Accent)
+                            Text(tr("可以试试…", "Worth a try…"), style = MaterialTheme.typography.labelMedium, color = XpColors.Accent)
                         }
                         Text(s.headline, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
                         Text(s.detail, style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
                         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(XpColors.Canvas).padding(XpSpace.m)) {
-                            Text("权衡", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
+                            Text(tr("权衡", "Trade-off"), style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
                             Text(s.tradeoff, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
                         }
                     }
@@ -106,10 +116,12 @@ private fun Picker(suggestions: List<Suggestion>, onAdopt: (Suggestion) -> Unit)
             picked != null,
             enter = fadeIn() + slideInVertically(spring(0.7f, Spring.StiffnessMediumLow)) { it },
         ) {
-            MerchantButton("就选这个 · 记下来", { picked?.let(onAdopt) }, Modifier.padding(top = XpSpace.s), clay = true)
+            MerchantButton(tr("就选这个 · 记下来", "Take this one · save it"), { picked?.let(onAdopt) }, Modifier.padding(top = XpSpace.s), clay = true)
         }
         if (picked == null) {
-            Text("点一张卡片选中它。想再等等也可以，什么都不选。", style = MaterialTheme.typography.labelMedium, color = XpColors.InkTertiary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            Text(
+                tr("点一张卡片选中它。想再等等也可以，什么都不选。", "Tap a card to select it. Waiting is fine too — select nothing."),
+                style = MaterialTheme.typography.labelMedium, color = XpColors.InkTertiary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
     }
 }
@@ -118,20 +130,20 @@ private fun Picker(suggestions: List<Suggestion>, onAdopt: (Suggestion) -> Unit)
 private fun Confirmed(d: Decision, onNewExperiment: () -> Unit) {
     val pop = remember { Animatable(0f) }
     LaunchedEffect(Unit) { pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMediumLow)) }
-    val fmt = remember { SimpleDateFormat("M月d日", Locale.CHINA) }
+    val fmt = remember { SimpleDateFormat(tr("M月d日", "MMM d"), Locale.getDefault()) }
     FlowPage(horizontal = XpSpace.l, spacing = XpSpace.m, alignment = Alignment.CenterHorizontally) {
         IconTile(Icons.Outlined.Check, Modifier.scale(pop.value).padding(top = XpSpace.l), size = 64.dp, selected = true)
-        Text("你做了决定", style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
+        Text(tr("你做了决定", "You decided"), style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
         XpCard {
-            Text("你选了", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+            Text(tr("你选了", "You picked"), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
             Text(d.headline, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-            Text("记录于 ${fmt.format(Date(d.chosenAt))}", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+            Text(tr("记录于 ${fmt.format(Date(d.chosenAt))}", "Saved ${fmt.format(Date(d.chosenAt))}"), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         }
         XpCard {
-            Text("两周后复盘 · ${fmt.format(Date(d.reviewAt))}", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+            Text(tr("两周后复盘 · ${fmt.format(Date(d.reviewAt))}", "Review in two weeks · ${fmt.format(Date(d.reviewAt))}"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
             Text(d.reviewNote, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
-            Text("只保存在这台手机上，不会上传。", Modifier.padding(top = 4.dp), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+            Text(tr("只保存在这台手机上，不会上传。", "Stays on this phone. Nothing is uploaded."), Modifier.padding(top = 4.dp), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         }
-        MerchantButton("再做一个新实验", onNewExperiment, primary = false)
+        MerchantButton(tr("再做一个新实验", "Run another experiment"), onNewExperiment, primary = false)
     }
 }

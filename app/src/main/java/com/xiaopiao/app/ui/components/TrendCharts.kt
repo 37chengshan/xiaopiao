@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.components
 
+import com.xiaopiao.app.ui.tr
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -462,15 +463,44 @@ fun DonutChart(
 
         // Center: the selected slice's amount (reference behaviour), label under it.
         val current = slices[selected.coerceIn(0, slices.lastIndex)]
-        // The centre stays inside the hole: shrink rather than spill onto the ring.
-        val hole = inner * 2f - 10.dp.toPx()
-        val amount = measurer.fit(StatsAggregator.grouped(current.cents), centerStyle.copy(color = XpColors.Ink), hole, minSp = 12f)
-        val unit = measurer.fit(current.label, unitStyle.copy(color = XpColors.InkSecondary), hole)
-        drawText(amount, topLeft = Offset(cx - amount.size.width / 2f, cy - amount.size.height / 2f - 6.dp.toPx()))
-        drawText(unit, topLeft = Offset(cx - unit.size.width / 2f, cy + amount.size.height / 2f - 4.dp.toPx()))
-        if (onOpen != null) {
-            val go = measurer.fit("看账单 ›", unitStyle.copy(color = XpColors.Accent), hole)
-            drawText(go, topLeft = Offset(cx - go.size.width / 2f, cy + amount.size.height / 2f + unit.size.height - 2.dp.toPx()))
+        // The centre stays inside the hole: the lines are centred as one block and each is fitted to the chord of
+        // the hole at its own height, so the bottom line can no longer run onto the ring (tt 2026-11-01).
+        val holeR = inner - 6.dp.toPx()
+        fun chordAt(top: Float, h: Float): Float {
+            val dy = maxOf(kotlin.math.abs(top - cy), kotlin.math.abs(top + h - cy))
+            return if (dy >= holeR) 0f else 2f * kotlin.math.sqrt(holeR * holeR - dy * dy)
+        }
+        val amountText = StatsAggregator.grouped(current.cents)
+        val amountStyle = centerStyle.copy(color = XpColors.Ink)
+        val unitColored = unitStyle.copy(color = XpColors.InkSecondary)
+        val goText = tr("看账单 ›", "View ›")
+        fun layoutCentre(withGo: Boolean): List<TextLayoutResult>? {
+            // First pass for heights, second pass fitted to the chord at each line's place in the block.
+            val first = listOfNotNull(
+                measurer.fit(amountText, amountStyle, holeR * 2f, minSp = 12f),
+                measurer.fit(current.label, unitColored, holeR * 2f),
+                if (withGo) measurer.fit(goText, unitStyle.copy(color = XpColors.Accent), holeR * 2f) else null,
+            )
+            var top = cy - first.sumOf { it.size.height } / 2f
+            val fitted = first.mapIndexed { i, l ->
+                val w = chordAt(top, l.size.height.toFloat())
+                top += l.size.height
+                when (i) {
+                    0 -> measurer.fit(amountText, amountStyle, w, minSp = 12f)
+                    1 -> measurer.fit(current.label, unitColored, w)
+                    else -> measurer.fit(goText, unitStyle.copy(color = XpColors.Accent), w)
+                }
+            }
+            val fits = fitted.zip(first).all { (f, o) -> f.size.width <= o.size.width + 1 && !f.hasVisualOverflow } &&
+                first.sumOf { it.size.height } <= holeR * 2f
+            return if (fits) fitted else null
+        }
+        val lines = (if (onOpen != null) layoutCentre(true) else null) ?: layoutCentre(false)
+            ?: listOf(measurer.fit(amountText, amountStyle, holeR * 2f, minSp = 12f), measurer.fit(current.label, unitColored, holeR * 1.6f))
+        var y = cy - lines.sumOf { it.size.height } / 2f
+        lines.forEach { l ->
+            drawText(l, topLeft = Offset(cx - l.size.width / 2f, y))
+            y += l.size.height
         }
     }
 }

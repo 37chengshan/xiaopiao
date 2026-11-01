@@ -37,6 +37,7 @@ import com.xiaopiao.app.ui.NavPrefs
 import com.xiaopiao.app.ui.navStore
 import com.xiaopiao.app.ui.theme.ColorTheme
 import com.xiaopiao.app.ui.theme.ThemePrefs
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.today.ReceiptSoundPrefs
 import kotlinx.coroutines.launch
 
@@ -57,7 +58,7 @@ fun SettingsScreen(
     onBack: (() -> Unit)? = null,
     inMerchant: Boolean = false,
     /** Where 返回 goes (移动七条 §1): the page whose gear opened 设置, e.g. 「记账」. */
-    backLabel: String = "返回",
+    backLabel: String = tr("返回", "Back"),
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -149,14 +150,14 @@ fun SettingsScreen(
                         onLoadDemo = {
                             scope.launch {
                                 val n = container.loadDemoData()
-                                demoMessage = if (n > 0) "已载入 $n 笔，去记账页看看吧～" else "账本里已经有数据了"
+                                demoMessage = if (n > 0) tr("已载入 $n 笔，去记账页看看吧～", "Loaded $n entries — open Ledger to see them") else tr("账本里已经有数据了", "The ledger already has data")
                             }
                         },
                         onClearAll = {
                             scope.launch {
                                 container.clearAllData()
                                 summary = null
-                                demoMessage = "已清空，从零开始～"
+                                demoMessage = tr("已清空，从零开始～", "Erased. Starting from zero")
                             }
                         },
                         onBack = { sub = null },
@@ -169,7 +170,7 @@ fun SettingsScreen(
         onBack = { sub = null },
         modifier = Modifier.fillMaxSize(),
     ) {
-        NavScaffold("设置", rememberNavScroll(scroll), onBack = onBack, backLabel = backLabel) { top ->
+        NavScaffold(tr("设置", "Settings"), rememberNavScroll(scroll), onBack = onBack, backLabel = backLabel) { top ->
             Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
                 val sync by container.ledgerSync.status.collectAsState()
                 AccountNavSection(user?.username, user?.email, user?.verified == true, syncNote(sync).takeIf { user?.verified == true }) { sub = SettingsSub.Account }

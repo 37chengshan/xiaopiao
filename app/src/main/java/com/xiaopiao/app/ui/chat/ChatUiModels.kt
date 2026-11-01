@@ -2,6 +2,7 @@ package com.xiaopiao.app.ui.chat
 
 import com.xiaopiao.app.domain.DAY_MS
 import com.xiaopiao.app.domain.startOfDay
+import com.xiaopiao.app.ui.tr
 
 /**
  * Pure UI state for the AI page (v7): the two top segments, the composer's derived mode, attachment
@@ -95,11 +96,15 @@ data class ChatSession(
     val rounds: Int get() = items.count { it is ChatItem.User }
 }
 
-enum class SessionBucket(val label: String) {
-    Today("今天"),
-    Yesterday("昨天"),
-    LastWeek("7 天内"),
-    Earlier("更早"),
+enum class SessionBucket {
+    Today, Yesterday, LastWeek, Earlier;
+
+    val label: String get() = when (this) {
+        Today -> tr("今天", "Today")
+        Yesterday -> tr("昨天", "Yesterday")
+        LastWeek -> tr("7 天内", "Past 7 days")
+        Earlier -> tr("更早", "Earlier")
+    }
 }
 
 object SessionGroups {
@@ -128,7 +133,7 @@ object SessionGroups {
     /** Title for a saved conversation: the first thing the user asked, trimmed for the drawer row. */
     fun titleOf(items: List<ChatItem>, maxChars: Int = 18): String {
         val first = items.filterIsInstance<ChatItem.User>().firstOrNull()?.text?.trim().orEmpty()
-        if (first.isEmpty()) return "新对话"
+        if (first.isEmpty()) return tr("新对话", "New chat")
         return if (first.length <= maxChars) first else first.take(maxChars - 1) + "…"
     }
 }

@@ -67,23 +67,44 @@ import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpPaletteOverride
 import com.xiaopiao.app.ui.theme.merchantPalette
 import com.xiaopiao.app.ui.theme.paletteFor
+import com.xiaopiao.app.ui.tr
 
 /** The four destinations of 小店版. The middle nav slot is the record action, not a tab. */
-enum class MerchantTab(val label: String, val icon: ImageVector) {
-    Today("今日", Icons.Outlined.Today),
-    Revenue("营收", Icons.Outlined.PointOfSale),
-    Analysis("分析", Icons.Outlined.Insights),
-    Mine("我的", Icons.Outlined.Person),
+enum class MerchantTab(val icon: ImageVector) {
+    Today(Icons.Outlined.Today),
+    Revenue(Icons.Outlined.PointOfSale),
+    Analysis(Icons.Outlined.Insights),
+    Mine(Icons.Outlined.Person),
+    ;
+
+    val label: String
+        get() = when (this) {
+            Today -> tr("今日", "Today")
+            Revenue -> tr("营收", "Revenue")
+            Analysis -> tr("分析", "Insights")
+            Mine -> tr("我的", "Mine")
+        }
 }
 
 /** Pages above the tab bar: the receipt, and the existing customer-experiment flow. */
-enum class MerchantSub(val order: Int, val title: String) {
-    Receipt(-1, "经营小票"),
-    Crowd(0, "人群洞察"),
-    Setup(1, "发起实验"),
-    Results(2, "看结果"),
-    Decide(3, "你来决定"),
-    Game(4, "二选一大作战"),
+enum class MerchantSub(val order: Int) {
+    Receipt(-1),
+    Crowd(0),
+    Setup(1),
+    Results(2),
+    Decide(3),
+    Game(4),
+    ;
+
+    val title: String
+        get() = when (this) {
+            Receipt -> tr("经营小票", "Store receipt")
+            Crowd -> tr("人群洞察", "Crowd insights")
+            Setup -> tr("发起实验", "Start experiment")
+            Results -> tr("看结果", "Results")
+            Decide -> tr("你来决定", "You decide")
+            Game -> tr("二选一大作战", "This-or-that battle")
+        }
 }
 
 /** Which half of the 小店 bar is open and which icon is lit — pure, so the mapping is unit-tested. */
@@ -107,15 +128,16 @@ object MerchantNav {
  * 小店版 bar, same component and the same five-icon rule as the user edition: `今日 · 营收 · ⊕ · 分析 | 我的`, and once
  * 我的 is open `经营 · ⊕ | 人群 · 我的 · 实验` (the experiment flow's steps stay inside 人群 / 实验).
  */
-private val MerchantNavSpec = NavBarSpec(
-    a = NavBarItem("today", "今日", NavGlyph.Calendar),
-    b = NavBarItem("revenue", "营收", NavGlyph.Coin),
-    c = NavBarItem("analysis", "分析", NavGlyph.Chart),
-    fold = NavBarItem("fold", "经营", NavGlyph.Store),
-    entry = NavBarItem("mine", "我的", NavGlyph.Person),
-    sa = NavBarItem("crowd", "人群", NavGlyph.People),
-    sb = NavBarItem("lab", "实验", NavGlyph.Flask),
-    plusLabel = "记营收", plusDescription = "记营收",
+@Composable
+private fun merchantNavSpec() = NavBarSpec(
+    a = NavBarItem("today", bi("今日", "Today"), NavGlyph.Calendar),
+    b = NavBarItem("revenue", bi("营收", "Revenue"), NavGlyph.Coin),
+    c = NavBarItem("analysis", bi("分析", "Insights"), NavGlyph.Chart),
+    fold = NavBarItem("fold", bi("经营", "Ledger"), NavGlyph.Store),
+    entry = NavBarItem("mine", bi("我的", "Mine"), NavGlyph.Person),
+    sa = NavBarItem("crowd", bi("人群", "Crowd"), NavGlyph.People),
+    sb = NavBarItem("lab", bi("实验", "Lab"), NavGlyph.Flask),
+    plusLabel = bi("记营收", "Add revenue"), plusDescription = bi("记营收", "Add revenue"),
 )
 
 /**
@@ -252,7 +274,7 @@ fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: (
             // Receipt and the game own the screen; everywhere else the bar stays, with the flow's step lighting 人群 / 实验.
             if (barVisible) {
                 XpNavBar(
-                    spec = MerchantNavSpec,
+                    spec = merchantNavSpec(),
                     social = MerchantNav.isSocial(tab, sub),
                     selectedId = MerchantNav.selectedId(tab, sub),
                     onSelect = { id ->

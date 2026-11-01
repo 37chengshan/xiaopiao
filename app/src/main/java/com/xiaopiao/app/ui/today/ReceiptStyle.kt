@@ -5,6 +5,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 
 /** Which parts of the day get printed (docs/APP-DESIGN.md §3.1: 打印内容开关). */
@@ -34,14 +35,16 @@ data class ReceiptContent(
         Flag.Barcode -> copy(barcode = on)
     }
 
-    enum class Flag(val label: String, val get: (ReceiptContent) -> Boolean) {
-        Items("逐笔明细", { it.items }),
-        Total("合计", { it.total }),
-        Bars("分类占比条", { it.bars }),
-        Remark("AI 点评", { it.remark }),
-        Stamp("头衔印章", { it.stamp }),
-        WeekCompare("本周对比", { it.weekCompare }),
-        Barcode("条码流水号", { it.barcode }),
+    enum class Flag(private val labelZh: String, private val labelEn: String, val get: (ReceiptContent) -> Boolean) {
+        Items("逐笔明细", "Item rows", { it.items }),
+        Total("合计", "Total", { it.total }),
+        Bars("分类占比条", "Category bars", { it.bars }),
+        Remark("AI 点评", "AI remark", { it.remark }),
+        Stamp("头衔印章", "Title stamp", { it.stamp }),
+        WeekCompare("本周对比", "Week comparison", { it.weekCompare }),
+        Barcode("条码流水号", "Barcode serial", { it.barcode });
+
+        val label: String get() = tr(labelZh, labelEn)
     }
 
     companion object {
@@ -55,18 +58,30 @@ data class ReceiptContent(
 }
 
 /** 完整 / 简版: the two one-tap presets. 完整 = every detail; 简版 = hero total, top categories and the stamp. */
-enum class ReceiptPreset(val label: String, val content: ReceiptContent) {
-    Full("完整", ReceiptContent(items = true, total = true, bars = false, remark = true, stamp = true, weekCompare = true, barcode = true)),
-    Brief("简版", ReceiptContent(items = false, total = true, bars = true, remark = false, stamp = true, weekCompare = false, barcode = false)),
+enum class ReceiptPreset(private val labelZh: String, private val labelEn: String, val content: ReceiptContent) {
+    Full("完整", "Full", ReceiptContent(items = true, total = true, bars = false, remark = true, stamp = true, weekCompare = true, barcode = true)),
+    Brief("简版", "Brief", ReceiptContent(items = false, total = true, bars = true, remark = false, stamp = true, weekCompare = false, barcode = false));
+
+    val label: String get() = tr(labelZh, labelEn)
 }
 
 /** Paper colour presets. [paper] null = follow the app's own paper tokens (the classic thermal look). */
-enum class PaperTheme(val id: String, val label: String, val paper: Long?, val shade: Long?, val ink: Long?, val stamp: Long?) {
-    Classic("classic", "经典热敏", null, null, null, null),
-    Kraft("kraft", "牛皮纸", 0xFFD9B98A, 0xFFC4A06C, 0xFF3A2A18, 0xFF9E2B1F),
-    Mint("mint", "薄荷", 0xFFE6F4EC, 0xFFCFE6D8, 0xFF1F3D30, 0xFFC0392B),
-    Sakura("sakura", "樱花", 0xFFFCE9EE, 0xFFF3CFD9, 0xFF4A2630, 0xFFB5173F),
-    Night("night", "夜间", 0xFF1C1C1E, 0xFF2C2C2E, 0xFFF2F2F2, 0xFFFF6B5E);
+enum class PaperTheme(
+    val id: String,
+    private val labelZh: String,
+    private val labelEn: String,
+    val paper: Long?,
+    val shade: Long?,
+    val ink: Long?,
+    val stamp: Long?,
+) {
+    Classic("classic", "经典热敏", "Classic thermal", null, null, null, null),
+    Kraft("kraft", "牛皮纸", "Kraft", 0xFFD9B98A, 0xFFC4A06C, 0xFF3A2A18, 0xFF9E2B1F),
+    Mint("mint", "薄荷", "Mint", 0xFFE6F4EC, 0xFFCFE6D8, 0xFF1F3D30, 0xFFC0392B),
+    Sakura("sakura", "樱花", "Blossom", 0xFFFCE9EE, 0xFFF3CFD9, 0xFF4A2630, 0xFFB5173F),
+    Night("night", "夜间", "Night", 0xFF1C1C1E, 0xFF2C2C2E, 0xFFF2F2F2, 0xFFFF6B5E);
+
+    val label: String get() = tr(labelZh, labelEn)
 
     companion object {
         fun fromId(id: String?): PaperTheme = entries.firstOrNull { it.id == id } ?: Classic
@@ -74,10 +89,12 @@ enum class PaperTheme(val id: String, val label: String, val paper: Long?, val s
 }
 
 /** The typeface the paper is set in: thermal-printer mono (default), system sans, or serif. */
-enum class ReceiptFont(val id: String, val label: String) {
-    Thermal("thermal", "等宽热敏"),
-    Sans("sans", "无衬线"),
-    Serif("serif", "衬线");
+enum class ReceiptFont(val id: String, private val labelZh: String, private val labelEn: String) {
+    Thermal("thermal", "等宽热敏", "Thermal mono"),
+    Sans("sans", "无衬线", "Sans-serif"),
+    Serif("serif", "衬线", "Serif");
+
+    val label: String get() = tr(labelZh, labelEn)
 
     val family: FontFamily
         get() = when (this) {

@@ -51,6 +51,7 @@ import com.xiaopiao.app.ui.theme.XpSpace
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.xiaopiao.app.ui.tr
 
 private val DAY_NAMES = listOf("一", "二", "三", "四", "五", "六", "日")
 
@@ -65,12 +66,12 @@ fun AwardsPage(input: InsightsInput, topPad: androidx.compose.ui.unit.Dp = 0.dp)
 
     Box {
         InsightsPage(rangeLabel(report), topPad = topPad) {
-            Segmented(listOf(true to "上周", false to "本周"), lastWeek) { lastWeek = it; burst++ }
+            Segmented(listOf(true to tr("上周", "Last week"), false to tr("本周", "This week")), lastWeek) { lastWeek = it; burst++ }
             if (report.isEmpty) {
-                InsightsEmpty(Icons.Outlined.EmojiEvents, "这周还没有小票", "记几笔账，周日晚上就有颁奖典礼啦～")
+                InsightsEmpty(Icons.Outlined.EmojiEvents, tr("这周还没有小票", "No receipt this week yet"), tr("记几笔账，周日晚上就有颁奖典礼啦～", "Log a few entries and the awards run on Sunday night."))
             } else {
                 Text(
-                    if (report.isComplete) "本周获奖名单" else "进行中 · 暂定名单",
+                    if (report.isComplete) tr("本周获奖名单", "Winners this week") else tr("进行中 · 暂定名单", "In progress · provisional list"),
                     style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                 )
                 // key(...) restarts the staggered flip whenever the week changes.
@@ -81,7 +82,7 @@ fun AwardsPage(input: InsightsInput, topPad: androidx.compose.ui.unit.Dp = 0.dp)
                     }
                 }
                 if (report.badges.isEmpty()) {
-                    XpCard { Text("这周没有特别的头衔，平平稳稳也是一种本事 🌿", color = XpColors.InkSecondary) }
+                    XpCard { Text(tr("这周没有特别的头衔，平平稳稳也是一种本事 🌿", "No special titles this week — steady is a skill too 🌿"), color = XpColors.InkSecondary) }
                 }
                 CommentCard(report.comment)
                 WeekStatsCard(report, input.demo)
@@ -139,7 +140,7 @@ private fun MedalCard(badge: Badge, delayMs: Long, modifier: Modifier = Modifier
 @Composable
 private fun CommentCard(comment: String) {
     XpCard {
-        Text("小票评语", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+        Text(tr("小票评语", "Receipt note"), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         Text(comment, style = MaterialTheme.typography.bodyLarge, color = XpColors.Ink, modifier = Modifier.padding(top = XpSpace.xs))
     }
 }
@@ -148,14 +149,14 @@ private fun CommentCard(comment: String) {
 private fun WeekStatsCard(r: WeeklyReport, demo: Boolean) {
     XpCard {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("本周花了", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
+            Text(tr("本周花了", "Spent this week"), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
         }
         BigMoney(r.totalOutCents)
         r.vsPrevPercent?.let { p ->
             val txt = when {
-                p == 0 -> "和上周差不多"
-                p < 0 -> "比上周少 ${-p}%"
-                else -> "比上周多 $p%"
+                p == 0 -> tr("和上周差不多", "About the same as last week")
+                p < 0 -> tr("比上周少 ${-p}%", "${-p}% less than last week")
+                else -> tr("比上周多 $p%", "$p% more than last week")
             }
             Text(txt, style = MaterialTheme.typography.labelLarge, color = if (p <= 0) XpColors.Positive else XpColors.Warning)
         }
@@ -186,7 +187,7 @@ private fun CategoriesCard(r: WeeklyReport) {
     if (r.topCategories.isEmpty()) return
     XpCard {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("花得最多的", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
+            Text(tr("花得最多的", "Biggest spend"), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
         }
         val topTotal = r.topCategories.sumOf { it.cents }.coerceAtLeast(1L)
         r.topCategories.forEachIndexed { i, c ->
@@ -212,15 +213,15 @@ private fun CategoriesCard(r: WeeklyReport) {
 @Composable
 private fun FactsCard(r: WeeklyReport) {
     XpCard {
-        Text("小数据", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
-        Fact("🧾", "共 ${r.txnCount} 笔记录")
+        Text(tr("小数据", "Small data"), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+        Fact("🧾", tr("共 ${r.txnCount} 笔记录", "${r.txnCount} entries in total"))
         r.biggest?.let { b ->
             Row(
                 Modifier.padding(top = XpSpace.s), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
             ) {
                 Text("💥")
-                Text("最大一笔", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
+                Text(tr("最大一笔", "Largest entry"), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
                 MoneyText(b.amountCents, style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
                 Text(
                     "· ${b.merchant}", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink,
@@ -228,8 +229,8 @@ private fun FactsCard(r: WeeklyReport) {
                 )
             }
         }
-        Fact("🔥", "连续记账最长 ${r.longestRecordStreak} 天")
-        Fact("😴", "${r.zeroSpendDays} 天钱包在休眠")
+        Fact("🔥", tr("连续记账最长 ${r.longestRecordStreak} 天", "Longest logging streak: ${r.longestRecordStreak} days"))
+        Fact("😴", tr("${r.zeroSpendDays} 天钱包在休眠", "${r.zeroSpendDays} days the wallet was resting"))
     }
 }
 

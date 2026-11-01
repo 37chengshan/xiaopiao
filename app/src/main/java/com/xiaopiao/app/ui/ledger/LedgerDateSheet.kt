@@ -27,8 +27,11 @@ import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.ui.components.XpSheet
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 
-private val weekdayHead = listOf("一", "二", "三", "四", "五", "六", "日")
+private fun weekdayHead(): List<String> = listOf(
+    tr("一", "M"), tr("二", "T"), tr("三", "W"), tr("四", "T"), tr("五", "F"), tr("六", "S"), tr("日", "S"),
+)
 
 /**
  * Month grid (Monday first) with a ‹ › month header. Used by the 「按天跳转」 sheet and by the
@@ -45,7 +48,7 @@ fun MonthGrid(
 ) {
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            MonthArrow(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "上个月") { onShift(-1) }
+            MonthArrow(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, tr("上个月", "Previous month")) { onShift(-1) }
             Text(
                 LedgerCalendar.title(anchor),
                 style = MaterialTheme.typography.titleSmall,
@@ -53,10 +56,10 @@ fun MonthGrid(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.weight(1f),
             )
-            MonthArrow(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "下个月") { onShift(1) }
+            MonthArrow(Icons.AutoMirrored.Outlined.KeyboardArrowRight, tr("下个月", "Next month")) { onShift(1) }
         }
         Row(Modifier.fillMaxWidth().padding(top = XpSpace.s)) {
-            weekdayHead.forEach { label ->
+            weekdayHead().forEach { label ->
                 Text(
                     label,
                     style = MaterialTheme.typography.labelSmall,
@@ -134,7 +137,7 @@ fun LedgerCalendarSheet(
     XpSheet(onDismiss = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.page).padding(bottom = XpSpace.l)) {
             Text(
-                "选择日期",
+                tr("选择日期", "Pick a date"),
                 style = MaterialTheme.typography.titleMedium,
                 color = XpColors.Ink,
                 textAlign = TextAlign.Center,

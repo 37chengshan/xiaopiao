@@ -44,6 +44,7 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.xiaopiao.app.ui.components.XpButton
 import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.XpSheet
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -51,8 +52,8 @@ import java.util.concurrent.Executors
 
 /** 两种取词方式：银行卡读卡面数字（OCR），会员卡读条码/二维码本身（扫码）。 */
 enum class ScanMode(val title: String, val hint: String) {
-    CardNumber("拍照识别卡号", "把卡号放进取景框"),
-    MemberCode("扫码录入会员号", "对准条形码或二维码"),
+    CardNumber(tr("拍照识别卡号", "Scan card number"), tr("把卡号放进取景框", "Fit the card number in the frame")),
+    MemberCode(tr("扫码录入会员号", "Scan member number"), tr("对准条形码或二维码", "Point at the barcode or QR code")),
 }
 
 /**
@@ -122,7 +123,7 @@ fun CardScannerSheet(
                                         textClient.process(image)
                                             .addOnSuccessListener { result ->
                                                 longestDigits(result.text)?.let(onScanned)
-                                                    ?: run { hint = "没看清，靠近一点再试" }
+                                                    ?: run { hint = tr("没看清，靠近一点再试", "Couldn't read it — move closer and try again") }
                                             }
                                             .addOnCompleteListener { proxy.close() }
                                     } else {
@@ -130,7 +131,7 @@ fun CardScannerSheet(
                                             .addOnSuccessListener { codes ->
                                                 val raw = codes.firstOrNull()?.rawValue?.trim()
                                                 if (raw.isNullOrEmpty()) {
-                                                    hint = "没找到条码，把会员码对准取景框"
+                                                    hint = tr("没找到条码，把会员码对准取景框", "No barcode found — center the member code in the frame")
                                                 } else {
                                                     onScanned(raw.filter { it.isLetterOrDigit() }.take(32))
                                                 }
@@ -141,7 +142,7 @@ fun CardScannerSheet(
                                 runCatching {
                                     provider.unbindAll()
                                     provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
-                                }.onFailure { hint = "相机不可用，请手动输入" }
+                                }.onFailure { hint = tr("相机不可用，请手动输入", "Camera unavailable — enter it manually") }
                             }, ContextCompat.getMainExecutor(ctx))
                             previewView
                         },
@@ -152,13 +153,13 @@ fun CardScannerSheet(
                 }
             } else {
                 Text(
-                    "需要相机权限才能识别；也可以手动输入。",
+                    tr("需要相机权限才能识别；也可以手动输入。", "Camera access is needed to scan — you can also type it in."),
                     style = MaterialTheme.typography.bodyMedium,
                     color = XpColors.InkSecondary,
                 )
-                XpButton("授予相机权限", { permission.launch(Manifest.permission.CAMERA) }, style = XpButtonStyle.Secondary)
+                XpButton(tr("授予相机权限", "Allow camera access"), { permission.launch(Manifest.permission.CAMERA) }, style = XpButtonStyle.Secondary)
             }
-            XpButton("手动输入", onDismiss, modifier = Modifier.fillMaxWidth(), style = XpButtonStyle.Secondary)
+            XpButton(tr("手动输入", "Type it in"), onDismiss, modifier = Modifier.fillMaxWidth(), style = XpButtonStyle.Secondary)
         }
     }
 }

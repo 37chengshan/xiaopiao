@@ -37,6 +37,7 @@ import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 
 private val FieldShape = RoundedCornerShape(XpRadius.pill)
 
@@ -70,7 +71,7 @@ fun LedgerSearchField(
             modifier = Modifier.weight(1f).padding(start = XpSpace.s).focusRequester(focus),
             decorationBox = { inner ->
                 if (query.isEmpty()) {
-                    Text("搜索商户、备注、金额", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkTertiary)
+                    Text(tr("搜索商户、备注、金额", "Search merchant, note, amount"), style = MaterialTheme.typography.bodyMedium, color = XpColors.InkTertiary)
                 }
                 inner()
             },
@@ -80,7 +81,7 @@ fun LedgerSearchField(
                 Modifier.size(28.dp).clip(RoundedCornerShape(XpRadius.pill)).clickable { onQuery("") },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.Close, contentDescription = "清空输入", tint = XpColors.InkTertiary, modifier = Modifier.size(16.dp))
+                Icon(Icons.Outlined.Close, contentDescription = tr("清空输入", "Clear input"), tint = XpColors.InkTertiary, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -102,9 +103,9 @@ fun LedgerRecentSearches(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("最近搜索", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+            Text(tr("最近搜索", "Recent searches"), style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
             Text(
-                "清除",
+                tr("清除", "Clear"),
                 style = MaterialTheme.typography.bodySmall,
                 color = XpColors.Accent,
                 modifier = Modifier.clip(FieldShape).clickable(onClick = onClear).padding(horizontal = XpSpace.s, vertical = 2.dp),
@@ -124,9 +125,9 @@ fun LedgerNoResults(onClearConditions: () -> Unit, modifier: Modifier = Modifier
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        Text("没有匹配的账单", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
+        Text(tr("没有匹配的账单", "No matching entries"), style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
         Text(
-            "　清空条件",
+            tr("　清空条件", "  Clear filters"),
             style = MaterialTheme.typography.bodyMedium,
             color = XpColors.Accent,
             modifier = Modifier.clickable(onClick = onClearConditions),

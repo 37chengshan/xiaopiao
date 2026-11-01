@@ -1,6 +1,7 @@
 package com.xiaopiao.app.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import com.xiaopiao.app.ui.motion.XpMotion
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
@@ -90,8 +91,8 @@ fun UndoToastHost(state: UndoToastState, modifier: Modifier = Modifier, backdrop
     Box(modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.l), contentAlignment = Alignment.BottomCenter) {
         AnimatedVisibility(
             visible = data != null,
-            enter = slideInVertically(tween(220, easing = XpEase.out)) { it * 2 } + fadeIn(tween(180, easing = XpEase.out)),
-            exit = slideOutVertically(tween(160, easing = XpEase.out)) { it * 2 } + fadeOut(tween(120)),
+            enter = XpMotion.enterRise(2f),
+            exit = XpMotion.exitSink(2f),
         ) {
             last?.let { ToastCapsule(it, onDismiss = state::dismiss, backdrop = backdrop) }
         }
@@ -111,9 +112,9 @@ private fun ToastCapsule(data: ToastData, onDismiss: () -> Unit, backdrop: com.k
                     onDragEnd = {
                         scope.launch {
                             if (abs(dx.value) > 140.dp.toPx()) {
-                                dx.animateTo(if (dx.value > 0) 1200f else -1200f, spring(1f, 400f))
+                                dx.animateTo(if (dx.value > 0) 1200f else -1200f, XpMotion.gentle())
                                 onDismiss()
-                            } else dx.animateTo(0f, spring(0.6f, 500f))
+                            } else dx.animateTo(0f, XpMotion.bouncy())
                         }
                     },
                 ) { change, delta -> change.consume(); scope.launch { dx.snapTo(dx.value + delta) } }
@@ -124,7 +125,9 @@ private fun ToastCapsule(data: ToastData, onDismiss: () -> Unit, backdrop: com.k
                 RoundedCornerShape(50),
                 film = XpColors.ToastBackground.copy(alpha = 0.78f),
                 rim = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.18f),
+                shadow = 12.dp,
                 fallback = XpColors.ToastBackground,
+                interactive = false,
             )
             .padding(start = XpSpace.l + 2.dp, end = XpSpace.m, top = XpSpace.m, bottom = XpSpace.m),
         verticalAlignment = Alignment.CenterVertically,

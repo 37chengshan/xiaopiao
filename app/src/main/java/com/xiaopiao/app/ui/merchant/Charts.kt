@@ -37,10 +37,11 @@ import com.xiaopiao.app.merchant.Aggregator
 import com.xiaopiao.app.merchant.Cell
 import com.xiaopiao.app.merchant.DayPart
 import com.xiaopiao.app.merchant.OptionStat
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 
-const val SUPPRESSED_TEXT = "样本不足"
+val SUPPRESSED_TEXT: String get() = tr("样本不足", "Not enough data")
 
 /** 7 × 6 weekday/day-part heatmap. Suppressed (k < 20) cells are hatched empty cells and say 样本不足 when tapped. */
 @Composable

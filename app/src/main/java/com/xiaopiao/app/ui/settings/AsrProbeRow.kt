@@ -23,6 +23,7 @@ import com.xiaopiao.app.domain.parse.QuickParser
 import com.xiaopiao.app.ui.components.GroupedRow
 import com.xiaopiao.app.ui.components.GroupedSection
 import com.xiaopiao.app.ui.components.IconTile
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -42,14 +43,14 @@ fun AsrProbeSection(container: AppContainer) {
     var result by remember { mutableStateOf<String?>(null) }
     var running by remember { mutableStateOf(false) }
 
-    GroupedSection(header = "自测（调试版）", footer = result) {
+    GroupedSection(header = tr("自测（调试版）", "Self-test (debug)"), footer = result) {
         item {
             GroupedRow(
-                title = "离线识别自测",
-                subtitle = "读 files/asr-probe.wav 走一遍识别 + 解析",
+                title = tr("离线识别自测", "Offline recognition self-test"),
+                subtitle = tr("读 files/asr-probe.wav 走一遍识别 + 解析", "Runs files/asr-probe.wav through recognition + parsing"),
                 value = when {
-                    running -> "运行中"
-                    result != null -> "已完成"
+                    running -> tr("运行中", "Running")
+                    result != null -> tr("已完成", "Done")
                     else -> null
                 },
                 leading = { IconTile(Icons.Outlined.Science, tint = XpColors.Info, background = XpColors.InfoSoft) },
@@ -61,7 +62,7 @@ fun AsrProbeSection(container: AppContainer) {
                         val wav = listOf(File(context.filesDir, "asr-probe.wav"), File("/sdcard/Download/asr-probe.wav"))
                             .firstOrNull { it.isFile }
                         val text = if (wav == null) {
-                            "没有找到 files/asr-probe.wav"
+                            tr("没有找到 files/asr-probe.wav", "files/asr-probe.wav not found")
                         } else {
                             runProbe(container, context.filesDir, wav)
                         }
@@ -76,13 +77,13 @@ fun AsrProbeSection(container: AppContainer) {
 }
 
 private suspend fun runProbe(container: AppContainer, filesDir: File, wav: File): String = withContext(Dispatchers.IO) {
-    if (!wav.isFile) return@withContext "没有找到 ${wav.absolutePath}"
+    if (!wav.isFile) return@withContext tr("没有找到 ${wav.absolutePath}", "Not found: ${wav.absolutePath}")
     // Whatever the settings currently select — this also exercises the language × installed × preference rule.
     val preference = container.asrPrefs.observe().first()
     val model = when (val choice = AsrChoice.pick(AsrLanguage.ZH, preference, container.asrModels.modelStore.installedIds())) {
         is AsrChoice.Ready -> choice.model
-        is AsrChoice.NeedsDownload -> return@withContext "没下载 ${choice.model.id}"
-        AsrChoice.Off -> return@withContext "设置里选了「不下载」"
+        is AsrChoice.NeedsDownload -> return@withContext tr("没下载 ${choice.model.id}", "Not downloaded: ${choice.model.id}")
+        AsrChoice.Off -> return@withContext tr("设置里选了「不下载」", "Settings say \"Do not download\"")
     }
     // Same hotwords the real listen path writes, so the probe measures what users get.
     if (model.supportsHotwords && AsrLanguage.ZH == AsrLanguage.system()) {
@@ -93,8 +94,8 @@ private suspend fun runProbe(container: AppContainer, filesDir: File, wav: File)
         }
     }
     val engine = SherpaEngine(container.asrModels.modelStore)
-    val session = engine.open(model, AsrLanguage.ZH) ?: return@withContext "模型打不开"
-    val samples = runCatching { WavReader.read(wav) }.getOrElse { return@withContext "wav 读不了：${it.message}" }
+    val session = engine.open(model, AsrLanguage.ZH) ?: return@withContext tr("模型打不开", "Model failed to load")
+    val samples = runCatching { WavReader.read(wav) }.getOrElse { return@withContext tr("wav 读不了：${it.message}", "Cannot read the wav: ${it.message}") }
     // Feed it the way the microphone does: 100 ms at a time, like a live utterance.
     var raw = ""
     var offset = 0
@@ -112,6 +113,11 @@ private suspend fun runProbe(container: AppContainer, filesDir: File, wav: File)
     session.close()
     val normalized = SpokenAmounts.normalize(text)
     val parsed = QuickParser.parse(normalized, System.currentTimeMillis())
-    val summary = parsed.joinToString("；") { "${it.amountCents / 100.0} 元 · ${it.category.label}" }
-    "模型：${model.id}\n识别：$text\n规整：$normalized\n解析：${summary.ifBlank { "无" }}"
+    val summary = parsed.joinToString(tr("；", "; ")) {
+        tr("${it.amountCents / 100.0} 元 · ${it.category.label}", "${it.amountCents / 100.0} CNY · ${it.category.label}")
+    }
+    tr(
+        "模型：${model.id}\n识别：$text\n规整：$normalized\n解析：${summary.ifBlank { "无" }}",
+        "Model: ${model.id}\nHeard: $text\nNormalised: $normalized\nParsed: ${summary.ifBlank { "none" }}",
+    )
 }

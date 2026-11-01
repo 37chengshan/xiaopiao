@@ -14,6 +14,7 @@ import com.xiaopiao.app.insights.WeeklyReport
 import com.xiaopiao.app.insights.WeeklyReportBuilder
 import com.xiaopiao.app.insights.daysBetween
 import com.xiaopiao.app.insights.normalizeMerchant
+import com.xiaopiao.app.ui.tr
 import kotlin.math.roundToLong
 
 /**
@@ -113,7 +114,11 @@ data class ChatStats(
 data class ChatReminder(val text: String, val demo: Boolean)
 
 /** Suggested prompts shown above the input until the first message is sent. */
-val ChatSuggestions = listOf("今天花了多少", "家里人这周花了多少", "帮我记：午饭 28")
+val ChatSuggestions = listOf(
+    tr("今天花了多少", "How much did I spend today"),
+    tr("家里人这周花了多少", "What did the family spend this week"),
+    tr("帮我记：午饭 28", "Log lunch 28"),
+)
 
 fun yuanText(cents: Cents): String = "¥" + cents.yuan()
 
@@ -153,55 +158,76 @@ fun buildReminder(history: List<Txn>, stats: ChatStats, now: Long): ChatReminder
     if (soonest != null) {
         val (sub, days) = soonest
         val whenText = when (days) {
-            0 -> "今天"
-            1 -> "明天"
-            else -> "$days 天后"
+            0 -> tr("今天", "today")
+            1 -> tr("明天", "tomorrow")
+            else -> tr("$days 天后", "in $days days")
         }
         val demo = history.any {
             normalizeMerchant(it.merchant) == normalizeMerchant(sub.merchant) && it.note == DemoSeed.NOTE
         }
         return ChatReminder(
-            "「${sub.merchant}」$whenText 会自动续费 ${yuanText(sub.amountCents)}。不想续的话，" +
-                "「洞察 → 订阅侦探」里写了取消步骤，我不代你操作。",
+            tr(
+                "「${sub.merchant}」$whenText 会自动续费 ${yuanText(sub.amountCents)}。不想续的话，" +
+                    "「洞察 → 订阅侦探」里写了取消步骤，我不代你操作。",
+                "${sub.merchant} renews $whenText for ${yuanText(sub.amountCents)}. If you'd rather not," +
+                    " Insights → Subscriptions lists the cancellation steps — I won't do it for you.",
+            ),
             demo,
         )
     }
     return if (stats.week.txnCount > 0) {
         ChatReminder(
-            "本周已经记了 ${stats.week.txnCount} 笔，合计 ${yuanText(stats.week.totalOutCents)}；周日我给你一张周报。",
+            tr(
+                "本周已经记了 ${stats.week.txnCount} 笔，合计 ${yuanText(stats.week.totalOutCents)}；周日我给你一张周报。",
+                "${stats.week.txnCount} entries so far this week, ${yuanText(stats.week.totalOutCents)} total;" +
+                    " you get a weekly report on Sunday.",
+            ),
             stats.hasDemo,
         )
     } else {
-        ChatReminder("还没发现固定扣款。记下第一笔之后，我会开始帮你盯着。", false)
+        ChatReminder(
+            tr("还没发现固定扣款。记下第一笔之后，我会开始帮你盯着。", "No recurring charges yet. Once you log the first one, I'll start watching."),
+            false,
+        )
     }
 }
 
 /** Template sentences. No model involved — every number comes from the user's own ledger. */
 object ChatCopy {
-    val WEEK = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+    val WEEK = listOf(
+        tr("周一", "Monday"), tr("周二", "Tuesday"), tr("周三", "Wednesday"), tr("周四", "Thursday"),
+        tr("周五", "Friday"), tr("周六", "Saturday"), tr("周日", "Sunday"),
+    )
 
     fun summary(stats: ChatStats): String = when {
-        !stats.hasAnyTxn -> "账簿还是空的。说一句「午饭 28」，我就能记下第一笔。"
+        !stats.hasAnyTxn -> tr("账簿还是空的。说一句「午饭 28」，我就能记下第一笔。", "Your ledger is empty. Say “lunch 28” and I'll log the first entry.")
         stats.todayOutCount == 0 -> buildString {
-            append("今天还没有花钱，钱包在休息。")
-            if (stats.yesterdayOutCents > 0L) append("昨天花了 ${yuanText(stats.yesterdayOutCents)}。")
+            append(tr("今天还没有花钱，钱包在休息。", "No spending today — your wallet is resting."))
+            if (stats.yesterdayOutCents > 0L) append(tr("昨天花了 ${yuanText(stats.yesterdayOutCents)}。", "Yesterday you spent ${yuanText(stats.yesterdayOutCents)}."))
         }
-        else -> "今天 ${stats.todayOutCount} 笔，花了 ${yuanText(stats.todayOutCents)}，${delta(stats)}。"
+        else -> tr(
+            "今天 ${stats.todayOutCount} 笔，花了 ${yuanText(stats.todayOutCents)}，${delta(stats)}。",
+            "Today: ${stats.todayOutCount} entries, ${yuanText(stats.todayOutCents)} spent, ${delta(stats)}.",
+        )
     }
 
     private fun delta(stats: ChatStats): String = when {
-        stats.yesterdayOutCents == 0L -> "昨天没花钱"
+        stats.yesterdayOutCents == 0L -> tr("昨天没花钱", "nothing yesterday")
         stats.todayOutCents > stats.yesterdayOutCents ->
-            "比昨天多 ${yuanText(stats.todayOutCents - stats.yesterdayOutCents)}"
+            tr("比昨天多 ${yuanText(stats.todayOutCents - stats.yesterdayOutCents)}", "${yuanText(stats.todayOutCents - stats.yesterdayOutCents)} more than yesterday")
         stats.todayOutCents < stats.yesterdayOutCents ->
-            "比昨天少 ${yuanText(stats.yesterdayOutCents - stats.todayOutCents)}"
-        else -> "和昨天一样"
+            tr("比昨天少 ${yuanText(stats.yesterdayOutCents - stats.todayOutCents)}", "${yuanText(stats.yesterdayOutCents - stats.todayOutCents)} less than yesterday")
+        else -> tr("和昨天一样", "the same as yesterday")
     }
 
     /** Tries the four things the local stats can actually answer, then falls back to a plain overview. */
     fun answer(text: String, stats: ChatStats): String = when {
         text.hasAny("你好", "在吗", "hi", "hello") ->
-            "在的。我能看你的账本（今天花了多少、哪天花得最多、最大一笔、分类占比），也能看圈子里家里人共享的小票。"
+            tr(
+                "在的。我能看你的账本（今天花了多少、哪天花得最多、最大一笔、分类占比），也能看圈子里家里人共享的小票。",
+                "Here. I can read your ledger (today's spend, top day, biggest entry, category shares)" +
+                    " and the receipts your family shares in Circles.",
+            )
         text.hasAny("占比", "分类", "花在", "构成") -> categoryAnswer(stats)
         text.hasAny("最大", "最贵") -> biggestAnswer(stats)
         text.hasAny("哪天", "最多", "最高") -> peakAnswer(stats)
@@ -213,52 +239,75 @@ object ChatCopy {
 
     fun weekAnswer(stats: ChatStats): String {
         val week = stats.week
-        if (week.txnCount == 0) return "这周还没有记账。"
+        if (week.txnCount == 0) return tr("这周还没有记账。", "No entries this week.")
         val vs = week.vsPrevPercent?.let {
             when {
-                it > 0 -> "，比上周同期多 $it%"
-                it < 0 -> "，比上周同期少 ${-it}%"
-                else -> "，和上周同期持平"
+                it > 0 -> tr("，比上周同期多 $it%", ", $it% more than the same days last week")
+                it < 0 -> tr("，比上周同期少 ${-it}%", ", ${-it}% less than the same days last week")
+                else -> tr("，和上周同期持平", ", level with the same days last week")
             }
         }.orEmpty()
-        return "本周 ${week.txnCount} 笔，合计 ${yuanText(week.totalOutCents)}$vs。"
+        return tr(
+            "本周 ${week.txnCount} 笔，合计 ${yuanText(week.totalOutCents)}$vs。",
+            "This week: ${week.txnCount} entries, ${yuanText(week.totalOutCents)} total$vs.",
+        )
     }
 
     private fun peakAnswer(stats: ChatStats): String {
-        val day = stats.weekPeakDay ?: return "这周还没有花钱记录。"
-        return "这周花得最多的是${WEEK[day]}，${yuanText(stats.weekPeakCents)}；" +
-            "本周合计 ${yuanText(stats.week.totalOutCents)}。"
+        val day = stats.weekPeakDay ?: return tr("这周还没有花钱记录。", "No spending recorded this week.")
+        return tr(
+            "这周花得最多的是${WEEK[day]}，${yuanText(stats.weekPeakCents)}；" +
+                "本周合计 ${yuanText(stats.week.totalOutCents)}。",
+            "Biggest day this week was ${WEEK[day]} at ${yuanText(stats.weekPeakCents)};" +
+                " ${yuanText(stats.week.totalOutCents)} for the week.",
+        )
     }
 
     private fun biggestAnswer(stats: ChatStats): String {
-        val biggest = stats.week.biggest ?: return "本周还没有支出。"
-        return "本周最大一笔是「${biggest.merchant}」${yuanText(biggest.amountCents)}（${biggest.category.label}）。"
+        val biggest = stats.week.biggest ?: return tr("本周还没有支出。", "No spending this week.")
+        return tr(
+            "本周最大一笔是「${biggest.merchant}」${yuanText(biggest.amountCents)}（${biggest.category.label}）。",
+            "Biggest entry this week: ${biggest.merchant}, ${yuanText(biggest.amountCents)} (${biggest.category.label}).",
+        )
     }
 
     private fun categoryAnswer(stats: ChatStats): String {
         val top = stats.week.topCategories
-        if (top.isEmpty()) return "本周还没有可分析的支出。"
-        val parts = top.take(3).joinToString("、") {
+        if (top.isEmpty()) return tr("本周还没有可分析的支出。", "Nothing to break down this week.")
+        val parts = top.take(3).joinToString(tr("、", ", ")) {
             "${it.category.label} ${(it.share * 100).roundToLong()}%"
         }
-        return "本周支出的分类占比：$parts。"
+        return tr("本周支出的分类占比：$parts。", "This week by category: $parts.")
     }
 
     private fun yesterdayAnswer(stats: ChatStats): String =
-        if (stats.yesterdayOutCount == 0) "昨天没有支出记录。"
-        else "昨天 ${stats.yesterdayOutCount} 笔，共 ${yuanText(stats.yesterdayOutCents)}。"
+        if (stats.yesterdayOutCount == 0) tr("昨天没有支出记录。", "No spending yesterday.")
+        else tr(
+            "昨天 ${stats.yesterdayOutCount} 笔，共 ${yuanText(stats.yesterdayOutCents)}。",
+            "Yesterday: ${stats.yesterdayOutCount} entries, ${yuanText(stats.yesterdayOutCents)}.",
+        )
 
     private fun overviewAnswer(stats: ChatStats): String {
-        if (!stats.hasAnyTxn) return "账簿还是空的。说一句「午饭 28」，我就能记下第一笔。"
-        return "今天 ${stats.todayOutCount} 笔 ${yuanText(stats.todayOutCents)}；" +
-            "本周合计 ${yuanText(stats.week.totalOutCents)}。我只做本机统计，不推荐也不比价。"
+        if (!stats.hasAnyTxn) return tr("账簿还是空的。说一句「午饭 28」，我就能记下第一笔。", "Your ledger is empty. Say “lunch 28” and I'll log the first entry.")
+        return tr(
+            "今天 ${stats.todayOutCount} 笔 ${yuanText(stats.todayOutCents)}；" +
+                "本周合计 ${yuanText(stats.week.totalOutCents)}。我只做本机统计，不推荐也不比价。",
+            "Today: ${stats.todayOutCount} entries, ${yuanText(stats.todayOutCents)};" +
+                " ${yuanText(stats.week.totalOutCents)} this week. I only do on-device stats — no recommendations, no price comparisons.",
+        )
     }
 
     private fun monthAnswerWith(stats: ChatStats, turn: ChatTurn): String =
-        "这个月的账我只存到今天，没法回看上一整月。先看本周：${ChatCopy.weekAnswer(stats)}"
+        tr(
+            "这个月的账我只存到今天，没法回看上一整月。先看本周：${ChatCopy.weekAnswer(stats)}",
+            "I only keep this month's entries up to today, so I can't look back at a whole previous month. This week first: ${ChatCopy.weekAnswer(stats)}",
+        )
 
     private fun todayAnswerWith(stats: ChatStats): String =
-        "今天到现在一共 ${yuanText(stats.todayOutCents)}，${stats.todayOutCount} 笔。"
+        tr(
+            "今天到现在一共 ${yuanText(stats.todayOutCents)}，${stats.todayOutCount} 笔。",
+            "So far today: ${yuanText(stats.todayOutCents)} across ${stats.todayOutCount} entries.",
+        )
 
     private fun String.hasAny(vararg words: String): Boolean = words.any { contains(it, ignoreCase = true) }
 }
@@ -291,7 +340,7 @@ object ChatIntentRouter {
             if (text.hasAny("今天呢", "今天花")) { turn.period = ChatPeriod.Today; return ChatReply.Answer(todayAnswerWith(stats)) }
         }
         val trimmed = text.trim()
-        if (trimmed.isEmpty()) return ChatReply.Answer("说一句话就行，比如「今天花了多少」。")
+        if (trimmed.isEmpty()) return ChatReply.Answer(tr("说一句话就行，比如「今天花了多少」。", "Just say something — “how much did I spend today”, for example."))
 
         val asksForRecord = trimmed.hasAny("帮我记", "记一笔", "记一下")
         val amount = amountRegex.findAll(trimmed)
@@ -303,7 +352,7 @@ object ChatIntentRouter {
             amount != null && !looksLikeQuestion(trimmed) ->
                 ChatReply.Expense(draftOf(trimmed, amount.first, amount.second))
             asksForRecord ->
-                ChatReply.Answer("好，说清楚金额就行，比如「午饭 28」。")
+                ChatReply.Answer(tr("好，说清楚金额就行，比如「午饭 28」。", "Sure — just include the amount, like “lunch 28”."))
             else -> ChatReply.Answer(ChatCopy.answer(trimmed, stats))
         }
     }
@@ -364,17 +413,31 @@ object ChatIntentRouter {
     }
 
     private fun monthAnswerWith(stats: ChatStats, turn: ChatTurn): String =
-        "这个月的账我只存到今天，没法回看上一整月。先看本周：${ChatCopy.weekAnswer(stats)}"
+        tr(
+            "这个月的账我只存到今天，没法回看上一整月。先看本周：${ChatCopy.weekAnswer(stats)}",
+            "I only keep this month's entries up to today, so I can't look back at a whole previous month. This week first: ${ChatCopy.weekAnswer(stats)}",
+        )
 
     private fun todayAnswerWith(stats: ChatStats): String =
-        "今天到现在一共 ${yuanText(stats.todayOutCents)}，${stats.todayOutCount} 笔。"
+        tr(
+            "今天到现在一共 ${yuanText(stats.todayOutCents)}，${stats.todayOutCount} 笔。",
+            "So far today: ${yuanText(stats.todayOutCents)} across ${stats.todayOutCount} entries.",
+        )
 
     private fun String.hasAny(vararg words: String): Boolean = words.any { contains(it, ignoreCase = true) }
 }
 
 // --- conversation context + family/circle analysis (2026-10-28) ------------------------------
 
-enum class ChatPeriod(val label: String) { Today("今天"), Week("本周"), Month("本月") }
+enum class ChatPeriod {
+    Today, Week, Month;
+
+    val label: String get() = when (this) {
+        Today -> tr("今天", "Today")
+        Week -> tr("本周", "This week")
+        Month -> tr("本月", "This month")
+    }
+}
 
 /** What the last question was about, so 「那上周呢」 can be answered without repeating the topic. */
 data class ChatTurn(var period: ChatPeriod = ChatPeriod.Week, var category: Category? = null)
@@ -400,24 +463,24 @@ object ChatFamily {
 
     fun answer(now: Long, ranking: Boolean): String {
         val lines = week(now)
-        if (lines.isEmpty()) return "圈子里还没有人发小票。"
+        if (lines.isEmpty()) return tr("圈子里还没有人发小票。", "Nobody has posted a receipt in your Circles yet.")
         val shared = lines.filter { it.cents != null }
         val rows = if (ranking) shared.sortedByDescending { it.cents } else lines
-        val body = rows.joinToString("，") { l ->
+        val body = rows.joinToString(tr("，", ", ")) { l ->
             when {
-                l.cents == null -> "${l.name} 没共享金额"
-                l.cents == 0L -> "${l.name} 这周没花"
-                else -> "${l.name} ${yuanText(l.cents)}（${l.posts} 张）"
+                l.cents == null -> tr("${l.name} 没共享金额", "${l.name} hasn't shared amounts")
+                l.cents == 0L -> tr("${l.name} 这周没花", "${l.name} spent nothing this week")
+                else -> tr("${l.name} ${yuanText(l.cents)}（${l.posts} 张）", "${l.name} ${yuanText(l.cents)} (${l.posts} receipts)")
             }
         }
         val hidden = lines.count { it.cents == null }
-        val head = if (ranking) "本周家人花得最多的是" else "本周家里人发来的小票："
+        val head = if (ranking) tr("本周家人花得最多的是", "Top spender in your family this week: ") else tr("本周家里人发来的小票：", "Receipts from your family this week: ")
         return buildString {
             append(head)
             append(if (ranking) "" else "")
             append(body)
-            append("。")
-            if (hidden > 0) append(" 有 $hidden 位没开金额共享，我不替 TA 猜。")
+            append(tr("。", "."))
+            if (hidden > 0) append(tr(" 有 $hidden 位没开金额共享，我不替 TA 猜。", " $hidden member(s) don't share amounts — I won't guess for them."))
         }
     }
 }
@@ -428,21 +491,21 @@ object ChatTools {
 
     /** Maps a question to the tool calls the engine will run (docs/AGENT.md §3–4). */
     fun plan(text: String, stats: ChatStats?, family: Boolean): List<Step> {
-        if (stats == null) return listOf(Step("读取账本", "账本还在加载"))
+        if (stats == null) return listOf(Step(tr("读取账本", "Reading ledger"), tr("账本还在加载", "Ledger is still loading")))
         return when {
             family -> listOf(
-                Step(com.xiaopiao.app.domain.ai.Tools.readCircle.label, "3 位家人，按各自授权脱敏"),
-                Step(com.xiaopiao.app.domain.ai.Tools.summarizePeriod.label + "家庭小票", "只统计已共享的金额"),
+                Step(com.xiaopiao.app.domain.ai.Tools.readCircle.label, tr("3 位家人，按各自授权脱敏", "3 family members, masked by their sharing settings")),
+                Step(com.xiaopiao.app.domain.ai.Tools.summarizePeriod.label + tr("家庭小票", " (family receipts)"), tr("只统计已共享的金额", "Only amounts already shared")),
             )
             text.contains("花") || text.contains("多少") || text.contains("支出") -> listOf(
-                Step(com.xiaopiao.app.domain.ai.Tools.queryTransactions.label, "本机 ${stats.week.txnCount} 笔记录"),
-                Step(com.xiaopiao.app.domain.ai.Tools.summarizePeriod.label + "本周", "合计 ${yuanText(stats.week.totalOutCents)}"),
+                Step(com.xiaopiao.app.domain.ai.Tools.queryTransactions.label, tr("本机 ${stats.week.txnCount} 笔记录", "${stats.week.txnCount} entries on this device")),
+                Step(com.xiaopiao.app.domain.ai.Tools.summarizePeriod.label + tr("本周", " (this week)"), tr("合计 ${yuanText(stats.week.totalOutCents)}", "${yuanText(stats.week.totalOutCents)} total")),
             )
             text.contains("最大") || text.contains("最多") -> listOf(
-                Step(com.xiaopiao.app.domain.ai.Tools.queryTransactions.label, "扫描本周全部记录"),
-                Step(com.xiaopiao.app.domain.ai.Tools.findPeak.label, "按金额排序"),
+                Step(com.xiaopiao.app.domain.ai.Tools.queryTransactions.label, tr("扫描本周全部记录", "Scanning every entry this week")),
+                Step(com.xiaopiao.app.domain.ai.Tools.findPeak.label, tr("按金额排序", "Sorting by amount")),
             )
-            else -> listOf(Step(com.xiaopiao.app.domain.ai.Tools.queryTransactions.label, "本机记录"))
+            else -> listOf(Step(com.xiaopiao.app.domain.ai.Tools.queryTransactions.label, tr("本机记录", "On-device entries")))
         }
     }
 }

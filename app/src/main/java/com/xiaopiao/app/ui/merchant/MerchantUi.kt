@@ -32,6 +32,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.Pill
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -105,7 +106,7 @@ fun DateTile(dayStart: Long, modifier: Modifier = Modifier, dimmed: Boolean = fa
 fun SourcePill(source: RevenueSource, modifier: Modifier = Modifier) {
     when (source) {
         RevenueSource.SEED -> Unit
-        RevenueSource.CSV -> Pill("导入", modifier)
+        RevenueSource.CSV -> Pill(tr("导入", "Imported"), modifier)
         RevenueSource.MANUAL -> Unit
     }
 }
@@ -114,11 +115,11 @@ fun SourcePill(source: RevenueSource, modifier: Modifier = Modifier) {
 @Composable
 fun ChangeLabel(change: Change, modifier: Modifier = Modifier, upIsGood: Boolean = true) {
     val (text, color) = when {
-        !change.hasBase -> "没有可比数据" to XpColors.InkSecondary
-        change.diffCents == 0L -> "持平" to XpColors.InkSecondary
+        !change.hasBase -> tr("没有可比数据", "No comparison yet") to XpColors.InkSecondary
+        change.diffCents == 0L -> tr("持平", "Flat") to XpColors.InkSecondary
         else -> {
             val pct = RevenueBook.percentText(change.pct)?.removePrefix("+")?.removePrefix("-")
-            val word = if (change.diffCents > 0) "多" else "少"
+            val word = if (change.diffCents > 0) tr("多", "Up") else tr("少", "Down")
             val good = if (change.diffCents > 0) upIsGood else !upIsGood
             "$word ${pct ?: ""}".trim() to if (good) XpColors.Positive else XpColors.Negative
         }

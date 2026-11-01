@@ -43,6 +43,7 @@ import com.xiaopiao.app.ui.components.AppTopActions
 import com.xiaopiao.app.ui.components.LocalTabBarInset
 import com.xiaopiao.app.ui.components.NavIconButton
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -212,11 +213,11 @@ fun ChangePill(change: com.xiaopiao.app.merchant.Change, modifier: Modifier = Mo
 
 /** "多 12%" / "少 9%" / "持平" / "没有可比数据" — pure, so the wording is unit-tested. */
 fun changeText(change: com.xiaopiao.app.merchant.Change): String = when {
-    !change.hasBase -> "没有可比数据"
-    change.diffCents == 0L -> "持平"
+    !change.hasBase -> tr("没有可比数据", "No comparison yet")
+    change.diffCents == 0L -> tr("持平", "Flat")
     else -> {
         val pct = com.xiaopiao.app.merchant.RevenueBook.percentText(change.pct)?.removePrefix("+")?.removePrefix("-")
-        val word = if (change.diffCents > 0) "多" else "少"
+        val word = if (change.diffCents > 0) tr("多", "Up") else tr("少", "Down")
         "$word ${pct ?: ""}".trim()
     }
 }

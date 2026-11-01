@@ -17,6 +17,7 @@ import com.xiaopiao.app.domain.parse.ParsedEntry
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import com.xiaopiao.app.ui.tr
 
 enum class RecordMode { Manual, Text, Voice }
 
@@ -118,7 +119,7 @@ fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
                     onSubmit = { txn, keepOpen ->
                         scope.launch {
                             if (editing != null) container.ledger.update(txn) else container.ledger.add(txn)
-                            if (keepOpen) toast.show("已记 1 笔") else state.dismiss()
+                            if (keepOpen) toast.show(tr("已记 1 笔", "1 entry recorded")) else state.dismiss()
                         }
                     },
                 )

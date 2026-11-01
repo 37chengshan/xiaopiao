@@ -18,7 +18,7 @@ enum class NavTab(val route: String, private val zhLabel: String) {
     Chat("chat", "AI"),
     Circle("circle", "圈子"),
     Games("games", "游戏");
-    val label: String get() = if (java.util.Locale.getDefault().language != "en") zhLabel else when(this) {
+    val label: String get() = if (!com.xiaopiao.app.ui.isEnglish) zhLabel else when(this) {
         Ledger -> "Ledger"; Receipt -> "Receipt"; Insights -> "Insights"; Chat -> "AI"; Circle -> "Circles"; Games -> "Games"
     }
 }
@@ -33,7 +33,7 @@ enum class NavSlot { Ledger, Receipt, Insights, Plus, Fold, Chat, Circle, Games 
 enum class LaunchSide(private val zhLabel: String) {
     Ledger("记账"),
     Social("AI · 圈子");
-    val label: String get() = if (java.util.Locale.getDefault().language != "en") zhLabel else if (this == Ledger) "Ledger" else "AI · Circles"
+    val label: String get() = if (!com.xiaopiao.app.ui.isEnglish) zhLabel else if (this == Ledger) "Ledger" else "AI · Circles"
 }
 
 /**

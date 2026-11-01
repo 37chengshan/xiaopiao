@@ -1,5 +1,7 @@
 package com.xiaopiao.app.ui.settings
 
+import com.xiaopiao.app.ui.tr
+
 enum class LogTone { GOOD, NEUTRAL, WARN }
 
 data class LogResultLabel(val text: String, val tone: LogTone)
@@ -10,10 +12,10 @@ object CaptureLogFormat {
         val kind = result.substringBefore(':')
         val detail = result.substringAfter(':', "")
         return when (kind) {
-            "PARSED" -> LogResultLabel("已记账 · $detail", LogTone.GOOD)
-            "DUPLICATE" -> LogResultLabel("重复，已跳过 · $detail", LogTone.NEUTRAL)
-            "IGNORED" -> LogResultLabel("已忽略 · $detail", LogTone.NEUTRAL)
-            "UNPARSED" -> LogResultLabel("没认出（可以反馈给开发者）", LogTone.WARN)
+            "PARSED" -> LogResultLabel(tr("已记账 · $detail", "Recorded · $detail"), LogTone.GOOD)
+            "DUPLICATE" -> LogResultLabel(tr("重复，已跳过 · $detail", "Duplicate, skipped · $detail"), LogTone.NEUTRAL)
+            "IGNORED" -> LogResultLabel(tr("已忽略 · $detail", "Ignored · $detail"), LogTone.NEUTRAL)
+            "UNPARSED" -> LogResultLabel(tr("没认出（可以反馈给开发者）", "Not recognised (you can report it)"), LogTone.WARN)
             else -> LogResultLabel(result, LogTone.NEUTRAL)
         }
     }

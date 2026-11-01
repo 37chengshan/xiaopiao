@@ -59,6 +59,7 @@ import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -99,12 +100,12 @@ fun ReceiptShareSheet(content: ShareContent, onDismiss: () -> Unit, onShareToCir
     XpSheet(onDismiss = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("分享小票", style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
+                Text(tr("分享小票", "Share receipt"), style = MaterialTheme.typography.titleLarge, color = XpColors.Ink)
                 Box(
-                    Modifier.defaultMin().pressableClick { ReceiptShare.copyText(context, plain); toast("已复制文字") }
+                    Modifier.defaultMin().pressableClick { ReceiptShare.copyText(context, plain); toast(tr("已复制文字", "Text copied")) }
                         .padding(horizontal = XpSpace.s),
                     contentAlignment = Alignment.Center,
-                ) { Text("复制文字", style = MaterialTheme.typography.labelLarge, color = XpColors.Accent) }
+                ) { Text(tr("复制文字", "Copy text"), style = MaterialTheme.typography.labelLarge, color = XpColors.Accent) }
             }
             Box(
                 Modifier.weight(1f, fill = false).fillMaxWidth().padding(vertical = XpSpace.s)
@@ -123,32 +124,32 @@ fun ReceiptShareSheet(content: ShareContent, onDismiss: () -> Unit, onShareToCir
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 ModeToggle(briefMode, Modifier.width(132.dp)) { haptics.select(); briefMode = it }
                 Spacer(Modifier.weight(1f))
-                XpButton("保存图片", {
+                XpButton(tr("保存图片", "Save image"), {
                     scope.launch {
                         val ok = ReceiptShare.save(context, render(), content.fileKey)
-                        toast(if (ok) "已保存到相册" else "保存失败，试试「分享」")
+                        toast(if (ok) tr("已保存到相册", "Saved to Photos") else tr("保存失败，试试「分享」", "Couldn't save — try Share"))
                     }
                 }, style = XpButtonStyle.Secondary)
             }
             Spacer(Modifier.height(XpSpace.m))
             // One row of icon + small label actions — not two rows of pills.
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                ShareAction(Icons.Outlined.Share, "分享") {
+                ShareAction(Icons.Outlined.Share, tr("分享", "Share")) {
                     haptics.confirm()
                     scope.launch { ReceiptShare.share(context, render(), plain, content.fileKey) }
                 }
-                ShareAction(Icons.Outlined.Groups, "发到圈子") {
+                ShareAction(Icons.Outlined.Groups, tr("发到圈子", "Post to Circles")) {
                     haptics.select()
                     // Into the circle feed as a receipt post (tt: 小票打印分享圈子需要做好), not a pasted text.
                     if (onShareToCircle != null) onShareToCircle() else {
                         ReceiptShare.copyText(context, plain)
-                        toast("小票文字已复制，去圈子粘贴")
+                        toast(tr("小票文字已复制，去圈子粘贴", "Receipt text copied — paste it in Circles"))
                     }
                 }
-                ShareAction(Icons.Outlined.ContentCopy, "复制文字") {
+                ShareAction(Icons.Outlined.ContentCopy, tr("复制文字", "Copy text")) {
                     haptics.select()
                     ReceiptShare.copyText(context, plain)
-                    toast("已复制文字")
+                    toast(tr("已复制文字", "Text copied"))
                 }
             }
             Spacer(Modifier.height(XpSpace.l))
@@ -174,7 +175,7 @@ private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: Car
             ReceiptPaper(lines, clock, stampText, stamp, tornTop = true)
         }
         Spacer(Modifier.height(18.dp))
-        Text("今日小票 · 每天印一张", style = MaterialTheme.typography.labelMedium, color = ink, textAlign = TextAlign.Center)
+        Text(tr("今日小票 · 每天印一张", "Today's receipt · one print a day"), style = MaterialTheme.typography.labelMedium, color = ink, textAlign = TextAlign.Center)
     }
 }
 
@@ -182,7 +183,7 @@ private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: Car
 private fun Swatch(g: CardGradient, selected: Boolean, onClick: () -> Unit) {
     Box(
         Modifier.size(48.dp).pressableClick(haptic = false, onClick = onClick)
-            .semantics { contentDescription = "背景 ${g.name}"; this.selected = selected },
+            .semantics { contentDescription = tr("背景 ${g.name}", "Background ${g.name}"); this.selected = selected },
         contentAlignment = Alignment.Center,
     ) {
         Box(
@@ -196,7 +197,7 @@ private fun Swatch(g: CardGradient, selected: Boolean, onClick: () -> Unit) {
 @Composable
 private fun ModeToggle(brief: Boolean, modifier: Modifier = Modifier, onChange: (Boolean) -> Unit) {
     com.xiaopiao.app.ui.components.Segmented(
-        options = listOf("完整", "简版"),
+        options = listOf(tr("完整", "Full"), tr("简版", "Brief")),
         selected = if (brief) 1 else 0,
         onSelect = { onChange(it == 1) },
         modifier = modifier,

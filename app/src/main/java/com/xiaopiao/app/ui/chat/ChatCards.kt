@@ -34,6 +34,7 @@ import com.xiaopiao.app.ui.components.XpButton
 import com.xiaopiao.app.ui.components.XpButtonSize
 import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.XpCard
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -46,14 +47,14 @@ import kotlin.math.roundToInt
 fun TodayReceiptCard(stats: ChatStats, dayLabel: String) {
     XpCard(Modifier.padding(horizontal = XpSpace.l)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("今日小票", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+            Text(tr("今日小票", "Today's receipt"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
             Spacer(Modifier.weight(1f))
             Text(dayLabel, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
         }
         Row(Modifier.padding(top = XpSpace.s), verticalAlignment = Alignment.Bottom) {
             MoneyText(stats.todayOutCents, style = MaterialTheme.typography.titleLarge)
             Text(
-                "${stats.todayOutCount} 笔",
+                tr("${stats.todayOutCount} 笔", "${stats.todayOutCount} entries"),
                 Modifier.padding(start = XpSpace.s, bottom = 3.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = XpColors.InkSecondary,
@@ -61,7 +62,10 @@ fun TodayReceiptCard(stats: ChatStats, dayLabel: String) {
         }
         if (stats.todayOutItems.isEmpty()) {
             Text(
-                "今天还没有支出。说一句，或点下面的「＋」手填。",
+                tr(
+                    "今天还没有支出。说一句，或点下面的「＋」手填。",
+                    "No spending yet today. Say something, or tap ＋ below to add one.",
+                ),
                 Modifier.padding(top = XpSpace.s),
                 style = MaterialTheme.typography.bodySmall,
                 color = XpColors.InkSecondary,
@@ -85,7 +89,7 @@ fun TodayReceiptCard(stats: ChatStats, dayLabel: String) {
             }
             if (stats.todayOutItems.size > 3) {
                 Text(
-                    "还有 ${stats.todayOutItems.size - 3} 笔",
+                    tr("还有 ${stats.todayOutItems.size - 3} 笔", "${stats.todayOutItems.size - 3} more"),
                     Modifier.padding(top = 2.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = XpColors.InkTertiary,
@@ -94,7 +98,7 @@ fun TodayReceiptCard(stats: ChatStats, dayLabel: String) {
         }
         Box(Modifier.fillMaxWidth().padding(top = XpSpace.m).height(0.5.dp).background(XpColors.Hairline))
         Text(
-            "去「记账」右上角的小票图标打印",
+            tr("去「记账」右上角的小票图标打印", "Print it from the receipt icon in Ledger"),
             Modifier.padding(top = XpSpace.s),
             style = MaterialTheme.typography.labelSmall,
             color = XpColors.InkTertiary,
@@ -108,9 +112,9 @@ fun WeekReportCard(stats: ChatStats) {
     val week = stats.week
     XpCard(Modifier.padding(horizontal = XpSpace.l)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("本周周报", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+            Text(tr("本周周报", "This week"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
             Spacer(Modifier.weight(1f))
-            Pill(if (week.isComplete) "已完成" else "进行中")
+            Pill(if (week.isComplete) tr("已完成", "Complete") else tr("进行中", "In progress"))
         }
         Row(Modifier.padding(top = XpSpace.s), verticalAlignment = Alignment.Bottom) {
             MoneyText(week.totalOutCents, style = MaterialTheme.typography.titleLarge)
@@ -124,7 +128,14 @@ fun WeekReportCard(stats: ChatStats) {
         WeekBars(week.dayTotals)
         val peak = stats.weekPeakDay
         Text(
-            if (peak != null) "花得最多：${ChatCopy.WEEK[peak]} ${yuanText(stats.weekPeakCents)}" else "这周还没有支出",
+            if (peak != null) {
+                tr(
+                    "花得最多：${ChatCopy.WEEK[peak]} ${yuanText(stats.weekPeakCents)}",
+                    "Top spend: ${ChatCopy.WEEK[peak]} ${yuanText(stats.weekPeakCents)}",
+                )
+            } else {
+                tr("这周还没有支出", "No spending this week")
+            },
             Modifier.padding(top = XpSpace.s),
             style = MaterialTheme.typography.bodySmall,
             color = XpColors.InkSecondary,
@@ -135,11 +146,11 @@ fun WeekReportCard(stats: ChatStats) {
 
 private fun weekDelta(week: WeeklyReport): String {
     val pct = week.vsPrevPercent
-        ?: return if (week.txnCount == 0) "还没有数据" else "上周没有可比数据"
+        ?: return if (week.txnCount == 0) tr("还没有数据", "No data yet") else tr("上周没有可比数据", "Nothing to compare from last week")
     return when {
-        pct > 0 -> "比上周同期多 $pct%"
-        pct < 0 -> "比上周同期少 ${-pct}%"
-        else -> "和上周同期持平"
+        pct > 0 -> tr("比上周同期多 $pct%", "$pct% more than last week")
+        pct < 0 -> tr("比上周同期少 ${-pct}%", "${-pct}% less than last week")
+        else -> tr("和上周同期持平", "Level with last week")
     }
 }
 
@@ -186,7 +197,7 @@ private fun ShareRow(share: CategoryShare) {
 fun ConfirmCard(item: ChatItem.Confirm, onConfirm: () -> Unit, onEdit: () -> Unit, onUndo: () -> Unit = {}) {
     XpCard(Modifier.padding(horizontal = XpSpace.l)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("我记成", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
+            Text(tr("我记成", "Recording"), style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
             Spacer(Modifier.weight(1f))
             MoneyText(item.draft.amountCents, style = MaterialTheme.typography.titleLarge)
         }
@@ -202,14 +213,14 @@ fun ConfirmCard(item: ChatItem.Confirm, onConfirm: () -> Unit, onEdit: () -> Uni
                 horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
             ) {
                 XpButton(
-                    if (item.state == ConfirmState.Failed) "重试记账" else "确认",
+                    if (item.state == ConfirmState.Failed) tr("重试记账", "Retry") else tr("确认", "Confirm"),
                     onConfirm,
                     style = XpButtonStyle.Primary,
                     size = XpButtonSize.Small,
                     enabled = item.state != ConfirmState.Saving,
                 )
                 XpButton(
-                    "改一下",
+                    tr("改一下", "Edit"),
                     onEdit,
                     style = XpButtonStyle.Secondary,
                     size = XpButtonSize.Small,
@@ -228,18 +239,22 @@ fun ConfirmCard(item: ChatItem.Confirm, onConfirm: () -> Unit, onEdit: () -> Uni
                     modifier = Modifier.size(16.dp),
                 )
                 Text(
-                    if (item.autoRequested) "已自动记入" else "已记进账本",
+                    if (item.autoRequested) tr("已自动记入", "Added automatically") else tr("已记进账本", "Added to ledger"),
                     Modifier.padding(start = XpSpace.xs),
                     style = MaterialTheme.typography.bodySmall,
                     color = XpColors.InkSecondary,
                 )
                 Spacer(Modifier.weight(1f))
-                if (item.transactionId != null) androidx.compose.material3.TextButton(onClick = onUndo) { Text("撤销", color = XpColors.Accent) }
+                if (item.transactionId != null) androidx.compose.material3.TextButton(onClick = onUndo) { Text(tr("撤销", "Undo"), color = XpColors.Accent) }
             }
 
-            ConfirmState.Undone -> Text("已撤销这笔记账", color = XpColors.InkSecondary, style = MaterialTheme.typography.bodySmall)
+            ConfirmState.Undone -> Text(
+                tr("已撤销这笔记账", "Entry undone"),
+                color = XpColors.InkSecondary,
+                style = MaterialTheme.typography.bodySmall,
+            )
             ConfirmState.Duplicate -> Text(
-                "这笔已经记过了，没有重复入账。",
+                tr("这笔已经记过了，没有重复入账。", "Already recorded — nothing was added twice."),
                 Modifier.padding(top = XpSpace.m),
                 style = MaterialTheme.typography.bodySmall,
                 color = XpColors.InkSecondary,
@@ -253,7 +268,10 @@ fun ConfirmCard(item: ChatItem.Confirm, onConfirm: () -> Unit, onEdit: () -> Uni
 internal fun WeekBars(dayTotals: List<Long>) {
     val todayIdx = ((java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7)
     val max = (dayTotals.maxOrNull() ?: 0L).coerceAtLeast(1L)
-    val labels = listOf("一", "二", "三", "四", "五", "六", "日")
+    val labels = listOf(
+        tr("一", "M"), tr("二", "T"), tr("三", "W"), tr("四", "T"),
+        tr("五", "F"), tr("六", "S"), tr("日", "S"),
+    )
     Row(
         Modifier.fillMaxWidth().padding(top = XpSpace.m),
         horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
@@ -291,19 +309,19 @@ fun CsvPreviewCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(preview.label, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary, maxLines = 1)
             Spacer(Modifier.weight(1f))
-            Text("${preview.rows} 笔", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+            Text(tr("${preview.rows} 笔", "${preview.rows} entries"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
         }
         MoneyText(
             preview.totalCents,
-            prefix = "支出合计 ",
+            prefix = tr("支出合计 ", "Total spent "),
             modifier = Modifier.padding(top = XpSpace.xs),
             style = MaterialTheme.typography.titleLarge,
         )
         val tail = buildString {
-            if (preview.skipped > 0) append("跳过 ${preview.skipped} 行（非支出/已失效）")
+            if (preview.skipped > 0) append(tr("跳过 ${preview.skipped} 行（非支出/已失效）", "Skipped ${preview.skipped} rows (not spending / expired)"))
             if (preview.failed > 0) {
                 if (isNotEmpty()) append(" · ")
-                append("${preview.failed} 行没读懂")
+                append(tr("${preview.failed} 行没读懂", "${preview.failed} rows unreadable"))
             }
         }
         if (tail.isNotEmpty()) {
@@ -315,22 +333,27 @@ fun CsvPreviewCard(
                 horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
             ) {
                 XpButton(
-                    "导入",
+                    tr("导入", "Import"),
                     onImport,
                     style = XpButtonStyle.Primary,
                     size = XpButtonSize.Small,
                     enabled = item.state == CsvAttachmentState.Pending,
                 )
-                XpButton("先不导入", onCancel, style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
+                XpButton(tr("先不导入", "Not now"), onCancel, style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
             }
 
             CsvAttachmentState.Imported -> Row(Modifier.padding(top = XpSpace.m), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = XpColors.Positive, modifier = Modifier.size(16.dp))
-                Text("已导入账本", Modifier.padding(start = XpSpace.xs), style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+                Text(
+                    tr("已导入账本", "Imported to ledger"),
+                    Modifier.padding(start = XpSpace.xs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = XpColors.InkSecondary,
+                )
             }
 
             CsvAttachmentState.Cancelled -> Text(
-                "没有导入这份文件。",
+                tr("没有导入这份文件。", "This file was not imported."),
                 Modifier.padding(top = XpSpace.m),
                 style = MaterialTheme.typography.bodySmall,
                 color = XpColors.InkSecondary,

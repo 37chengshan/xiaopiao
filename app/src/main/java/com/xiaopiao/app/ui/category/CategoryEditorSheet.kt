@@ -56,6 +56,7 @@ import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.launch
+import com.xiaopiao.app.ui.tr
 
 /**
  * 新建 / 编辑分类 (tt#71): name, one of ~30 icons, one of the 12 colours, and who it is offered to
@@ -83,7 +84,7 @@ internal fun CategoryEditorSheet(
 
     val preview = CategoryDef(
         id = initial?.id ?: "preview",
-        label = label.ifBlank { "新分类" },
+        label = label.ifBlank { tr("新分类", "New category") },
         iconKey = iconKey,
         hue = hue.key,
         direction = direction,
@@ -102,13 +103,13 @@ internal fun CategoryEditorSheet(
                 Spacer(Modifier.width(XpSpace.m))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        if (initial == null) "新建分类" else "编辑分类",
+                        if (initial == null) tr("新建分类", "New category") else tr("编辑分类", "Edit category"),
                         style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
                         color = XpColors.Ink,
                         maxLines = 1,
                     )
                     Text(
-                        "名称、图标和颜色随时可改",
+                        tr("名称、图标和颜色随时可改", "Name, icon and colour can change anytime"),
                         style = MaterialTheme.typography.bodySmall,
                         color = XpColors.InkSecondary,
                         maxLines = 1,
@@ -137,7 +138,7 @@ internal fun CategoryEditorSheet(
             )
 
             Spacer(Modifier.height(XpSpace.l))
-            Label("图标")
+            Label(tr("图标", "Icon"))
             LazyVerticalGrid(
                 columns = GridCells.Fixed(8),
                 modifier = Modifier.fillMaxWidth().height(44.dp * 4),
@@ -163,7 +164,7 @@ internal fun CategoryEditorSheet(
             }
 
             Spacer(Modifier.height(XpSpace.m))
-            Label("颜色")
+            Label(tr("颜色", "Colour"))
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
@@ -191,11 +192,11 @@ internal fun CategoryEditorSheet(
             }
 
             Spacer(Modifier.height(XpSpace.l))
-            Label("收支")
+            Label(tr("收支", "Direction"))
             Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                DirectionChip("支出", direction == Direction.OUT) { direction = Direction.OUT }
-                DirectionChip("收入", direction == Direction.IN) { direction = Direction.IN }
-                DirectionChip("都记录", direction == null) { direction = null }
+                DirectionChip(tr("支出", "Spent"), direction == Direction.OUT) { direction = Direction.OUT }
+                DirectionChip(tr("收入", "Received"), direction == Direction.IN) { direction = Direction.IN }
+                DirectionChip(tr("都记录", "Both"), direction == null) { direction = null }
             }
 
             Spacer(Modifier.height(XpSpace.xl))
@@ -204,9 +205,9 @@ internal fun CategoryEditorSheet(
             }
             XpButton(
                 text = when {
-                    saving -> "保存中…"
-                    initial == null -> "新建分类"
-                    else -> "保存"
+                    saving -> tr("保存中…", "Saving…")
+                    initial == null -> tr("新建分类", "New category")
+                    else -> tr("保存", "Save")
                 },
                 onClick = {
                     saving = true
@@ -223,11 +224,11 @@ internal fun CategoryEditorSheet(
                             }
                         }.onSuccess {
                             haptics.confirm()
-                            onSaved(if (initial == null) "已新建「$name」" else "已保存「$name」")
+                            onSaved(if (initial == null) tr("已新建「$name」", "Created “$name”") else tr("已保存「$name」", "Saved “$name”"))
                             onDone()
                         }.onFailure {
                             saving = false
-                            saveError = "没保存上，再试一次"
+                            saveError = tr("没保存上，再试一次", "Did not save — try again")
                         }
                     }
                 },
@@ -242,7 +243,7 @@ internal fun CategoryEditorSheet(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("删除分类", color = XpColors.Negative, style = MaterialTheme.typography.bodyLarge)
+                    Text(tr("删除分类", "Delete category"), color = XpColors.Negative, style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
@@ -251,23 +252,23 @@ internal fun CategoryEditorSheet(
     if (confirmingDelete && initial != null) {
         ConfirmSheet(
             visible = true,
-            title = "删除「${initial.label}」？",
+            title = tr("删除「${initial.label}」？", "Delete “${initial.label}”?"),
             message = if (deleteCount > 0) {
-                "这些账目会归到 其他，金额不会变。"
+                tr("这些账目会归到 其他，金额不会变。", "Those entries move to Others. Amounts do not change.")
             } else {
-                "这个分类下还没有账目。"
+                tr("这个分类下还没有账目。", "There are no entries in this category yet.")
             },
-            confirmLabel = "删除",
+            confirmLabel = tr("删除", "Delete"),
             destructive = true,
             onConfirm = {
                 confirmingDelete = false
                 scope.launch {
                     runCatching { categories.deleteCustom(initial.id) }
                         .onSuccess {
-                            onSaved("已删除「${initial.label}」")
+                            onSaved(tr("已删除「${initial.label}」", "Deleted “${initial.label}”"))
                             onDone()
                         }
-                        .onFailure { saveError = "没删掉，再试一次" }
+                        .onFailure { saveError = tr("没删掉，再试一次", "Did not delete — try again") }
                 }
             },
             onDismiss = { confirmingDelete = false },

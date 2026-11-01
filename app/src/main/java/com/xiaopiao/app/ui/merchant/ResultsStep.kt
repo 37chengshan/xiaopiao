@@ -25,6 +25,7 @@ import com.xiaopiao.app.merchant.Experiment
 import com.xiaopiao.app.merchant.ExperimentResult
 import com.xiaopiao.app.ui.components.Pill
 import com.xiaopiao.app.ui.components.XpCard
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 
@@ -38,7 +39,13 @@ fun ResultsStep(
     onSetup: () -> Unit,
 ) {
     if (experiment == null || result == null) {
-        FlowEmpty(Icons.Outlined.Science, "还没有实验", "先发起一个二选一小实验，邻居玩过之后这里就会出现结果。", "去发起实验", onSetup)
+        FlowEmpty(
+            Icons.Outlined.Science,
+            tr("还没有实验", "No experiment yet"),
+            tr("先发起一个二选一小实验，邻居玩过之后这里就会出现结果。", "Start a two-option experiment — results show up here once neighbours have played."),
+            tr("去发起实验", "Start an experiment"),
+            onSetup,
+        )
         return
     }
     val a = result.stats[0]
@@ -66,9 +73,11 @@ fun ResultsStep(
             Column(Modifier.padding(horizontal = XpSpace.l)) {
                 XpCard {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("95% 置信区间", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
+                        Text(tr("95% 置信区间", "95% confidence interval"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
                     }
-                    Text("须线越短越确定；两条须线重叠，说明两边差距可能只是巧合。", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+                    Text(
+                        tr("须线越短越确定；两条须线重叠，说明两边差距可能只是巧合。", "Shorter whiskers mean more certainty. If the two whiskers overlap, the gap may just be chance."),
+                        style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
                     Column(Modifier.padding(top = XpSpace.m), verticalArrangement = Arrangement.spacedBy(XpSpace.m)) {
                         CiWhisker(a, XpColors.Accent)
                         CiWhisker(b, XpColors.Ink)
@@ -79,11 +88,14 @@ fun ResultsStep(
         Reveal(3) {
             Column(Modifier.padding(horizontal = XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                 Text(
-                    "样本构成：人群样本 ${result.simulatedCount} 人 + 游戏表态 ${result.gameCount} 人。游戏表态是你亲自玩出来的，和真实消费分开统计。",
+                    tr(
+                        "样本构成：人群样本 ${result.simulatedCount} 人 + 游戏表态 ${result.gameCount} 人。游戏表态是你亲自玩出来的，和真实消费分开统计。",
+                        "Sample: ${result.simulatedCount} crowd answers + ${result.gameCount} game answers. Game answers come from people playing, and are counted apart from real spending.",
+                    ),
                     style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                 )
-                MerchantButton("邀请顾客再玩一轮", onPlay, primary = false)
-                MerchantButton("下一步：看看三个可选动作", onNext)
+                MerchantButton(tr("邀请顾客再玩一轮", "Ask customers to play another round"), onPlay, primary = false)
+                MerchantButton(tr("下一步：看看三个可选动作", "Next: three things you could do"), onNext)
             }
         }
     }
@@ -114,11 +126,13 @@ private fun ConfidenceCard(result: ExperimentResult) {
     ) {
         Column(Modifier.clip(RoundedCornerShape(10.dp)).background(tint.copy(alpha = 0.15f)).padding(horizontal = 10.dp, vertical = 6.dp)) {
             Text("${result.sampleSize}", style = MaterialTheme.typography.titleLarge, color = tint)
-            Text("人", style = MaterialTheme.typography.labelSmall, color = tint)
+            Text(tr("人", "people"), style = MaterialTheme.typography.labelSmall, color = tint)
         }
         Column(Modifier.weight(1f)) {
             Text(result.note.text, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
-            Text("置信度只是参考，不是保证。结论由你来下。", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+            Text(
+                tr("置信度只是参考，不是保证。结论由你来下。", "Confidence is a reference, not a promise. You draw the conclusion."),
+                style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         }
     }
 }

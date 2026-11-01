@@ -85,7 +85,6 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.graphicsLayer
-import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
@@ -127,6 +126,8 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import com.xiaopiao.app.ui.components.liquidGlass
+import com.xiaopiao.app.ui.tr
 
 /** Where a single run is: the front door, the questions, or the result. */
 private enum class GameStage { Intro, Play, Result }
@@ -314,7 +315,7 @@ private fun IntroView(game: GameDefinition, skin: GameSkin, onStart: () -> Unit,
                     Modifier.fillMaxWidth().padding(top = XpSpace.m),
                     horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
                 ) {
-                    listOf("读题", "选择", "看结果").forEachIndexed { index, label ->
+                    listOf(tr("读题", "Read"), tr("选择", "Choose"), tr("看结果", "Result")).forEachIndexed { index, label ->
                         Box(
                             Modifier.clip(RoundedCornerShape(50))
                                 .background(accent.copy(alpha = 0.10f))
@@ -616,16 +617,12 @@ private fun GlassPanel(
     val surface = if (glass == null) {
         modifier.clip(shape).background(XpColors.Card)
     } else {
-        modifier.drawBackdrop(
-            backdrop = glass,
-            shape = { shape },
-            effects = {
-                vibrancy()
-                blur(10.dp.toPx())
-                lens(8.dp.toPx(), 12.dp.toPx())
-            },
-            shadow = { Shadow(radius = 16.dp, color = rim) },
-            onDrawSurface = { drawRect(film) },
+        modifier.liquidGlass(
+            glass, shape,
+            film = film, rim = rim,
+            blur = 10.dp, lensHeight = 8.dp, lensAmount = 12.dp,
+            shadow = 16.dp,
+            interactive = false,
         )
     }
     Box(surface, content = content)

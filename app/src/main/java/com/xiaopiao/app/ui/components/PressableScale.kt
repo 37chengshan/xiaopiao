@@ -1,8 +1,7 @@
 package com.xiaopiao.app.ui.components
 
-import androidx.compose.animation.core.LinearOutSlowInEasing
+import com.xiaopiao.app.ui.motion.XpMotion
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
-import com.xiaopiao.app.ui.motion.XpTiming
 import com.xiaopiao.app.ui.theme.XpColors
 
 /** Press-down depth for every tappable surface (docs/APP-DESIGN.md §1: 0.96 + darken). */
@@ -25,8 +23,9 @@ private const val PressDimAlpha = 0.07f
 
 /**
  * Presses down to [scaleDown] (0.96) and lays a 7% ink veil over itself while [interactionSource] is pressed.
- * The ramp is a 100ms tween so the first frame after `DOWN` already shows movement; releasing uses a
- * critically damped spring so the surface settles without a bounce. Under reduced motion the scale is
+ * The ramp is a 100ms tween so the first frame after `DOWN` already shows movement; releasing springs back
+ * with a small overshoot ([XpMotion.pressOut]). The value is only read in the layer/draw phase, so a press never
+ * recomposes the content. Under reduced motion the scale is
  * skipped and only the veil remains, because the veil is feedback rather than decoration.
  */
 fun Modifier.pressableScale(
@@ -35,18 +34,21 @@ fun Modifier.pressableScale(
 ): Modifier = composed {
     val pressed by interactionSource.collectIsPressedAsState()
     val reduced = rememberReducedMotion()
-    val press by animateFloatAsState(
+    val press = animateFloatAsState(
         targetValue = if (pressed) 1f else 0f,
-        animationSpec = if (pressed) tween(XpTiming.Press, easing = LinearOutSlowInEasing) else spring(dampingRatio = 1f, stiffness = 900f),
+        animationSpec = if (pressed) XpMotion.pressIn() else XpMotion.pressOut(0.001f),
         label = "press",
     )
-    val scale = if (reduced) 1f else 1f - (1f - scaleDown) * press
     this
-        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .graphicsLayer {
+            val scale = if (reduced) 1f else 1f - (1f - scaleDown) * press.value
+            scaleX = scale; scaleY = scale
+        }
         .drawWithContent {
             drawContent()
-            if (press > 0f) {
-                drawRect(XpColors.Ink.copy(alpha = PressDimAlpha * press))
+            val p = press.value
+            if (p > 0f) {
+                drawRect(XpColors.Ink.copy(alpha = PressDimAlpha * p))
             }
         }
 }

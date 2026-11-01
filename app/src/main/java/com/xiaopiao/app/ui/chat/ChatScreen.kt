@@ -99,6 +99,7 @@ import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.motion.MotionMath
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
@@ -120,6 +121,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import com.xiaopiao.app.ui.tr
 
 /** Characters per second for the streaming reply; dt-based, so refresh rate cannot change it. */
 private const val StreamCharsPerSecond = 78f
@@ -211,7 +213,7 @@ fun ChatScreen(
         for (i in conversation.indices) {
             val item = conversation[i]
             if (item is ChatItem.Assistant && item.streaming) conversation[i] = item.copy(streaming = false)
-            if (item is ChatItem.Tool && item.running) conversation[i] = item.copy(running = false, detail = "已停止")
+            if (item is ChatItem.Tool && item.running) conversation[i] = item.copy(running = false, detail = tr("已停止", "Stopped"))
         }
     }
 
@@ -221,7 +223,7 @@ fun ChatScreen(
         conversation.add(ChatItem.User(newId(), text))
         haptics.select()
         val reply = stats?.let { ChatIntentRouter.route(text, it, turn) }
-            ?: ChatReply.Answer("我还没数完今天的账，稍等一秒再说。")
+            ?: ChatReply.Answer(tr("我还没数完今天的账，稍等一秒再说。", "I'm still adding up today's entries — give me a second."))
         // Tools first: the user sees what was read before the answer appears (tt#23).
         val tools = ChatTools.plan(text, stats, text.contains("家人") || text.contains("圈子"))
         val thisGeneration = ++streamGeneration
@@ -270,7 +272,7 @@ fun ChatScreen(
                                                 val view = args?.let { ChatView.parse(it) }
                                                 return@map when {
                                                     view == null -> buildJsonObject { put("id", call.getValue("id")); put("error", "INVALID_VIEW") }
-                                                    !dataSeen -> buildJsonObject { put("id", call.getValue("id")); put("error", "NO_DATA_FIRST"); put("message", "先调用取数工具") }
+                                                    !dataSeen -> buildJsonObject { put("id", call.getValue("id")); put("error", "NO_DATA_FIRST"); put("message", tr("先调用取数工具", "Call a data tool first")) }
                                                     else -> {
                                                         conversation.add(ChatItem.View(newId(), view))
                                                         scrollSignal++
@@ -280,13 +282,18 @@ fun ChatScreen(
                                             }
                                             dataSeen = true
                                             val toolId = newId()
-                                            conversation.add(ChatItem.Tool(toolId, when (name) { "summarize_period" -> "汇总账本"; "find_peak" -> "查找最大支出"; "read_circle" -> "检查共享权限"; else -> "查询账本" }))
+                                            conversation.add(ChatItem.Tool(toolId, when (name) {
+                                                "summarize_period" -> tr("汇总账本", "Summarizing ledger")
+                                                "find_peak" -> tr("查找最大支出", "Finding biggest spend")
+                                                "read_circle" -> tr("检查共享权限", "Checking sharing permissions")
+                                                else -> tr("查询账本", "Querying ledger")
+                                            }))
                                             val result = withContext(Dispatchers.Default) {
                                                 runCatching { LocalAgentTools.execute(name, Json.parseToJsonElement(fn.getValue("arguments").jsonPrimitive.content.ifBlank { "{}" }).jsonObject, history.orEmpty(), System.currentTimeMillis()) }
                                                     .getOrElse { buildJsonObject { put("error", "INVALID_TOOL_ARGUMENTS") } }
                                             }
                                             val index = conversation.indexOfFirst { it.id == toolId }
-                                            if (index >= 0) conversation[index] = ChatItem.Tool(toolId, (conversation[index] as ChatItem.Tool).label, "完成", false)
+                                            if (index >= 0) conversation[index] = ChatItem.Tool(toolId, (conversation[index] as ChatItem.Tool).label, tr("完成", "Done"), false)
                                             buildJsonObject { put("id", call.getValue("id")); put("data", result) }
                                         }
                                         next = buildJsonObject { put("runId", event.getValue("runId")); put("results", JsonArray(results)) }
@@ -322,7 +329,7 @@ fun ChatScreen(
                             if (item is ChatItem.Assistant && item.streaming) conversation[index] = item.copy(streaming = false)
                             if (item is ChatItem.Tool && item.running) conversation[index] = item.copy(running = false)
                         }
-                        conversation.add(ChatItem.Tool(newId(), if (receivedText) "回答中断，可重新发送" else "云端暂不可用，改用本机统计", running = false))
+                        conversation.add(ChatItem.Tool(newId(), if (receivedText) tr("回答中断，可重新发送", "Answer cut off — send again") else tr("云端暂不可用，改用本机统计", "Cloud unavailable — using on-device stats"), running = false))
                         if (receivedText) return@launch
                     }
                 }
@@ -374,9 +381,12 @@ fun ChatScreen(
                     conversation.add(
                         ChatItem.Chart(
                             newId(),
-                            "本周每日支出",
+                            tr("本周每日支出", "Daily spend this week"),
                             stats.week.dayTotals,
-                            "合计 ${yuanText(stats.week.totalOutCents)} · 共 ${stats.week.txnCount} 笔",
+                            tr(
+                                "合计 ${yuanText(stats.week.totalOutCents)} · 共 ${stats.week.txnCount} 笔",
+                                "${yuanText(stats.week.totalOutCents)} total · ${stats.week.txnCount} entries",
+                            ),
                         ),
                     )
                 }
@@ -410,10 +420,10 @@ fun ChatScreen(
         val files = items.size - images
         val summary = buildString {
             if (text.isNotBlank()) append(text.trim()).append("  ")
-            if (images > 0) append("[$images 张图片]")
+            if (images > 0) append(tr("[$images 张图片]", "[$images photo(s)]"))
             if (files > 0) {
                 if (images > 0) append(" ")
-                append("[$files 个文件]")
+                append(tr("[$files 个文件]", "[$files file(s)]"))
             }
         }
         conversation.add(ChatItem.User(newId(), summary.trim()))
@@ -424,7 +434,7 @@ fun ChatScreen(
             try {
                 if (images > 0) {
                     val toolId = newId()
-                    conversation.add(ChatItem.Tool(toolId, "在本机识别图片", running = true))
+                    conversation.add(ChatItem.Tool(toolId, tr("在本机识别图片", "Reading images on device"), running = true))
                     scrollSignal++
                     val found = mutableListOf<ReceiptParser.Candidate>()
                     items.filter { it.isImage }.forEach { attachment ->
@@ -434,15 +444,21 @@ fun ChatScreen(
                     val i = conversation.indexOfFirst { it.id == toolId }
                     if (i >= 0) {
                         conversation[i] = ChatItem.Tool(
-                            toolId, "在本机识别图片",
-                            if (found.isEmpty()) "没读到金额" else "读到 ${found.size} 笔",
+                            toolId, tr("在本机识别图片", "Reading images on device"),
+                            if (found.isEmpty()) tr("没读到金额", "No amount found") else tr("读到 ${found.size} 笔", "${found.size} entries read"),
                             running = false,
                         )
                     }
                     if (found.isEmpty()) {
-                        assistant("这几张图我没认出账单金额。原图只在这台手机上看了，没有存下来。")
+                        assistant(tr(
+                            "这几张图我没认出账单金额。原图只在这台手机上看了，没有存下来。",
+                            "I couldn't find bill amounts in those images. The originals were read on this phone only and weren't kept.",
+                        ))
                     } else {
-                        assistant(if (autoEntry) "识别到 ${found.size} 笔，正在自动记入，可逐笔撤销。" else "识别到 ${found.size} 笔，确认记入？")
+                        assistant(
+                            if (autoEntry) tr("识别到 ${found.size} 笔，正在自动记入，可逐笔撤销。", "${found.size} entries recognised — adding them now, each can be undone.")
+                            else tr("识别到 ${found.size} 笔，确认记入？", "${found.size} entries recognised — add them?"),
+                        )
                         found.forEach { candidate ->
                             conversation.add(ChatItem.Confirm(newId(), candidate.toDraft(), autoRequested = autoEntry))
                         }
@@ -450,13 +466,18 @@ fun ChatScreen(
                     scrollSignal++
                 }
                 items.filter { !it.isImage }.forEach { attachment ->
-                    val label = attachment.name ?: "CSV 账单"
+                    val label = attachment.name ?: tr("CSV 账单", "CSV bill")
                     val raw = readCsvText(context, android.net.Uri.parse(attachment.uriString))
                     val preview = raw?.let { ChatCsvPreview.from(label, it) }
                     if (preview == null) {
-                        assistant("「$label」我没读懂。现在只支持图片和支付宝/微信导出的 CSV 账单。")
+                        assistant(
+                            tr(
+                                "「$label」我没读懂。现在只支持图片和支付宝/微信导出的 CSV 账单。",
+                                "I couldn't read “$label”. Right now only images and CSV exports from Alipay/WeChat work.",
+                            ),
+                        )
                     } else {
-                        assistant("读到 ${preview.rows} 笔，确认导入？")
+                        assistant(tr("读到 ${preview.rows} 笔，确认导入？", "${preview.rows} entries read — import them?"))
                         conversation.add(ChatItem.CsvAttachment(newId(), preview))
                     }
                     scrollSignal++
@@ -489,13 +510,13 @@ fun ChatScreen(
                 updateChatItem(live.id, live.copy(state = if (summary.error == null) CsvAttachmentState.Imported else CsvAttachmentState.Pending))
                 if (summary.error == null) haptics.confirm()
                 if (activeSession == importingSession) conversation.add(ChatItem.Assistant(newId(),
-                    if (summary.error != null) "导入没成功：${summary.error}"
-                    else "导入了 ${summary.imported} 笔，跳过重复 ${summary.duplicates} 笔。"))
+                    if (summary.error != null) tr("导入没成功：${summary.error}", "Import failed: ${summary.error}")
+                    else tr("导入了 ${summary.imported} 笔，跳过重复 ${summary.duplicates} 笔。", "Imported ${summary.imported} entries, skipped ${summary.duplicates} duplicates.")))
                 scrollSignal++
             } catch (e: CancellationException) { throw e }
             catch (_: Exception) {
                 updateChatItem(live.id, live.copy(state = CsvAttachmentState.Pending))
-                if (activeSession == importingSession) conversation.add(ChatItem.Assistant(newId(), "导入没有完成，可以重试；已存在的记录会跳过。"))
+                if (activeSession == importingSession) conversation.add(ChatItem.Assistant(newId(), tr("导入没有完成，可以重试；已存在的记录会跳过。", "The import didn't finish — you can retry; records that already exist will be skipped.")))
             }
         }
     }
@@ -529,7 +550,7 @@ fun ChatScreen(
             try {
                 container.ledger.delete(id)
                 updateChatItem(card.id, card.copy(state = ConfirmState.Undone, autoRequested = false))
-            } catch (_: Exception) { conversation.add(ChatItem.Assistant(newId(), "撤销没有完成，请到记账页查看这笔记录。")) }
+            } catch (_: Exception) { conversation.add(ChatItem.Assistant(newId(), tr("撤销没有完成，请到记账页查看这笔记录。", "Undo didn't complete — check this entry in Ledger."))) }
         }
     }
     val automaticPending = conversation.filterIsInstance<ChatItem.Confirm>().filter { it.autoRequested && it.state == ConfirmState.Pending }
@@ -603,7 +624,7 @@ fun ChatScreen(
 
     val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
         val uri = cameraUri
-        if (ok && uri != null) attachments.add(ChatAttachment(uri.toString(), ChatAttachmentKind.Image, name = "相机照片"))
+        if (ok && uri != null) attachments.add(ChatAttachment(uri.toString(), ChatAttachmentKind.Image, name = tr("相机照片", "Camera photo")))
         cameraUri = null
     }
     val pickImages = rememberLauncherForActivityResult(
@@ -623,7 +644,7 @@ fun ChatScreen(
             val attachment = ChatAttachment(uri.toString(), kind, name = name, mime = mime)
             if (!attachment.isImage && !attachment.isCsv) {
                 attachSheetOpen = false
-                conversation.add(ChatItem.Assistant(newId(), "暂只支持图片和 CSV。这个文件我先不动。"))
+                conversation.add(ChatItem.Assistant(newId(), tr("暂只支持图片和 CSV。这个文件我先不动。", "Only images and CSV for now — I'll leave this file alone.")))
                 scrollSignal++
             } else {
                 attachments.add(attachment)
@@ -647,7 +668,7 @@ fun ChatScreen(
             "AI",
             NavScrollNone,
             modifier = Modifier.layerBackdrop(pageGlass),
-            leading = { NavIconButton(Icons.Outlined.Menu, "会话", onClick = { drawerOpen = true }) },
+            leading = { NavIconButton(Icons.Outlined.Menu, tr("会话", "Chats"), onClick = { drawerOpen = true }) },
             trailing = { AppTopActions() },
         ) { top ->
         // The conversation runs under the floating input and the glass tab bar (docs/DESIGN.md §4.3); with the
@@ -689,7 +710,7 @@ fun ChatScreen(
             if (!following && conversation.isNotEmpty()) androidx.compose.material3.TextButton(
                 onClick = { following = true; scrollSignal++ },
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = composerH + barInset),
-            ) { Text("回到最新消息 ↓", color = XpColors.Accent) }
+            ) { Text(tr("回到最新消息 ↓", "Jump to latest ↓"), color = XpColors.Accent) }
             ChatComposer(
                 value = input,
                 onValueChange = { input = it },
@@ -770,7 +791,7 @@ fun ChatScreen(
             onOpenSettings = { drawerOpen = false; onOpenSettings() },
             progress = drawer,
             activeSessionId = activeSession,
-            accountLabel = accountUser?.username ?: "登录你的账号",
+            accountLabel = accountUser?.username ?: tr("登录你的账号", "Sign in to your account"),
             onOpenAccount = { drawerOpen = false; accountOpen = true },
             backdrop = pageGlass,
         )
@@ -793,8 +814,8 @@ private fun chatBackdrop(): Brush = Brush.verticalGradient(
  */
 private fun emptyHint(stats: ChatStats?, hello: String): String = when {
     stats == null -> hello
-    stats.hasAnyTxn -> "$hello。今天花了 ${yuanText(stats.todayOutCents)}。"
-    else -> "$hello。账本还是空的，说一句就能记一笔。"
+    stats.hasAnyTxn -> tr("$hello。今天花了 ${yuanText(stats.todayOutCents)}。", "$hello. ${yuanText(stats.todayOutCents)} spent today.")
+    else -> tr("$hello。账本还是空的，说一句就能记一笔。", "$hello. Your ledger is empty — say something and I'll log it.")
 }
 
 /** Empty state: one quiet line and three grey question chips. No illustration. */
@@ -832,7 +853,7 @@ private fun ChatEmptyState(
                 }
             }
             Text(
-                "或者手动记一笔",
+                tr("或者手动记一笔", "Or record one manually"),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                 color = XpColors.Accent,
                 modifier = Modifier.padding(top = XpSpace.xs)
@@ -882,7 +903,7 @@ private fun ConversationList(
                 Modifier.then(
                     if (reduced) Modifier
                     else Modifier.animateItem(
-                        fadeInSpec = tween(180),
+                        fadeInSpec = null,
                         placementSpec = tween(180),
                         fadeOutSpec = null,
                     ),

@@ -41,6 +41,8 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // The one place the UI language is decided: Android resolved the per-app locale for these resources.
+        com.xiaopiao.app.ui.AppLocale.english = resources.configuration.locales[0].language == "en"
         val container = (application as XiaopiaoApp).container
         if (savedInstanceState == null) openRequest = intent.toOpenRequest()
         playSplash = savedInstanceState == null

@@ -1,6 +1,7 @@
 package com.xiaopiao.app.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import com.xiaopiao.app.ui.motion.XpMotion
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -79,8 +80,8 @@ fun XpToastHost(state: XpToastState, modifier: Modifier = Modifier, backdrop: co
     ) {
         AnimatedVisibility(
             visible = current != null,
-            enter = slideInVertically(tween(200, easing = XpEase.out)) { it / 2 } + fadeIn(tween(200, easing = XpEase.out)),
-            exit = slideOutVertically(tween(160, easing = XpEase.out)) { it / 2 } + fadeOut(tween(160)),
+            enter = XpMotion.enterRise(0.5f),
+            exit = XpMotion.exitSink(0.5f),
         ) {
             Box(
                 Modifier.liquidGlass(
@@ -88,7 +89,9 @@ fun XpToastHost(state: XpToastState, modifier: Modifier = Modifier, backdrop: co
                     RoundedCornerShape(XpRadius.pill),
                     film = XpColors.ToastBackground.copy(alpha = 0.78f),
                     rim = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.18f),
+                    shadow = 12.dp,
                     fallback = XpColors.ToastBackground,
+                    interactive = false,
                 )
                     .padding(horizontal = XpSpace.l, vertical = 10.dp),
             ) {

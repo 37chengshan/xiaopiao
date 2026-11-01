@@ -55,6 +55,7 @@ import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import com.xiaopiao.app.ui.tr
 
 private val Context.onboardStore by preferencesDataStore(name = "onboarding_prefs")
 
@@ -146,7 +147,7 @@ private fun PageHead(title: String, body: String) {
 @Composable
 private fun PagePaper() {
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        PageHead("每天一张\n会说话的小票", "记账只是顺手，晚上撕下这张纸才是正事。")
+        PageHead(tr("每天一张\n会说话的小票", "One talking receipt,\nevery day."), tr("记账只是顺手，晚上撕下这张纸才是正事。", "Recording is the easy part. Tearing this slip off at night is the point."))
         Spacer(Modifier.height(XpSpace.xl))
         // The receipt itself is the illustration: paper, lines, a stamp.
         Column(

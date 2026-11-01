@@ -29,21 +29,46 @@ fun rememberXpHaptics(): XpHaptics {
     return remember(feedback) { XpHaptics(feedback) }
 }
 
-/** True when the user turned system animations off (animator duration scale == 0). */
+/**
+ * True when the user turned system animations off (animator duration scale == 0).
+ *
+ * One process-wide observer, not one per caller: this used to be called by every ledger row, so a list rebuild
+ * registered and unregistered dozens of ContentObservers — the device trace showed ~95 synchronous binder calls
+ * (~50ms) inside a single page-switch layout pass. The value still tracks the setting live.
+ */
 @Composable
 fun rememberReducedMotion(): Boolean {
-    val resolver = LocalContext.current.contentResolver
-    var reduced by androidx.compose.runtime.remember(resolver) {
-        androidx.compose.runtime.mutableStateOf(runCatching { Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }.getOrDefault(false))
-    }
-    androidx.compose.runtime.DisposableEffect(resolver) {
+    val resolver = LocalContext.current.applicationContext.contentResolver
+    androidx.compose.runtime.SideEffect { ReducedMotionSetting.start(resolver) }
+    return ReducedMotionSetting.reduced
+}
+
+private object ReducedMotionSetting {
+    private val state = androidx.compose.runtime.mutableStateOf(false)
+    private var started = false
+
+    val reduced: Boolean get() = state.value
+
+    fun start(resolver: android.content.ContentResolver) {
+        if (started) return
+        started = true
+        state.value = read(resolver)
         val observer = object : android.database.ContentObserver(android.os.Handler(android.os.Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                reduced = runCatching { Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }.getOrDefault(false)
+                state.value = read(resolver)
             }
         }
-        resolver.registerContentObserver(Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE), false, observer)
-        onDispose { resolver.unregisterContentObserver(observer) }
+        runCatching {
+            resolver.registerContentObserver(
+                Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE),
+                false,
+                observer,
+            )
+        }
     }
-    return reduced
+
+    private fun read(resolver: android.content.ContentResolver): Boolean =
+        runCatching {
+            Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+        }.getOrDefault(false)
 }

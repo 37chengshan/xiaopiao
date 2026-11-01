@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpFonts
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.wallet.BankCard
@@ -189,8 +190,13 @@ fun BankCardBody(
             maxLines = 1,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            FaceIcon(if (revealedPan != null) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (revealedPan != null) "遮住卡号" else "显示完整卡号", face, onReveal)
-            FaceIcon(Icons.Outlined.ContentCopy, "复制卡号", face, onCopy)
+            FaceIcon(
+                if (revealedPan != null) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                if (revealedPan != null) tr("遮住卡号", "Hide card number") else tr("显示完整卡号", "Show full card number"),
+                face,
+                onReveal,
+            )
+            FaceIcon(Icons.Outlined.ContentCopy, tr("复制卡号", "Copy card number"), face, onCopy)
         }
         Spacer(Modifier.weight(1f))
         Row(verticalAlignment = Alignment.Bottom) {
@@ -250,7 +256,8 @@ fun MemberCardBody(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                if (card.points > 0) "${card.points} 分" else if (card.balanceCents > 0) "¥ ${card.balanceCents.yuan()}" else "",
+                if (card.points > 0) tr("${card.points} 分", "${card.points} pts")
+                else if (card.balanceCents > 0) "¥ ${card.balanceCents.yuan()}" else "",
                 style = TextStyle(fontFamily = XpFonts.sans, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum"),
                 color = face.onBg,
             )
@@ -263,12 +270,12 @@ fun MemberCardBody(
             if (bitmap != null) {
                 androidx.compose.foundation.Image(
                     bitmap = bitmap.asImageBitmap(),
-                    contentDescription = "会员码",
+                    contentDescription = tr("会员码", "Member code"),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(if (card.codeFormat == MemberCodeFormat.Qr) 112.dp else 56.dp),
                     contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                 )
             } else {
-                Text("会员号为空", style = MaterialTheme.typography.bodySmall, color = Color(0xFF8E8E93))
+                Text(tr("会员号为空", "No member number"), style = MaterialTheme.typography.bodySmall, color = Color(0xFF8E8E93))
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -282,7 +289,7 @@ fun MemberCardBody(
 }
 
 /** 卡组织字样：录入时由 BIN 写进卡片，旧数据没有就退回银联。 */
-internal fun brandOf(card: BankCard): String = card.brand.ifBlank { "银联" }
+internal fun brandOf(card: BankCard): String = card.brand.ifBlank { tr("银联", "UnionPay") }
 
 /** 「还款日 8 日 · 3 天后」——只陈述日期，不做还款建议。 */
 internal fun dueLine(dueDay: Int, now: Long = System.currentTimeMillis()): String {
@@ -290,8 +297,8 @@ internal fun dueLine(dueDay: Int, now: Long = System.currentTimeMillis()): Strin
     val today = cal.get(Calendar.DAY_OF_MONTH)
     val days = if (dueDay >= today) dueDay - today else dueDay + cal.getActualMaximum(Calendar.DAY_OF_MONTH) - today
     return when (days) {
-        0 -> "今天还款日"
-        1 -> "明天还款日"
-        else -> "还款日 $dueDay 日 · $days 天后"
+        0 -> tr("今天还款日", "Due today")
+        1 -> tr("明天还款日", "Due tomorrow")
+        else -> tr("还款日 $dueDay 日 · $days 天后", "Due on day $dueDay · in $days days")
     }
 }

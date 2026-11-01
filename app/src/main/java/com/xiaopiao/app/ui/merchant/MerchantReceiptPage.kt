@@ -94,6 +94,7 @@ import com.xiaopiao.app.ui.today.ReceiptPrinter
 import com.xiaopiao.app.ui.today.ReceiptSound
 import com.xiaopiao.app.ui.today.ReceiptSoundPrefs
 import com.xiaopiao.app.ui.today.StampVisuals
+import com.xiaopiao.app.ui.tr
 import kotlinx.coroutines.delay
 
 /** How far back the ‹ › pager reaches without the calendar (a quarter of the book, like a shop's paper ledger). */
@@ -117,7 +118,7 @@ fun MerchantReceiptPage(
     onRecordDay: (Long) -> Unit,
     onOpenSettings: () -> Unit = {},
     /** Where 返回 goes: the shop tab the receipt was opened from (移动七条 §1). */
-    backLabel: String = "小店",
+    backLabel: String = tr("小店", "Shop"),
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -168,11 +169,11 @@ fun MerchantReceiptPage(
     }
 
     NavScaffold(
-        title = "经营小票",
+        title = tr("经营小票", "Shop receipt"),
         scroll = NavScrollNone,
         onBack = onBack,
         backLabel = backLabel,
-        trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
+        trailing = { NavIconButton(Icons.Outlined.Settings, tr("设置", "Settings"), onClick = onOpenSettings) },
     ) { top ->
         Column(
             // The tab bar is hidden on this page (MerchantShell), so the page only clears the nav inset.
@@ -208,22 +209,22 @@ fun MerchantReceiptPage(
             Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.m)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                     XpButton(
-                        "分享日报",
+                        tr("分享日报", "Share report"),
                         {
                             uiHaptics.confirm()
                             val intent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_SUBJECT, "小店经营日报 ${RevenueBook.isoDate(day)}")
+                                putExtra(Intent.EXTRA_SUBJECT, tr("小店经营日报 ${RevenueBook.isoDate(day)}", "Shop daily report ${RevenueBook.isoDate(day)}"))
                                 putExtra(Intent.EXTRA_TEXT, shareText)
                             }
                             context.startActivity(
-                                Intent.createChooser(intent, "分享经营日报").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                Intent.createChooser(intent, tr("分享经营日报", "Share shop report")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                             )
                         },
                         modifier = Modifier.weight(1f),
                     )
                     XpButton(
-                        if (copied) "已复制" else "复制文字",
+                        if (copied) tr("已复制", "Copied") else tr("复制文字", "Copy text"),
                         {
                             val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             manager.setPrimaryClip(ClipData.newPlainText("经营日报", shareText))
@@ -236,12 +237,12 @@ fun MerchantReceiptPage(
                 }
                 if (entry == null) {
                     Text(
-                        "这天还没有记录。",
+                        tr("这天还没有记录。", "No record for this day yet."),
                         style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                         modifier = Modifier.padding(top = XpSpace.s),
                     )
                     XpButton(
-                        "补记这一天",
+                        tr("补记这一天", "Log this day"),
                         { onRecordDay(day) },
                         modifier = Modifier.padding(top = XpSpace.s),
                         style = XpButtonStyle.Secondary,
@@ -259,9 +260,9 @@ fun MerchantReceiptPage(
                 TextButton(onClick = {
                     state.selectedDateMillis?.let { selectDay(DayPick.localDayFromUtc(it)) }
                     calendarOpen = false
-                }) { Text("选择", color = XpColors.Ink) }
+                }) { Text(tr("选择", "Select"), color = XpColors.Ink) }
             },
-            dismissButton = { TextButton(onClick = { calendarOpen = false }) { Text("取消", color = XpColors.InkSecondary) } },
+            dismissButton = { TextButton(onClick = { calendarOpen = false }) { Text(tr("取消", "Cancel"), color = XpColors.InkSecondary) } },
         ) { DatePicker(state) }
     }
 }
@@ -283,7 +284,7 @@ private fun DayPager(
         Modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PagerArrow(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "前一天", enabled = day > earliest) {
+        PagerArrow(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, tr("前一天", "Previous day"), enabled = day > earliest) {
             haptics.select(); onSelect(RevenueBook.plusDays(day, -1))
         }
         Box(
@@ -315,19 +316,19 @@ private fun DayPager(
                     color = XpColors.Ink, maxLines = 1,
                 )
                 Text(
-                    if (day == today) "今天" else RevenueBook.isoDate(day),
+                    if (day == today) tr("今天", "Today") else RevenueBook.isoDate(day),
                     fontSize = 10.sp, lineHeight = 13.sp, color = XpColors.InkSecondary, maxLines = 1,
                 )
             }
         }
-        PagerArrow(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "后一天", enabled = day < today) {
+        PagerArrow(Icons.AutoMirrored.Outlined.KeyboardArrowRight, tr("后一天", "Next day"), enabled = day < today) {
             haptics.select(); onSelect(RevenueBook.plusDays(day, 1))
         }
         Spacer(Modifier.width(XpSpace.s))
         Box(
             Modifier.size(38.dp).clip(CircleShape).background(XpColors.Fill).pressableClick(onClick = onCalendar),
             contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Outlined.CalendarMonth, contentDescription = "日历：选择任意一天", tint = XpColors.Ink, modifier = Modifier.size(20.dp)) }
+        ) { Icon(Icons.Outlined.CalendarMonth, contentDescription = tr("日历：选择任意一天", "Calendar: pick any day"), tint = XpColors.Ink, modifier = Modifier.size(20.dp)) }
     }
 }
 
@@ -353,25 +354,25 @@ private fun merchantLines(entries: List<RevenueEntry>, day: Long, today: Long): 
     val entry = RevenueBook.entryFor(entries, day)
     val out = mutableListOf<ReceiptLine>()
     out += ReceiptLine(LineKind.BLANK)
-    out += ReceiptLine(LineKind.TITLE, if (day == today) "今日日报" else "经营日报")
-    out += ReceiptLine(LineKind.SUBTITLE, "小店 · 一天一张")
+    out += ReceiptLine(LineKind.TITLE, if (day == today) tr("今日日报", "Today's report") else tr("经营日报", "Business report"))
+    out += ReceiptLine(LineKind.SUBTITLE, tr("小店 · 一天一张", "Shop · one a day"))
     out += ReceiptLine(LineKind.DASH)
-    out += ReceiptLine(LineKind.META, "日期", "${RevenueBook.isoDate(day)} ${RevenueBook.weekdayLabel(day)}")
+    out += ReceiptLine(LineKind.META, tr("日期", "Date"), "${RevenueBook.isoDate(day)} ${RevenueBook.weekdayLabel(day)}")
     out += ReceiptLine(LineKind.DASH)
     if (entry == null) {
-        out += ReceiptLine(LineKind.BIG, "这天没有记录")
-        out += ReceiptLine(LineKind.NOTICE, "补上数字就能出日报")
+        out += ReceiptLine(LineKind.BIG, tr("这天没有记录", "No record this day"))
+        out += ReceiptLine(LineKind.NOTICE, tr("补上数字就能出日报", "Add numbers to get a report"))
     } else {
-        out += ReceiptLine(LineKind.TOTAL, "当天营业额", ReceiptLayout.moneyFixed(entry.revenueCents), entry.revenueCents)
-        out += ReceiptLine(LineKind.NOTICE, "仅作记录 · 非正式票据")
+        out += ReceiptLine(LineKind.TOTAL, tr("当天营业额", "Daily revenue"), ReceiptLayout.moneyFixed(entry.revenueCents), entry.revenueCents)
+        out += ReceiptLine(LineKind.NOTICE, tr("仅作记录 · 非正式票据", "Record only · not an official receipt"))
         out += ReceiptLine(LineKind.DASH)
-        out += ReceiptLine(LineKind.HEADER, "经营 / 当日", "数字")
-        out += ReceiptLine(LineKind.META, "订单", if (entry.orders > 0) "${entry.orders} 单" else "未填")
+        out += ReceiptLine(LineKind.HEADER, tr("经营 / 当日", "Business / day"), tr("数字", "Value"))
+        out += ReceiptLine(LineKind.META, tr("订单", "Orders"), if (entry.orders > 0) tr("${entry.orders} 单", "${entry.orders} orders") else tr("未填", "None"))
         out += ReceiptLine(
-            LineKind.META, "客单价",
+            LineKind.META, tr("客单价", "Avg ticket"),
             if (entry.averageTicketCents > 0) ReceiptLayout.money(entry.averageTicketCents) else "—",
         )
-        out += ReceiptLine(LineKind.META, "本周", ReceiptLayout.money(RevenueBook.windowTotal(entries, RevenueBook.weekStart(day), day)))
+        out += ReceiptLine(LineKind.META, tr("本周", "This week"), ReceiptLayout.money(RevenueBook.windowTotal(entries, RevenueBook.weekStart(day), day)))
         out += ReceiptLine(LineKind.DASH)
         val remark = ReceiptLayout.wrap(MerchantAi.receiptLine(entries, day), ReceiptLayout.COMMENT_COLS)
         remark.forEachIndexed { i, text ->
@@ -381,7 +382,7 @@ private fun merchantLines(entries: List<RevenueEntry>, day: Long, today: Long): 
         }
         out += ReceiptLine(LineKind.DASH)
     }
-    out += ReceiptLine(LineKind.FOOTER, "本机生成 · 不上传")
+    out += ReceiptLine(LineKind.FOOTER, tr("本机生成 · 不上传", "Made on device · never uploaded"))
     out += ReceiptLine(LineKind.BLANK)
     return out
 }
@@ -390,17 +391,27 @@ private fun merchantLines(entries: List<RevenueEntry>, day: Long, today: Long): 
 private fun merchantReceiptText(entries: List<RevenueEntry>, day: Long): String {
     val entry = RevenueBook.entryFor(entries, day)
     val sb = StringBuilder()
-    sb.appendLine("小店经营日报 · ${RevenueBook.isoDate(day)} ${RevenueBook.weekdayLabel(day)}")
+    sb.appendLine(
+        tr(
+            "小店经营日报 · ${RevenueBook.isoDate(day)} ${RevenueBook.weekdayLabel(day)}",
+            "Shop daily report · ${RevenueBook.isoDate(day)} ${RevenueBook.weekdayLabel(day)}",
+        ),
+    )
     if (entry == null) {
-        sb.appendLine("这天没有记录")
+        sb.appendLine(tr("这天没有记录", "No record this day"))
     } else {
-        sb.appendLine("营业额 ${RevenueBook.money(entry.revenueCents)}")
+        sb.appendLine(tr("营业额 ${RevenueBook.money(entry.revenueCents)}", "Revenue ${RevenueBook.money(entry.revenueCents)}"))
         if (entry.orders > 0) {
-            sb.appendLine("订单 ${entry.orders} 单 · 客单价 ${RevenueBook.money(entry.averageTicketCents)}")
+            sb.appendLine(
+                tr(
+                    "订单 ${entry.orders} 单 · 客单价 ${RevenueBook.money(entry.averageTicketCents)}",
+                    "${entry.orders} orders · ${RevenueBook.money(entry.averageTicketCents)} avg.",
+                ),
+            )
         }
-        if (entry.note.isNotBlank()) sb.appendLine("备注：${entry.note}")
+        if (entry.note.isNotBlank()) sb.appendLine(tr("备注：${entry.note}", "Note: ${entry.note}"))
     }
     sb.appendLine(MerchantAi.receiptLine(entries, day))
-    sb.append("本机生成 · 仅记录（非正式票据）")
+    sb.append(tr("本机生成 · 仅记录（非正式票据）", "Made on device · record only (not an official receipt)"))
     return sb.toString()
 }

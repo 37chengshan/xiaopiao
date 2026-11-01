@@ -159,7 +159,13 @@ fun CaptureNudge(modifier: Modifier = Modifier) {
     var settled by remember { mutableStateOf(false) }
     var sheetOpen by remember { mutableStateOf(false) }
     val reconnect = rememberReconnect()
-    LaunchedEffect(Unit) { delay(2_500); settled = true }
+    LaunchedEffect(Unit) {
+        // Enabled but unbound (typical right after an app update): repair silently first; the nudge only
+        // shows if the binding is still missing once the system had its chance.
+        if (listenerOn && !CaptureStatus.connected.value) com.xiaopiao.app.capture.PaymentListenerService.reconnect(context)
+        delay(2_500)
+        settled = true
+    }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { listenerOn = NotificationAccess.listenerEnabled(context) }
 
     AnimatedVisibility(

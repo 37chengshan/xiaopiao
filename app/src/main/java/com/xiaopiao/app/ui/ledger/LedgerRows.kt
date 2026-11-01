@@ -1,6 +1,7 @@
 package com.xiaopiao.app.ui.ledger
 
 import kotlin.math.roundToInt
+import com.xiaopiao.app.ui.motion.XpMotion
 import kotlinx.coroutines.launch
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.NumberTicker
@@ -72,6 +73,7 @@ import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 import kotlinx.coroutines.delay
 
 /** Tabular 13sp, the day card's second voice (dates, the 支/收 pair and the row time). */
@@ -95,6 +97,10 @@ private val DividerInset = 60.dp
 /**
  * One day (reference `041428`): a 44dp header line — 「10月28日 今日」 left, 「支 18.28 收 0.00」 right —
  * above a 10dp card of 48dp rows. Zero-spend days still print both numbers.
+ *
+ * Split into [LedgerDayHeader] + one [LedgerTxnRow] per bill: a day with 40 bills used to be a single list item, so
+ * scrolling into it composed every row at once (measured 26ms of main-thread prefetch per new day). The pieces draw
+ * the same pixels — the card's rounded ends come from [LedgerTxnRow]'s corner flags.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -115,10 +121,39 @@ fun LedgerDayCard(
     hintFirstRow: Boolean = false,
     onHintShown: () -> Unit = {},
 ) {
-    // Reference `041428`: the day header sits inside the white card, a hairline above the first row.
+    Column(modifier) {
+        LedgerDayHeader(group = group, hidden = hidden)
+        group.items.forEachIndexed { index, txn ->
+            LedgerTxnRow(
+                txn = txn,
+                defs = defs,
+                hidden = hidden,
+                selection = selection,
+                swipeToDelete = swipeToDelete,
+                onToggle = onToggle,
+                onLongPress = onLongPress,
+                onEdit = onEdit,
+                onDelete = onDelete,
+                dividerAbove = index > 0,
+                fresh = txn.id in fresh,
+                hint = hintFirstRow && index == 0,
+                onHintShown = onHintShown,
+                bottomCorners = index == group.items.lastIndex,
+            )
+        }
+    }
+}
+
+/** The header line of a day card, with the hairline that separates it from the first row. */
+@Composable
+fun LedgerDayHeader(
+    group: DayGroup,
+    hidden: Boolean,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(XpRadius.listCard))
+            .clip(RoundedCornerShape(topStart = XpRadius.listCard, topEnd = XpRadius.listCard))
             .background(XpColors.Card),
     ) {
         Row(
@@ -134,38 +169,65 @@ fun LedgerDayCard(
                 overflow = TextOverflow.Ellipsis,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.m)) {
-                DayFigure("支", group.outCents, hidden)
-                DayFigure("收", group.inCents, hidden)
+                DayFigure(tr("支", "Out"), group.outCents, hidden)
+                DayFigure(tr("收", "In"), group.inCents, hidden)
             }
         }
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(XpColors.Hairline))
-        Column(Modifier.fillMaxWidth()) {
-            group.items.forEachIndexed { index, txn ->
-                // A row that just arrived grows into place instead of appearing at full height
-                // (docs/APP-DESIGN.md §7.5: the list never jumps).
-                Column(Modifier.fillMaxWidth().rowLanding(txn.id in fresh)) {
-                    if (index > 0) {
-                        Box(Modifier.fillMaxWidth().padding(start = DividerInset).height(0.5.dp).background(XpColors.Hairline))
-                    }
-                    if (selection != null) {
-                        LedgerRowContent(
-                            txn = txn, defs = defs, hidden = hidden, selected = txn.id in selection,
-                            onToggle = { onToggle(txn) }, onLongPress = { onToggle(txn) }, onClick = { onToggle(txn) },
-                        )
-                    } else if (!swipeToDelete) {
-                        LedgerRowContent(
-                            txn = txn, defs = defs, hidden = hidden, selected = null,
-                            onToggle = {}, onLongPress = { onLongPress(txn) }, onClick = { onEdit(txn) },
-                        )
-                    } else {
-                        SwipeableRow(
-                            txn = txn, defs = defs, hidden = hidden,
-                            onClick = { onEdit(txn) }, onLongPress = { onLongPress(txn) }, onDelete = { onDelete(txn) },
-                            hint = hintFirstRow && index == 0,
-                            onHintShown = onHintShown,
-                        )
-                    }
-                }
+    }
+}
+
+/** One bill inside a day card. Own list item, so a long day only composes the rows you can see. */
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun LedgerTxnRow(
+    txn: Txn,
+    defs: List<CategoryDef>,
+    hidden: Boolean,
+    selection: Set<Long>?,
+    swipeToDelete: Boolean,
+    onToggle: (Txn) -> Unit,
+    onLongPress: (Txn) -> Unit,
+    onEdit: (Txn) -> Unit,
+    onDelete: (Txn) -> Unit,
+    modifier: Modifier = Modifier,
+    dividerAbove: Boolean = false,
+    fresh: Boolean = false,
+    hint: Boolean = false,
+    onHintShown: () -> Unit = {},
+    bottomCorners: Boolean = false,
+) {
+    Column(
+        modifier.fillMaxWidth()
+            .clip(
+                RoundedCornerShape(
+                    bottomStart = if (bottomCorners) XpRadius.listCard else 0.dp,
+                    bottomEnd = if (bottomCorners) XpRadius.listCard else 0.dp,
+                ),
+            )
+            .background(XpColors.Card),
+    ) {
+        if (dividerAbove) {
+            Box(Modifier.fillMaxWidth().padding(start = DividerInset).height(0.5.dp).background(XpColors.Hairline))
+        }
+        Column(Modifier.fillMaxWidth().rowLanding(fresh)) {
+            if (selection != null) {
+                LedgerRowContent(
+                    txn = txn, defs = defs, hidden = hidden, selected = txn.id in selection,
+                    onToggle = { onToggle(txn) }, onLongPress = { onToggle(txn) }, onClick = { onToggle(txn) },
+                )
+            } else if (!swipeToDelete) {
+                LedgerRowContent(
+                    txn = txn, defs = defs, hidden = hidden, selected = null,
+                    onToggle = {}, onLongPress = { onLongPress(txn) }, onClick = { onEdit(txn) },
+                )
+            } else {
+                SwipeableRow(
+                    txn = txn, defs = defs, hidden = hidden,
+                    onClick = { onEdit(txn) }, onLongPress = { onLongPress(txn) }, onDelete = { onDelete(txn) },
+                    hint = hint,
+                    onHintShown = onHintShown,
+                )
             }
         }
     }
@@ -239,7 +301,7 @@ private fun SwipeableRow(
     val fold = remember(txn.id) { Animatable(1f) }
     var armed by remember(txn.id) { mutableStateOf(false) }
     var deleting by remember(txn.id) { mutableStateOf(false) }
-    val settle = spring<Float>(dampingRatio = 0.86f, stiffness = 520f)
+    val settle = XpMotion.snappy<Float>()
 
     fun close() = scope.launch { if (reduced) offset.snapTo(0f) else offset.animateTo(0f, settle) }
     fun delete() {
@@ -248,8 +310,8 @@ private fun SwipeableRow(
         haptics.thud()
         scope.launch {
             if (!reduced) {
-                offset.animateTo(-width, tween(160, easing = XpEase.out))
-                fold.animateTo(0f, tween(200, easing = XpEase.out))
+                offset.animateTo(-width, XpMotion.fadeAway(160))
+                fold.animateTo(0f, XpMotion.gentle())
             }
             if (rows.openId == txn.id) rows.openId = null
             onDelete()
@@ -271,7 +333,7 @@ private fun SwipeableRow(
         scope.launch {
             delay(320) // let the card's entrance land first, so the peek reads as its own gesture
             rows.openId = null
-            offset.animateTo(-peekPx, tween(220, easing = XpEase.out))
+            offset.animateTo(-peekPx, XpMotion.snappy())
             delay(600)
             offset.animateTo(0f, settle)
         }
@@ -286,7 +348,7 @@ private fun SwipeableRow(
                 layout(placeable.width, h) { placeable.place(0, 0) }
             }
             .clipToBounds()
-            .semantics { customActions = listOf(CustomAccessibilityAction("删除") { delete(); true }) },
+            .semantics { customActions = listOf(CustomAccessibilityAction(tr("删除", "Delete")) { delete(); true }) },
     ) {
         // The action behind the row: red from the row's trailing edge, 删除 centred in whatever is revealed.
         val revealed = (-offset.value).coerceAtLeast(0f)
@@ -309,7 +371,7 @@ private fun SwipeableRow(
                 ) {
                     Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("删除", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = Color.White, maxLines = 1)
+                    Text(tr("删除", "Delete"), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = Color.White, maxLines = 1)
                 }
             }
         }
@@ -438,7 +500,7 @@ fun Modifier.rowLanding(animate: Boolean): Modifier = composed {
             rise.snapTo(1f)
         } else {
             rise.snapTo(0f)
-            rise.animateTo(1f, spring(dampingRatio = 0.9f, stiffness = 420f))
+            rise.animateTo(1f, XpMotion.gentle())
         }
     }
     val progress = rise.value
@@ -464,7 +526,7 @@ fun Modifier.staggerIn(index: Int, reduceMotion: Boolean): Modifier {
     LaunchedEffect(Unit) {
         if (!reduceMotion) {
             delay((index.coerceIn(0, 6) * 35).toLong())
-            anim.animateTo(1f, tween(220, easing = XpEase.out))
+            anim.animateTo(1f, XpMotion.snappy())
         }
     }
     return this.graphicsLayer {

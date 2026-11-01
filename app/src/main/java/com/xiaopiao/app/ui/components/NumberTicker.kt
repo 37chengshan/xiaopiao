@@ -1,6 +1,9 @@
 package com.xiaopiao.app.ui.components
 
 import androidx.compose.animation.AnimatedContent
+import com.xiaopiao.app.ui.motion.XpMotion
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -40,10 +43,27 @@ fun NumberTicker(
     rollFromZero: Boolean = true,
     staggerMs: Long = 70,
 ) {
-    Row(modifier) {
-        text.forEachIndexed { index, ch ->
-            val fromRight = text.length - 1 - index
-            RollingChar(ch, if (rollFromZero) '0' else ch, fromRight * staggerMs, style, color)
+    // Steady state is one Text, not a Row of per-digit transition containers. A ledger day header builds one of these
+    // per figure, and the device trace showed the containers dominating that card's measure pass even when no digit
+    // ever moved. The rolling container is only composed while an amount is actually changing, then torn down again.
+    var previous by remember { mutableStateOf(if (rollFromZero) zeroedDigits(text) else text) }
+    var rolling by remember { mutableStateOf(rollFromZero) }
+    LaunchedEffect(text) {
+        if (text == previous) return@LaunchedEffect
+        rolling = true
+        val settle = staggerMs * text.length + 600
+        previous = text
+        delay(settle)
+        rolling = false
+    }
+    if (!rolling) {
+        Text(text, modifier = modifier, style = style, color = color)
+    } else {
+        Row(modifier) {
+            text.forEachIndexed { index, ch ->
+                val fromRight = text.length - 1 - index
+                RollingChar(ch, if (rollFromZero) '0' else ch, fromRight * staggerMs, style, color)
+            }
         }
     }
 }
@@ -60,8 +80,8 @@ private fun RollingChar(target: Char, initial: Char, delayMs: Long, style: TextS
         transitionSpec = {
             val up = targetState.isDigit() && initialState.isDigit() && targetState > initialState
             val dir = if (up) 1 else -1
-            (slideInVertically(spring(0.75f, 420f)) { it * dir } + fadeIn(spring(stiffness = 600f))) togetherWith
-                (slideOutVertically(spring(0.75f, 420f)) { -it * dir } + fadeOut(spring(stiffness = 600f)))
+            (slideInVertically(XpMotion.snappy(IntOffset.VisibilityThreshold)) { it * dir } + fadeIn(XpMotion.fade())) togetherWith
+                (slideOutVertically(XpMotion.snappy(IntOffset.VisibilityThreshold)) { -it * dir } + fadeOut(XpMotion.fadeAway()))
         },
         label = "digit",
     ) { c -> Text(c.toString(), style = style, color = color) }

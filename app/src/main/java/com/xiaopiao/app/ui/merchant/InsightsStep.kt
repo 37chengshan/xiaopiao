@@ -41,6 +41,7 @@ import com.xiaopiao.app.merchant.CrowdMember
 import com.xiaopiao.app.merchant.K_ANONYMITY
 import com.xiaopiao.app.ui.components.MoneyText
 import com.xiaopiao.app.ui.components.XpCard
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 
@@ -57,10 +58,13 @@ fun InsightsStep(crowd: List<CrowdMember>, onNext: () -> Unit, onPrivacy: () -> 
             }
         }
         Reveal(1) { AgeChips(age) { age = it } }
-        Reveal(2) { SectionCard("喝什么", "过去 30 天买过这类饮品的人") { KindBars(stats) } }
-        Reveal(3) { SectionCard("什么时候来", "点一格看人数 · 斜线空格 = $SUPPRESSED_TEXT（少于 $K_ANONYMITY 人）") { HeatSection(stats) } }
-        Reveal(4) { SectionCard("愿意花多少", "按每个人的平均客单价分组") { PriceBars(stats) } }
-        Reveal(5) { SectionCard("爱加什么料", "每人只算一个最爱") { ToppingDonut(stats) } }
+        Reveal(2) { SectionCard(tr("喝什么", "What they drink"), tr("过去 30 天买过这类饮品的人", "People who bought this kind of drink in the last 30 days")) { KindBars(stats) } }
+        Reveal(3) { SectionCard(
+                tr("什么时候来", "When they come"),
+                tr("点一格看人数 · 斜线空格 = $SUPPRESSED_TEXT（少于 $K_ANONYMITY 人）", "Tap a cell for the headcount · hatched blank = $SUPPRESSED_TEXT (under $K_ANONYMITY people)"),
+            ) { HeatSection(stats) } }
+        Reveal(4) { SectionCard(tr("愿意花多少", "What they will pay"), tr("按每个人的平均客单价分组", "Grouped by each person's average ticket")) { PriceBars(stats) } }
+        Reveal(5) { SectionCard(tr("爱加什么料", "Favourite toppings"), tr("每人只算一个最爱", "One favourite per person")) { ToppingDonut(stats) } }
         Reveal(6) {
             Column(Modifier.padding(horizontal = XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
                 Row(Modifier.clickable(onClick = onPrivacy), verticalAlignment = Alignment.Top) {
@@ -73,7 +77,7 @@ fun InsightsStep(crowd: List<CrowdMember>, onNext: () -> Unit, onPrivacy: () -> 
                         style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                     )
                 }
-                MerchantButton("下一步：发起一个小实验", onNext)
+                MerchantButton(tr("下一步：发起一个小实验", "Next: run a small experiment"), onNext)
             }
         }
     }
@@ -96,14 +100,14 @@ private fun SectionCard(title: String, hint: String, content: @Composable () -> 
 private fun KpiRow(stats: CohortStats) {
     val enough = stats.avgPriceCents != null
     Row(Modifier.padding(horizontal = XpSpace.l), horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-        Kpi("授权邻居", if (enough) stats.totalPeople.toFloat() else null, "人", Modifier.weight(1f))
-        Kpi("平均客单", stats.avgPriceCents?.let { it / 100f }, "元", Modifier.weight(1f))
-        Kpi("常客占比", stats.repeatRate?.let { it * 100 }, "%", Modifier.weight(1f))
+        Kpi(tr("授权邻居", "Opted-in neighbours"), if (enough) stats.totalPeople.toFloat() else null, tr("人", "people"), Modifier.weight(1f))
+        Kpi(tr("平均客单", "Average ticket"), stats.avgPriceCents?.let { it / 100f }, tr("元", "yuan"), Modifier.weight(1f), decimals = true)
+        Kpi(tr("常客占比", "Repeat rate"), stats.repeatRate?.let { it * 100 }, "%", Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun Kpi(label: String, value: Float?, unit: String, modifier: Modifier) {
+private fun Kpi(label: String, value: Float?, unit: String, modifier: Modifier, decimals: Boolean = false) {
     val v by animateFloatAsState(value ?: 0f, SpringSoft, label = label)
     Column(
         modifier.clip(RoundedCornerShape(16.dp)).background(XpColors.Card).padding(XpSpace.m),
@@ -114,7 +118,7 @@ private fun Kpi(label: String, value: Float?, unit: String, modifier: Modifier) 
         } else {
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    if (unit == "元") "%.1f".format(v) else "${v.toInt()}",
+                    if (decimals) "%.1f".format(v) else "${v.toInt()}",
                     style = MaterialTheme.typography.titleLarge, color = XpColors.Ink,
                 )
                 Text(unit, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.padding(start = 2.dp, bottom = 2.dp))
@@ -126,7 +130,7 @@ private fun Kpi(label: String, value: Float?, unit: String, modifier: Modifier) 
 @Composable
 private fun AgeChips(selected: AgeBand?, onSelect: (AgeBand?) -> Unit) {
     Column(Modifier.padding(horizontal = XpSpace.l)) {
-        Text("看哪群人", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+        Text(tr("看哪群人", "Which group"), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         // Wraps to a second line at 360dp x 1.3 instead of clipping the last chip.
         @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
         androidx.compose.foundation.layout.FlowRow(
@@ -134,7 +138,7 @@ private fun AgeChips(selected: AgeBand?, onSelect: (AgeBand?) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
             verticalArrangement = Arrangement.spacedBy(XpSpace.xs),
         ) {
-            Chip("全部", selected == null) { onSelect(null) }
+            Chip(tr("全部", "All"), selected == null) { onSelect(null) }
             AgeBand.entries.forEach { Chip(it.label, selected == it) { onSelect(it) } }
         }
     }
@@ -168,7 +172,7 @@ private fun PriceBars(stats: CohortStats) {
         stats.priceBands.forEachIndexed { i, c -> CellBar(c, max, XpColors.Highlight, i) }
         val avg = stats.avgPriceCents
         if (avg != null) Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("平均每杯约 ", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+            Text(tr("平均每杯约 ", "About "), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
             MoneyText(avg, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         }
     }
@@ -187,9 +191,9 @@ private fun HeatSection(stats: CohortStats) {
             val cell = s?.let { stats.heatmap[it.first][it.second] }
             Text(
                 when {
-                    cell == null -> "点一格看看"
-                    cell.suppressed -> "${cell.label} · $SUPPRESSED_TEXT，为保护隐私不展示"
-                    else -> "${cell.label} · 约 ${cell.people} 人到店"
+                    cell == null -> tr("点一格看看", "Tap a cell to see more")
+                    cell.suppressed -> tr("${cell.label} · $SUPPRESSED_TEXT，为保护隐私不展示", "${cell.label} · $SUPPRESSED_TEXT, hidden for privacy")
+                    else -> tr("${cell.label} · 约 ${cell.people} 人到店", "${cell.label} · about ${cell.people} people came")
                 },
                 style = MaterialTheme.typography.labelMedium,
                 color = if (cell?.suppressed == true) XpColors.InkSecondary else XpColors.Ink,
@@ -205,7 +209,7 @@ private fun ToppingDonut(stats: CohortStats) {
         Donut(values) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("🍠", style = MaterialTheme.typography.titleLarge)
-                Text("最爱小料", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
+                Text(tr("最爱小料", "Top topping"), style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -229,12 +233,12 @@ private fun HeatLegend() {
     val edge = XpColors.InkTertiary.copy(alpha = 0.45f)
     val clay = XpColors.Accent
     Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
-        Text("少", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
+        Text(tr("少", "Few"), style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
         androidx.compose.foundation.layout.Box(
             Modifier.width(56.dp).height(10.dp).clip(RoundedCornerShape(3.dp))
                 .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(clay.copy(alpha = 0.12f), clay))),
         )
-        Text("多", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
+        Text(tr("多", "Many"), style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
         androidx.compose.foundation.layout.Spacer(Modifier.width(XpSpace.s))
         androidx.compose.foundation.layout.Box(
             Modifier.width(22.dp).height(10.dp).clip(RoundedCornerShape(3.dp)).drawBehind {
@@ -246,6 +250,6 @@ private fun HeatLegend() {
                 }
             },
         )
-        Text("$SUPPRESSED_TEXT（<$K_ANONYMITY 人）", style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
+        Text(tr("$SUPPRESSED_TEXT（<$K_ANONYMITY 人）", "$SUPPRESSED_TEXT (< $K_ANONYMITY people)"), style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
     }
 }

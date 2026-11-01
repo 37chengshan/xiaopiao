@@ -32,6 +32,7 @@ import com.xiaopiao.app.importer.BillCsvParser
 import com.xiaopiao.app.importer.BillFormat
 import com.xiaopiao.app.ui.components.XpSheet
 import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.Dispatchers
@@ -54,14 +55,26 @@ fun AttachmentSheet(
     XpSheet(onDismiss = onDismiss) {
         Column(Modifier.padding(bottom = XpSpace.xl)) {
             Text(
-                "添加到对话",
+                tr("添加到对话", "Add to chat"),
                 style = MaterialTheme.typography.titleMedium,
                 color = XpColors.Ink,
                 modifier = Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s),
             )
-            AttachmentRow(Icons.Outlined.CameraAlt, "拍一张小票", "用相机拍下来，本机识别") { onCamera(); onDismiss() }
-            AttachmentRow(Icons.Outlined.PhotoLibrary, "从相册选", "最多 4 张账单截图") { onGallery(); onDismiss() }
-            AttachmentRow(Icons.Outlined.Description, "选择文件", "CSV 账单，图片也可以") { onFile(); onDismiss() }
+            AttachmentRow(
+                Icons.Outlined.CameraAlt,
+                tr("拍一张小票", "Take a photo"),
+                tr("用相机拍下来，本机识别", "Snap it with the camera, read on this device"),
+            ) { onCamera(); onDismiss() }
+            AttachmentRow(
+                Icons.Outlined.PhotoLibrary,
+                tr("从相册选", "Pick from photos"),
+                tr("最多 4 张账单截图", "Up to 4 bill screenshots"),
+            ) { onGallery(); onDismiss() }
+            AttachmentRow(
+                Icons.Outlined.Description,
+                tr("选择文件", "Choose a file"),
+                tr("CSV 账单，图片也可以", "CSV bills, images work too"),
+            ) { onFile(); onDismiss() }
         }
     }
 }

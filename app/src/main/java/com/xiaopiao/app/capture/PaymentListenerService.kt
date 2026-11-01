@@ -2,6 +2,7 @@ package com.xiaopiao.app.capture
 
 import android.app.Notification
 import android.content.ComponentName
+import android.content.pm.PackageManager
 import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -89,7 +90,13 @@ class PaymentListenerService : NotificationListenerService() {
 
         /** Asks the system to rebuild the binding (no permission change, safe to call from the UI). */
         fun reconnect(context: Context) {
-            requestRebind(ComponentName(context.applicationContext, PaymentListenerService::class.java))
+            val component = ComponentName(context.applicationContext, PaymentListenerService::class.java)
+            // vivo (verified 2026-11-01) ignores requestRebind after an app update and keeps a stale "live" entry.
+            // Flipping our own component off and on makes NotificationManagerService drop it and bind it again.
+            val pm = context.packageManager
+            pm.setComponentEnabledSetting(component, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
+            pm.setComponentEnabledSetting(component, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP)
+            requestRebind(component)
             Log.i(TAG, "rebind requested")
         }
     }

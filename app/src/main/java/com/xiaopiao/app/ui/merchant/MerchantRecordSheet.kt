@@ -38,6 +38,7 @@ import com.xiaopiao.app.ui.components.XpSheet
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberXpHaptics
 import com.xiaopiao.app.ui.record.RecordAmount
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.record.recordFieldColors
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
@@ -89,7 +90,7 @@ fun RevenueEntrySheet(
             }
 
             Text(
-                "营业额（元）",
+                tr("营业额（元）", "Revenue (yuan)"),
                 style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                 modifier = Modifier.padding(top = XpSpace.l),
             )
@@ -112,9 +113,11 @@ fun RevenueEntrySheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("订单数", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
+                    Text(tr("订单数", "Orders"), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
                     Text(
-                        if (orders > 0) "客单价 ${RevenueBook.money((cents + orders / 2) / orders)}" else "不清楚可以留 0",
+                        if (orders > 0) {
+                            tr("客单价 ${RevenueBook.money((cents + orders / 2) / orders)}", "Avg. ticket ${RevenueBook.money((cents + orders / 2) / orders)}")
+                        } else tr("不清楚可以留 0", "Not sure? Leave it at 0"),
                         style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary,
                     )
                 }
@@ -130,7 +133,7 @@ fun RevenueEntrySheet(
             }
 
             Text(
-                "备注（可不填）",
+                tr("备注（可不填）", "Note (optional)"),
                 style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary,
                 modifier = Modifier.padding(top = XpSpace.l, bottom = XpSpace.xs),
             )
@@ -140,14 +143,14 @@ fun RevenueEntrySheet(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(XpRadius.m),
-                placeholder = { Text("例如：雨天、做了活动", color = XpColors.InkTertiary) },
+                placeholder = { Text(tr("例如：雨天、做了活动", "e.g. rainy day, ran a promo"), color = XpColors.InkTertiary) },
                 colors = recordFieldColors(),
             )
 
             RevenueKeypad(Modifier.padding(top = XpSpace.l)) { amountText = RecordAmount.press(amountText, it) }
 
             XpButton(
-                text = "保存",
+                text = tr("保存", "Save"),
                 onClick = {
                     haptics.confirm()
                     onSave(
@@ -205,7 +208,7 @@ private fun RevenueKeypad(modifier: Modifier = Modifier, onKey: (String) -> Unit
                     ) {
                         if (key == RecordAmount.BACKSPACE) {
                             Icon(
-                                Icons.AutoMirrored.Outlined.Backspace, contentDescription = "删除",
+                                Icons.AutoMirrored.Outlined.Backspace, contentDescription = tr("删除", "Delete"),
                                 tint = XpColors.Ink, modifier = Modifier.size(22.dp),
                             )
                         } else {

@@ -4,6 +4,7 @@ import com.xiaopiao.app.domain.asr.AsrLanguage
 import com.xiaopiao.app.domain.asr.AsrModel
 import java.util.Locale
 import kotlin.math.roundToInt
+import com.xiaopiao.app.ui.tr
 
 /** Every string the speech-model surfaces show, in both app languages (tt 2026-10-29). */
 data class AsrCopy(
@@ -40,30 +41,30 @@ private fun pct(fraction: Float): Int = (fraction * 100).roundToInt().coerceIn(0
 fun asrCopy(language: AsrLanguage): AsrCopy = if (language == AsrLanguage.EN) english else chinese
 
 private val chinese = AsrCopy(
-    title = "语音模型",
-    lead = "记账的语音在本机识别，录音不上传。",
-    privacy = "模型下载到手机上，识别时不出网；删掉模型就回到系统语音。",
-    small = "小模型（推荐）",
-    smallNote = "边说边出字，记账热词更准",
-    large = "大模型 · 更准",
-    largeNote = "中/英/粤，说完再出字，约占 240 MB",
-    off = "不下载",
-    offNote = "麦克风会提示你用输入法的语音输入",
-    download = "下载",
-    cancel = "取消",
-    retry = "重试",
-    delete = "删除",
-    installed = "已下载",
-    downloading = "下载中 %d%%",
-    failed = "下载没成功，检查网络再试",
-    languageNote = "跟随手机语言",
-    wifiNote = "大模型建议在 Wi-Fi 下下载",
-    promptTitle = "先下载一个语音模型",
-    promptBody = { model -> "「${modelLabel(model)}」约 ${mb(model.totalBytes)}，只下一次；录音不会离开这台手机。" },
-    promptDownload = "下载并开始",
-    promptLater = "先用输入法",
-    rowValueMissing = "未下载",
-    rowValueReady = "已就绪",
+    title = tr("语音模型", "Voice models"),
+    lead = tr("记账的语音在本机识别，录音不上传。", "Voice entries are recognised on this phone. Audio is never uploaded."),
+    privacy = tr("模型下载到手机上，识别时不出网；删掉模型就回到系统语音。", "The model downloads to this phone and works offline; delete it to go back to system speech."),
+    small = tr("小模型（推荐）", "Small model (recommended)"),
+    smallNote = tr("边说边出字，记账热词更准", "Types as you speak, tuned for receipt words"),
+    large = tr("大模型 · 更准", "Large model · more accurate"),
+    largeNote = tr("中/英/粤，说完再出字，约占 240 MB", "Chinese, English and Cantonese; types when you finish; about 240 MB"),
+    off = tr("不下载", "Do not download"),
+    offNote = tr("麦克风会提示你用输入法的语音输入", "The mic button points you to keyboard voice input"),
+    download = tr("下载", "Download"),
+    cancel = tr("取消", "Cancel"),
+    retry = tr("重试", "Retry"),
+    delete = tr("删除", "Delete"),
+    installed = tr("已下载", "Downloaded"),
+    downloading = tr("下载中 %d%%", "Downloading %d%%"),
+    failed = tr("下载没成功，检查网络再试", "Download failed — check the connection and try again"),
+    languageNote = tr("跟随手机语言", "Follows the phone language"),
+    wifiNote = tr("大模型建议在 Wi-Fi 下下载", "Download the large model over Wi-Fi"),
+    promptTitle = tr("先下载一个语音模型", "Download a voice model first"),
+    promptBody = { model -> tr("「${modelLabel(model)}」约 ${mb(model.totalBytes)}，只下一次；录音不会离开这台手机。", "${modelLabel(model)} is about ${mb(model.totalBytes)}, downloaded once. Audio never leaves this phone.") },
+    promptDownload = tr("下载并开始", "Download and start"),
+    promptLater = tr("先用输入法", "Use the keyboard for now"),
+    rowValueMissing = tr("未下载", "Not downloaded"),
+    rowValueReady = tr("已就绪", "Ready"),
 )
 
 private val english = AsrCopy(
@@ -100,7 +101,7 @@ fun modelLabel(model: AsrModel, copy: AsrCopy = asrCopy(model.language)): String
     } else if (copy === english) {
         "Large model · SenseVoice"
     } else {
-        "大模型 · SenseVoice"
+        tr("大模型 · SenseVoice", "Large model · SenseVoice")
     }
 
 fun sizeText(bytes: Long): String = mb(bytes)

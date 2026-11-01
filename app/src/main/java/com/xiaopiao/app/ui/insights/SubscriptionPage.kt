@@ -53,6 +53,7 @@ import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.launch
+import com.xiaopiao.app.ui.tr
 
 /** 订阅侦探: finds quiet auto-renewals, shows the yearly bill, guides cancelling (never cancels itself). */
 @Composable
@@ -75,22 +76,22 @@ fun SubscriptionPage(input: InsightsInput, topPad: androidx.compose.ui.unit.Dp =
         } else scope.launch { prefs.setCancelled(merchant, value) }
     }
 
-    InsightsPage("揪出悄悄扣钱的自动续费", topPad = topPad) {
+    InsightsPage(tr("揪出悄悄扣钱的自动续费", "Catch the renewals that keep charging"), topPad = topPad) {
         if (all.isEmpty()) {
-            InsightsEmpty(Icons.Outlined.Search, "暂时没抓到自动续费", "账本里还没有规律重复的扣款。多记几个月，侦探会自己出动～")
+            InsightsEmpty(Icons.Outlined.Search, tr("暂时没抓到自动续费", "No renewals caught yet"), tr("账本里还没有规律重复的扣款。多记几个月，侦探会自己出动～", "Nothing has charged on a regular beat yet. A few more months of entries and the detective starts working."))
             return@InsightsPage
         }
         XpCard {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("这些订阅一年大约要花", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
+                Text(tr("这些订阅一年大约要花", "These subscriptions cost about this per year"), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
             }
             BigMoney(yearly)
-            Text("共 ${active.size} 项 · 只做提醒，关不关由你决定", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+            Text(tr("共 ${active.size} 项 · 只做提醒，关不关由你决定", "${active.size} items · we only remind you; cancelling is your call"), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
         }
-        if (active.isEmpty()) InsightsEmpty(Icons.Outlined.CheckCircle, "全部标记为已取消", "清爽！下面可以随时撤销标记。")
+        if (active.isEmpty()) InsightsEmpty(Icons.Outlined.CheckCircle, tr("全部标记为已取消", "All marked as cancelled"), tr("清爽！下面可以随时撤销标记。", "Nothing left. You can undo any mark below."))
         active.forEach { SubscriptionCard(it, input.now, cancelled = false) { mark(it.subscription.merchant, true) } }
         if (done.isNotEmpty()) {
-            Text("已标记取消", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
+            Text(tr("已标记取消", "Marked as cancelled"), style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary)
             done.forEach { SubscriptionCard(it, input.now, cancelled = true) { mark(it.subscription.merchant, false) } }
         }
         Text(CancelGuides.FOOTNOTE, style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary)
@@ -98,10 +99,10 @@ fun SubscriptionPage(input: InsightsInput, topPad: androidx.compose.ui.unit.Dp =
 }
 
 private fun cycleLabel(days: Int) = when {
-    days <= 7 -> "每周"
-    days <= 31 -> "每月"
-    days <= 92 -> "每季"
-    else -> "每年"
+    days <= 7 -> tr("每周", "Weekly")
+    days <= 31 -> tr("每月", "Monthly")
+    days <= 92 -> tr("每季", "Quarterly")
+    else -> tr("每年", "Yearly")
 }
 
 @Composable
@@ -119,26 +120,26 @@ private fun SubscriptionCard(insight: SubscriptionInsight, now: Long, cancelled:
                     val metaColor = XpColors.InkSecondary
                     Text("${cycleLabel(sub.cycleDays)} ", style = meta, color = metaColor)
                     MoneyText(sub.amountCents, style = meta, color = metaColor)
-                    Text(" · 一年约 ", style = meta, color = metaColor)
+                    Text(tr(" · 一年约 ", " · about a year "), style = meta, color = metaColor)
                     MoneyText(sub.annualCents(), style = meta, color = metaColor)
                 }
             }
             Icon(if (open) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, tint = XpColors.InkTertiary)
         }
         Row(Modifier.padding(top = XpSpace.s), horizontalArrangement = Arrangement.spacedBy(XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
-            if (cancelled) Pill("已标记取消") else CountdownChip(days, insight.lapsed)
+            if (cancelled) Pill(tr("已标记取消", "Marked cancelled")) else CountdownChip(days, insight.lapsed)
             insight.flags.forEach { Pill(it.label + if (it == SubscriptionFlag.DUPLICATE_KIND) "（${insight.kind?.label.orEmpty()}）" else "") }
         }
         AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
             Column(Modifier.padding(top = XpSpace.m), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                Text("怎么取消", style = MaterialTheme.typography.labelLarge, color = XpColors.Ink)
+                Text(tr("怎么取消", "How to cancel"), style = MaterialTheme.typography.labelLarge, color = XpColors.Ink)
                 CancelGuides.appTip(sub.merchant)?.let { Text(it, style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary) }
                 CancelGuides.forMerchant(sub.merchant).forEach { g ->
-                    Text("· 在${g.channel}扣的话", style = MaterialTheme.typography.labelMedium, color = XpColors.Ink)
+                    Text(tr("· 在${g.channel}扣的话", "· if it charges through ${g.channel}"), style = MaterialTheme.typography.labelMedium, color = XpColors.Ink)
                     g.steps.forEachIndexed { i, s -> Text("   ${i + 1}. $s", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary) }
                 }
                 XpButton(
-                    if (cancelled) "撤销标记" else "我已取消", onToggle,
+                    if (cancelled) tr("撤销标记", "Undo mark") else tr("我已取消", "I cancelled it"), onToggle,
                     style = if (cancelled) XpButtonStyle.Secondary else XpButtonStyle.Primary, size = XpButtonSize.Small,
                 )
             }
@@ -149,11 +150,11 @@ private fun SubscriptionCard(insight: SubscriptionInsight, now: Long, cancelled:
 @Composable
 private fun CountdownChip(days: Int, lapsed: Boolean) {
     val (text, color) = when {
-        lapsed -> "好像已经没再扣了" to XpColors.Positive
-        days < 0 -> "已过扣费日 ${-days} 天" to XpColors.InkSecondary
-        days == 0 -> "今天扣费" to XpColors.Stamp
-        days <= 3 -> "还有 $days 天扣费" to XpColors.Stamp
-        else -> "还有 $days 天扣费" to XpColors.Warning
+        lapsed -> tr("好像已经没再扣了", "Looks like it stopped charging") to XpColors.Positive
+        days < 0 -> tr("已过扣费日 ${-days} 天", "${-days} days past the charge date") to XpColors.InkSecondary
+        days == 0 -> tr("今天扣费", "Charges today") to XpColors.Stamp
+        days <= 3 -> tr("还有 $days 天扣费", "Charges in $days days") to XpColors.Stamp
+        else -> tr("还有 $days 天扣费", "Charges in $days days") to XpColors.Warning
     }
     Box(Modifier.clip(RoundedCornerShape(50)).background(color.copy(alpha = 0.14f)).padding(horizontal = XpSpace.s, vertical = 2.dp)) {
         Text(text, style = MaterialTheme.typography.labelSmall, color = color)

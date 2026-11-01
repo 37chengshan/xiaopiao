@@ -57,6 +57,7 @@ import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import java.util.Calendar
+import com.xiaopiao.app.ui.tr
 
 // --- one post --------------------------------------------------------------------------------------
 
@@ -267,7 +268,7 @@ private fun FeedReceiptCard(
                 when {
                     post.items.isEmpty() -> if (en) "No spending today" else "今天一笔没花"
                     en -> "${post.items.size} entries · details not shared"
-                    else -> "${post.items.size} 笔 · 明细未共享"
+                    else -> tr("${post.items.size} 笔 · 明细未共享", "${post.items.size} entries · details not shared")
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = XpColors.InkTertiary,
@@ -324,7 +325,7 @@ fun CircleEntryRow(
 @Composable
 private fun EntryCapsule(emoji: String, label: String, backdrop: Backdrop?, onClick: () -> Unit) {
     Row(
-        Modifier.liquidGlass(backdrop, RoundedCornerShape(XpRadius.pill), shadow = 10.dp)
+        Modifier.liquidGlass(backdrop, RoundedCornerShape(XpRadius.pill), swell = 1.05f, maxTilt = 6f)
             .clip(RoundedCornerShape(XpRadius.pill))
             .pressableClick(onClick = onClick)
             .padding(horizontal = XpSpace.m, vertical = XpSpace.s),

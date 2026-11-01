@@ -69,6 +69,7 @@ import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import com.xiaopiao.app.ui.record.RecordAmount
 import kotlinx.coroutines.launch
+import com.xiaopiao.app.ui.tr
 
 private val CardShape = RoundedCornerShape(XpRadius.contentCard)
 private val PillShape = RoundedCornerShape(XpRadius.pill)
@@ -98,7 +99,7 @@ fun BudgetPage(
     /** Height the outer bar reserves; only scrolls with the content, so the page can run under the capsules. */
     topPad: Dp = 0.dp,
     /** Where 返回 goes (移动七条 §1): 统计 when it is a stats sub-page, 记账 for the drawer. */
-    backLabel: String = "返回",
+    backLabel: String = tr("返回", "Back"),
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -123,7 +124,7 @@ fun BudgetPage(
             verticalArrangement = Arrangement.spacedBy(XpSpace.cardGap),
         ) {
             Text(
-                "额度由你自己定，这里只记录和提醒。",
+                tr("额度由你自己定，这里只记录和提醒。", "You set the limits. This page only records and reminds."),
                 style = MaterialTheme.typography.bodySmall,
                 color = XpColors.InkSecondary,
             )
@@ -147,7 +148,7 @@ fun BudgetPage(
     if (inSheet) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
             Text(
-                "预算", style = MaterialTheme.typography.titleLarge, color = XpColors.Ink,
+                tr("预算", "Budget"), style = MaterialTheme.typography.titleLarge, color = XpColors.Ink,
                 modifier = Modifier.padding(horizontal = XpSpace.page),
             )
             body(Modifier.fillMaxWidth(), 0.dp)
@@ -156,11 +157,11 @@ fun BudgetPage(
         body(Modifier.fillMaxSize(), topPad)
     } else {
         NavScaffold(
-            "预算",
+            tr("预算", "Budget"),
             NavScrollNone,
             onBack = onBack,
             backLabel = backLabel,
-            trailing = { NavIconButton(Icons.Outlined.Settings, "设置", onClick = onOpenSettings) },
+            trailing = { NavIconButton(Icons.Outlined.Settings, tr("设置", "Settings"), onClick = onOpenSettings) },
         ) { top -> body(Modifier.fillMaxSize(), top) }
     }
 
@@ -230,7 +231,7 @@ private fun BudgetCard(period: BudgetPeriod, status: BudgetStatus?, onOpen: () -
         }
         if (status == null) {
             Text(
-                "还没有设${period.noun}预算",
+                tr("还没有设${period.noun}预算", "No ${period.noun.lowercase()} budget yet"),
                 style = MaterialTheme.typography.bodySmall,
                 color = XpColors.InkSecondary,
                 modifier = Modifier.padding(top = XpSpace.xs, bottom = 2.dp),
@@ -294,7 +295,7 @@ private fun CategoryBudgetSection(
         Row(Modifier.fillMaxWidth().padding(horizontal = XpSpace.l), verticalAlignment = Alignment.CenterVertically) {
             Text(com.xiaopiao.app.ui.UiLabels.title("分类预算"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
             Text(
-                "添加",
+                tr("添加", "Add"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = XpColors.Accent,
                 modifier = Modifier.clip(PillShape).pressableClick(haptic = false, onClick = onAdd)
@@ -303,7 +304,7 @@ private fun CategoryBudgetSection(
         }
         if (budgets.isEmpty()) {
             Text(
-                "给某个分类单独设一个月度额度（可选）",
+                tr("给某个分类单独设一个月度额度（可选）", "Give one category its own monthly limit (optional)"),
                 style = MaterialTheme.typography.bodySmall,
                 color = XpColors.InkSecondary,
                 modifier = Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s),
@@ -360,8 +361,8 @@ private fun BudgetEditSheet(
     }
     var category by remember(target) { mutableStateOf((target as? BudgetEditTarget.ForCategory)?.category) }
     val title = when (target) {
-        is BudgetEditTarget.ForPeriod -> "${target.period.label}预算"
-        is BudgetEditTarget.ForCategory -> "分类月预算"
+        is BudgetEditTarget.ForPeriod -> tr("${target.period.label}预算", "${target.period.label} budget")
+        is BudgetEditTarget.ForCategory -> tr("分类月预算", "Category monthly budget")
     }
     val canSave = RecordAmount.toCents(text) > 0 && (target !is BudgetEditTarget.ForCategory || category != null)
 
@@ -396,8 +397,8 @@ private fun BudgetEditSheet(
             Box(Modifier.fillMaxWidth().height(1.dp).background(XpColors.Hairline))
             BudgetKeypad(Modifier.padding(top = XpSpace.s)) { key -> text = RecordAmount.press(text, key) }
             Row(Modifier.fillMaxWidth().padding(top = XpSpace.m), horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                XpButton("清除", { onClear(category) }, Modifier.weight(1f), style = XpButtonStyle.Secondary, enabled = true)
-                XpButton("保存", { onSave(RecordAmount.toCents(text), category) }, Modifier.weight(1f), enabled = canSave)
+                XpButton(tr("清除", "Clear"), { onClear(category) }, Modifier.weight(1f), style = XpButtonStyle.Secondary, enabled = true)
+                XpButton(tr("保存", "Save"), { onSave(RecordAmount.toCents(text), category) }, Modifier.weight(1f), enabled = canSave)
             }
         }
     }

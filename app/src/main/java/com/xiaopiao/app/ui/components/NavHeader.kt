@@ -3,7 +3,6 @@ package com.xiaopiao.app.ui.components
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -56,6 +55,16 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 
 /** Scroll position of a screen's content, as a 0..1 "large title is gone" progress. Reads are draw-phase only. */
 @Stable
@@ -97,7 +106,7 @@ fun NavScaffold(
     scroll: NavScroll,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
-    backLabel: String = "返回",
+    backLabel: String = tr("返回", "Back"),
     demo: Boolean = false,
     /** Root pages can put one action on the left (e.g. 记账页的卡包按钮); hidden while [onBack] is set. */
     leading: (@Composable RowScope.() -> Unit)? = null,
@@ -115,6 +124,12 @@ fun NavScaffold(
 ) {
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val density = androidx.compose.ui.platform.LocalDensity.current.density
+    // One finger light for the whole top strip, exactly like the tab bar: the capsules' glass sits *under* the
+    // buttons, and overlapping siblings do not receive touches once the button above them is hit, so the light
+    // has to be tracked by an ancestor and handed down (track = false + origin).
+    val topLight = rememberGlassLight()
+    val lightScope = rememberCoroutineScope()
+    var stripOrigin by remember { mutableStateOf(Offset.Zero) }
     // Liquid-glass top bar: the page is recorded here and the bar (a sibling above it) samples what scrolls under.
     val glass = rememberLayerBackdrop()
     Box(modifier.fillMaxSize()) {
@@ -141,7 +156,9 @@ fun NavScaffold(
             Modifier.fillMaxWidth()
                 .statusBarsPadding()
                 .height(NavTouchTarget)
-                .padding(horizontal = XpSpace.m),
+                .padding(horizontal = XpSpace.m)
+                .onGloballyPositioned { stripOrigin = it.positionInRoot() }
+                .pointerInput(Unit) { trackGlassLight(topLight, lightScope) },
         ) {
             // A page with nothing to name (引导页) still gets the same bar and capsules, just no centre text.
             if (title.isNotEmpty()) Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(NavBarHeight), contentAlignment = Alignment.Center) {
@@ -152,7 +169,7 @@ fun NavScaffold(
                 )
             }
             if (onBack != null) {
-                GlassCapsule(glass, Modifier.align(Alignment.TopStart)) {
+                GlassCapsule(glass, light = topLight, stripOrigin = { stripOrigin }, modifier = Modifier.align(Alignment.TopStart)) {
                     // The tap box is 48dp tall; the label row keeps the pill's own 44dp so it stays optically centred.
                     Box(Modifier.height(NavTouchTarget).pressableClick(onClick = onBack), contentAlignment = Alignment.TopCenter) {
                         Row(
@@ -167,9 +184,9 @@ fun NavScaffold(
                 }
             }
             if (leading != null && onBack == null) {
-                GlassCapsule(glass, Modifier.align(Alignment.TopStart), content = leading)
+                GlassCapsule(glass, light = topLight, stripOrigin = { stripOrigin }, modifier = Modifier.align(Alignment.TopStart), content = leading)
             }
-            GlassCapsule(glass, Modifier.align(Alignment.TopEnd), content = trailing)
+            GlassCapsule(glass, light = topLight, stripOrigin = { stripOrigin }, modifier = Modifier.align(Alignment.TopEnd), content = trailing)
         }
         overlay?.invoke(this, glass)
     }
@@ -185,7 +202,13 @@ private val LocalInCapsule = staticCompositionLocalOf { false }
  * [NavTouchTarget] tall so every button can hit 48dp. The extra 4dp is invisible touch room below the glass.
  */
 @Composable
-internal fun GlassCapsule(backdrop: LayerBackdrop, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+internal fun GlassCapsule(
+    backdrop: LayerBackdrop,
+    light: GlassLight? = null,
+    stripOrigin: () -> Offset = { Offset.Zero },
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
+) {
     val dark = XpColors.isDark
     val film = if (dark) Color(0xFF1C1C1E).copy(alpha = 0.42f) else Color.White.copy(alpha = 0.42f)
     val drop = Color.Black.copy(alpha = if (dark) 0.32f else 0.10f)
@@ -194,18 +217,22 @@ internal fun GlassCapsule(backdrop: LayerBackdrop, modifier: Modifier = Modifier
             content = {
                 // The glass itself: a plain capsule, so the backdrop's lens effect keeps working (it only
                 // understands corner-based shapes — a hand-rolled outline throws at attach time).
+                var originInRoot by remember { mutableStateOf(Offset.Zero) }
                 Box(
-                    Modifier.height(NavBarHeight).drawBackdrop(
-                        backdrop = backdrop,
-                        shape = { CapsuleShape },
-                        effects = {
-                            vibrancy()
-                            blur(4.dp.toPx())
-                            lens(10.dp.toPx(), 14.dp.toPx())
-                        },
-                        shadow = { Shadow(radius = 16.dp, color = drop) },
-                        onDrawSurface = { drawRect(film) },
-                    ),
+                    Modifier.height(NavBarHeight)
+                        .onGloballyPositioned { originInRoot = it.positionInRoot() }
+                        .liquidGlass(
+                            backdrop, CapsuleShape,
+                            film = film, rim = drop,
+                            blur = 4.dp, lensHeight = 10.dp, lensAmount = 14.dp,
+                            shadow = 14.dp,
+                            light = light,
+                            // Without a shared strip light the capsule listens to its own finger (account page:
+                            // nothing overlaps it there).
+                            track = light == null,
+                            origin = { originInRoot - stripOrigin() },
+                            swell = 1.03f, maxTilt = 4f,
+                        ),
                 )
                 Row(
                     Modifier.padding(horizontal = 2.dp),

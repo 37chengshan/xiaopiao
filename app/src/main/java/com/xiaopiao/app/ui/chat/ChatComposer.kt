@@ -63,7 +63,6 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.drawBackdrop
 import androidx.compose.ui.unit.sp
 import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.motion.XpTiming
@@ -73,6 +72,8 @@ import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.xiaopiao.app.ui.components.liquidGlass
+import com.xiaopiao.app.ui.tr
 
 /**
  * Bottom input card (docs/APP-DESIGN.md §3.4; tt#71). One round button owns the right side: voice while the
@@ -126,16 +127,12 @@ fun ChatComposer(
             } else {
                 Modifier
                     .fillMaxWidth()
-                    .drawBackdrop(
-                        backdrop = glass,
-                        shape = { shape },
-                        effects = {
-                            vibrancy()
-                            blur(10.dp.toPx())
-                            lens(8.dp.toPx(), 12.dp.toPx())
-                        },
-                        shadow = { Shadow(radius = 16.dp, color = rim) },
-                        onDrawSurface = { drawRect(film) },
+                    .liquidGlass(
+                        glass, shape,
+                        film = film, rim = rim,
+                        blur = 10.dp, lensHeight = 8.dp, lensAmount = 12.dp,
+                        shadow = 10.dp,
+                        swell = 1.002f, maxTilt = 1f,
                     )
                     .then(if (reduced) Modifier else Modifier.animateContentSize(tween(XpTiming.PopOut, easing = XpEase.out)))
             },
@@ -177,9 +174,9 @@ private fun PrimaryButton(
 ) {
     val reduced = com.xiaopiao.app.ui.components.rememberReducedMotion()
     val (icon, description, onClick) = when (action) {
-        ChatPrimaryAction.Voice -> Triple(Icons.Outlined.GraphicEq, "用语音记一笔", onVoice)
-        ChatPrimaryAction.Send -> Triple(Icons.Outlined.ArrowUpward, "发送", onSend)
-        ChatPrimaryAction.Stop -> Triple(Icons.Outlined.Stop, "停止回答", onStop)
+        ChatPrimaryAction.Voice -> Triple(Icons.Outlined.GraphicEq, tr("用语音记一笔", "Record by voice"), onVoice)
+        ChatPrimaryAction.Send -> Triple(Icons.Outlined.ArrowUpward, tr("发送", "Send"), onSend)
+        ChatPrimaryAction.Stop -> Triple(Icons.Outlined.Stop, tr("停止回答", "Stop answering"), onStop)
     }
     Box(
         Modifier.size(44.dp).clip(CircleShape).background(XpColors.Accent)
@@ -206,7 +203,7 @@ private fun PlusButton(onClick: () -> Unit) {
         Modifier.size(40.dp).clip(CircleShape).pressableClick(scaleDown = 0.92f, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Outlined.Add, contentDescription = "添加图片或文件", tint = XpColors.Ink, modifier = Modifier.size(22.dp))
+        Icon(Icons.Outlined.Add, contentDescription = tr("添加图片或文件", "Add photo or file"), tint = XpColors.Ink, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -236,7 +233,7 @@ private fun Field(
                 // Hide the placeholder as soon as the caret is present, so the two never overlap.
                 if (value.isEmpty() && !focused) {
                     Text(
-                        "问问你的账本…",
+                        tr("问问你的账本…", "Ask your ledger…"),
                         style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 24.sp),
                         color = XpColors.InkTertiary,
                         maxLines = 1,
@@ -303,7 +300,7 @@ private fun AttachmentChip(attachment: ChatAttachment, onRemove: (ChatAttachment
                 .pressableClick(scaleDown = 0.9f) { onRemove(attachment) },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Outlined.Close, contentDescription = "移除附件", tint = XpColors.Canvas, modifier = Modifier.size(12.dp))
+            Icon(Icons.Outlined.Close, contentDescription = tr("移除附件", "Remove attachment"), tint = XpColors.Canvas, modifier = Modifier.size(12.dp))
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.xiaopiao.app.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import com.xiaopiao.app.ui.motion.XpMotion
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -27,18 +28,18 @@ import com.xiaopiao.app.ui.theme.XpSpace
 /** Selectable capsule: fill when idle, ink when selected (clay stays reserved for the one highlighted datum). */
 @Composable
 fun SelectCapsule(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val bg by animateColorAsState(if (selected) XpColors.Ink else XpColors.Fill, tween(180, easing = XpEase.out), label = "capBg")
+    val bg by animateColorAsState(if (selected) XpColors.Ink else XpColors.Fill, XpMotion.fade(), label = "capBg")
     // Selecting is a physical action: a tiny pop back to rest, never a fade.
     val pop = remember { androidx.compose.animation.core.Animatable(1f) }
     var wasSelected by remember { mutableStateOf(selected) }
     LaunchedEffect(selected) {
         if (selected && !wasSelected) {
             pop.snapTo(0.94f)
-            pop.animateTo(1f, androidx.compose.animation.core.spring(0.55f, 420f))
+            pop.animateTo(1f, XpMotion.bouncy())
         }
         wasSelected = selected
     }
-    val fg by animateColorAsState(if (selected) XpColors.Canvas else XpColors.Ink, tween(180, easing = XpEase.out), label = "capFg")
+    val fg by animateColorAsState(if (selected) XpColors.Canvas else XpColors.Ink, XpMotion.fade(), label = "capFg")
     Box(
         modifier.graphicsLayer { scaleX = pop.value; scaleY = pop.value }
             .clip(RoundedCornerShape(XpRadius.pill)).background(bg)

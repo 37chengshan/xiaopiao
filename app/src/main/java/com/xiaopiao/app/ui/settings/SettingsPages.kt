@@ -29,6 +29,7 @@ import com.xiaopiao.app.ui.theme.ColorTheme
 import com.xiaopiao.app.ui.theme.ThemeMode
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 
 private val IconInset = 58.dp
 
@@ -93,14 +94,18 @@ fun AppearancePage(
 ) {
     val scroll = rememberScrollState()
     NavScaffold(
-        com.xiaopiao.app.ui.UiLabels.title("外观"), rememberNavScroll(scroll), onBack = onBack, backLabel = "设置",
+        com.xiaopiao.app.ui.UiLabels.title("外观"), rememberNavScroll(scroll), onBack = onBack,
+        backLabel = tr("设置", "Settings"),
     ) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             XpReveal(index = 0) { AppearanceSection(mode, onMode) }
             XpReveal(index = 1) { ColorThemeSection(theme, onTheme) }
             XpReveal(index = 2) {
                 Text(
-                    "主题只换颜色，不改布局。深色跟随系统时可以手动覆盖。",
+                    tr(
+                        "主题只换颜色，不改布局。深色跟随系统时可以手动覆盖。",
+                        "A theme only changes colour, never layout. With dark set to system you can still override it.",
+                    ),
                     style = MaterialTheme.typography.labelMedium,
                     color = XpColors.InkSecondary,
                     modifier = Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.xs),
@@ -126,7 +131,7 @@ fun DataPage(
     val scroll = rememberScrollState()
     NavScaffold(
         com.xiaopiao.app.ui.UiLabels.title("数据与隐私"), rememberNavScroll(scroll), onBack = onBack,
-        backLabel = "设置",
+        backLabel = tr("设置", "Settings"),
     ) { top ->
         Column(
             Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp),
@@ -146,7 +151,10 @@ fun DataPage(
             }
             XpReveal(index = 1) {
                 Text(
-                    "账单原文只在这台手机上解析；清空后不留副本。",
+                    tr(
+                        "账单原文只在这台手机上解析；清空后不留副本。",
+                        "Bill text is parsed on this phone only; clearing leaves no copy behind.",
+                    ),
                     style = MaterialTheme.typography.labelMedium,
                     color = XpColors.InkSecondary,
                     modifier = Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s),
@@ -161,13 +169,17 @@ fun DataPage(
 fun AboutPage(onPrivacy: () -> Unit, onBack: () -> Unit) {
     val scroll = rememberScrollState()
     NavScaffold(
-        com.xiaopiao.app.ui.UiLabels.title("关于"), rememberNavScroll(scroll), onBack = onBack, backLabel = "设置",
+        com.xiaopiao.app.ui.UiLabels.title("关于"), rememberNavScroll(scroll), onBack = onBack,
+        backLabel = tr("设置", "Settings"),
     ) { top ->
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
             XpReveal(index = 0) { AboutSection(onPrivacy) }
             XpReveal(index = 1) {
                 Text(
-                    "数字由这台手机算出来；AI 只负责把事实写成一句话。",
+                    tr(
+                        "数字由这台手机算出来；AI 只负责把事实写成一句话。",
+                        "Every number is computed on this phone; the AI only puts the facts into a sentence.",
+                    ),
                     style = MaterialTheme.typography.labelMedium,
                     color = XpColors.InkSecondary,
                     modifier = Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s),

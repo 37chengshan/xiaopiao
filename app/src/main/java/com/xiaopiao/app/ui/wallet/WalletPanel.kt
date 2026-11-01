@@ -1,5 +1,7 @@
 package com.xiaopiao.app.ui.wallet
 
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.draw.drawBehind
 import android.app.Activity
 import android.view.WindowManager
 import androidx.compose.animation.core.Animatable
@@ -23,7 +25,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -86,6 +89,7 @@ import com.xiaopiao.app.wallet.MemberCard
 import com.xiaopiao.app.wallet.RevealWindow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.xiaopiao.app.ui.tr
 
 /** 收起的卡片留下的页面高度：底部的导航胶囊仍然看得见（tt：卡包不要铺满）。 */
 private val PagePeek = 96.dp
@@ -104,12 +108,16 @@ fun WalletPanel(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val wallet by container.cards.wallet.collectAsStateWithLifecycle()
-    val txns by container.ledger.observeAll().collectAsStateWithLifecycle(initialValue = emptyList<Txn>())
+    // Remembered: a fresh Flow per recomposition would re-subscribe to the whole ledger on every frame of the open spring.
+    val txnFlow = remember(container) { container.ledger.observeAll() }
+    val txns by txnFlow.collectAsStateWithLifecycle(initialValue = emptyList<Txn>())
     val auth = rememberDeviceAuthGuard()
 
     var hidden by rememberSaveable { mutableStateOf(false) }
     var segment by rememberSaveable { mutableStateOf(0) }
-    var expandedId by rememberSaveable { mutableStateOf<String?>(null) }
+    // 哪张卡在最前面（3D 卡堆的顶卡）；不再是"点一下展开"。
+    var frontBankId by rememberSaveable { mutableStateOf<String?>(null) }
+    var frontMemberId by rememberSaveable { mutableStateOf<String?>(null) }
     var addOpen by remember { mutableStateOf(false) }
     var revealedPan by remember { mutableStateOf<String?>(null) }
     var revealedAt by remember { mutableLongStateOf(0L) }
@@ -132,7 +140,7 @@ fun WalletPanel(
             window?.attributes = window?.attributes?.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
         }
     }
-    val memberFront = segment == 1 && expandedId != null
+    val memberFront = segment == 1
     DisposableEffect(memberFront) {
         val window = context.findActivityOrNull()?.window
         if (memberFront) window?.attributes = window?.attributes?.apply { screenBrightness = 1f }
@@ -147,12 +155,18 @@ fun WalletPanel(
         if (!closing) {
             closing = true
             scope.launch {
-                progress.animateTo(0f, spring(dampingRatio = 0.9f, stiffness = 420f))
+                progress.animateTo(0f, XpMotion.gentle())
                 onDismiss()
             }
         }
     }
-    LaunchedEffect(Unit) { progress.animateTo(1f, XpMotion.bouncy()) }
+    LaunchedEffect(Unit) {
+        // The first frame builds the dialog window and the whole panel (~80ms on the test phone). Start the spring
+        // after it, or the opening skips its first third and reads as a jump.
+        withFrameNanos { }
+        withFrameNanos { }
+        progress.animateTo(1f, XpMotion.bouncy())
+    }
     // 浮层卡片背后的页面交给系统模糊（跨窗口 blur），近几年的机器都能看到；看不到就退回不透明卡片。
     val blurred = rememberWindowBlurBehind()
     val shape = remember { RoundedCornerShape(XpRadius.xl) }
@@ -169,7 +183,8 @@ fun WalletPanel(
         // 点卡片外面收起。遮罩很浅：卡片下面的页面本来就要露出来。
         Box(
             Modifier.matchParentSize()
-                .background(XpColors.Scrim.copy(alpha = XpColors.Scrim.alpha * 0.55f * progress.value))
+                // Read in the draw phase: reading progress here in composition rebuilt the whole panel every frame.
+                .drawBehind { drawRect(XpColors.Scrim.copy(alpha = XpColors.Scrim.alpha * 0.55f * progress.value.coerceIn(0f, 1f))) }
                 .pressableClick(haptic = false, onClick = close),
         )
         Column(
@@ -198,9 +213,9 @@ fun WalletPanel(
                     detectVerticalDragGestures(
                         onDragEnd = {
                             if (dragY.value > 96.dp.toPx()) close()
-                            else scope.launch { dragY.animateTo(0f, tween(180)) }
+                            else scope.launch { dragY.animateTo(0f, XpMotion.snappy()) }
                         },
-                        onDragCancel = { scope.launch { dragY.animateTo(0f, tween(180)) } },
+                        onDragCancel = { scope.launch { dragY.animateTo(0f, XpMotion.snappy()) } },
                     ) { _, dy ->
                         scope.launch { dragY.snapTo((dragY.value + dy).coerceAtLeast(0f)) }
                     }
@@ -212,7 +227,7 @@ fun WalletPanel(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "卡包",
+                        tr("卡包", "Wallet"),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = XpColors.Ink,
                         modifier = Modifier.weight(1f),
@@ -222,13 +237,13 @@ fun WalletPanel(
                         Modifier.size(40.dp).clip(CircleShape).pressableClick(onClick = close),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Outlined.Close, contentDescription = "关闭卡包", tint = XpColors.Ink, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Outlined.Close, contentDescription = tr("关闭卡包", "Close wallet"), tint = XpColors.Ink, modifier = Modifier.size(20.dp))
                     }
                 }
             }
             Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.page)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("本月卡上支出", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+                    Text(tr("本月卡上支出", "Spent on cards this month"), style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
                     Spacer(Modifier.width(XpSpace.xs))
                     Box(
                         Modifier.size(28.dp).clip(CircleShape)
@@ -237,7 +252,7 @@ fun WalletPanel(
                     ) {
                         Icon(
                             if (hidden) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                            contentDescription = if (hidden) "显示金额" else "隐藏金额",
+                            contentDescription = tr(if (hidden) "显示金额" else "隐藏金额", if (hidden) "Show amounts" else "Hide amounts"),
                             tint = XpColors.InkSecondary,
                             modifier = Modifier.size(17.dp),
                         )
@@ -249,107 +264,112 @@ fun WalletPanel(
                     color = XpColors.Ink,
                 )
                 Spacer(Modifier.height(XpSpace.m))
-                Segmented(listOf("银行卡", "会员卡"), segment, onSelect = { segment = it; expandedId = null })
+                Segmented(listOf(tr("银行卡", "Bank cards"), tr("会员卡", "Member cards")), segment, onSelect = { segment = it })
                 Spacer(Modifier.height(XpSpace.cardGap))
             }
 
-            // ── 卡片层叠 + 卡详情 ─────────────────────────────────────────────────────────
-            LazyColumn(
-                Modifier.fillMaxWidth().weight(1f),
-                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp),
+            // ── 卡堆 + 卡详情（3D：前卡完整，后卡露 1/4–1/3 卡高）──────────────────────
+            Column(
+                Modifier.fillMaxWidth().weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp),
             ) {
                 if (segment == 0) {
                     if (banks.isEmpty()) {
-                        item("empty") {
-                            Box(Modifier.padding(horizontal = XpSpace.s, vertical = XpSpace.xl)) {
-                                EmptyState(
-                                    icon = Icons.Outlined.CreditCard,
-                                    title = "还没有银行卡",
-                                    body = "录入一张卡，通知里的尾号会自动归到这张卡上。",
-                                )
-                            }
-                        }
-                    }
-                    val front = banks.lastOrNull { it.id == expandedId } ?: banks.lastOrNull()
-                    itemsIndexed(banks, key = { _, card -> card.id }) { index, card ->
-                        BankStackItem(
-                            modifier = Modifier.xpRevealLayer(index = index),
-                            card = card,
-                            isFront = card.id == front?.id,
-                            compact = expandedId != null && card.id != front?.id,
-                            spend = CardLedger.monthSpend(txns, now, card),
-                            hidden = hidden,
-                            revealedPan = if (card.id == front?.id) revealedPan else null,
-                            onToggle = { expandedId = if (expandedId == card.id) null else card.id },
-                            onReveal = {
-                                if (revealedPan != null) {
-                                    revealedPan = null
-                                    revealedAt = 0L
-                                } else {
-                                    auth.request("验证以显示卡号", "验证后 30 秒自动遮住") { ok ->
-                                        if (ok) {
-                                            revealedPan = container.cards.revealPan(card)
-                                            revealedAt = System.currentTimeMillis()
-                                        }
-                                    }
-                                }
-                            },
-                            onCopy = {
-                                auth.request("验证以复制卡号", "验证后 60 秒自动清空剪贴板") { ok ->
-                                    if (ok) {
-                                        container.cards.revealPan(card)?.let { pan ->
-                                            SensitiveClipboard.copy(context, "卡号", pan)
-                                            scope.launch { SensitiveClipboard.autoClear(context, pan) }
-                                        }
-                                    }
-                                }
-                            },
-                        )
-                    }
-                    if (front != null) {
-                        item("detail-${front.id}") {
-                            BankDetailCard(
-                                card = front,
-                                spend = CardLedger.monthSpend(txns, now, front),
-                                recent = CardLedger.recent(txns, front),
-                                onDelete = { container.cards.deleteBank(front.id); expandedId = null },
+                        Box(Modifier.padding(horizontal = XpSpace.s, vertical = XpSpace.xl)) {
+                            EmptyState(
+                                icon = Icons.Outlined.CreditCard,
+                                title = tr("还没有银行卡", "No bank cards yet"),
+                                body = tr("录入一张卡，通知里的尾号会自动归到这张卡上。", "Add a card and payment notifications match it by its last four digits."),
                             )
                         }
+                    } else {
+                        val frontIndex = banks.indexOfFirst { it.id == frontBankId }.takeIf { it >= 0 } ?: (banks.size - 1)
+                        val front = banks[frontIndex]
+                        CardStack(
+                            items = banks,
+                            frontIndex = frontIndex,
+                            onBringToFront = { frontBankId = it.id },
+                            frontHeight = BankCardHeight,
+                            peek = CardPeek,
+                            label = { c -> tr("把「${c.displayName}」拿到前面", "Bring “${c.displayName}” to the front") },
+                            front = { card ->
+                                BankCardFront(
+                                    card = card,
+                                    spend = CardLedger.monthSpend(txns, now, card),
+                                    hidden = hidden,
+                                    revealedPan = if (card.id == front.id) revealedPan else null,
+                                    onReveal = {
+                                        if (revealedPan != null) {
+                                            revealedPan = null
+                                            revealedAt = 0L
+                                        } else {
+                                            auth.request(tr("验证以显示卡号", "Verify to show the card number"), tr("验证后 30 秒自动遮住", "Hidden again after 30 seconds")) { ok ->
+                                                if (ok) {
+                                                    revealedPan = container.cards.revealPan(card)
+                                                    revealedAt = System.currentTimeMillis()
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onCopy = {
+                                        auth.request(tr("验证以复制卡号", "Verify to copy the card number"), tr("验证后 60 秒自动清空剪贴板", "Clipboard clears after 60 seconds")) { ok ->
+                                            if (ok) {
+                                                container.cards.revealPan(card)?.let { pan ->
+                                                    SensitiveClipboard.copy(context, tr("卡号", "Card number"), pan)
+                                                    scope.launch { SensitiveClipboard.autoClear(context, pan) }
+                                                }
+                                            }
+                                        }
+                                    },
+                                )
+                            },
+                            peekContent = { card ->
+                                BankCardPeek(card, CardLedger.monthSpend(txns, now, card), hidden)
+                            },
+                        )
+                        Spacer(Modifier.height(XpSpace.cardGap))
+                        BankDetailCard(
+                            card = front,
+                            spend = CardLedger.monthSpend(txns, now, front),
+                            recent = CardLedger.recent(txns, front),
+                            onDelete = { container.cards.deleteBank(front.id); frontBankId = null },
+                        )
                     }
                 } else {
                     if (members.isEmpty()) {
-                        item("empty") {
-                            Box(Modifier.padding(horizontal = XpSpace.s, vertical = XpSpace.xl)) {
-                                EmptyState(
-                                    icon = Icons.Outlined.CreditCard,
-                                    title = "还没有会员卡",
-                                    body = "录入会员号，结账时把条码亮出来就行。",
-                                )
-                            }
-                        }
-                    }
-                    val front = members.lastOrNull { it.id == expandedId } ?: members.lastOrNull()
-                    itemsIndexed(members, key = { _, card -> card.id }) { index, card ->
-                        MemberStackItem(
-                            modifier = Modifier.xpRevealLayer(index = index),
-                            card = card,
-                            isFront = card.id == front?.id,
-                            compact = expandedId != null && card.id != front?.id,
-                            spend = CardLedger.monthSpendAt(txns, now, card.storeName),
-                            hidden = hidden,
-                            onToggle = { expandedId = if (expandedId == card.id) null else card.id },
-                        )
-                    }
-                    if (front != null) {
-                        item("detail-${front.id}") {
-                            MemberDetailCard(
-                                card = front,
-                                spend = CardLedger.monthSpendAt(txns, now, front.storeName),
-                                recent = CardLedger.recentAt(txns, front.storeName),
-                                onDelete = { container.cards.deleteMember(front.id); expandedId = null },
+                        Box(Modifier.padding(horizontal = XpSpace.s, vertical = XpSpace.xl)) {
+                            EmptyState(
+                                icon = Icons.Outlined.CreditCard,
+                                title = tr("还没有会员卡", "No member cards yet"),
+                                body = tr("录入会员号，结账时把条码亮出来就行。", "Add the membership number and show the barcode at the till."),
                             )
                         }
+                    } else {
+                        val frontIndex = members.indexOfFirst { it.id == frontMemberId }.takeIf { it >= 0 } ?: (members.size - 1)
+                        val front = members[frontIndex]
+                        CardStack(
+                            items = members,
+                            frontIndex = frontIndex,
+                            onBringToFront = { frontMemberId = it.id },
+                            frontHeight = BankCardHeight,
+                            peek = CardPeek,
+                            label = { c -> tr("把「${c.storeName}」拿到前面", "Bring “${c.storeName}” to the front") },
+                            front = { card ->
+                                MemberCardFront(card, CardLedger.monthSpendAt(txns, now, card.storeName), hidden)
+                            },
+                            peekContent = { card ->
+                                MemberCardPeek(card, CardLedger.monthSpendAt(txns, now, card.storeName), hidden)
+                            },
+                        )
+                        Spacer(Modifier.height(XpSpace.cardGap))
+                        MemberDetailCard(
+                            card = front,
+                            spend = CardLedger.monthSpendAt(txns, now, front.storeName),
+                            recent = CardLedger.recentAt(txns, front.storeName),
+                            onDelete = { container.cards.deleteMember(front.id); frontMemberId = null },
+                        )
                     }
                 }
             }
@@ -357,7 +377,7 @@ fun WalletPanel(
             // ── 底部：添加卡（唯一主行动）───────────────────────────────────────────────
             Box(Modifier.fillMaxWidth().padding(horizontal = XpSpace.page, vertical = XpSpace.m)) {
                 XpButton(
-                    text = if (segment == 0) "添加银行卡" else "添加会员卡",
+                    text = if (segment == 0) tr("添加银行卡", "Add bank card") else tr("添加会员卡", "Add member card"),
                     onClick = { addOpen = true },
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -372,13 +392,13 @@ fun WalletPanel(
             onSaveBank = { card, pan ->
                 val saved = container.cards.saveBank(card, pan)
                 segment = 0
-                expandedId = saved.id
+                frontBankId = saved.id
                 addOpen = false
             },
             onSaveMember = { card ->
                 val saved = container.cards.saveMember(card)
                 segment = 1
-                expandedId = saved.id
+                frontBankId = saved.id
                 addOpen = false
             },
         )
@@ -394,98 +414,99 @@ private fun android.content.Context.findActivityOrNull(): Activity? {
     return null
 }
 
+/** 前卡：整张卡 + 详情区（卡号、本月、账单日…）。 */
 @Composable
-private fun BankStackItem(
-    modifier: Modifier = Modifier,
+private fun BankCardFront(
     card: BankCard,
-    isFront: Boolean,
-    compact: Boolean,
     spend: CardSpend,
     hidden: Boolean,
     revealedPan: String?,
-    onToggle: () -> Unit,
     onReveal: () -> Unit,
     onCopy: () -> Unit,
 ) {
-    val height by animateDpAsState(if (isFront) 240.dp else if (compact) 40.dp else 71.dp, tween(232), label = "cardHeight")
-    CardCanvas(card.face, modifier.fillMaxWidth().height(height).pressableClick(haptic = false, onClick = onToggle)) {
+    CardCanvas(card.face, Modifier.fillMaxWidth().height(BankCardHeight)) {
         Column(Modifier.fillMaxSize()) {
-            if (compact) {
-                CardStripCompact(
-                    title = card.displayName,
-                    amountText = if (hidden) "¥ ···" else "¥ ${spend.cents.yuan()}",
-                    face = card.face,
+            CardStrip(
+                title = card.displayName,
+                amountText = if (hidden) "¥ ···" else "¥ ${spend.cents.yuan()}",
+                caption = tr("尾号 ${card.last4.ifEmpty { "••••" }} · ${card.type.label}",
+                    "•••• ${card.last4.ifEmpty { "••••" }} · ${card.type.label}"),
+                face = card.face,
+            )
+            Box(Modifier.fillMaxWidth().weight(1f)) {
+                BankCardBody(
+                    card = card, revealedPan = revealedPan, spend = spend, hidden = hidden,
+                    onReveal = onReveal, onCopy = onCopy,
                 )
-            } else {
-                CardStrip(
-                    title = card.displayName,
-                    amountText = if (hidden) "¥ ···" else "¥ ${spend.cents.yuan()}",
-                    caption = "尾号 ${card.last4.ifEmpty { "••••" }} · ${card.type.label}",
-                    face = card.face,
-                )
-            }
-            if (isFront) {
-                Box(Modifier.fillMaxWidth().weight(1f)) {
-                    BankCardBody(
-                        card = card, revealedPan = revealedPan, spend = spend, hidden = hidden,
-                        onReveal = onReveal, onCopy = onCopy,
-                    )
-                }
             }
         }
     }
 }
 
+/** 后卡：只画卡头那一条，卡堆把它裁到 ~1/3 卡高。 */
 @Composable
-private fun MemberStackItem(
-    modifier: Modifier = Modifier,
-    card: MemberCard,
-    isFront: Boolean,
-    compact: Boolean,
-    spend: CardSpend,
-    hidden: Boolean,
-    onToggle: () -> Unit,
-) {
-    val height by animateDpAsState(if (isFront) 232.dp else if (compact) 40.dp else 71.dp, tween(232), label = "memberHeight")
-    CardCanvas(card.face, modifier.fillMaxWidth().height(height).pressableClick(haptic = false, onClick = onToggle)) {
+private fun BankCardPeek(card: BankCard, spend: CardSpend, hidden: Boolean) {
+    CardCanvas(card.face, Modifier.fillMaxWidth().height(BankCardHeight)) {
         Column(Modifier.fillMaxSize()) {
-            if (compact) {
-                CardStripCompact(
-                    title = card.storeName,
-                    amountText = if (hidden) "¥ ···" else "¥ ${spend.cents.yuan()}",
-                    face = card.face,
-                )
-            } else {
-                CardStrip(
-                    title = card.storeName,
-                    amountText = if (hidden) "¥ ···" else "¥ ${spend.cents.yuan()}",
-                    caption = if (card.points > 0) "${card.points} 分" else card.codeFormat.label,
-                    face = card.face,
-                )
-            }
-            if (isFront) {
-                Box(Modifier.fillMaxWidth().weight(1f)) { MemberCardBody(card) }
-            }
+            CardStrip(
+                title = card.displayName,
+                amountText = if (hidden) "¥ ···" else "¥ ${spend.cents.yuan()}",
+                caption = tr("尾号 ${card.last4.ifEmpty { "••••" }} · ${card.type.label}",
+                    "•••• ${card.last4.ifEmpty { "••••" }} · ${card.type.label}"),
+                face = card.face,
+            )
         }
     }
 }
+
+@Composable
+private fun MemberCardFront(card: MemberCard, spend: CardSpend, hidden: Boolean) {
+    CardCanvas(card.face, Modifier.fillMaxWidth().height(BankCardHeight)) {
+        Column(Modifier.fillMaxSize()) {
+            CardStrip(
+                title = card.storeName,
+                amountText = if (hidden) "¥ ···" else "¥ ${spend.cents.yuan()}",
+                caption = if (card.points > 0) tr("${card.points} 分", "${card.points} pts") else card.codeFormat.label,
+                face = card.face,
+            )
+            Box(Modifier.fillMaxWidth().weight(1f)) { MemberCardBody(card) }
+        }
+    }
+}
+
+@Composable
+private fun MemberCardPeek(card: MemberCard, spend: CardSpend, hidden: Boolean) {
+    CardCanvas(card.face, Modifier.fillMaxWidth().height(BankCardHeight)) {
+        Column(Modifier.fillMaxSize()) {
+            CardStrip(
+                title = card.storeName,
+                amountText = if (hidden) "¥ ···" else "¥ ${spend.cents.yuan()}",
+                caption = if (card.points > 0) tr("${card.points} 分", "${card.points} pts") else card.codeFormat.label,
+                face = card.face,
+            )
+        }
+    }
+}
+
+private val BankCardHeight = 240.dp
+private val CardPeek = 68.dp
 
 /** 卡详情：只陈述事实（尾号、本月、账单日、最近几笔），没有推荐与权益比较。 */
 @Composable
 private fun BankDetailCard(card: BankCard, spend: CardSpend, recent: List<Txn>, onDelete: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    DetailCard(title = "卡详情") {
-        DetailRow("尾号", card.last4.ifEmpty { "—" }, copyable = true) {
+    DetailCard(title = tr("卡详情", "Card details")) {
+        DetailRow(tr("尾号", "Last four"), card.last4.ifEmpty { "—" }, copyable = true) {
             scope.launch {
-                SensitiveClipboard.copy(context, "尾号", card.last4)
+                SensitiveClipboard.copy(context, tr("尾号", "Last four"), card.last4)
                 SensitiveClipboard.autoClear(context, card.last4)
             }
         }
-        DetailRow("本月支出", "¥ ${spend.cents.yuan()} · ${spend.count} 笔")
+        DetailRow(tr("本月支出", "Spent this month"), tr("¥ ${spend.cents.yuan()} · ${spend.count} 笔", "¥ ${spend.cents.yuan()} · ${spend.count} entries"))
         if (card.type == com.xiaopiao.app.wallet.BankCardType.Credit) {
-            DetailRow("账单日", if (card.statementDay > 0) "${card.statementDay} 日" else "未设置")
-            DetailRow("还款日", if (card.dueDay > 0) "${card.dueDay} 日" else "未设置")
+            DetailRow(tr("账单日", "Statement day"), if (card.statementDay > 0) tr("${card.statementDay} 日", "Day ${card.statementDay}") else tr("未设置", "Not set"))
+            DetailRow(tr("还款日", "Due day"), if (card.dueDay > 0) tr("${card.dueDay} 日", "Day ${card.dueDay}") else tr("未设置", "Not set"))
         }
         RecentRows(recent)
         DeleteRow(onDelete)
@@ -496,20 +517,20 @@ private fun BankDetailCard(card: BankCard, spend: CardSpend, recent: List<Txn>, 
 private fun MemberDetailCard(card: MemberCard, spend: CardSpend, recent: List<Txn>, onDelete: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    DetailCard(title = "会员详情") {
-        DetailRow("会员号", card.memberNo, copyable = true) {
+    DetailCard(title = tr("会员详情", "Membership details")) {
+        DetailRow(tr("会员号", "Member number"), card.memberNo, copyable = true) {
             scope.launch {
-                SensitiveClipboard.copy(context, "会员号", card.memberNo)
+                SensitiveClipboard.copy(context, tr("会员号", "Member number"), card.memberNo)
                 SensitiveClipboard.autoClear(context, card.memberNo)
             }
         }
-        if (card.points > 0) DetailRow("积分", "${card.points}")
-        if (card.balanceCents > 0) DetailRow("余额", "¥ ${card.balanceCents.yuan()}")
+        if (card.points > 0) DetailRow(tr("积分", "Points"), "${card.points}")
+        if (card.balanceCents > 0) DetailRow(tr("余额", "Balance"), "¥ ${card.balanceCents.yuan()}")
         if (card.expiryAt > 0) {
             val days = ((card.expiryAt - startOfDay(System.currentTimeMillis())) / 86_400_000L).toInt()
-            DetailRow("到期", if (days >= 0) "还有 $days 天" else "已过期")
+            DetailRow(tr("到期", "Expires"), if (days >= 0) tr("还有 $days 天", "in $days days") else tr("已过期", "expired"))
         }
-        DetailRow("本月在这家店", "¥ ${spend.cents.yuan()} · ${spend.count} 笔")
+        DetailRow(tr("本月在这家店", "Here this month"), tr("¥ ${spend.cents.yuan()} · ${spend.count} 笔", "¥ ${spend.cents.yuan()} · ${spend.count} entries"))
         RecentRows(recent)
         DeleteRow(onDelete)
     }
@@ -548,7 +569,7 @@ private fun DetailRow(label: String, value: String, copyable: Boolean = false, o
         )
         if (copyable) {
             Box(Modifier.size(32.dp).clip(CircleShape).pressableClick(haptic = false, onClick = onCopy), contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.ContentCopy, contentDescription = "复制", tint = XpColors.InkSecondary, modifier = Modifier.size(16.dp))
+                Icon(Icons.Outlined.ContentCopy, contentDescription = tr("复制", "Copy"), tint = XpColors.InkSecondary, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -558,7 +579,7 @@ private fun DetailRow(label: String, value: String, copyable: Boolean = false, o
 private fun RecentRows(recent: List<Txn>) {
     if (recent.isEmpty()) {
         Text(
-            "这张卡还没有账单",
+            tr("这张卡还没有账单", "No entries on this card yet"),
             style = MaterialTheme.typography.bodySmall,
             color = XpColors.InkSecondary,
             modifier = Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.s),
@@ -566,7 +587,7 @@ private fun RecentRows(recent: List<Txn>) {
         return
     }
     Text(
-        "最近 ${recent.size} 笔",
+        tr("最近 ${recent.size} 笔", "Last ${recent.size} entries"),
         style = MaterialTheme.typography.bodySmall,
         color = XpColors.InkSecondary,
         modifier = Modifier.padding(start = XpSpace.l, end = XpSpace.l, top = XpSpace.s, bottom = 2.dp),
@@ -593,7 +614,7 @@ private fun RecentRows(recent: List<Txn>) {
 @Composable
 private fun DeleteRow(onDelete: () -> Unit) {
     Text(
-        "删除这张卡",
+        tr("删除这张卡", "Delete this card"),
         style = MaterialTheme.typography.bodyMedium,
         color = XpColors.Negative,
         modifier = Modifier.fillMaxWidth().pressableClick(haptic = false, onClick = onDelete)

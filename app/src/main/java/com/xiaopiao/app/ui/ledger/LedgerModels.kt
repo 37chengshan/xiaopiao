@@ -9,6 +9,7 @@ import com.xiaopiao.app.domain.Source
 import com.xiaopiao.app.domain.Txn
 import com.xiaopiao.app.domain.startOfDay
 import com.xiaopiao.app.domain.yuan
+import com.xiaopiao.app.ui.tr
 import java.util.Calendar
 import kotlin.math.abs
 
@@ -33,7 +34,10 @@ const val AMOUNT_MASK = "···"
 
 /** Pure ledger presentation logic (no Compose, no Android) so it can be unit-tested. */
 object LedgerGrouping {
-    private val weekdays = listOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
+    private fun weekdays(): List<String> = listOf(
+        tr("周日", "Sun"), tr("周一", "Mon"), tr("周二", "Tue"), tr("周三", "Wed"),
+        tr("周四", "Thu"), tr("周五", "Fri"), tr("周六", "Sat"),
+    )
 
     fun group(txns: List<Txn>, now: Long): List<DayGroup> =
         txns.sortedByDescending { it.occurredAt }
@@ -52,9 +56,9 @@ object LedgerGrouping {
     fun header(dayStart: Long, now: Long): String {
         val date = shortDate(dayStart).substringBefore(' ')
         val suffix = when (val diff = Math.round((startOfDay(now) - dayStart) / 86_400_000.0).toInt()) {
-            0 -> "今天"
-            1 -> "昨天"
-            else -> if (diff > 1) weekdays[Calendar.getInstance().apply { timeInMillis = dayStart }.get(Calendar.DAY_OF_WEEK) - 1] else ""
+            0 -> tr("今天", "Today")
+            1 -> tr("昨天", "Yesterday")
+            else -> if (diff > 1) weekdays()[Calendar.getInstance().apply { timeInMillis = dayStart }.get(Calendar.DAY_OF_WEEK) - 1] else ""
         }
         return if (suffix.isEmpty()) date else "$date $suffix"
     }
@@ -64,16 +68,22 @@ object LedgerGrouping {
         val today = startOfDay(now)
         val diff = Math.round((today - dayStart) / 86_400_000.0).toInt()
         return when (diff) {
-            0 -> "今天"
-            1 -> "昨天"
-            2 -> "前天"
+            0 -> tr("今天", "Today")
+            1 -> tr("昨天", "Yesterday")
+            2 -> tr("前天", "2 days ago")
             else -> shortDate(dayStart)
         }
     }
 
     fun shortDate(epochMillis: Long): String {
         val c = Calendar.getInstance().apply { timeInMillis = epochMillis }
-        return "${c.get(Calendar.MONTH) + 1}月${c.get(Calendar.DAY_OF_MONTH)}日 ${weekdays[c.get(Calendar.DAY_OF_WEEK) - 1]}"
+        val month = c.get(Calendar.MONTH) + 1
+        val day = c.get(Calendar.DAY_OF_MONTH)
+        val weekday = weekdays()[c.get(Calendar.DAY_OF_WEEK) - 1]
+        return tr(
+            "${month}月${day}日 $weekday",
+            "${month.toString().padStart(2, '0')}/${day.toString().padStart(2, '0')} $weekday",
+        )
     }
 
     fun clock(epochMillis: Long): String {
@@ -169,7 +179,9 @@ object RecentSearches {
 object LedgerCalendar {
     fun title(anchor: Long): String {
         val c = Calendar.getInstance().apply { timeInMillis = anchor }
-        return "${c.get(Calendar.YEAR)}年${c.get(Calendar.MONTH) + 1}月"
+        val year = c.get(Calendar.YEAR)
+        val month = c.get(Calendar.MONTH) + 1
+        return tr("${year}年${month}月", "${month.toString().padStart(2, '0')}/$year")
     }
 
     fun shiftMonths(anchor: Long, delta: Int): Long = startOfDay(

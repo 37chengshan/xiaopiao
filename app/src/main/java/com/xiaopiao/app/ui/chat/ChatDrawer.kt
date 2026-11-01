@@ -82,6 +82,7 @@ import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
+import com.xiaopiao.app.ui.tr
 
 /**
  * Session drawer: a glass sheet that rises from the bottom (tt 2026-10-30: 侧边栏改成从下往上的抽屉) over the
@@ -106,7 +107,7 @@ fun ChatDrawer(
     progress: Animatable<Float, androidx.compose.animation.core.AnimationVector1D>,
     modifier: Modifier = Modifier,
     activeSessionId: Int? = null,
-    accountLabel: String = "登录你的账号",
+    accountLabel: String = tr("登录你的账号", "Sign in to your account"),
     onOpenAccount: () -> Unit = {},
     /** The page behind, recorded as a sibling: the sheet refracts it. Null draws an opaque sheet. */
     backdrop: Backdrop? = null,
@@ -190,6 +191,7 @@ fun ChatDrawer(
                     backdrop, shape,
                     film = XpColors.Card.copy(alpha = if (XpColors.isDark) 0.80f else 0.78f),
                     blur = 24.dp, lensHeight = 16.dp, lensAmount = 24.dp, shadow = 24.dp,
+                    interactive = false,
                 )
                 .draggable(
                     orientation = Orientation.Vertical,
@@ -207,7 +209,7 @@ fun ChatDrawer(
                 if (groups.isEmpty()) {
                     item("empty") {
                         Text(
-                            if (query.isBlank()) "还没有历史会话" else "没有匹配的会话",
+                            if (query.isBlank()) tr("还没有历史会话", "No past conversations yet") else tr("没有匹配的会话", "No matching conversations"),
                             style = MaterialTheme.typography.bodySmall,
                             color = XpColors.InkTertiary,
                             modifier = Modifier.padding(vertical = XpSpace.m),
@@ -242,15 +244,15 @@ fun ChatDrawer(
                 Box(
                     Modifier.size(36.dp).clip(CircleShape).background(XpColors.Fill),
                     contentAlignment = Alignment.Center,
-                ) { Text("票", style = MaterialTheme.typography.titleSmall, color = XpColors.Ink) }
+                ) { Text(tr("票", "Slip"), style = MaterialTheme.typography.titleSmall, color = XpColors.Ink) }
                 Column(Modifier.weight(1f).padding(start = XpSpace.s)) {
                     Text(accountLabel, modifier = Modifier.clickable(onClick = onOpenAccount), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
-                    Text("账本原文留在本机", style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary)
+                    Text(tr("账本原文留在本机", "Entries stay on this phone"), style = MaterialTheme.typography.labelSmall, color = XpColors.InkTertiary)
                 }
                 Box(
                     Modifier.size(40.dp).clip(CircleShape).pressableClick { onOpenSettings() },
                     contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Outlined.Settings, contentDescription = "设置", tint = XpColors.Ink, modifier = Modifier.size(20.dp)) }
+                ) { Icon(Icons.Outlined.Settings, contentDescription = tr("设置", "Settings"), tint = XpColors.Ink, modifier = Modifier.size(20.dp)) }
             }
         }
     }
@@ -259,7 +261,7 @@ fun ChatDrawer(
         androidx.compose.material3.AlertDialog(onDismissRequest = { deleting = null },
             title = { Text("删除这段对话？") }, text = { Text("「${session.title}」将从这台手机移除，账本不会受到影响。") },
             confirmButton = { androidx.compose.material3.TextButton(onClick = { onDelete(session); deleting = null }) { Text("删除", color = XpColors.Negative) } },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { deleting = null }) { Text("取消") } })
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { deleting = null }) { Text(tr("取消", "Cancel")) } })
     }
     // Rename: one field, one save — no nested sheets.
     renaming?.let { session ->
@@ -270,7 +272,7 @@ fun ChatDrawer(
                     .padding(XpSpace.l),
                 verticalArrangement = Arrangement.spacedBy(XpSpace.m),
             ) {
-                Text("重命名会话", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+                Text(tr("重命名会话", "Rename conversation"), style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
                 BasicTextField(
                     value = renamingText,
                     onValueChange = { renamingText = it.take(40) },
@@ -282,7 +284,7 @@ fun ChatDrawer(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                    XpButton("取消", { renaming = null }, Modifier.weight(1f), style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
+                    XpButton(tr("取消", "Cancel"), { renaming = null }, Modifier.weight(1f), style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
                     XpButton(
                         "保存",
                         {
@@ -317,7 +319,7 @@ private fun SearchField(query: String, onQuery: (String) -> Unit) {
             decorationBox = { inner ->
                 Box {
                     if (query.isEmpty()) {
-                        Text("搜索会话", style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp), color = XpColors.InkTertiary)
+                        Text(tr("搜索会话", "Search conversations"), style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp), color = XpColors.InkTertiary)
                     }
                     inner()
                 }
@@ -383,7 +385,7 @@ private fun SessionRow(
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(
-                text = { Text("重命名") },
+                text = { Text(tr("重命名", "Rename")) },
                 leadingIcon = { Icon(Icons.Outlined.DriveFileRenameOutline, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 onClick = { menu = false; onRename() },
             )

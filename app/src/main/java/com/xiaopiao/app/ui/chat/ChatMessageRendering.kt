@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.xiaopiao.app.ui.components.rememberReducedMotion
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.*
 
 /**
@@ -59,7 +60,7 @@ fun ThoughtPanel(steps: List<ChatItem.Tool>, modifier: Modifier = Modifier) {
         .clip(RoundedCornerShape(XpRadius.m)).background(XpColors.Surface2)
         .then(if (reduced) Modifier else Modifier.animateContentSize(tween(180, easing = XpEase.out)))
         .clickable { expanded = !expanded }
-        .semantics { stateDescription = if (expanded) "已展开" else "已收起"; contentDescription = if (en) "Thought stream, tap to expand" else "思考流，点击展开或收起" }
+        .semantics { stateDescription = if (expanded) tr("已展开", "Expanded") else tr("已收起", "Collapsed"); contentDescription = if (en) "Thought stream, tap to expand" else "思考流，点击展开或收起" }
         .padding(XpSpace.m)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
             if (running) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 1.5.dp, color = XpColors.Accent)
@@ -82,7 +83,11 @@ fun ThoughtPanel(steps: List<ChatItem.Tool>, modifier: Modifier = Modifier) {
                     }
                 }
             }
-            Text(if (expanded) "收起 ⌃" else "展开 ⌄", color = XpColors.InkSecondary, style = MaterialTheme.typography.labelSmall)
+            Text(
+                if (expanded) tr("收起 ⌃", "Collapse ⌃") else tr("展开 ⌄", "Expand ⌄"),
+                color = XpColors.InkSecondary,
+                style = MaterialTheme.typography.labelSmall,
+            )
         }
         if (expanded) Column(Modifier.padding(top = XpSpace.s), verticalArrangement = Arrangement.spacedBy(XpSpace.s)) {
             steps.forEach { step -> Text("${if (step.running) "·" else "✓"} ${listOfNotNull(step.label, step.detail).joinToString(" · ")}", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary) }

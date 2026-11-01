@@ -1,6 +1,7 @@
 package com.xiaopiao.app.ui.ledger
 
 import com.xiaopiao.app.ui.components.liquidGlass
+import com.xiaopiao.app.ui.motion.XpMotion
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.Backdrop
@@ -49,6 +50,8 @@ import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpFonts
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
+import com.xiaopiao.app.ui.components.glassRim
 
 /**
  * The warm card palette (docs/WEB-SPEC §0.2 「highlight」, reference `041428` 汇总卡 `#FFEDBD`).
@@ -109,16 +112,15 @@ fun LedgerSummaryCard(
     /** 按天查看 sits in the card's top-right corner (tt: inside the card, not a row of its own). Null hides it. */
     onOpenCalendar: (() -> Unit)? = null,
 ) {
-    // The card's colour and arc are recorded on their own, so the controls on the card can be liquid glass
-    // (tt 2026-10-30: 彩色卡片上的小控件) that bends the arc instead of sitting on it as flat white.
-    val ground = rememberLayerBackdrop()
+    // No layer recording here: the card is one flat colour, so a lens would bend nothing but still cost a
+    // full-card texture every frame — the pills are tinted glass-rime instead (home scroll stays cheap).
     Box(
         modifier.fillMaxWidth()
             .clip(RoundedCornerShape(XpRadius.contentCard)),
     ) {
         // The reference's soft decorative circle: one arc, clipped by the card, no gradient.
         // matchParentSize keeps it out of the card's measured height.
-        Box(Modifier.matchParentSize().layerBackdrop(ground).background(LedgerHighlight.card)) {
+        Box(Modifier.matchParentSize().background(LedgerHighlight.card)) {
             Box(
                 Modifier.size(210.dp).offset(x = 150.dp, y = (-96).dp)
                     .clip(CircleShape).background(LedgerHighlight.decor),
@@ -128,7 +130,7 @@ fun LedgerSummaryCard(
             Column(Modifier.padding(start = XpSpace.page, end = XpSpace.page, top = 18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "今日支出（元）",
+                        tr("今日支出（元）", "Spent today (¥)"),
                         style = MaterialTheme.typography.bodySmall,
                         color = XpColors.InkSecondary,
                     )
@@ -140,7 +142,7 @@ fun LedgerSummaryCard(
                     ) {
                         Icon(
                             if (hidden) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                            contentDescription = if (hidden) "显示金额" else "隐藏金额",
+                            contentDescription = tr(if (hidden) "显示金额" else "隐藏金额", if (hidden) "Show amounts" else "Hide amounts"),
                             tint = XpColors.InkSecondary,
                             modifier = Modifier.size(17.dp),
                         )
@@ -149,12 +151,9 @@ fun LedgerSummaryCard(
                         Spacer(Modifier.weight(1f))
                         Row(
                             Modifier.height(28.dp)
-                                .liquidGlass(
-                                    ground, RoundedCornerShape(XpRadius.pill),
-                                    film = LedgerHighlight.pill.copy(alpha = if (XpColors.isDark) 0.72f else 0.45f),
-                                    blur = 4.dp, lensHeight = 6.dp, lensAmount = 10.dp, shadow = 8.dp,
-                                    fallback = LedgerHighlight.pill,
-                                )
+                                // Tint + lit rim: the same read as glass, without sampling the card.
+                                .background(LedgerHighlight.pill.copy(alpha = if (XpColors.isDark) 0.72f else 0.45f), RoundedCornerShape(XpRadius.pill))
+                                .glassRim(RoundedCornerShape(XpRadius.pill))
                                 .clip(RoundedCornerShape(XpRadius.pill))
                                 .pressableClick(haptic = false, scaleDown = 0.96f, onClick = onOpenCalendar)
                                 .padding(horizontal = 10.dp),
@@ -162,7 +161,7 @@ fun LedgerSummaryCard(
                         ) {
                             Icon(Icons.Outlined.CalendarMonth, contentDescription = null, tint = LedgerHighlight.pillInk, modifier = Modifier.size(15.dp))
                             Text(
-                                "按天查看", style = MaterialTheme.typography.labelMedium, color = LedgerHighlight.pillInk, maxLines = 1,
+                                tr("按天查看", "By day"), style = MaterialTheme.typography.labelMedium, color = LedgerHighlight.pillInk, maxLines = 1,
                                 modifier = Modifier.padding(start = 4.dp),
                             )
                         }
@@ -172,7 +171,7 @@ fun LedgerSummaryCard(
                 // The mask and the number are different widgets, so they cross-fade instead of rolling into garbage.
                 AnimatedContent(
                     targetState = hidden,
-                    transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) },
+                    transitionSpec = { XpMotion.crossfade() },
                     label = "mask",
                 ) { masked ->
                     if (masked) {
@@ -189,12 +188,12 @@ fun LedgerSummaryCard(
                 }
                 Spacer(Modifier.height(14.dp))
                 Row(Modifier.fillMaxWidth()) {
-                    SummaryColumn("本月支出（元）", summary.monthOutCents, hidden, Modifier.weight(1f))
-                    SummaryColumn("本月收入（元）", summary.monthInCents, hidden, Modifier.weight(1f))
+                    SummaryColumn(tr("本月支出（元）", "Spent this month (¥)"), summary.monthOutCents, hidden, Modifier.weight(1f))
+                    SummaryColumn(tr("本月收入（元）", "Received this month (¥)"), summary.monthInCents, hidden, Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(16.dp))
             }
-            BudgetStrip(budget = budget, hidden = hidden, ground = ground, onClick = onOpenBudget)
+            BudgetStrip(budget = budget, hidden = hidden, onClick = onOpenBudget)
         }
     }
 }
@@ -207,7 +206,7 @@ private fun SummaryColumn(label: String, cents: Cents, hidden: Boolean, modifier
         // reads as a redraw rather than as a number that moved.
         AnimatedContent(
             targetState = hidden,
-            transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) },
+            transitionSpec = { XpMotion.crossfade() },
             label = "columnMask",
         ) { masked ->
             if (masked) {
@@ -230,17 +229,13 @@ private fun SummaryColumn(label: String, cents: Cents, hidden: Boolean, modifier
  * set one themselves. Never advice — the budget is the user's own number (product principles).
  */
 @Composable
-private fun BudgetStrip(budget: BudgetSummary?, hidden: Boolean, ground: Backdrop, onClick: () -> Unit) {
+private fun BudgetStrip(budget: BudgetSummary?, hidden: Boolean, onClick: () -> Unit) {
     val text = budgetLineText(budget, hidden)
     val shape = RoundedCornerShape(14.dp)
     Row(
         Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp).fillMaxWidth().height(41.dp)
-            .liquidGlass(
-                ground, shape,
-                film = LedgerHighlight.strip.copy(alpha = if (XpColors.isDark) 0.70f else 0.62f),
-                blur = 6.dp, lensHeight = 8.dp, lensAmount = 12.dp, shadow = 10.dp,
-                fallback = LedgerHighlight.strip,
-            )
+            .background(LedgerHighlight.strip.copy(alpha = if (XpColors.isDark) 0.70f else 0.62f), shape)
+            .glassRim(shape)
             .clip(shape)
             .pressableClick(haptic = false, onClick = onClick)
             .padding(start = XpSpace.page - 8.dp, end = XpSpace.m),

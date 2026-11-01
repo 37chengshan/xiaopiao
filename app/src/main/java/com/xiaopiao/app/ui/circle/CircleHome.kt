@@ -118,7 +118,7 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                 items(posts, key = { it.id }) { post ->
                     Box(
                         Modifier.animateItem(
-                            fadeInSpec = tween(180, easing = XpEase.out),
+                            fadeInSpec = null,
                             placementSpec = tween(220, easing = XpEase.out),
                             fadeOutSpec = tween(140),
                         ),

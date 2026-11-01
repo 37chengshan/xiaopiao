@@ -2,7 +2,7 @@ package com.xiaopiao.app.ui
 
 /** Static chrome only. Never translate merchant names, user text or other ledger data. */
 object UiLabels {
-    fun title(value: String): String = if (java.util.Locale.getDefault().language != "en") value else when (value) {
+    fun title(value: String): String = if (!isEnglish) value else when (value) {
         "记账" -> "Ledger"; "小票" -> "Receipt"; "统计" -> "Insights"; "圈子" -> "Circles"; "游戏" -> "Games"
         "设置" -> "Settings"; "返回" -> "Back"; "取消" -> "Cancel"; "账号" -> "Account"
         "外观" -> "Appearance"; "语音模型" -> "Voice models"; "数据与隐私" -> "Data & privacy"; "关于" -> "About"

@@ -1,6 +1,9 @@
 package com.xiaopiao.app.ui.ledger
 
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.ui.unit.IntOffset
+import com.xiaopiao.app.ui.motion.XpMotion
 import androidx.compose.foundation.layout.asPaddingValues
 import com.xiaopiao.app.ui.components.NavBarHeight
 import androidx.compose.runtime.derivedStateOf
@@ -89,6 +92,7 @@ import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.launch
+import com.xiaopiao.app.ui.tr
 
 /** Page margin and the gap between the cards of the ledger (docs/APP-DESIGN.md §3.7 栅格). */
 private val PageInset = XpSpace.page
@@ -199,7 +203,7 @@ fun LedgerScreen(
     fun deleteTxn(txn: Txn) {
         scope.launch {
             ledger.delete(txn.id)?.let { gone ->
-                toast.show("已删除「${gone.merchant}」", "撤销") { scope.launch { ledger.add(gone) } }
+                toast.show(tr("已删除「${gone.merchant}」", "Deleted “${gone.merchant}”"), tr("撤销", "Undo")) { scope.launch { ledger.add(gone) } }
             }
         }
     }
@@ -211,7 +215,7 @@ fun LedgerScreen(
             val gone = ids.mapNotNull { ledger.delete(it) }
             selection = null
             if (gone.isNotEmpty()) {
-                toast.show("已删除 ${gone.size} 笔", "撤销") { scope.launch { gone.forEach { ledger.add(it) } } }
+                toast.show(tr("已删除 ${gone.size} 笔", "Deleted ${gone.size} entries"), tr("撤销", "Undo")) { scope.launch { gone.forEach { ledger.add(it) } } }
             }
         }
     }
@@ -232,7 +236,7 @@ fun LedgerScreen(
         val target = startOfDay(day)
         val index = groups.indexOfFirst { it.dayStart == target }
         if (index < 0) {
-            toast.show("那天没有账单")
+            toast.show(tr("那天没有账单", "No entries that day"))
             return
         }
         // When searching, only the search page exists; jump only works from the normal list.
@@ -255,27 +259,25 @@ fun LedgerScreen(
     }
     NavScaffold(
         title = when {
-            searching -> "搜索"
-            selection != null -> "已选 ${selection?.size ?: 0} 项"
-            else -> "记账"
+            searching -> tr("搜索", "Search")
+            selection != null -> tr("已选 ${selection?.size ?: 0} 项", "${selection?.size ?: 0} selected")
+            else -> tr("记账", "Ledger")
         },
         scroll = if (searching) NavScrollNone else rememberNavScroll(listState),
         onBack = if (searching) ({ exitSearch() }) else null,
-        backLabel = "取消",
+        backLabel = tr("取消", "Cancel"),
         leading = if (!searching && selection == null) ({ LedgerSideLeading() }) else null,
         trailing = {
             AnimatedContent(
                 targetState = chromeMode,
-                transitionSpec = {
-                    (fadeIn(tween(160, easing = XpEase.out)) + scaleIn(tween(200, easing = XpEase.out), initialScale = 0.94f)) togetherWith fadeOut(tween(100))
-                },
+                transitionSpec = { XpMotion.crossfadePop() },
                 label = "ledgerChrome",
             ) { mode ->
                 // AnimatedContent lays its content out in a Box; without this Row the receipt and the gear
                 // (and 全选 / 取消) are drawn on top of each other.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                 when (mode) {
-                    "search" -> NavIconButton(Icons.Outlined.Tune, if (filter.activeCount > 0) "筛选 ${filter.activeCount}" else "筛选", onClick = { filterOpen = true })
+                    "search" -> NavIconButton(Icons.Outlined.Tune, if (filter.activeCount > 0) tr("筛选 ${filter.activeCount}", "Filter ${filter.activeCount}") else tr("筛选", "Filter"), onClick = { filterOpen = true })
                     "select" -> {
                         val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
                         val all = selection?.size == visible.size && visible.isNotEmpty()
@@ -297,8 +299,8 @@ fun LedgerScreen(
             // Floating delete pill: 48dp, 96dp above the tab bar, disabled (Negative at 30%) until something is picked.
             AnimatedVisibility(
                 visible = selection != null,
-                enter = fadeIn(tween(160, easing = XpEase.out)) + slideInVertically(tween(220, easing = XpEase.out)) { it / 2 } + scaleIn(tween(200, easing = XpEase.out), initialScale = 0.9f),
-                exit = fadeOut(tween(120)) + slideOutVertically(tween(160)) { it / 3 } + scaleOut(tween(160), targetScale = 0.92f),
+                enter = XpMotion.enterRise() + XpMotion.enterPop(),
+                exit = XpMotion.exitSink() + XpMotion.exitPop(0.92f),
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp).padding(horizontal = 56.dp),
             ) {
                 DeleteCapsule(count = selection?.size ?: 0, backdrop = glass) { deleteSelected() }
@@ -314,11 +316,7 @@ fun LedgerScreen(
         AnimatedContent(
             targetState = searching,
             transitionSpec = {
-                if (targetState) {
-                    (fadeIn(tween(180, easing = XpEase.out)) + slideInHorizontally(tween(240, easing = XpEase.out)) { it / 10 }) togetherWith fadeOut(tween(120))
-                } else {
-                    fadeIn(tween(160, easing = XpEase.out)) togetherWith (fadeOut(tween(140)) + slideOutHorizontally(tween(200, easing = XpEase.out)) { it / 10 })
-                }
+                if (targetState) XpMotion.pushForward() else XpMotion.pushBack()
             },
             label = "ledgerSearch",
             modifier = Modifier.fillMaxSize(),
@@ -410,7 +408,7 @@ fun LedgerScreen(
 private fun ActiveFilterChip(filter: LedgerFilter, onClear: () -> Unit) {
     val parts = buildList {
         filter.categories.forEach { add(it.label) }
-        filter.direction?.let { add(if (it == Direction.OUT) "支出" else "收入") }
+        filter.direction?.let { add(if (it == Direction.OUT) tr("支出", "Spent") else tr("收入", "Received")) }
         when (filter.range) {
             LedgerRange.Month -> {}
             LedgerRange.Custom -> {
@@ -421,8 +419,8 @@ private fun ActiveFilterChip(filter: LedgerFilter, onClear: () -> Unit) {
             }
             else -> add(filter.range.label)
         }
-        if (filter.sources.isNotEmpty()) add(filter.sources.joinToString("、") { it.label })
-        if (filter.minCents != null || filter.maxCents != null) add("金额")
+        if (filter.sources.isNotEmpty()) add(filter.sources.joinToString(tr("、", ", ")) { it.label })
+        if (filter.minCents != null || filter.maxCents != null) add(tr("金额", "Amount"))
     }
     Row(Modifier.fillMaxWidth().padding(top = XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
         Row(
@@ -432,7 +430,7 @@ private fun ActiveFilterChip(filter: LedgerFilter, onClear: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = XpColors.Accent, maxLines = 1)
-            Icon(Icons.Outlined.Close, contentDescription = "清除筛选", tint = XpColors.Accent, modifier = Modifier.padding(start = XpSpace.xs).size(16.dp))
+            Icon(Icons.Outlined.Close, contentDescription = tr("清除筛选", "Clear filters"), tint = XpColors.Accent, modifier = Modifier.padding(start = XpSpace.xs).size(16.dp))
         }
     }
 }
@@ -479,7 +477,9 @@ private fun LedgerList(
         if (selection == null) {
             // tt: the date jump lives in the summary card, not in the top bar (which keeps only 小票 and 设置 on the right).
             item(key = "summary") {
-                Box(Modifier.animateItem(fadeInSpec = tween(200), fadeOutSpec = null, placementSpec = tween(220, easing = XpEase.out))) {
+                // No fade-in: the page is composed again on every tab switch, and fading every item in on each visit
+                // is exactly what made switching feel like a full refresh. Placement stays animated (moves/deletes).
+                Box(Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = XpMotion.snappy(IntOffset.VisibilityThreshold))) {
                     Column {
                         LedgerSummaryCard(summary, hidden, onToggleHidden, budget, onOpenBudget, onOpenCalendar = onOpenCalendar.takeIf { !allEmpty })
                         // Arriving from a chart narrows the list; say so, or two bills look like the whole month.
@@ -492,14 +492,14 @@ private fun LedgerList(
         if (groups.isEmpty()) {
             item(key = "empty") {
                 // Empty → content: the placeholder fades away instead of vanishing between two frames.
-                Box(Modifier.animateItem(fadeInSpec = tween(220, easing = XpEase.out), placementSpec = null, fadeOutSpec = tween(160))) {
+                Box(Modifier.animateItem(fadeInSpec = null, placementSpec = null, fadeOutSpec = null)) {
                     if (allEmpty) {
                         Column(Modifier.padding(top = XpSpace.xxl)) {
                             EmptyState(
                                 icon = Icons.Outlined.ReceiptLong,
-                                title = "还没有账单",
-                                body = "开启自动记账，或者说一句「午饭 32」。",
-                                actionLabel = "记一笔",
+                                title = tr("还没有账单", "No entries yet"),
+                                body = tr("开启自动记账，或者说一句「午饭 32」。", "Turn on automatic capture, or say “lunch 32”."),
+                                actionLabel = tr("记一笔", "Record an entry"),
                                 onAction = onAdd,
                             )
                         }
@@ -509,32 +509,47 @@ private fun LedgerList(
                 }
             }
         }
-        itemsIndexed(groups, key = { _, g -> "day-${g.dayStart}" }) { index, group ->
-            Box(
-                Modifier.fillMaxWidth()
-                    // A day card that arrives or leaves (first bill of the day, last one deleted) fades and
-                    // lets the cards below slide instead of jumping.
-                    .animateItem(
-                        fadeInSpec = tween(220, easing = XpEase.out),
-                        fadeOutSpec = tween(140),
-                        placementSpec = spring(dampingRatio = 1f, stiffness = 520f),
+        // One list item per bill. A day used to be a single item wrapping all of its rows in a Column, so scrolling
+        // into a heavy day composed every row at once — the device trace showed 26ms of main-thread prefetch per new
+        // day. Header and rows still draw the same card: the rounded ends come from the row's corner flags.
+        groups.forEach { group ->
+            item(key = "day-${group.dayStart}") {
+                Box(
+                    Modifier.fillMaxWidth()
+                        .animateItem(
+                            fadeInSpec = null,
+                            fadeOutSpec = null,
+                            placementSpec = XpMotion.snappy(IntOffset.VisibilityThreshold),
+                        )
+                        .padding(top = CardGap),
+                ) {
+                    LedgerDayHeader(group = group, hidden = hidden)
+                }
+            }
+            group.items.forEachIndexed { rowIndex, txn ->
+                item(key = "txn-${txn.id}") {
+                    LedgerTxnRow(
+                        txn = txn,
+                        defs = defs,
+                        hidden = hidden,
+                        selection = selection,
+                        swipeToDelete = true,
+                        onToggle = onToggleSelect,
+                        onLongPress = onLongPress,
+                        onEdit = onEdit,
+                        onDelete = onDelete,
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = null,
+                            fadeOutSpec = null,
+                            placementSpec = XpMotion.snappy(IntOffset.VisibilityThreshold),
+                        ),
+                        dividerAbove = rowIndex > 0,
+                        fresh = txn.id in fresh,
+                        hint = showSwipeHint && group === groups.first() && rowIndex == 0,
+                        onHintShown = onSwipeHintShown,
+                        bottomCorners = rowIndex == group.items.lastIndex,
                     )
-                    .padding(top = CardGap)
-                    ,
-            ) {
-                LedgerDayCard(
-                    group = group,
-                    defs = defs,
-                    hidden = hidden,
-                    selection = selection,
-                    onToggle = onToggleSelect,
-                    onLongPress = onLongPress,
-                    onEdit = onEdit,
-                    onDelete = onDelete,
-                    fresh = fresh,
-                    hintFirstRow = showSwipeHint && index == 0,
-                    onHintShown = onSwipeHintShown,
-                )
+                }
             }
         }
     }
@@ -608,6 +623,30 @@ private fun LedgerSearchPage(
     }
 }
 
+
+/**
+ * Which day the floating pill names, given the first list item crossing the top bar.
+ *
+ * A card is one item per bill now, so the item at the bar is usually a row; the day's own header being still visible
+ * means the date would be printed twice, so the pill stays hidden in that case.
+ */
+internal fun dayAtBar(
+    key: String?,
+    itemOffsetPx: Float,
+    linePx: Float,
+    headerPx: Float,
+    byDayStart: Map<Long, DayGroup>,
+    dayOfTxn: Map<Long, Long>,
+): DayGroup? {
+    if (key == null) return null
+    return when {
+        key.startsWith("day-") ->
+            if (itemOffsetPx > linePx - headerPx) null else byDayStart[key.removePrefix("day-").toLongOrNull()]
+        key.startsWith("txn-") -> dayOfTxn[key.removePrefix("txn-").toLongOrNull()]?.let { byDayStart[it] }
+        else -> null
+    }
+}
+
 /**
  * The day under the top capsules, in a small glass pill (tt 2026-10-30: 浮在内容上的层). It appears once that day's
  * own header has gone under the bar, so the date is never shown twice.
@@ -624,12 +663,24 @@ private fun FloatingDayPill(
         .asPaddingValues().calculateTopPadding()
     val line = with(density) { (topInset + NavBarHeight + 18.dp).toPx() }
     val headerPx = with(density) { 44.dp.toPx() }
+    val byDayStart = remember(groups) { groups.associateBy { it.dayStart } }
+    // A card is now one item per bill, so the item crossing the line is usually a row, not the day header.
+    val dayOfTxn = remember(groups) {
+        val map = HashMap<Long, Long>()
+        groups.forEach { g -> g.items.forEach { map[it.id] = g.dayStart } }
+        map
+    }
     val day by remember(groups) {
         derivedStateOf {
             val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.offset + it.size > line }
-            val key = item?.key as? String
-            if (item == null || key == null || !key.startsWith("day-") || item.offset > line - headerPx) null
-            else groups.firstOrNull { "day-${it.dayStart}" == key }
+            dayAtBar(
+                key = item?.key as? String,
+                itemOffsetPx = item?.offset?.toFloat() ?: 0f,
+                linePx = line,
+                headerPx = headerPx,
+                byDayStart = byDayStart,
+                dayOfTxn = dayOfTxn,
+            )
         }
     }
     // Keep the last day while fading out, so the text does not blank before the pill is gone.
@@ -637,8 +688,8 @@ private fun FloatingDayPill(
     if (day != null) shown = day
     AnimatedVisibility(
         visible = day != null,
-        enter = fadeIn(tween(160, easing = XpEase.out)) + scaleIn(tween(220, easing = XpEase.out), initialScale = 0.9f),
-        exit = fadeOut(tween(120)) + scaleOut(tween(140), targetScale = 0.94f),
+        enter = XpMotion.enterPop(),
+        exit = XpMotion.exitPop(),
         modifier = modifier.padding(top = topInset + NavBarHeight + 6.dp),
     ) {
         val g = shown ?: return@AnimatedVisibility
@@ -648,7 +699,7 @@ private fun FloatingDayPill(
                     backdrop, RoundedCornerShape(XpRadius.pill),
                     // Rows pass right under it: mostly solid, so the date reads first and the glass shows at the rim.
                     film = XpColors.Card.copy(alpha = if (XpColors.isDark) 0.86f else 0.84f),
-                    blur = 12.dp, shadow = 12.dp,
+                    blur = 12.dp,
                 )
                 .padding(horizontal = XpSpace.m),
             verticalAlignment = Alignment.CenterVertically,
@@ -669,7 +720,7 @@ private fun DeleteCapsule(count: Int, backdrop: com.kyant.backdrop.Backdrop? = n
     val enabled = count > 0
     val fill by androidx.compose.animation.animateColorAsState(
         targetValue = if (enabled) XpColors.Negative else XpColors.Negative.copy(alpha = 0.3f),
-        animationSpec = tween(180, easing = XpEase.out),
+        animationSpec = XpMotion.fade(),
         label = "deletePill",
     )
     Row(
@@ -689,11 +740,11 @@ private fun DeleteCapsule(count: Int, backdrop: com.kyant.backdrop.Backdrop? = n
         // The count changes while the pill is already up; cross-fade it instead of swapping the label.
         AnimatedContent(
             targetState = count,
-            transitionSpec = { fadeIn(tween(140, easing = XpEase.out)) togetherWith fadeOut(tween(100)) },
+            transitionSpec = { XpMotion.crossfade() },
             label = "deleteCount",
         ) { n ->
             Text(
-                if (n > 0) "删除 $n 笔" else "删除",
+                if (n > 0) tr("删除 $n 笔", "Delete $n entries") else tr("删除", "Delete"),
                 style = MaterialTheme.typography.labelLarge,
                 color = XpColors.OnAccent,
             )

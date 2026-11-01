@@ -1,9 +1,18 @@
 package com.xiaopiao.app.ui
 
 import com.xiaopiao.app.ui.components.NavGlyph
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.ui.unit.IntOffset
+import com.xiaopiao.app.ui.motion.XpMotion
 import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -100,17 +109,20 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.ui.draw.drawBehind
 import com.xiaopiao.app.ui.theme.XpEase
+import com.xiaopiao.app.ui.tr
+import com.xiaopiao.app.ui.motion.LocalPageEntrance
+import com.xiaopiao.app.ui.motion.PageEntranceSeen
 
 /** The user edition's bar: 记账 · 小票 · ⊕ · 统计 | 圈子, and 账单 · ⊕ | AI · 圈子 · 游戏 once 圈子 is open. */
 private val UserNavSpec get() = NavBarSpec(
     a = NavBarItem(NavTab.Ledger.route, NavTab.Ledger.label, NavGlyph.Ledger),
     b = NavBarItem(NavTab.Receipt.route, NavTab.Receipt.label, NavGlyph.Receipt),
     c = NavBarItem(NavTab.Insights.route, NavTab.Insights.label, NavGlyph.Chart),
-    fold = NavBarItem("fold", if (java.util.Locale.getDefault().language == "en") "Ledger" else "账单", NavGlyph.Ledger),
+    fold = NavBarItem("fold", tr("账单", "Ledger"), NavGlyph.Ledger),
     entry = NavBarItem(NavTab.Circle.route, NavTab.Circle.label, NavGlyph.People),
     sa = NavBarItem(NavTab.Chat.route, NavTab.Chat.label, NavGlyph.Chat),
     sb = NavBarItem(NavTab.Games.route, NavTab.Games.label, NavGlyph.Gamepad),
-    plusLabel = if (java.util.Locale.getDefault().language == "en") "Record" else "记一笔", plusDescription = if (java.util.Locale.getDefault().language == "en") "Record · Hold to speak" else "记一笔 · 长按说一句",
+    plusLabel = tr("记一笔", "Record"), plusDescription = tr("记一笔 · 长按说一句", "Record · Hold to speak"),
 )
 
 @Composable
@@ -156,7 +168,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
             // The same 设置 page, reached from the gear on every 小店 page; back returns to where the shop was.
             BackHandler { merchantSettings = false }
             // Same page, but its edition row now leads back to the personal edition.
-            SettingsScreen(container, inMerchant = true, onSwitchEdition = { merchantSettings = false; merchantMode = false }, onBack = { merchantSettings = false }, backLabel = "小店")
+            SettingsScreen(container, inMerchant = true, onSwitchEdition = { merchantSettings = false; merchantMode = false }, onBack = { merchantSettings = false }, backLabel = tr("小店", "Shop"))
         } else {
             // SaveableStateProvider keeps the shop's tab / sub-page while the settings page replaces it.
             merchantState.SaveableStateProvider("merchant") {
@@ -212,12 +224,20 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     BackHandler(enabled = current == NavTab.Games.route) { go(NavTab.Circle) }
 
     // Liquid-glass source: the page is recorded here and the tab bar (a sibling, never inside it) samples it.
+    // Pages built on NavScaffold publish their own recording through LocalPageGlassSink — the bar then samples
+    // that one instead, so the page is only recorded once per frame.
     val glass = rememberLayerBackdrop()
     // Ledger-side tabs pad their own lists past the bar, so they can run underneath it and show through the glass.
     // The rest (circle chat input, games…) still stop above it.
     val underBar = current == NavTab.Ledger.route || current == NavTab.Receipt.route || current == NavTab.Insights.route ||
         // AI / 圈子 float their input above the bar; their content, like 游戏's wall, scrolls under the glass.
         current == NavTab.Chat.route || current == NavTab.Circle.route || current == NavTab.Games.route
+
+    // Which tab pages have been built at least once; they stay in the tree from then on.
+    val visitedTabs = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<String, Unit>() }
+
+    // Debug builds only: frame timing straight from Choreographer (gfxinfo is empty on the test phone).
+    com.xiaopiao.app.ui.DebugFrameMonitor()
 
     CompositionLocalProvider(LocalReceiptHost provides receiptHost, LocalTopBarHost provides topBarHost) {
     Box(Modifier.fillMaxSize()) {
@@ -263,52 +283,83 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 com.xiaopiao.app.ui.components.LocalTabBarInset provides
                     if (underBar && !navBarHidden) padding.calculateBottomPadding() else 0.dp,
             ) {
-            // Tab switches are instant: it is the most frequent navigation in the app (docs/APP-DESIGN.md §7).
+            // Tab pages stay composed once visited (tt 2026-10-31): switching used to tear the page down and build
+            // its whole node tree again — the device trace showed 207-248ms of LayoutNode.attach in one frame. Now a
+            // switch only changes which page is drawn, while the NavHost (whose tab destinations are empty shells)
+            // still owns the back stack, so 返回, deep links and the pushed-page transitions behave as before.
+            val tabBarInset = padding.calculateBottomPadding()
+            val shown = current ?: start
+            NavTab.entries.forEach { tab ->
+                val visible = shown == tab.route
+                if (visible) visitedTabs[tab.route] = Unit
+                if (visitedTabs.containsKey(tab.route)) {
+                    TabPageSlot(
+                        visible = visible,
+                        drop = tab == NavTab.Receipt,
+                        topInset = if (current == null) statusTop else 0.dp,
+                        background = if (tab.route == NavTab.Circle.route || tab.route == NavTab.Games.route || tab.route == NavTab.Chat.route) {
+                            if (XpColors.isDark) XpColors.Canvas else XpColors.Card
+                        } else {
+                            XpColors.CanvasGrouped
+                        },
+                    ) {
+                        CompositionLocalProvider(
+                            LocalPageEntrance provides pageEntrance(tab.route),
+                            com.xiaopiao.app.ui.components.LocalTabBarInset provides
+                                if (!navBarHidden) tabBarInset else 0.dp,
+                        ) {
+                            when (tab) {
+                                NavTab.Ledger -> LedgerScreen(
+                                    container,
+                                    searchRequested = ledgerSearch,
+                                    onSearchConsumed = { ledgerSearch = false },
+                                    filterRequest = ledgerFilter,
+                                    onFilterConsumed = { ledgerFilter = null },
+                                    onRecord = { record.openManual() },
+                                    onEdit = { txn, onDelete -> record.openEdit(txn, onDelete) },
+                                )
+                                NavTab.Insights -> InsightsScreen(
+                                    container,
+                                    open,
+                                    onOpenConsumed,
+                                    onOpenSettings = { openSettingsFrom(NavTab.Insights) },
+                                    onOpenLedger = { f -> ledgerFilter = f; go(NavTab.Ledger) },
+                                    onRecord = { record.openManual() },
+                                )
+                                NavTab.Receipt -> ReceiptPage(container, receiptHost)
+                                NavTab.Chat -> ChatScreen(
+                                    container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openManual() },
+                                    onOpenSettings = { openSettingsFrom(NavTab.Chat) },
+                                    onDrawerOpenChange = { navBarHidden = it },
+                                )
+                                NavTab.Circle -> CircleHome(
+                                    container,
+                                    onOpenSettings = { openSettingsFrom(NavTab.Circle) },
+                                    onOpenGames = { go(NavTab.Games) },
+                                )
+                                NavTab.Games -> GamesHub(
+                                    onBack = { go(NavTab.Circle) },
+                                    onOpenSettings = { openSettingsFrom(NavTab.Games) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             NavHost(
                 nav, startDestination = start,
-                // Tabs are a frequent switch: keep it near-instant, only a 120ms crossfade so the
-                // screen does not "pop". No slide — that would slow down a dozens-times-a-day action.
-                enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) },
-                exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90)) },
-                popEnterTransition = {
-                    if (initialState.destination.route == "settings") androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(200, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { -it / 8 } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(160))
-                    else androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120))
-                },
-                popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90)) },
+                modifier = Modifier.zIndex(2f),
+                // Tabs are pure fades: an alpha change is a layer property, so the page's recorded glass layer
+                // is not re-recorded every frame of the transition. Pushed pages keep the drop-in (below).
+                enterTransition = { XpMotion.enterFade() },
+                exitTransition = { XpMotion.exitFade() },
+                popEnterTransition = { XpMotion.enterFade() },
+                popExitTransition = { XpMotion.exitFade() },
             ) {
-                composable(NavTab.Ledger.route) {
-                    LedgerScreen(
-                        container,
-                        searchRequested = ledgerSearch,
-                        onSearchConsumed = { ledgerSearch = false },
-                        filterRequest = ledgerFilter,
-                        onFilterConsumed = { ledgerFilter = null },
-                        onRecord = { record.openManual() },
-                        onEdit = { txn, onDelete -> record.openEdit(txn, onDelete) },
-                    )
-                }
-                composable(NavTab.Insights.route) {
-                    InsightsScreen(
-                        container,
-                        open,
-                        onOpenConsumed,
-                        onOpenSettings = { openSettingsFrom(NavTab.Insights) },
-                        onOpenLedger = { f -> ledgerFilter = f; go(NavTab.Ledger) },
-                        onRecord = { record.openManual() },
-                    )
-                }
-                composable(
-                    "settings",
-                    enterTransition = {
-                        androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(220, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { it / 4 } +
-                            androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(160))
-                    },
-                    exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140)) },
-                    popExitTransition = {
-                        androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(200, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { it / 4 } +
-                            androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(140))
-                    },
-                ) {
+                // Tab destinations are shells: their pages live in the keep-alive host above. The graph still records
+                // which tab is current, which is what the bar, the insets and 返回 read.
+                NavTab.entries.forEach { tab -> page(tab.route) { } }
+                page("settings", drop = true) {
                     SettingsScreen(
                         container,
                         onSwitchEdition = { merchantMode = true },
@@ -316,25 +367,6 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                         backLabel = settingsBack.value,
                     )
                 }
-                composable(NavTab.Receipt.route,
-                    enterTransition = { androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(180, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { it / 14 } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150)) },
-                    exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120)) },
-                    popEnterTransition = { androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(180, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { -it / 14 } + androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150)) },
-                    popExitTransition = { androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(160, easing = com.xiaopiao.app.ui.theme.XpEase.out)) { it / 14 } + androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(120)) },
-                ) {
-                    ReceiptPage(container, receiptHost)
-                }
-                composable(NavTab.Chat.route) {
-                    ChatScreen(
-                        container, onRecordVoice = { record.openVoice() }, onRecordManual = { record.openManual() },
-                        onOpenSettings = { openSettingsFrom(NavTab.Chat) },
-                        // The session drawer covers the page; the tab bar steps aside while it is open.
-                        onDrawerOpenChange = { navBarHidden = it },
-                    )
-                }
-                composable(NavTab.Circle.route) { CircleHome(container, onOpenSettings = { openSettingsFrom(NavTab.Circle) }, onOpenGames = { go(NavTab.Games) }) }
-                // 游戏 is its own tab of the social side, not a state inside 圈子: nothing saved can reopen it by itself.
-                composable(NavTab.Games.route) { GamesHub(onBack = { go(NavTab.Circle) }, onOpenSettings = { openSettingsFrom(NavTab.Games) }) }
 
             }
             }
@@ -370,3 +402,89 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     }
     }
 }
+
+/**
+ * One keep-alive tab page: it stays composed after its first visit, and [visible] only drives which one is drawn.
+ *
+ * A hidden page fades to zero alpha and holds a consuming pointer handler, so a tap that lands where the visible page
+ * has no target can never reach the page behind it.
+ */
+@Composable
+private fun TabPageSlot(
+    visible: Boolean,
+    drop: Boolean,
+    topInset: androidx.compose.ui.unit.Dp,
+    background: Color,
+    content: @Composable () -> Unit,
+) {
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = if (visible) XpMotion.fade(160) else XpMotion.fadeAway(),
+        label = "tab-alpha",
+    )
+    val shift by animateFloatAsState(
+        targetValue = if (visible) 0f else -0.09f,
+        animationSpec = XpMotion.snappy(0.0005f),
+        label = "tab-drop",
+    )
+    // The incoming page settles from 98% so a switch reads as "arrived" rather than a hard cut. Layer-only.
+    val settle by animateFloatAsState(
+        targetValue = if (visible) 1f else 0.98f,
+        animationSpec = if (visible) XpMotion.snappy(0.0005f) else XpMotion.fadeAway(),
+        label = "tab-settle",
+    )
+    Box(
+        Modifier.fillMaxSize()
+            .zIndex(if (visible) 1f else 0f)
+            .graphicsLayer {
+                this.alpha = alpha
+                if (drop) translationY = shift * size.height else { scaleX = settle; scaleY = settle }
+            }
+            .background(background)
+            .padding(top = topInset)
+            .then(
+                if (visible) {
+                    Modifier
+                } else {
+                    Modifier.pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                    .changes.forEach { it.consume() }
+                            }
+                        }
+                    }
+                },
+            ),
+    ) { content() }
+}
+
+/**
+ * Every destination goes through here. First visit in this process → the page plays its entrance; coming back to
+ * it (tab switch, 返回) → it is shown already settled, so switching tabs never reads as "the page refreshed".
+ */
+private fun androidx.navigation.NavGraphBuilder.page(
+    route: String,
+    drop: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    composable(
+        route = route,
+        enterTransition = if (drop) { { pageDropIn() } } else null,
+        popEnterTransition = if (drop) { { pageDropIn(travel = 0.06f) } } else null,
+    ) {
+        CompositionLocalProvider(LocalPageEntrance provides pageEntrance(route)) { content() }
+    }
+}
+
+/** True exactly once per route per process (see [PageEntranceSeen]). */
+@Composable
+private fun pageEntrance(route: String): Boolean = remember(route) { PageEntranceSeen.routes.add(route) }
+
+/**
+ * The page-switch entrance: the new page comes down a short distance while it fades in, so a swap reads as
+ * "this page arrived" rather than "the pixels changed". Quick enough that repeated tab use never feels slow.
+ */
+private fun pageDropIn(travel: Float = 0.09f, durationMs: Int = 180) =
+    slideInVertically(XpMotion.snappy(IntOffset.VisibilityThreshold)) { -(it * travel).toInt() } +
+        fadeIn(XpMotion.fade((durationMs * 0.8f).toInt()))

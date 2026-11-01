@@ -229,7 +229,12 @@ private fun RecentRow(entry: RevenueEntry, onClick: () -> Unit) {
             Text(RevenueBook.dayLabel(entry.dayStart), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.xs)) {
                 Text(
-                    if (entry.orders > 0) "${entry.orders} 单 · 客单 ${RevenueBook.money(entry.averageTicketCents)}" else "订单数未填",
+                    if (entry.orders > 0) {
+                        bi(
+                            "${entry.orders} 单 · 客单 ${RevenueBook.money(entry.averageTicketCents)}",
+                            "${entry.orders} orders · ${RevenueBook.money(entry.averageTicketCents)} avg.",
+                        )
+                    } else bi("订单数未填", "No order count"),
                     style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                 )

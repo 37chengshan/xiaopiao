@@ -30,21 +30,33 @@ import com.xiaopiao.app.ui.theme.XpColors
  * can stay opaque when there is nothing to see through.
  */
 @Composable
-fun rememberWindowBlurBehind(radius: Dp = 28.dp): Boolean {
+fun rememberWindowBlurBehind(radius: Dp = 28.dp, enabled: Boolean = true): Boolean {
     val view = LocalView.current
     val px = with(LocalDensity.current) { radius.roundToPx() }
-    var enabled by remember { mutableStateOf(false) }
-    DisposableEffect(view, px) {
+    var live by remember { mutableStateOf(false) }
+    DisposableEffect(view, px, enabled) {
         val window = dialogWindowOf(view)
         if (window == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return@DisposableEffect onDispose {}
+        // A sheet that is still animating keeps the blur off: the cross-window blur pass runs every frame and is
+        // the single most expensive thing in that animation. It is switched on when the sheet has landed.
+        if (!enabled) {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+            live = false
+            return@DisposableEffect onDispose {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+            }
+        }
         window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
         window.attributes = window.attributes.apply { blurBehindRadius = px }
         val wm = view.context.getSystemService(WindowManager::class.java)
-        val listener = java.util.function.Consumer<Boolean> { enabled = it }
+        val listener = java.util.function.Consumer<Boolean> { live = it }
         wm.addCrossWindowBlurEnabledListener(listener)   // also delivers the current value
-        onDispose { wm.removeCrossWindowBlurEnabledListener(listener) }
+        onDispose {
+            wm.removeCrossWindowBlurEnabledListener(listener)
+            window.clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+        }
     }
-    return enabled
+    return enabled && live
 }
 
 private fun dialogWindowOf(view: View): android.view.Window? {

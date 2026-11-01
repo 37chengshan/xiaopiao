@@ -77,6 +77,7 @@ import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpMotion
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 import java.util.Calendar
 
 /**
@@ -165,7 +166,7 @@ internal fun ManualRecordPane(
                     Modifier.size(32.dp).clip(CircleShape).pressableClick(haptic = false, onClick = onClose),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Close, contentDescription = "关闭", tint = XpColors.Ink, modifier = Modifier.size(22.dp))
+                    Icon(Icons.Outlined.Close, contentDescription = tr("关闭", "Close"), tint = XpColors.Ink, modifier = Modifier.size(22.dp))
                 }
             }
 
@@ -199,7 +200,7 @@ internal fun ManualRecordPane(
             NoteRow(
                 value = merchant,
                 onValueChange = { merchant = it.take(30) },
-                onCamera = { toast.show("拍照记账即将支持") },
+                onCamera = { toast.show(tr("拍照记账即将支持", "Receipt photo capture is coming soon")) },
             )
 
             Keypad(
@@ -247,8 +248,8 @@ private fun DirectionAndTimeRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
-            DirectionChip("支出", direction == Direction.OUT) { onDirection(Direction.OUT) }
-            DirectionChip("收入", direction == Direction.IN) { onDirection(Direction.IN) }
+            DirectionChip(tr("支出", "Expense"), direction == Direction.OUT) { onDirection(Direction.OUT) }
+            DirectionChip(tr("收入", "Income"), direction == Direction.IN) { onDirection(Direction.IN) }
         }
         Spacer(Modifier.weight(1f))
         PillButton(dayLabel, onDate)
@@ -423,7 +424,7 @@ private fun CategoryArea(
                     )
                 }
                 Text(
-                    "自定义",
+                    tr("自定义", "Custom"),
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                     maxLines = 1,
                     textAlign = TextAlign.Center,
@@ -456,7 +457,7 @@ private fun NoteRow(value: String, onValueChange: (String) -> Unit, onCamera: ()
                 Box(contentAlignment = Alignment.CenterStart) {
                     if (value.isEmpty()) {
                         Text(
-                            "点击填写备注",
+                            tr("点击填写备注", "Add a note"),
                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                             color = XpColors.InkTertiary,
                         )
@@ -473,7 +474,7 @@ private fun NoteRow(value: String, onValueChange: (String) -> Unit, onCamera: ()
         ) {
             Icon(
                 Icons.Outlined.PhotoCamera,
-                contentDescription = "拍照记账",
+                contentDescription = tr("拍照记账", "Capture receipt photo"),
                 tint = XpColors.InkSecondary,
                 modifier = Modifier.size(19.dp),
             )
@@ -524,7 +525,7 @@ private fun Keypad(
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     Text(
-                        if (editing) "删除" else "再记一笔",
+                        if (editing) tr("删除", "Delete") else tr("再记一笔", "Add another"),
                         fontSize = 14.sp,
                         color = when {
                             editing -> XpColors.Negative
@@ -568,7 +569,7 @@ private fun KeyGlyph(key: String, size: Int, onClick: () -> Unit) {
         if (key == RecordAmount.BACKSPACE) {
             Icon(
                 Icons.AutoMirrored.Outlined.Backspace,
-                contentDescription = "退格",
+                contentDescription = tr("退格", "Backspace"),
                 tint = XpColors.Ink,
                 modifier = Modifier.size(22.dp),
             )
@@ -594,7 +595,7 @@ private fun SaveButton(enabled: Boolean, onSave: () -> Unit) {
             .pressableClick(enabled = enabled, scaleDown = 0.95f, haptic = true) { onSave() },
         contentAlignment = Alignment.Center,
     ) {
-        Text("保存", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1)
+        Text(tr("保存", "Save"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1)
     }
 }
 
@@ -611,10 +612,10 @@ private fun TimePickerSheet(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = { onPick(state.hour, state.minute) }) { Text("确定", color = XpColors.Accent) }
+            TextButton(onClick = { onPick(state.hour, state.minute) }) { Text(tr("确定", "OK"), color = XpColors.Accent) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消", color = XpColors.InkSecondary) }
+            TextButton(onClick = onDismiss) { Text(tr("取消", "Cancel"), color = XpColors.InkSecondary) }
         },
         text = { TimePicker(state = state) },
         containerColor = XpColors.Card,
@@ -630,11 +631,11 @@ internal fun dayLabelOf(dayStart: Long, now: Long): String {
     val today = startOfDay(now)
     val diff = Math.round((today - dayStart) / 86_400_000.0).toInt()
     return when (diff) {
-        0 -> "今天"
-        1 -> "昨天"
-        2 -> "前天"
+        0 -> tr("今天", "Today")
+        1 -> tr("昨天", "Yesterday")
+        2 -> tr("前天", "Two days ago")
         else -> Calendar.getInstance().apply { timeInMillis = dayStart }
-            .let { "${it.get(Calendar.MONTH) + 1}月${it.get(Calendar.DAY_OF_MONTH)}日" }
+            .let { tr("${it.get(Calendar.MONTH) + 1}月${it.get(Calendar.DAY_OF_MONTH)}日", "${it.get(Calendar.MONTH) + 1}/${it.get(Calendar.DAY_OF_MONTH)}") }
     }
 }
 

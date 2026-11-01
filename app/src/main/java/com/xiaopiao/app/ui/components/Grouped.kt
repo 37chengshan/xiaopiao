@@ -1,10 +1,10 @@
 package com.xiaopiao.app.ui.components
 
 import com.kyant.backdrop.shadow.Shadow
+import com.xiaopiao.app.ui.motion.XpMotion
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.drawBackdrop
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -95,16 +95,14 @@ fun GroupedSection(
         }
         Column(
             if (glass == null) Modifier.fillMaxWidth().clip(shape).background(XpColors.Card)
-            else Modifier.fillMaxWidth().drawBackdrop(
-                backdrop = glass,
-                shape = { shape },
-                effects = {
-                    vibrancy()
-                    blur(10.dp.toPx())
-                    lens(8.dp.toPx(), 12.dp.toPx())
-                },
-                shadow = { Shadow(radius = 16.dp, color = rim) },
-                onDrawSurface = { drawRect(film) },
+            else Modifier.fillMaxWidth().liquidGlass(
+                glass, shape,
+                film = film, rim = rim,
+                blur = 10.dp, lensHeight = 8.dp, lensAmount = 12.dp,
+                shadow = 12.dp,
+                fallback = XpColors.Card,
+                // A card, not a button: the light follows the finger, the surface barely moves.
+                swell = 1.004f, maxTilt = 1.5f,
             ),
         ) {
             scope.rows.forEachIndexed { i, row ->
@@ -207,8 +205,8 @@ fun IconTile(
     /** Optional semantic soft background (e.g. [XpColors.InfoSoft]); pair with a matching [tint]. */
     background: Color? = null,
 ) {
-    val bg by animateColorAsState(background ?: if (selected) XpColors.AccentSoft else XpColors.Fill, tween(180, easing = XpEase.out), label = "tileBg")
-    val fg by animateColorAsState(if (selected) XpColors.Accent else tint, tween(180, easing = XpEase.out), label = "tileFg")
+    val bg by animateColorAsState(background ?: if (selected) XpColors.AccentSoft else XpColors.Fill, XpMotion.fade(), label = "tileBg")
+    val fg by animateColorAsState(if (selected) XpColors.Accent else tint, XpMotion.fade(), label = "tileFg")
     Box(
         modifier.size(size).clip(RoundedCornerShape(size * 0.28f)).background(bg),
         contentAlignment = Alignment.Center,

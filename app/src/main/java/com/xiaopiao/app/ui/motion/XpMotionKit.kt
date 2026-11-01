@@ -2,6 +2,22 @@ package com.xiaopiao.app.ui.motion
 
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -63,8 +79,89 @@ object XpTiming {
     const val SkeletonMin = 200
 }
 
+/**
+ * Motion templates (tt 2026-11-01: 动画模板化). Pick a spec by *intent*, never by numbers at the call site:
+ *
+ * - Movement and scale use springs — they can be interrupted mid-flight and keep their velocity, which is what
+ *   makes a control feel physical instead of "played back".
+ * - Opacity and colour use short strong-ease-out tweens; a spring adds nothing to a fade.
+ * - Exits are quicker than entrances and accelerate away ([XpEase.exit]).
+ */
+object XpMotion {
+    /** Default for anything that moves: thumbs, placements, slides. Settles fast with a hint of life. */
+    fun <T> snappy(visibility: T? = null) = spring(dampingRatio = 0.82f, stiffness = 520f, visibilityThreshold = visibility)
+
+    /** Small confirmations that should land with a visible overshoot: a pop, a chip, a tab glyph. */
+    fun <T> bouncy(visibility: T? = null) = spring(dampingRatio = 0.58f, stiffness = 480f, visibilityThreshold = visibility)
+
+    /** Large surfaces (sheets, whole pages): no overshoot, unhurried. */
+    fun <T> gentle(visibility: T? = null) = spring(dampingRatio = 1f, stiffness = 340f, visibilityThreshold = visibility)
+
+    /** Finger down: must be visible in the first frame. */
+    fun <T> pressIn() = tween<T>(XpTiming.Press, easing = XpEase.out)
+
+    /** Finger up: springs back with a small overshoot. */
+    fun <T> pressOut(visibility: T? = null) = spring(dampingRatio = 0.6f, stiffness = 620f, visibilityThreshold = visibility)
+
+    /** Opacity / colour in. */
+    fun <T> fade(durationMs: Int = 180) = tween<T>(durationMs, easing = XpEase.out)
+
+    /** Opacity / colour out. */
+    fun <T> fadeAway(durationMs: Int = 120) = tween<T>(durationMs, easing = XpEase.exit)
+
+    // ── Ready-made transitions ────────────────────────────────────────────────────────────────────
+
+    private val offsetSnappy get() = snappy(IntOffset.VisibilityThreshold)
+
+    /** Appear in place. */
+    fun enterFade(): EnterTransition = fadeIn(fade())
+
+    /** Disappear in place. */
+    fun exitFade(): ExitTransition = fadeOut(fadeAway())
+
+    /** Rise into place from [fraction] of its own height below (floating pills, toasts). */
+    fun enterRise(fraction: Float = 0.5f): EnterTransition =
+        fadeIn(fade()) + slideInVertically(offsetSnappy) { (it * fraction).toInt() }
+
+    /** Sink back out. */
+    fun exitSink(fraction: Float = 0.33f): ExitTransition =
+        fadeOut(fadeAway()) + slideOutVertically(fadeAway()) { (it * fraction).toInt() }
+
+    /** Grow out of [from] scale — buttons and controls that appear on demand. */
+    fun enterPop(from: Float = 0.9f): EnterTransition = fadeIn(fade()) + scaleIn(bouncy(), initialScale = from)
+
+    /** Shrink away. */
+    fun exitPop(to: Float = 0.94f): ExitTransition = fadeOut(fadeAway()) + scaleOut(fadeAway(), targetScale = to)
+
+    /** Swap two states in the same slot (labels, top-bar modes). */
+    fun crossfade(): ContentTransform = fadeIn(fade()) togetherWith fadeOut(fadeAway(90))
+
+    /** Swap with a small pop on the incoming state. */
+    fun crossfadePop(from: Float = 0.94f): ContentTransform = enterPop(from) togetherWith fadeOut(fadeAway(90))
+
+    /** A secondary page slides in from the trailing edge over the current one. */
+    fun pushForward(): ContentTransform =
+        (fadeIn(fade()) + slideInHorizontally(offsetSnappy) { it / 10 }) togetherWith fadeOut(fadeAway())
+
+    /** …and slides back out. */
+    fun pushBack(): ContentTransform =
+        fadeIn(fade()) togetherWith (fadeOut(fadeAway()) + slideOutHorizontally(fadeAway(180)) { it / 10 })
+}
+
 /** The app's strong ease-out, usable as a plain function (for `withFrameNanos` loops). */
 val xpOut: (Float) -> Float = { MotionMath.easeOutStrong(it) }
+
+/**
+ * True for the first time a page is shown in this process, false when the same page is entered again (a tab
+ * switch back). Pages use it to skip replaying their entrance: switching tabs re-composes the destination, and
+ * replaying 57 reveals every time read as “the whole page refreshed”.
+ */
+val LocalPageEntrance = androidx.compose.runtime.compositionLocalOf { true }
+
+/** Process-wide record of the pages whose entrance already played. Survives an activity recreate. */
+object PageEntranceSeen {
+    val routes: MutableSet<String> = mutableSetOf()
+}
 
 /**
  * One-shot 0..1 progress driven by `withFrameNanos`. Re-runs when [key] changes, so a screen can replay
@@ -78,9 +175,14 @@ fun rememberDtProgress(
     easing: (Float) -> Float = xpOut,
     reduced: Boolean = rememberReducedMotion(),
 ): Float {
-    var progress by remember(key, reduced) { mutableFloatStateOf(if (reduced || durationMs <= 0) 1f else 0f) }
-    LaunchedEffect(key, reduced, durationMs, delayMs) {
-        if (reduced || durationMs <= 0) {
+    // The single choke point for every entrance animation in the app: `xpRevealLayer` and `XpReveal` both end up
+    // here. On a re-entered page the run length collapses to 0, which makes the initial value 1f — the content is
+    // already in its final state on the first frame instead of fading in again.
+    val enter = LocalPageEntrance.current
+    val runMs = if (enter) durationMs else 0
+    var progress by remember(key, reduced, runMs) { mutableFloatStateOf(if (reduced || runMs <= 0) 1f else 0f) }
+    LaunchedEffect(key, reduced, runMs, delayMs) {
+        if (reduced || runMs <= 0) {
             progress = 1f
             return@LaunchedEffect
         }
@@ -89,7 +191,7 @@ fun rememberDtProgress(
         while (true) {
             val now = withFrameNanos { it }
             val elapsedMs = (now - start) / 1_000_000f
-            val raw = MotionMath.progress(elapsedMs, durationMs, delayMs)
+            val raw = MotionMath.progress(elapsedMs, runMs, delayMs)
             progress = if (raw <= 0f) 0f else easing(raw)
             if (raw >= 1f) break
         }

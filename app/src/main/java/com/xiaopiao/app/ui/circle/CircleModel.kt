@@ -4,6 +4,7 @@ import com.xiaopiao.app.domain.Category
 import com.xiaopiao.app.domain.Cents
 import com.xiaopiao.app.domain.DAY_MS
 import com.xiaopiao.app.domain.startOfDay
+import com.xiaopiao.app.ui.tr
 import java.util.Calendar
 
 /**
@@ -15,11 +16,11 @@ import java.util.Calendar
  */
 
 enum class CircleShare(val label: String, val hint: String, val defaultVisible: Boolean) {
-    TodayTotal("今日总额", "只显示一天一共花了多少，不含店名", true),
-    CategoryMix("分类构成", "按分类的占比，不写店名", true),
-    WeeklyTitles("周报与头衔", "家庭周报里可以提到你的头衔", true),
-    TxnDetail("单笔明细", "每一笔的金额、商户和时间", false),
-    ReceiptFull("小票全文", "把小票原文一起发到群里", false);
+    TodayTotal(tr("今日总额", "Today's total"), tr("只显示一天一共花了多少，不含店名", "Only the day's total, no store names"), true),
+    CategoryMix(tr("分类构成", "Category mix"), tr("按分类的占比，不写店名", "Share by category, no store names"), true),
+    WeeklyTitles(tr("周报与头衔", "Weekly report & titles"), tr("家庭周报里可以提到你的头衔", "Titles may appear in the family weekly report"), true),
+    TxnDetail(tr("单笔明细", "Transaction details"), tr("每一笔的金额、商户和时间", "Amount, merchant and time of each purchase"), false),
+    ReceiptFull(tr("小票全文", "Full receipt"), tr("把小票原文一起发到群里", "Post the original receipt into the circle"), false);
 
     companion object {
         /** Conservative defaults: aggregates yes, anything that identifies a purchase no. */
@@ -198,12 +199,15 @@ fun circleFeedRows(posts: List<CirclePost>): List<CircleFeedRow> {
 fun dayLabel(dayStart: Long, now: Long): String {
     val today = startOfDay(now)
     return when (dayStart) {
-        today -> "今天"
-        today - DAY_MS -> "昨天"
-        today - 2 * DAY_MS -> "前天"
+        today -> tr("今天", "Today")
+        today - DAY_MS -> tr("昨天", "Yesterday")
+        today - 2 * DAY_MS -> tr("前天", "Two days ago")
         else -> {
             val calendar = Calendar.getInstance().apply { timeInMillis = dayStart }
-            "${calendar.get(Calendar.MONTH) + 1}月${calendar.get(Calendar.DAY_OF_MONTH)}日"
+            tr(
+                "${calendar.get(Calendar.MONTH) + 1}月${calendar.get(Calendar.DAY_OF_MONTH)}日",
+                "${calendar.get(Calendar.MONTH) + 1}/${calendar.get(Calendar.DAY_OF_MONTH)}",
+            )
         }
     }
 }

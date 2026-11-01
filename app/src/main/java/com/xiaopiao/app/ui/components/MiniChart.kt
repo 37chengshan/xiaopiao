@@ -1,6 +1,7 @@
 package com.xiaopiao.app.ui.components
 
 import androidx.compose.foundation.Canvas
+import com.xiaopiao.app.ui.motion.XpMotion
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -34,7 +35,7 @@ fun MiniBars(
     val reduced = rememberReducedMotion()
     val grow = remember { androidx.compose.animation.core.Animatable(if (reduced) 1f else 0f) }
     LaunchedEffect(values, reduced) {
-        if (reduced) grow.snapTo(1f) else { grow.snapTo(0f); grow.animateTo(1f, spring(0.85f, 420f)) }
+        if (reduced) grow.snapTo(1f) else { grow.snapTo(0f); grow.animateTo(1f, XpMotion.snappy()) }
     }
     Canvas(modifier.fillMaxWidth().height(height)) {
         if (values.isEmpty()) return@Canvas

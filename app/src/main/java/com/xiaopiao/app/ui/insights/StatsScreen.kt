@@ -99,6 +99,7 @@ import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.motion.XpTiming
 import com.xiaopiao.app.ui.motion.rememberDtProgress
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -240,7 +241,7 @@ fun StatsScreen(
     var dragPx by remember { mutableFloatStateOf(0f) }
 
     NavScaffold(
-        "统计",
+        tr("统计", "Insights"),
         NavScrollNone,
         leading = { LedgerSideLeading() },
         trailing = { AppTopActions() },
@@ -449,7 +450,17 @@ fun StatsScreen(
 private fun RangeSegments(selected: StatsRange, more: Boolean, onSelect: (StatsRange) -> Unit, onMore: () -> Unit) {
     val ranges = StatsRange.entries
     com.xiaopiao.app.ui.components.Segmented(
-        options = ranges.map { it.label } + "更多",
+        options = ranges.map { range ->
+            tr(
+                range.label,
+                when (range) {
+                    StatsRange.Week -> "Weekly"
+                    StatsRange.Month -> "Monthly"
+                    StatsRange.Year -> "Yearly"
+                    StatsRange.Custom -> "Custom"
+                },
+            )
+        } + tr("更多", "More"),
         selected = if (more) ranges.size else ranges.indexOf(selected),
         onSelect = { i -> if (i == ranges.size) onMore() else onSelect(ranges[i]) },
         modifier = Modifier.padding(vertical = 2.dp),
@@ -470,27 +481,32 @@ private fun PeriodRow(
 ) {
     val custom = range == StatsRange.Custom
     Row(Modifier.fillMaxWidth().padding(bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (!custom) CircleArrow(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, "上一期") { onShift(-1) }
+    // The period group takes what is left after 支出/收入, so at 360dp + large font the chips stay on screen.
+    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+        if (!custom) CircleArrow(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, tr("上一期", "Previous period")) { onShift(-1) }
         Row(
-            Modifier.clip(RoundedCornerShape(XpRadius.pill))
+            Modifier.weight(1f, fill = false).clip(RoundedCornerShape(XpRadius.pill))
                 .pressableClick(haptic = false, onClick = onOpenPicker)
                 .padding(horizontal = if (custom) 2.dp else XpSpace.s, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
+            androidx.compose.foundation.text.BasicText(
                 if (custom) "${StatsAggregator.md(snapshot.from)}-${StatsAggregator.md(snapshot.to - DAY)}"
                 else snapshot.periodTitle,
-                style = SegmentLabel.copy(fontWeight = FontWeight.Medium),
-                color = XpColors.Ink,
+                modifier = Modifier.weight(1f, fill = false),
+                style = SegmentLabel.copy(fontWeight = FontWeight.Medium, color = XpColors.Ink),
                 maxLines = 1,
+                softWrap = false,
+                autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = SegmentLabel.fontSize, stepSize = 0.5.sp),
             )
             if (custom) {
                 Spacer(Modifier.width(4.dp))
                 Text("▾", style = Hint, color = XpColors.InkSecondary)
             }
         }
-        if (!custom) CircleArrow(Icons.AutoMirrored.Outlined.KeyboardArrowRight, "下一期") { onShift(1) }
-        Spacer(Modifier.weight(1f))
+        if (!custom) CircleArrow(Icons.AutoMirrored.Outlined.KeyboardArrowRight, tr("下一期", "Next period")) { onShift(1) }
+    }
+        Spacer(Modifier.width(XpSpace.s))
         DirectionChips(direction, onDirection)
     }
 }
@@ -499,14 +515,14 @@ private const val DAY = 86_400_000L
 
 @Composable
 private fun DirectionChips(direction: Direction, onDirection: (Direction) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-        listOf(Direction.OUT to "支出", Direction.IN to "收入").forEach { (value, label) ->
+    Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.xs)) {
+        listOf(Direction.OUT to tr("支出", "Expense"), Direction.IN to tr("收入", "Income")).forEach { (value, label) ->
             val on = value == direction
             Box(
                 Modifier.height(30.dp).clip(RoundedCornerShape(XpRadius.pill))
                     .background(if (on) XpColors.Fill else androidx.compose.ui.graphics.Color.Transparent)
                     .pressableClick(haptic = false) { onDirection(value) }
-                    .padding(horizontal = XpSpace.m),
+                    .padding(horizontal = XpSpace.s + 2.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -546,9 +562,9 @@ private fun StatsEmptyState(ledgerEmpty: Boolean, canGoBack: Boolean, onRecord: 
     val backFirst = !ledgerEmpty && canGoBack
     EmptyState(
         icon = Icons.Outlined.ReceiptLong,
-        title = if (ledgerEmpty) "还没有账单" else "这段时间没有记录",
-        body = if (ledgerEmpty) "记下第一笔，统计才会有内容。" else "换一期看看，或者记一笔新的。",
-        actionLabel = if (backFirst) "看上一期" else "记一笔",
+        title = if (ledgerEmpty) tr("还没有账单", "No entries yet") else tr("这段时间没有记录", "Nothing in this period"),
+        body = if (ledgerEmpty) tr("记下第一笔，统计才会有内容。", "Record the first entry and insights will fill in.") else tr("换一期看看，或者记一笔新的。", "Try another period, or record a new entry."),
+        actionLabel = if (backFirst) tr("看上一期", "See previous period") else tr("记一笔", "Record an entry"),
         onAction = if (backFirst) onPrevious else onRecord,
         modifier = Modifier.padding(top = XpSpace.l),
     )
@@ -567,7 +583,7 @@ private fun AiSummaryCard(title: String, line: String, onOpen: () -> Unit, modif
         Text(line, style = Body13, color = XpColors.InkSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
         // Its own line: inline after a 2-line clamp it was the first thing the ellipsis ate at 1.3×.
         Text(
-            "查看 AI 分析 ›",
+            tr("查看 AI 分析 ›", "AI analysis ›"),
             style = Body13.copy(fontWeight = FontWeight.Medium),
             color = XpColors.Accent,
             maxLines = 1,
@@ -584,8 +600,8 @@ private fun KpiCard(snapshot: StatsSnapshot, modifier: Modifier = Modifier) {
     val avgText = StatsAggregator.grouped(animatedCents(snapshot.avgPerDay))
     val balanceText = StatsAggregator.grouped(animatedCents(snapshot.balance))
     val cells = buildList {
-        add(KpiCell(if (isSpend) "本期支出" else "本期收入", "¥ $totalText"))
-        add(KpiCell(if (isSpend) "日均支出" else "日均收入", "¥ $avgText"))
+        add(KpiCell(tr(if (isSpend) "本期支出" else "本期收入", if (isSpend) "Spent this period" else "Received this period"), "¥ $totalText"))
+        add(KpiCell(tr(if (isSpend) "日均支出" else "日均收入", if (isSpend) "Daily spend" else "Daily income"), "¥ $avgText"))
         if (snapshot.range != StatsRange.Custom) {
             val percent = snapshot.delta?.percent
             add(
@@ -607,7 +623,7 @@ private fun KpiCard(snapshot: StatsSnapshot, modifier: Modifier = Modifier) {
         }
         add(
             KpiCell(
-                "收支结余",
+                tr("收支结余", "Net"),
                 "¥ $balanceText",
                 tone = if (snapshot.balance < 0) Tone.Negative else Tone.Plain,
             ),
@@ -654,12 +670,12 @@ private fun KpiCellView(cell: KpiCell, modifier: Modifier = Modifier) {
 
 @Composable
 private fun TrendCard(snapshot: StatsSnapshot, modifier: Modifier = Modifier, onPickBucket: (StatsBucket) -> Unit = {}) {
-    val noun = if (snapshot.direction == Direction.OUT) "支出" else "收入"
+    val noun = tr(if (snapshot.direction == Direction.OUT) "支出" else "收入", if (snapshot.direction == Direction.OUT) "Spent" else "Received")
     val title = when (snapshot.range) {
-        StatsRange.Week -> "近 5 周$noun"
+        StatsRange.Week -> tr("近 5 周$noun", "$noun · last 5 weeks")
         StatsRange.Month -> "${StatsAggregator.md(snapshot.from).substringBefore('/')}月${noun}趋势"
-        StatsRange.Year -> "年度$noun 趋势"
-        StatsRange.Custom -> "区间$noun 趋势"
+        StatsRange.Year -> tr("年度$noun 趋势", "$noun trend · year")
+        StatsRange.Custom -> tr("区间$noun 趋势", "$noun trend · range")
     }
     Column(
         modifier.fillMaxWidth().cardSurface()
@@ -699,7 +715,7 @@ private fun CompositionCard(
             .padding(horizontal = XpSpace.l, vertical = XpSpace.m),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("${noun}构成", style = SectionTitle, color = XpColors.Ink, modifier = Modifier.weight(1f))
+            Text(tr("${noun}构成", "$noun breakdown"), style = SectionTitle, color = XpColors.Ink, modifier = Modifier.weight(1f))
             Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.xs)) {
                 StatsGrouping.entries.forEach { g ->
                     val on = g == grouping
@@ -735,7 +751,7 @@ private fun RankingCard(snapshot: StatsSnapshot, modifier: Modifier = Modifier, 
     val maxCents = snapshot.entries.firstOrNull()?.cents ?: 1L
     Column(modifier.fillMaxWidth().cardSurface()) {
         Text(
-            "${snapshot.periodTitle}${if (snapshot.direction == Direction.OUT) "支出" else "收入"}排行",
+            tr("${snapshot.periodTitle}${if (snapshot.direction == Direction.OUT) "支出" else "收入"}排行", "Ranking · ${snapshot.periodTitle}"),
             style = SectionTitle,
             color = XpColors.Ink,
             modifier = Modifier.padding(start = XpSpace.l, end = XpSpace.l, top = XpSpace.m, bottom = XpSpace.s),
@@ -746,7 +762,7 @@ private fun RankingCard(snapshot: StatsSnapshot, modifier: Modifier = Modifier, 
         }
         if (snapshot.entries.size > 8) {
             Text(
-                if (expanded) "收起" else "查看全部 ›",
+                if (expanded) tr("收起", "Collapse") else tr("查看全部 ›", "Show all ›"),
                 style = Body13,
                 color = XpColors.Accent,
                 modifier = Modifier.fillMaxWidth().pressableClick(haptic = false) { expanded = !expanded }
@@ -808,16 +824,16 @@ private fun MoreSection(
 ) {
     GroupedSection(dividerInset = 20.dp, margin = 0.dp) {
         item("budget") {
-            GroupedRow("预算", subtitle = "每日 / 每周 / 每月额度与提醒", chevron = true, onClick = onBudget)
+            GroupedRow(tr("预算", "Budget"), subtitle = tr("每日 / 每周 / 每月额度与提醒", "Daily, weekly and monthly limits with reminders"), chevron = true, onClick = onBudget)
         }
         item("awards") {
-            GroupedRow("每周小票", subtitle = "头衔、徽章与周报", chevron = true, onClick = onAwards)
+            GroupedRow(tr("每周小票", "Weekly receipt"), subtitle = tr("头衔、徽章与周报", "Titles, badges and the weekly report"), chevron = true, onClick = onAwards)
         }
         item("subs") {
-            GroupedRow("订阅侦探", subtitle = "找出一直在扣钱的订阅", chevron = true, onClick = onSubscriptions)
+            GroupedRow(tr("订阅侦探", "Subscriptions"), subtitle = tr("找出一直在扣钱的订阅", "Find the subscriptions that keep charging"), chevron = true, onClick = onSubscriptions)
         }
         item("regret") {
-            GroupedRow("后悔模拟", subtitle = "重来一次，这笔还会买吗", chevron = true, onClick = onRegret)
+            GroupedRow(tr("后悔模拟", "What-if spending"), subtitle = tr("重来一次，这笔还会买吗", "Run it again: would you still buy it?"), chevron = true, onClick = onRegret)
         }
     }
 }
@@ -858,7 +874,7 @@ private fun AiAnalysisPage(
     BackHandler(onBack = onBack)
     val scroll = rememberScrollState()
     val noun = if (snapshot.direction == Direction.OUT) "支出" else "收入"
-    NavScaffold("AI 分析", NavScrollNone, onBack = onBack, backLabel = "统计") { top ->
+    NavScaffold(tr("AI 分析", "AI analysis"), NavScrollNone, onBack = onBack, backLabel = tr("统计", "Insights")) { top ->
         Column(
             Modifier.fillMaxSize().verticalScroll(scroll)
                 .padding(top = top, bottom = 120.dp)
@@ -873,9 +889,9 @@ private fun AiAnalysisPage(
             )
 
             Column(Modifier.fillMaxWidth().cardSurface().padding(XpSpace.l)) {
-                Text("AI 分析", style = SectionTitle, color = XpColors.Ink)
+                Text(tr("AI 分析", "AI analysis"), style = SectionTitle, color = XpColors.Ink)
                 Text(
-                    narrative ?: "这段时间还没有可分析的记录。",
+                    narrative ?: tr("这段时间还没有可分析的记录。", "Nothing to analyse in this period yet."),
                     style = Body13,
                     color = if (narrative != null) XpColors.Ink else XpColors.InkSecondary,
                     modifier = Modifier.padding(top = XpSpace.s),
@@ -883,25 +899,25 @@ private fun AiAnalysisPage(
             }
 
             Column(Modifier.fillMaxWidth().cardSurface().padding(XpSpace.l)) {
-                Text("本期事实", style = SectionTitle, color = XpColors.Ink)
-                FactRow("本期$noun", "¥ ${StatsAggregator.grouped(snapshot.total)}")
-                FactRow("日均$noun", "¥ ${StatsAggregator.grouped(snapshot.avgPerDay)}")
-                FactRow("记账天数", "${snapshot.activeDays} 天")
+                Text(tr("本期事实", "This period, in facts"), style = SectionTitle, color = XpColors.Ink)
+                FactRow(tr("本期$noun", "Total $noun"), "¥ ${StatsAggregator.grouped(snapshot.total)}")
+                FactRow(tr("日均$noun", "Daily $noun"), "¥ ${StatsAggregator.grouped(snapshot.avgPerDay)}")
+                FactRow(tr("记账天数", "Days tracked"), tr("${snapshot.activeDays} 天", "${snapshot.activeDays} days"))
                 val delta = snapshot.delta
                 FactRow(
                     "环比",
                     when {
                         delta?.percent == null -> "—"
-                        delta.percent == 0 -> "与上一期持平"
-                        delta.percent > 0 -> "比上一期多 ${delta.percent}%"
-                        else -> "比上一期少 ${-delta.percent}%"
+                        delta.percent == 0 -> tr("与上一期持平", "Level with last period")
+                        delta.percent > 0 -> tr("比上一期多 ${delta.percent}%", "${delta.percent}% more than last period")
+                        else -> tr("比上一期少 ${-delta.percent}%", "${-delta.percent}% less than last period")
                     },
                 )
                 snapshot.entries.firstOrNull()?.let { top ->
                     FactRow("最大$noun", "「${top.label}」 ${(top.share * 100).roundToInt()}%")
                 }
                 FactRow(
-                    "收支结余",
+                    tr("收支结余", "Net"),
                     "¥ ${StatsAggregator.grouped(snapshot.balance)}",
                     tone = if (snapshot.balance < 0) XpColors.Negative else XpColors.Ink,
                 )
@@ -909,7 +925,7 @@ private fun AiAnalysisPage(
 
             if (snapshot.entries.size > 1) {
                 Column(Modifier.fillMaxWidth().cardSurface().padding(XpSpace.l)) {
-                    Text("占比靠前", style = SectionTitle, color = XpColors.Ink)
+                    Text(tr("占比靠前", "Largest shares"), style = SectionTitle, color = XpColors.Ink)
                     snapshot.entries.take(3).forEach { entry ->
                         Row(
                             Modifier.fillMaxWidth().padding(top = XpSpace.s),
@@ -943,17 +959,17 @@ private fun AiAnalysisPage(
                 }
             }
 
-            XpButton("查看本期账单", onClick = onOpenLedger, modifier = Modifier.fillMaxWidth())
+            XpButton(tr("查看本期账单", "Open these entries"), onClick = onOpenLedger, modifier = Modifier.fillMaxWidth())
             if (onOpenAwards != null) {
                 XpButton(
-                    "查看本周小票",
+                    tr("查看本周小票", "Open the weekly receipt"),
                     onClick = onOpenAwards,
                     modifier = Modifier.fillMaxWidth(),
                     style = XpButtonStyle.Secondary,
                 )
             }
             Text(
-                "AI 只陈述本期事实，不给建议。",
+                tr("AI 只陈述本期事实，不给建议。", "AI only states this period's facts. It never gives advice."),
                 style = Hint,
                 color = XpColors.InkTertiary,
                 modifier = Modifier.padding(top = XpSpace.xs),

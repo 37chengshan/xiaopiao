@@ -32,6 +32,7 @@ import com.xiaopiao.app.ui.components.XpButton
 import com.xiaopiao.app.ui.components.XpButtonSize
 import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.rememberXpHaptics
+import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpSpace
 import kotlinx.coroutines.delay
@@ -54,13 +55,13 @@ fun DataSection(
     LaunchedEffect(armed) { if (armed) { delay(6000); armed = false } }
 
     GroupedSection(
-        header = "数据", dividerInset = 58.dp, modifier = Modifier.animateContentSize(spring(1f, 400f)),
+        header = com.xiaopiao.app.ui.UiLabels.title("数据"), dividerInset = 58.dp, modifier = Modifier.animateContentSize(spring(1f, 400f)),
         footer = demoMessage,
     ) {
         item {
             GroupedRow(
-                title = "导入账单",
-                value = if (importing) "导入中…" else null,
+                title = tr("导入账单", "Import bills"),
+                value = if (importing) tr("导入中…", "Importing…") else null,
                 leading = { IconTile(Icons.Outlined.FileUpload, tint = XpColors.Info, background = XpColors.InfoSoft) },
                 chevron = !importing,
                 onClick = if (importing) null else onPickCsv,
@@ -68,55 +69,61 @@ fun DataSection(
         }
         if (summary != null) item("importSummary") {
             if (summary.error != null) {
-                GroupedRow(title = "导入没成功", subtitle = summary.error, titleColor = XpColors.Negative)
+                GroupedRow(title = tr("导入没成功", "Import failed"), subtitle = summary.error, titleColor = XpColors.Negative)
             } else {
                 GroupedRow(
-                    title = "识别为${summary.format.label}账单",
-                    subtitle = "新增 ${summary.imported} · 重复跳过 ${summary.duplicates} · 读取失败 ${summary.failed}",
+                    title = tr("识别为${summary.format.label}账单", "Recognised ${com.xiaopiao.app.ui.UiLabels.title(summary.format.label)} bill"),
+                    subtitle = tr(
+                        "新增 ${summary.imported} · 重复跳过 ${summary.duplicates} · 读取失败 ${summary.failed}",
+                        "Added ${summary.imported} · duplicates skipped ${summary.duplicates} · unreadable ${summary.failed}",
+                    ),
                 )
             }
         }
         // Test-ledger loader is a developer tool: it never ships in a release build.
         if (BuildConfig.DEBUG) item {
             GroupedRow(
-                title = "载入测试账本",
+                title = tr("载入测试账本", "Load test ledger"),
                 leading = { IconTile(Icons.Outlined.Science, tint = XpColors.Warning, background = XpColors.WarningSoft) },
                 onClick = onLoadDemo,
             )
         }
         item {
             GroupedRow(
-                title = "通知记录",
-                value = "${log.size} 条", leading = { IconTile(Icons.Outlined.NotificationsNone, tint = XpColors.Positive, background = XpColors.PositiveSoft) },
+                title = tr("通知记录", "Capture log"),
+                value = tr("${log.size} 条", "${log.size} entries"), leading = { IconTile(Icons.Outlined.NotificationsNone, tint = XpColors.Positive, background = XpColors.PositiveSoft) },
                 chevron = true, onClick = { logOpen = !logOpen },
             )
         }
         if (logOpen) {
             if (log.isEmpty()) item("logEmpty") {
-                GroupedRow(title = "还没有记录", subtitle = "付一笔款，这里就会出现啦。")
+                GroupedRow(
+                    title = tr("还没有记录", "No entries yet"),
+                    subtitle = tr("付一笔款，这里就会出现啦。", "Pay something and it will show up here."),
+                )
             } else {
                 log.take(40).forEach { e -> item("log-${e.id}") { LogRow(e) } }
-                item("logClear") { GroupedRow(title = "清空记录", titleColor = XpColors.Negative, onClick = onClearLog) }
+                item("logClear") { GroupedRow(title = tr("清空记录", "Clear log"), titleColor = XpColors.Negative, onClick = onClearLog) }
             }
         }
         item {
             if (!armed) {
                 GroupedRow(
-                    title = "清空我的全部数据", titleColor = XpColors.Negative,
+                    title = tr("清空我的全部数据", "Erase all my data"), titleColor = XpColors.Negative,
                     leading = { IconTile(Icons.Outlined.DeleteOutline, tint = XpColors.Negative, background = XpColors.Fill) },
                     onClick = { armed = true },
                 )
             } else {
                 Column(Modifier.fillMaxWidth().padding(XpSpace.l), verticalArrangement = Arrangement.spacedBy(XpSpace.m)) {
                     Text(
-                        "清空全部账单和记录？无法撤销",
+                        tr("清空全部账单和记录？无法撤销", "Erase every entry and record? This cannot be undone"),
                         style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
-                        XpButton("确认清空", {
+                        XpButton(tr("确认清空", "Erase everything"), {
                             haptics.thud(); armed = false; onClearAll()
                         }, Modifier.weight(1f), style = XpButtonStyle.Destructive, size = XpButtonSize.Small)
-                        XpButton("先不了", { armed = false }, Modifier.weight(1f), style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
+                        XpButton(tr("先不了", "Not now"), { armed = false }, Modifier.weight(1f), style = XpButtonStyle.Secondary, size = XpButtonSize.Small)
                     }
                 }
             }

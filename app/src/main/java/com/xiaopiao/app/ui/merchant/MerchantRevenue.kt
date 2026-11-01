@@ -194,7 +194,12 @@ private fun RevenueRow(entry: RevenueEntry, onClick: () -> Unit) {
                 modifier = Modifier.padding(top = 1.dp),
             ) {
                 Text(
-                    if (entry.orders > 0) "${entry.orders} 单 · 客单 ${RevenueBook.money(entry.averageTicketCents)}" else "订单数未填",
+                    if (entry.orders > 0) {
+                        bi(
+                            "${entry.orders} 单 · 客单 ${RevenueBook.money(entry.averageTicketCents)}",
+                            "${entry.orders} orders · ${RevenueBook.money(entry.averageTicketCents)} avg.",
+                        )
+                    } else bi("订单数未填", "No order count"),
                     style = MaterialTheme.typography.labelSmall, color = XpColors.InkSecondary,
                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
