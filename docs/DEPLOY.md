@@ -138,3 +138,7 @@ tt 已明确批准并完成 `89fcf19` 的 API/unit/nginx 上线，生产 release
 ## 2026-11-02 头像 / 圈号 / 小票快照 / 反馈上线
 
 经 tt 批准，按上文 `update-private.sh` 流程上线 release `0be5bdf87cf2`（previous `4f5d7f11725d`，脚本已做部署前在线备份）。新增：头像（预设 + 照片，`/v1/auth/avatar`、`/v1/avatars/:id`）、圈号搜索与入圈申请（`/v1/circles/search`、`/v1/circles/requests`）、小票样式快照字段、`POST /v1/feedback`。数据库迁移在启动时自动执行（新表 avatars / circle_requests / feedback，已有圈子补圈号）。服务端 122/122 测试与 `npm run check` 通过；公网冒烟：healthz 200，新鉴权路由 401（而非 404），feedback 空体 400。nginx `client_max_body_size 512k` 足够头像请求（≤384 KB）。未改 nginx、DNS、安全组。反馈读取：`node scripts/feedback.mjs`（该脚本未随 release 打包，需要时单独上传）。回滚：切回 `4f5d7f11725d` 并重启；新表不影响旧版本运行。
+
+## 2026-11-02 密码安全加固上线
+
+经 tt 批准，按 `update-private.sh` 流程上线 release `2bc18889d9fa`（previous `0be5bdf87cf2`，脚本已做部署前在线备份）。内容：新密码弱口令筛查、`POST /v1/auth/password`（凭当前密码改密，撤销其它会话）、账号/来源两维失败锁定、派生并发闸门、哈希版本化与登录时自动升级，详见 SECURITY.md 与 API-ACCOUNT.md。服务端 142/142 测试与 `npm run check` 通过；公网冒烟：healthz 200，`/v1/auth/password` 与 `/v1/auth/me` 未登录 401，弱密码注册返回 400 `PASSWORD_WEAK`。未改 nginx、DNS、安全组、Worker。回滚：切回 `0be5bdf87cf2` 并重启。注意旧版只认 `<salt>:<hex>` 旧哈希，上线后注册或登录过（被自动升级成 `scrypt1$…`）的账号在旧版上无法登录，需走找回密码重设。
