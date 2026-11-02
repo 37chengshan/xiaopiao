@@ -270,6 +270,7 @@ fun WheelGame(onBack: () -> Unit) {
                 wheels = wheels,
                 current = currentIndex,
                 enabled = !spinning,
+                palette = palette,
                 onSelect = { index ->
                     currentId = wheels[index].id
                 },

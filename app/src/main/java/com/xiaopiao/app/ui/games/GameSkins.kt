@@ -148,18 +148,18 @@ fun GameSkin.heroBrush(): Brush = Brush.verticalGradient(
 )
 
 /**
- * Full-page wash behind the result (tt 2026-11-02: 背景很生硬). It starts faint so it melts into the header
- * instead of drawing a hard edge under it, peaks a little lower, and is gone by [depth] — the rest of the page is
- * the normal canvas.
+ * Result page ground (tt 2026-11-02: 背景上面不应该有一条横线，色彩应该铺满). Opaque tints of the canvas so the
+ * whole page — under the nav edge and the action bar too — is one colour field: [pageTintTop] at the top,
+ * [pageTintBottom] at the bottom.
  */
 @Composable
-fun GameSkin.pageWash(depthPx: Float): Brush = Brush.verticalGradient(
-    0f to accentColor().copy(alpha = if (XpColors.isDark) 0.06f else 0.04f),
-    0.35f to accentColor().copy(alpha = if (XpColors.isDark) 0.14f else 0.10f),
-    0.7f to supportColor().copy(alpha = if (XpColors.isDark) 0.07f else 0.05f),
-    1f to Color.Transparent,
-    endY = depthPx,
-)
+fun GameSkin.pageTintTop(): Color = lerp(XpColors.CanvasGrouped, accentColor(), if (XpColors.isDark) 0.14f else 0.09f)
+
+@Composable
+fun GameSkin.pageTintBottom(): Color = lerp(XpColors.CanvasGrouped, supportColor(), if (XpColors.isDark) 0.08f else 0.05f)
+
+@Composable
+fun GameSkin.pageWash(): Brush = Brush.verticalGradient(listOf(pageTintTop(), pageTintBottom()))
 
 /** A tinted surface for selected answers; kept faint so the glass stays the surface. */
 @Composable

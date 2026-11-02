@@ -210,8 +210,10 @@ fun GamePlayer(game: GameDefinition, onExit: () -> Unit) {
         scroll = NavScrollNone,
         onBack = onExit,
         backLabel = stringResource(R.string.games_back),
+        edgeColor = if (stage == GameStage.Result) skin.pageTintTop() else XpColors.CanvasGrouped,
     ) { top ->
-        Box(Modifier.fillMaxSize().padding(top = top)) {
+        // The result paints its own full-bleed ground (under the nav edge too), so it takes [top] itself.
+        Box(Modifier.fillMaxSize().padding(top = if (stage == GameStage.Result) 0.dp else top)) {
             when (stage) {
                 GameStage.Intro -> IntroView(
                     game = game,
@@ -243,6 +245,7 @@ fun GamePlayer(game: GameDefinition, onExit: () -> Unit) {
                     outcome = GameScoring.outcome(game, deck, answers),
                     skin = skin,
                     reduced = reduced,
+                    top = top,
                     onReplay = {
                         run += 1
                         stage = GameStage.Play
@@ -1173,6 +1176,7 @@ private fun ResultView(
     outcome: GameOutcome,
     skin: GameSkin,
     reduced: Boolean,
+    top: androidx.compose.ui.unit.Dp,
     onReplay: () -> Unit,
     onExit: () -> Unit,
 ) {
@@ -1183,14 +1187,13 @@ private fun ResultView(
     val figure = resultFigure(game, deck, answers, outcome)
     val persona = game.mode == GameMode.Persona || game.mode == GameMode.Type
 
-    val washDepth = with(androidx.compose.ui.platform.LocalDensity.current) { 420.dp.toPx() }
-    Box(Modifier.fillMaxSize().background(XpColors.CanvasGrouped).background(skin.pageWash(washDepth))) {
+    Box(Modifier.fillMaxSize().background(skin.pageWash())) {
         Column(Modifier.fillMaxSize()) {
             // 1–3 是同一个故事，从上往下读：抬头 → 你的画像 → 这意味着。
             Column(
                 Modifier.weight(1f).fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(start = XpSpace.page, end = XpSpace.page, top = XpSpace.m),
+                    .padding(start = XpSpace.page, end = XpSpace.page, top = top + XpSpace.m),
             ) {
                 ResultHero(outcome = outcome, figure = figure, showBody = persona, skin = skin, reduced = reduced)
 
@@ -1267,6 +1270,7 @@ private fun ResultView(
 
             // 4 · 动作固定在底部：再测一次 / 回到游戏，滚到哪都够得着。
             ResultActionBar(
+                ground = skin.pageTintBottom(),
                 bottomInset = LocalTabBarInset.current,
                 onReplay = onReplay,
                 onExit = onExit,
@@ -1533,19 +1537,19 @@ private fun MeaningSection(outcome: GameOutcome, persona: Boolean, skin: GameSki
 
 /** 4 · 底部动作条：一条主、一条次，始终在拇指够得着的位置，也不被浮起的标签栏盖住。 */
 @Composable
-private fun ResultActionBar(bottomInset: androidx.compose.ui.unit.Dp, onReplay: () -> Unit, onExit: () -> Unit) {
+private fun ResultActionBar(ground: Color, bottomInset: androidx.compose.ui.unit.Dp, onReplay: () -> Unit, onExit: () -> Unit) {
     Column(
         Modifier.fillMaxWidth()
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color.Transparent,
-                        XpColors.CanvasGrouped.copy(alpha = 0.86f),
-                        XpColors.CanvasGrouped,
+                        ground.copy(alpha = 0f),
+                        ground.copy(alpha = 0.86f),
+                        ground,
                     ),
                 ),
             )
-            .padding(start = XpSpace.page, end = XpSpace.page, top = XpSpace.m, bottom = bottomInset + XpSpace.s),
+            .padding(start = XpSpace.page, end = XpSpace.page, top = XpSpace.xl, bottom = bottomInset + XpSpace.s),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
             XpButton(

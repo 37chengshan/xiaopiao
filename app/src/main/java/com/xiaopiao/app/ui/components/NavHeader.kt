@@ -120,6 +120,8 @@ fun NavScaffold(
     overlay: (@Composable BoxScope.(glass: com.kyant.backdrop.Backdrop) -> Unit)? = null,
     /** 玻璃地面的颜色浓度（1 = 设置页那一档；游戏页用 0.55，免得彩色盖过内容）。 */
     glassStrength: Float = 1f,
+    /** The colour the top edge fades from; a page with its own tinted ground passes that tint so no seam shows. */
+    edgeColor: Color = XpColors.CanvasGrouped,
     content: @Composable BoxScope.(top: Dp) -> Unit,
 ) {
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -138,7 +140,7 @@ fun NavScaffold(
             else content(topInset + NavBarHeight)
         }
         // No bar: a soft edge fade keeps the title legible, and each group of controls floats in its own glass capsule.
-        val edge = XpColors.CanvasGrouped
+        val edge = edgeColor
         // The status bar band stays near-solid so scrolled text never reads behind the clock; the fade starts below it.
         val statusStop = topInset / (topInset + NavBarHeight + EdgeFade)
         Box(
