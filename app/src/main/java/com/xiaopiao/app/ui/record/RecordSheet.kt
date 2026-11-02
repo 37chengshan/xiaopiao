@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -96,6 +97,11 @@ fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
     val mode = state.mode ?: return
     val scope = rememberCoroutineScope()
     val defs = com.xiaopiao.app.ui.category.rememberCategoryDefs(container.categories)
+    // 90 days of rows for the 常用短语 above the note; read once per sheet, never per keystroke.
+    val history by androidx.compose.runtime.remember(state.mode) {
+        val now = System.currentTimeMillis()
+        container.ledger.observeRange(now - 90L * 86_400_000L, now + 86_400_000L)
+    }.collectAsState(initial = emptyList())
     var managerOpen by remember { mutableStateOf(false) }
 
     val toast = com.xiaopiao.app.ui.components.rememberXpToast()
@@ -116,12 +122,13 @@ fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
                     editing = editing,
                     prefill = state.prefill,
                     onDelete = { editing?.let { state.onDeleteEditing(it) }; state.dismiss() },
-                    onSubmit = { txn, keepOpen ->
+                    onSubmit = { txn ->
                         scope.launch {
                             if (editing != null) container.ledger.update(txn) else container.ledger.add(txn)
-                            if (keepOpen) toast.show(tr("已记 1 笔", "1 entry recorded")) else state.dismiss()
+                            state.dismiss()
                         }
                     },
+                    history = history,
                 )
             }
             // Voice is handled inline by the dock; if it ever lands here it expects a transcript.

@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.wallet
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.CornerRadius
 import com.xiaopiao.app.ui.motion.XpMotion
 import androidx.compose.animation.core.VisibilityThreshold
@@ -72,8 +73,8 @@ fun <T> CardStack(
         modifier
             .fillMaxWidth()
             .height(frontHeight + peek * visibleBehind)
-            // Anything a deeper card would draw past its strip is cut, never spilling over the next card.
-            .clipToBounds()
+            // No clipToBounds: nearer cards already cover the deeper ones, and a clip cut every card's 12dp shadow into
+            // straight edges — the rectangle tt kept seeing around the pile (2026-11-02).
             .pointerInput(count, safeFront, peek) {
                 if (count <= 1) return@pointerInput
                 val threshold = peek.toPx() * 0.55f
@@ -138,7 +139,7 @@ fun <T> CardStack(
                         Box(
                             Modifier.fillMaxWidth().height(peek)
                                 .semantics { contentDescription = label(item) }
-                                .pressableClick(haptic = false) { onBringToFront(item) },
+                                .pressableClick(haptic = false, shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)) { onBringToFront(item) },
                         )
                     }
                 }

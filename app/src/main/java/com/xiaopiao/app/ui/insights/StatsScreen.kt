@@ -539,7 +539,7 @@ private fun DirectionChips(direction: Direction, onDirection: (Direction) -> Uni
 private fun CircleArrow(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, onClick: () -> Unit) {
     // 44dp touch target; the visible pill stays 26dp (mobile guideline: tappable ≥44).
     Box(
-        Modifier.size(44.dp).pressableClick(haptic = true, onClick = onClick),
+        Modifier.size(44.dp).pressableClick(haptic = true, shape = CircleShape, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Box(

@@ -12,6 +12,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.graphicsLayer
 import com.xiaopiao.app.ui.theme.XpColors
 
@@ -31,6 +34,11 @@ private const val PressDimAlpha = 0.07f
 fun Modifier.pressableScale(
     interactionSource: MutableInteractionSource,
     scaleDown: Float = DefaultPressScale,
+    /**
+     * Outline of the veil. Pass the surface's own shape whenever this node is not already clipped to it: a hit box
+     * larger than a rounded pill used to show the veil as a hard dark rectangle (tt 2026-11-02).
+     */
+    shape: Shape = RectangleShape,
 ): Modifier = composed {
     val pressed by interactionSource.collectIsPressedAsState()
     val reduced = rememberReducedMotion()
@@ -48,7 +56,9 @@ fun Modifier.pressableScale(
             drawContent()
             val p = press.value
             if (p > 0f) {
-                drawRect(XpColors.Ink.copy(alpha = PressDimAlpha * p))
+                val veil = XpColors.Ink.copy(alpha = PressDimAlpha * p)
+                if (shape === RectangleShape) drawRect(veil)
+                else drawOutline(shape.createOutline(size, layoutDirection, this), veil)
             }
         }
 }
@@ -62,12 +72,14 @@ fun Modifier.pressableClick(
     enabled: Boolean = true,
     scaleDown: Float = DefaultPressScale,
     haptic: Boolean = false,
+    /** See [pressableScale]. */
+    shape: Shape = RectangleShape,
     onClick: () -> Unit,
 ): Modifier = composed {
     val source = remember { MutableInteractionSource() }
     val haptics = rememberXpHaptics()
     this
-        .pressableScale(source, scaleDown)
+        .pressableScale(source, scaleDown, shape)
         .clickable(interactionSource = source, indication = null, enabled = enabled) {
             if (haptic) haptics.select()
             onClick()

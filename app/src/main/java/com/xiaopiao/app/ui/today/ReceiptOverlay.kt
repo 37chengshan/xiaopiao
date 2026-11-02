@@ -211,7 +211,7 @@ private fun StatusCapsule(
 @Composable
 private fun CapsuleAction(label: String, description: String, onClick: () -> Unit, accent: Boolean = false) {
     Box(
-        Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp).pressableClick(onClick = onClick).padding(horizontal = XpSpace.m)
+        Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp).pressableClick(shape = RoundedCornerShape(50), onClick = onClick).padding(horizontal = XpSpace.m)
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {

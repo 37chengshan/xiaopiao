@@ -88,13 +88,17 @@ fun UndoToastHost(state: UndoToastState, modifier: Modifier = Modifier, backdrop
             state.dismiss()
         }
     }
-    Box(modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.l), contentAlignment = Alignment.BottomCenter) {
+    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+        // The margin lives inside AnimatedVisibility: its fade renders into a layer the size of its content, so a margin
+        // outside it cut the glass shadow into a hard rectangle mid-animation (tt 2026-11-02).
         AnimatedVisibility(
             visible = data != null,
             enter = XpMotion.enterRise(2f),
             exit = XpMotion.exitSink(2f),
         ) {
-            last?.let { ToastCapsule(it, onDismiss = state::dismiss, backdrop = backdrop) }
+            Box(Modifier.padding(horizontal = XpSpace.l, vertical = XpSpace.l)) {
+                last?.let { ToastCapsule(it, onDismiss = state::dismiss, backdrop = backdrop) }
+            }
         }
     }
 }

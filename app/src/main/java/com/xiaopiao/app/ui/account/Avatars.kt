@@ -184,7 +184,7 @@ fun AvatarPickerSheet(client: AccountClient, current: RemoteAvatar?, onDismiss: 
                         Modifier.size(60.dp)
                             .then(if (selected) Modifier.border(2.5.dp, XpColors.Accent, CircleShape) else Modifier)
                             .padding(4.dp)
-                            .pressableClick(enabled = !busy, scaleDown = 0.92f) { run { client.setAvatarPreset(p.id) } },
+                            .pressableClick(enabled = !busy, scaleDown = 0.92f, shape = CircleShape) { run { client.setAvatarPreset(p.id) } },
                         contentAlignment = Alignment.Center,
                     ) { XpAvatar(RemoteAvatar(p.id, null), "", size = 52.dp) }
                 }

@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.account
 
+import androidx.compose.foundation.shape.CircleShape
 import com.xiaopiao.app.ui.components.pressableClick
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -99,7 +100,7 @@ internal fun AccountProfilePage(client: AccountClient, onDismiss: () -> Unit) {
                     androidx.compose.runtime.CompositionLocalProvider(LocalAccount provides client) {
                         XpAvatar(
                             user?.avatar, user?.username.orEmpty(), size = 76.dp,
-                            modifier = Modifier.pressableClick(scaleDown = 0.94f) { avatarOpen = true },
+                            modifier = Modifier.pressableClick(scaleDown = 0.94f, shape = CircleShape) { avatarOpen = true },
                         )
                     }
                     TextButton(onClick = { avatarOpen = true }) { Text(copy("更换头像", "Change avatar")) }

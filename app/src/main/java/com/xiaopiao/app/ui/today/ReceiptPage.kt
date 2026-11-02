@@ -398,7 +398,7 @@ private fun CategoryCard(defs: List<CategoryDef>, excluded: Set<String>, onChang
                 val on = def.id !in excluded
                 Column(
                     Modifier.width(54.dp).graphicsLayer { alpha = if (on) 1f else 0.35f }
-                        .pressableClick(haptic = true) {
+                        .pressableClick(haptic = true, shape = RoundedCornerShape(XpRadius.m)) {
                             val next = if (on) excluded + def.id else excluded - def.id
                             // Keep at least one category on the paper.
                             if (spend.any { it.id !in next }) onChange(next)

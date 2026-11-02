@@ -357,7 +357,7 @@ fun CirclePostButton(backdrop: Backdrop?, onClick: () -> Unit, modifier: Modifie
                 lensAmount = 18.dp,
                 fallback = XpColors.Accent,
             )
-            .pressableClick(onClick = onClick),
+            .pressableClick(shape = CircleShape, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(Icons.Outlined.Edit, contentDescription = if (en) "New post" else "发帖", tint = XpColors.OnPrimary, modifier = Modifier.size(24.dp))

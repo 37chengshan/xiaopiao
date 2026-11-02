@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.today
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,7 +54,7 @@ private fun MiniReceipt(d: DaySummary, selected: Boolean, isToday: Boolean, tilt
         Modifier
             .rotate(if (selected) 0f else tilt)
             .width(92.dp).height(128.dp)
-            .pressableClick(onClick = onClick)
+            .pressableClick(shape = RoundedCornerShape(4.dp), onClick = onClick)
             .drawBehind {
                 val path = paperPath(size.width, size.height, 9.dp.toPx(), 5.dp.toPx(), false)
                 drawPath(path, XpColors.Paper)

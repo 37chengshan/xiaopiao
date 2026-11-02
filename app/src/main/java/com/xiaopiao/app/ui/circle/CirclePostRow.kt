@@ -204,7 +204,7 @@ private fun ReceiptMessage(
                                     if (empty) Modifier.border(0.5.dp, XpColors.Hairline, RoundedCornerShape(XpRadius.pill))
                                     else Modifier,
                                 )
-                                .pressableClick(scaleDown = 0.92f) { onToggleReaction(post.id, reaction.emoji) }
+                                .pressableClick(scaleDown = 0.92f, shape = RoundedCornerShape(XpRadius.pill)) { onToggleReaction(post.id, reaction.emoji) }
                                 .padding(horizontal = XpSpace.s, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {

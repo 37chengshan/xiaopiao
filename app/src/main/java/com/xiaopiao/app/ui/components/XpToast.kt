@@ -75,16 +75,18 @@ fun XpToastHost(state: XpToastState, modifier: Modifier = Modifier, backdrop: co
     SideEffect { current?.let { lastText = it.text } }
 
     Box(
-        modifier.fillMaxWidth().padding(horizontal = XpSpace.xl, vertical = XpSpace.l),
+        modifier.fillMaxWidth(),
         contentAlignment = Alignment.BottomCenter,
     ) {
+        // The margin lives inside AnimatedVisibility: its fade renders into a layer the size of its content, so a margin
+        // outside it cut the glass shadow into a hard rectangle mid-animation (tt 2026-11-02).
         AnimatedVisibility(
             visible = current != null,
             enter = XpMotion.enterRise(0.5f),
             exit = XpMotion.exitSink(0.5f),
         ) {
             Box(
-                Modifier.liquidGlass(
+                Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.l).liquidGlass(
                     backdrop,
                     RoundedCornerShape(XpRadius.pill),
                     film = XpColors.ToastBackground.copy(alpha = 0.78f),

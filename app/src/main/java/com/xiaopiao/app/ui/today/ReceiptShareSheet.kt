@@ -182,7 +182,7 @@ private fun ShareCard(lines: List<ReceiptLine>, stampText: String, gradient: Car
 @Composable
 private fun Swatch(g: CardGradient, selected: Boolean, onClick: () -> Unit) {
     Box(
-        Modifier.size(48.dp).pressableClick(haptic = false, onClick = onClick)
+        Modifier.size(48.dp).pressableClick(haptic = false, shape = CircleShape, onClick = onClick)
             .semantics { contentDescription = tr("背景 ${g.name}", "Background ${g.name}"); this.selected = selected },
         contentAlignment = Alignment.Center,
     ) {

@@ -733,7 +733,7 @@ private fun DeleteCapsule(count: Int, backdrop: com.kyant.backdrop.Backdrop? = n
                 rim = XpColors.Negative.copy(alpha = 0.25f),
                 fallback = fill,
             )
-            .pressableClick(enabled = enabled, scaleDown = 0.96f, haptic = enabled, onClick = onClick),
+            .pressableClick(enabled = enabled, scaleDown = 0.96f, haptic = enabled, shape = RoundedCornerShape(XpRadius.pill), onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {

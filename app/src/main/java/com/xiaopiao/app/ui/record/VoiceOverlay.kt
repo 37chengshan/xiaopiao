@@ -227,6 +227,9 @@ fun rememberVoiceCancelThresholdPx(): Float = with(LocalDensity.current) { Cance
  * day filled in, the user checks or changes the category and saves (tt: 说完直接进记一笔). Without an amount
  * the words still go in, so nothing said is lost. Only 没听清 / errors stay on the bar.
  */
+/** Space kept around the bar inside its animated layer so the glass shadow is never clipped. */
+internal val VoiceShadowRoom = 20.dp
+
 @Composable
 fun VoiceOverlay(
     host: VoiceHostState,
@@ -304,7 +307,9 @@ fun VoiceOverlay(
         val lift = if (listening) (host.liftPx / 400f).coerceIn(0f, 1f) else 0f
         Box(
             Modifier.fillMaxWidth()
-                .padding(horizontal = XpSpace.l)
+                // Vertical room for the 18dp shadow inside the fading layer (see UndoToastHost); AppShell lifts
+                // the overlay by the same amount less.
+                .padding(horizontal = XpSpace.l, vertical = VoiceShadowRoom)
                 .graphicsLayer { translationY = -lift * 16.dp.toPx() }
                 .heightIn(min = 56.dp)
                 .voiceGlass(backdrop, shape, tint, armed = listening && host.cancelArmed),

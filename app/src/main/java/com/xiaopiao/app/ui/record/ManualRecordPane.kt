@@ -1,5 +1,12 @@
 package com.xiaopiao.app.ui.record
 
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.material.icons.automirrored.outlined.KeyboardReturn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.animation.AnimatedVisibility
 import com.xiaopiao.app.ui.components.LocalSheetGlass
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -84,24 +91,25 @@ import java.util.Calendar
  * 记一笔, 1:1 with the wallet reference `041431` (docs/APP-DESIGN.md §4.1): × close, 支出/收入 segmented
  * on the left with 今天 ▾ / 19:14 ▾ on the right, ¥ + 30sp amount over a hairline, a 5-column category
  * grid (coloured icons, ＋ 自定义 at the end of the grid), the note pill with the camera slot, and a
- * 4×4 keypad whose last row is 再记一笔 · 0 · . · 保存.
+ * 4×4 keypad whose last row is 0 · . · ↵ (tt 2026-11-02: 再记一笔 removed; ↵ moves to the note, the note's
+ * 完成 saves).
  *
- * [onSubmit] gets `keepOpen = true` from 再记一笔 (the sheet stays and clears) and `false` from 保存.
- *
- * Editing a row is the same pane (docs/DESIGN.md §7): [editing] pre-fills every field, 再记一笔 becomes
- * 删除 ([onDelete]) and 保存 submits the row with its id kept.
+ * Editing a row is the same pane (docs/DESIGN.md §7): [editing] pre-fills every field, the bottom-left key is
+ * 删除 ([onDelete]) and saving submits the row with its id kept.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ManualRecordPane(
     defs: List<CategoryDef>,
-    onSubmit: (Txn, Boolean) -> Unit,
+    onSubmit: (Txn) -> Unit,
     onClose: () -> Unit = {},
     onOpenCategoryManager: () -> Unit = {},
     editing: Txn? = null,
     onDelete: () -> Unit = {},
     /** A new row pre-filled from voice: same fields as [editing], but saving adds instead of updating. */
     prefill: Txn? = null,
+    /** Recent rows, only to rank the 常用短语 above the note. */
+    history: List<Txn> = emptyList(),
 ) {
     val seed = editing ?: prefill
     val openedAt = remember { System.currentTimeMillis() }
@@ -133,7 +141,13 @@ internal fun ManualRecordPane(
     val cents = RecordDraftMath.cents(draft)
     val canSave = cents > 0L
 
-    fun save(keepOpen: Boolean) {
+    val noteFocus = remember { FocusRequester() }
+    var noteFocused by remember { mutableStateOf(false) }
+    // Once the note has had its turn, the ↵ key saves instead of sending the finger back there again.
+    var noteVisited by remember { mutableStateOf(seed?.merchant?.isNotBlank() == true) }
+    val phrases = remember(history, category.id) { NotePhrases.rank(history, category.id, openedAt) }
+
+    fun save() {
         val txn = RecordComposer.txn(
             draft = draft,
             direction = direction,
@@ -141,18 +155,20 @@ internal fun ManualRecordPane(
             merchant = merchant,
             at = atDayAndTime(dayStart, hour, minute),
         ) ?: return
-        if (keepOpen) haptics.select() else haptics.confirm()
+        haptics.confirm()
         // An edit keeps the row's identity and capture metadata; only what the pane shows changes.
         onSubmit(
             editing?.copy(
                 amountCents = txn.amountCents, direction = txn.direction, merchant = txn.merchant,
                 category = txn.category, categoryId = txn.categoryId, occurredAt = txn.occurredAt,
             ) ?: txn,
-            keepOpen,
         )
-        if (keepOpen) {
-            draft = RecordDraft()
-            merchant = ""
+    }
+
+    fun enter() {
+        if (noteVisited) save() else {
+            noteVisited = true
+            noteFocus.requestFocus()
         }
     }
 
@@ -197,17 +213,36 @@ internal fun ManualRecordPane(
             Modifier.fillMaxWidth().background(XpColors.CanvasGrouped.copy(alpha = if (LocalSheetGlass.current) 0.55f else 1f))
                 .padding(horizontal = XpSpace.page).padding(bottom = XpSpace.xs),
         ) {
+            AnimatedVisibility(
+                visible = noteFocused && phrases.isNotEmpty(),
+                enter = XpMotion.enterFade(),
+                exit = XpMotion.exitFade(),
+            ) {
+                PhraseRow(phrases) { phrase ->
+                    haptics.select()
+                    merchant = phrase
+                }
+            }
             NoteRow(
                 value = merchant,
                 onValueChange = { merchant = it.take(30) },
                 onCamera = { toast.show(tr("拍照记账即将支持", "Receipt photo capture is coming soon")) },
+                focusRequester = noteFocus,
+                onFocusChange = { focused ->
+                    noteFocused = focused
+                    if (focused) noteVisited = true
+                },
+                onDone = {
+                    if (canSave) save() else toast.show(tr("先输入金额", "Enter an amount first"))
+                },
             )
 
             Keypad(
-                canSave = canSave,
+                canEnter = canSave,
                 onKey = { key -> draft = RecordDraftMath.press(draft, key) },
-                onRepeat = { if (editing != null) onDelete() else save(keepOpen = true) },
-                onSave = { save(keepOpen = false) },
+                onDelete = onDelete,
+                onEnter = { enter() },
+                saves = noteVisited,
                 editing = editing != null,
             )
         }
@@ -407,7 +442,7 @@ private fun CategoryArea(
         }
         item(key = "custom") {
             Column(
-                Modifier.pressableClick(haptic = false, scaleDown = 0.94f, onClick = onCustom)
+                Modifier.pressableClick(haptic = false, scaleDown = 0.94f, shape = RoundedCornerShape(XpRadius.m), onClick = onCustom)
                     .padding(vertical = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -438,7 +473,14 @@ private fun CategoryArea(
 
 /** Note pill + the camera slot (36dp each, reference). The camera is an OCR entry that is not wired yet. */
 @Composable
-private fun NoteRow(value: String, onValueChange: (String) -> Unit, onCamera: () -> Unit) {
+private fun NoteRow(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onCamera: () -> Unit,
+    focusRequester: FocusRequester,
+    onFocusChange: (Boolean) -> Unit,
+    onDone: () -> Unit,
+) {
     Row(
         Modifier.fillMaxWidth().padding(top = XpSpace.s),
         verticalAlignment = Alignment.CenterVertically,
@@ -447,12 +489,14 @@ private fun NoteRow(value: String, onValueChange: (String) -> Unit, onCamera: ()
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(XpRadius.pill))
-                .background(XpColors.Fill).padding(horizontal = XpSpace.m),
+                .background(XpColors.Fill).padding(horizontal = XpSpace.m)
+                .focusRequester(focusRequester)
+                .onFocusChanged { onFocusChange(it.isFocused) },
             textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, color = XpColors.Ink),
             cursorBrush = SolidColor(XpColors.Accent),
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { }),
+            keyboardActions = KeyboardActions(onDone = { onDone() }),
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {
                     if (value.isEmpty()) {
@@ -482,20 +526,25 @@ private fun NoteRow(value: String, onValueChange: (String) -> Unit, onCamera: ()
     }
 }
 
+/** Flat keys press as a rounded tile, never a hard-edged block. */
+private val KeyShape = RoundedCornerShape(12.dp)
+
 private val keypadRows = listOf(
     listOf("7", "8", "9", RecordAmount.BACKSPACE),
     listOf("4", "5", "6", RecordDraftMath.MINUS),
     listOf("1", "2", "3", RecordDraftMath.PLUS),
 )
 
-/** 4×4 keypad, 49dp rows (reference). Flat keys, one accent save button, one quiet 再记一笔. */
+/** 4×4 keypad, 49dp rows (reference). Flat keys and one accent ↵ / 保存 key; editing adds 删除 bottom-left. */
 @Composable
 private fun Keypad(
-    canSave: Boolean,
+    canEnter: Boolean,
     onKey: (String) -> Unit,
-    onRepeat: () -> Unit,
-    onSave: () -> Unit,
-    /** Edit mode: the bottom-left key deletes the row instead of 再记一笔, and is always enabled. */
+    onDelete: () -> Unit,
+    onEnter: () -> Unit,
+    /** True once the note has been visited: the key reads 保存 and saves. */
+    saves: Boolean,
+    /** Edit mode: the bottom-left key deletes the row; otherwise 0 takes two cells. */
     editing: Boolean = false,
 ) {
     val haptics = rememberXpHaptics()
@@ -516,31 +565,45 @@ private fun Keypad(
             }
         }
         Row(Modifier.fillMaxWidth().height(49.dp), verticalAlignment = Alignment.CenterVertically) {
-            KeyCell(Modifier.weight(1f)) {
-                Box(
-                    Modifier.fillMaxWidth().height(49.dp).pressableClick(enabled = editing || canSave, scaleDown = 0.94f) {
-                        haptics.select()
-                        onRepeat()
-                    },
-                    contentAlignment = Alignment.CenterStart,
-                ) {
-                    Text(
-                        if (editing) tr("删除", "Delete") else tr("再记一笔", "Add another"),
-                        fontSize = 14.sp,
-                        color = when {
-                            editing -> XpColors.Negative
-                            canSave -> XpColors.InkSecondary
-                            else -> XpColors.InkTertiary
+            if (editing) {
+                KeyCell(Modifier.weight(1f)) {
+                    Box(
+                        Modifier.fillMaxWidth().height(49.dp).pressableClick(scaleDown = 0.94f, shape = KeyShape) {
+                            haptics.select()
+                            onDelete()
                         },
-                        maxLines = 1,
-                    )
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        Text(tr("删除", "Delete"), fontSize = 14.sp, color = XpColors.Negative, maxLines = 1)
+                    }
                 }
             }
-            KeyCell(Modifier.weight(1f)) { KeyLabel("0", 22, FontWeight.Medium) { haptics.tick(); onKey("0") } }
+            KeyCell(Modifier.weight(if (editing) 1f else 2f)) { KeyLabel("0", 22, FontWeight.Medium) { haptics.tick(); onKey("0") } }
             KeyCell(Modifier.weight(1f)) { KeyLabel(".", 22, FontWeight.Medium) { haptics.tick(); onKey(".") } }
             Box(Modifier.weight(1f).padding(start = XpSpace.s), contentAlignment = Alignment.CenterEnd) {
-                SaveButton(enabled = canSave, onSave = onSave)
+                EnterButton(enabled = canEnter, saves = saves, onClick = onEnter)
             }
+        }
+    }
+}
+
+/** 常用短语: one scrollable row of the notes this phone writes most, shown while the note has focus. */
+@Composable
+private fun PhraseRow(phrases: List<String>, onPick: (String) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = XpSpace.s).horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(XpSpace.xs),
+    ) {
+        phrases.forEach { phrase ->
+            Text(
+                phrase,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                color = XpColors.Ink,
+                maxLines = 1,
+                modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Card)
+                    .pressableClick(scaleDown = 0.94f) { onPick(phrase) }
+                    .padding(horizontal = XpSpace.m, vertical = 6.dp),
+            )
         }
     }
 }
@@ -553,7 +616,7 @@ private fun KeyCell(modifier: Modifier, content: @Composable () -> Unit) {
 @Composable
 private fun KeyLabel(text: String, size: Int, weight: FontWeight, onClick: () -> Unit) {
     Box(
-        Modifier.fillMaxWidth().height(49.dp).pressableClick(scaleDown = 0.94f, onClick = onClick),
+        Modifier.fillMaxWidth().height(49.dp).pressableClick(scaleDown = 0.94f, shape = KeyShape, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(text, fontSize = size.sp, fontWeight = weight, color = XpColors.Ink, style = TextStyle(fontFeatureSettings = "tnum"))
@@ -563,7 +626,7 @@ private fun KeyLabel(text: String, size: Int, weight: FontWeight, onClick: () ->
 @Composable
 private fun KeyGlyph(key: String, size: Int, onClick: () -> Unit) {
     Box(
-        Modifier.fillMaxWidth().height(49.dp).pressableClick(scaleDown = 0.94f, onClick = onClick),
+        Modifier.fillMaxWidth().height(49.dp).pressableClick(scaleDown = 0.94f, shape = KeyShape, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         if (key == RecordAmount.BACKSPACE) {
@@ -581,7 +644,7 @@ private fun KeyGlyph(key: String, size: Int, onClick: () -> Unit) {
 
 /** 86×48, radius 12: accent solid when there is an amount, grey fill when there is not (reference). */
 @Composable
-private fun SaveButton(enabled: Boolean, onSave: () -> Unit) {
+private fun EnterButton(enabled: Boolean, saves: Boolean, onClick: () -> Unit) {
     // Disabled used to be accent at 35% under OnAccent, which is white in light (≈1.9:1) and near-black in dark
     // (≈1.4:1): the label disappeared in both. A tinted fill with secondary ink reads as "not yet" everywhere.
     val bg by animateColorAsState(
@@ -592,10 +655,22 @@ private fun SaveButton(enabled: Boolean, onSave: () -> Unit) {
     val fg by animateColorAsState(if (enabled) XpColors.OnAccent else XpColors.InkSecondary, tween(160, easing = XpEase.out), label = "saveFg")
     Box(
         Modifier.size(width = 86.dp, height = 48.dp).clip(RoundedCornerShape(12.dp)).background(bg)
-            .pressableClick(enabled = enabled, scaleDown = 0.95f, haptic = true) { onSave() },
+            .pressableClick(enabled = enabled, scaleDown = 0.95f, haptic = true, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(tr("保存", "Save"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1)
+        // ↵ first (amount → note), 保存 once the note has had its turn (tt 2026-11-02).
+        androidx.compose.animation.Crossfade(saves, animationSpec = XpMotion.fade(), label = "enterKey") { save ->
+            if (save) {
+                Text(tr("保存", "Save"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1)
+            } else {
+                Icon(
+                    Icons.AutoMirrored.Outlined.KeyboardReturn,
+                    contentDescription = tr("下一步：填写备注", "Next: add a note"),
+                    tint = fg,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
     }
 }
 

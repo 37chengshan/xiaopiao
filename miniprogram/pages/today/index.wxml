@@ -1,0 +1,82 @@
+<!-- 自定义导航栏：高度、右边界都由系统胶囊推出，标题靠左；右上角留给微信自带的「··· / ⊙」。 -->
+<view class="nav" style="height: {{nav.total}}px; padding-top: {{nav.statusBar}}px;">
+  <view class="nav-bar" style="height: {{nav.barHeight}}px; padding-right: {{nav.safeRight}}px;">
+    <text class="nav-title">今日小票</text>
+  </view>
+</view>
+
+<view class="page" style="padding-top: {{nav.total}}px;">
+  <view class="summary">
+    <text class="summary-label">今日支出（元）</text>
+    <text class="summary-value">{{totalYuan}}</text>
+  </view>
+
+  <view class="paper">
+    <view class="paper-head">
+      <text class="paper-title">今 日 小 票</text>
+      <text class="paper-sub">认真生活，留下凭证。</text>
+      <text class="paper-date">{{today}}</text>
+    </view>
+    <view class="dash"></view>
+    <view wx:if="{{rows.length === 0}}" class="empty">
+      <text>今天还没有记录</text>
+      <text class="empty-hint">点下面的「记一笔」开始</text>
+    </view>
+    <view wx:for="{{rows}}" wx:key="id" class="row">
+      <text class="row-emoji">{{item.emoji}}</text>
+      <text class="row-title">{{item.title}}</text>
+      <text class="row-time">{{item.time}}</text>
+      <text class="row-amount">-{{item.amount}}</text>
+    </view>
+    <view class="dash"></view>
+    <view class="paper-total">
+      <text>合计</text>
+      <text class="paper-total-value">¥{{totalYuan}}</text>
+    </view>
+    <view class="zigzag"></view>
+  </view>
+
+  <button class="share" open-type="share">分享今日小票</button>
+</view>
+
+<view class="dock">
+  <view class="record" bindtap="openSheet" hover-class="record-pressed">
+    <text class="record-plus">＋</text>
+    <text>记一笔</text>
+  </view>
+</view>
+
+<!-- 记一笔：金额 → ↵ → 备注（上方常用短语）→ 保存 -->
+<view wx:if="{{sheetOpen}}" class="scrim" bindtap="closeSheet">
+  <view class="sheet" catchtap="noop">
+    <view class="sheet-top">
+      <text class="sheet-title">记一笔</text>
+      <text class="sheet-close" bindtap="closeSheet">✕</text>
+    </view>
+    <view class="amount"><text class="amount-cny">¥</text>{{amountYuan}}</view>
+    <scroll-view scroll-x class="cats" enable-flex>
+      <view wx:for="{{categories}}" wx:key="id" class="cat {{category === item.id ? 'cat-on' : ''}}" data-id="{{item.id}}" bindtap="pickCategory">
+        <text class="cat-emoji">{{item.emoji}}</text>
+        <text class="cat-label">{{item.label}}</text>
+      </view>
+    </scroll-view>
+    <view class="grey">
+      <scroll-view wx:if="{{noteFocus && phrases.length}}" scroll-x class="phrases" enable-flex>
+        <view wx:for="{{phrases}}" wx:key="*this" class="phrase" data-text="{{item}}" bindtap="pickPhrase">{{item}}</view>
+      </scroll-view>
+      <input class="note" placeholder="点击填写备注" value="{{note}}" focus="{{noteFocus}}" confirm-type="done"
+        bindfocus="onNoteFocus" bindblur="onNoteBlur" bindinput="onNoteInput" bindconfirm="save" />
+      <view class="keypad">
+        <view wx:for="{{keys}}" wx:for-item="row" wx:key="*this" class="key-row">
+          <view wx:for="{{row}}" wx:key="*this" class="key" hover-class="key-pressed" data-key="{{item}}" bindtap="tapKey">{{item === 'del' ? '⌫' : item}}</view>
+          <view wx:if="{{row.length === 3}}" class="key key-blank"></view>
+        </view>
+        <view class="key-row">
+          <view class="key key-wide" hover-class="key-pressed" data-key="0" bindtap="tapKey">0</view>
+          <view class="key" hover-class="key-pressed" data-key="." bindtap="tapKey">.</view>
+          <view class="key enter {{canEnter ? '' : 'enter-off'}}" hover-class="{{canEnter ? 'key-pressed' : 'none'}}" bindtap="tapEnter">{{noteVisited ? '保存' : '↵'}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

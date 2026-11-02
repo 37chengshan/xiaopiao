@@ -155,7 +155,7 @@ fun MerchantAnalysisScreen(
             }
 
             Column(Modifier.padding(horizontal = XpSpace.page)) {
-                XpCard(Modifier.pressableClick(onClick = onOpenCrowd)) {
+                XpCard(Modifier.pressableClick(shape = RoundedCornerShape(XpRadius.m), onClick = onOpenCrowd)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconTile(Icons.Outlined.Groups, size = 36.dp, tint = XpColors.Accent, background = XpColors.AccentSoft)
                         Column(Modifier.weight(1f).padding(horizontal = XpSpace.m)) {

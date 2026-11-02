@@ -134,7 +134,8 @@ fun WalletPanel(
     DisposableEffect(Unit) {
         val activity = context.findActivityOrNull()
         val window = activity?.window
-        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        // Debug builds can lift it from 设置 → 数据 so the wallet can be screenshotted for visual QA; release never can.
+        if (!(com.xiaopiao.app.BuildConfig.DEBUG && WalletDebug.allowCapture)) window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         onDispose {
             window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             window?.attributes = window?.attributes?.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE }
@@ -625,4 +626,9 @@ private fun DeleteRow(onDelete: () -> Unit) {
 private fun shortDate(at: Long): String {
     val cal = java.util.Calendar.getInstance().apply { timeInMillis = at }
     return "%02d/%02d".format(cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH))
+}
+
+/** Debug-only switch (设置 → 数据): lets the wallet be screenshotted for QA. In memory only, off after a restart. */
+object WalletDebug {
+    var allowCapture by androidx.compose.runtime.mutableStateOf(false)
 }

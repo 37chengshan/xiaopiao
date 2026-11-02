@@ -402,7 +402,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         com.xiaopiao.app.ui.record.VoiceOverlay(
             host = voiceHost,
             onRecord = { txn -> record.openManual(prefill = txn) },
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 104.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 104.dp - com.xiaopiao.app.ui.record.VoiceShadowRoom),
             backdrop = glass,
         )
     }

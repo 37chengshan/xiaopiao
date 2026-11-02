@@ -88,6 +88,14 @@ fun DataSection(
                 onClick = onLoadDemo,
             )
         }
+        if (BuildConfig.DEBUG) item {
+            GroupedRow(
+                title = tr("允许截屏卡包（仅调试）", "Allow wallet screenshots (debug)"),
+                value = if (com.xiaopiao.app.ui.wallet.WalletDebug.allowCapture) tr("开", "On") else tr("关", "Off"),
+                leading = { IconTile(Icons.Outlined.Science, tint = XpColors.Warning, background = XpColors.WarningSoft) },
+                onClick = { com.xiaopiao.app.ui.wallet.WalletDebug.allowCapture = !com.xiaopiao.app.ui.wallet.WalletDebug.allowCapture },
+            )
+        }
         item {
             GroupedRow(
                 title = tr("通知记录", "Capture log"),

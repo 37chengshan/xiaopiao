@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.wallet
 
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -227,7 +228,7 @@ fun BankCardBody(
 @Composable
 private fun FaceIcon(icon: ImageVector, description: String, face: CardFace, onClick: () -> Unit) {
     Box(
-        Modifier.size(32.dp).pressableClick(haptic = false, onClick = onClick),
+        Modifier.size(32.dp).pressableClick(haptic = false, shape = CircleShape, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = description, tint = face.onBg.copy(alpha = 0.9f), modifier = Modifier.size(18.dp))

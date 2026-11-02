@@ -173,9 +173,13 @@ fun NavScaffold(
             if (onBack != null) {
                 GlassCapsule(glass, light = topLight, stripOrigin = { stripOrigin }, modifier = Modifier.align(Alignment.TopStart)) {
                     // The tap box is 48dp tall; the label row keeps the pill's own 44dp so it stays optically centred.
-                    Box(Modifier.height(NavTouchTarget).pressableClick(onClick = onBack), contentAlignment = Alignment.TopCenter) {
+                    // The press is drawn on the 44dp pill itself, not the 48dp hit box: a veil on the hit box showed as a
+                    // dark rectangle hanging under the capsule (tt 2026-11-02).
+                    val backSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    Box(Modifier.height(NavTouchTarget).clickable(backSource, null, onClick = onBack), contentAlignment = Alignment.TopCenter) {
                         Row(
-                            Modifier.height(NavBarHeight).padding(start = 10.dp, end = 14.dp),
+                            Modifier.height(NavBarHeight).clip(CapsuleShape).pressableScale(backSource)
+                                .padding(start = 10.dp, end = 14.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             // The visible label already names the destination, so the chevron adds no words for TalkBack.

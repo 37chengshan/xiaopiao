@@ -685,7 +685,7 @@ private fun FlipChoiceCard(
                 cameraDistance = 12f * density
                 alpha = fade.value
             }
-            .pressableClick(enabled = enabled, scaleDown = 0.97f, haptic = true, onClick = onClick),
+            .pressableClick(enabled = enabled, scaleDown = 0.97f, haptic = true, shape = shape, onClick = onClick),
     ) {
         // Front face.
         Box(Modifier.matchParentSize().graphicsLayer { alpha = if (rotation.value < 90f) 1f else 0f }) {

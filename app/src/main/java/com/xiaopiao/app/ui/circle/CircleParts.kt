@@ -59,7 +59,7 @@ fun CircleAvatar(
         CircleTone.Warning -> XpColors.WarningSoft to XpColors.Warning
     }
     val click = if (onClick != null) {
-        Modifier.pressableClick(scaleDown = 0.94f, onClick = onClick)
+        Modifier.pressableClick(scaleDown = 0.94f, shape = CircleShape, onClick = onClick)
             .semantics { contentDescription = "查看${member.name}的共享范围" }
     } else Modifier
     // The member's own avatar (preset or photo) when they set one; the tinted initial otherwise.

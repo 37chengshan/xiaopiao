@@ -1,0 +1,9 @@
+{
+  "pages": ["pages/today/index"],
+  "window": {
+    "navigationStyle": "custom",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F2F2F7"
+  },
+  "sitemapLocation": "sitemap.json"
+}
