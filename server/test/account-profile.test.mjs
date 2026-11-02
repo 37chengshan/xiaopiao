@@ -1,8 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { store, passwordHash } from '../src/store.mjs';
+import { store } from '../src/store.mjs';
+import { createPasswords } from '../src/password.mjs';
 import { createApp } from '../src/app.mjs';
+
+const passwords = createPasswords();
 
 async function fixture(t) {
   const db = store(':memory:'), mail = [];
@@ -62,7 +65,7 @@ test('failed email-change codes consume attempts and cannot be brute-forced', as
 test('legacy short credentials survive logout/login and email IME punctuation is canonicalized', async t => {
   const f = await fixture(t);
   const legacy = 'testshort1';
-  await f.db.prepare('UPDATE users SET password=? WHERE email=?').run(await passwordHash(legacy), 'qa@example.test');
+  await f.db.prepare('UPDATE users SET password=? WHERE email=?').run(await passwords.hash(legacy), 'qa@example.test');
   const first = await f.call('login', { identifier: 'qa@example。test', password: legacy, client: 'native' });
   assert.equal(first.status, 200);
   assert.equal((await f.call('logout', {}, first.data.token)).status, 200);
@@ -73,9 +76,9 @@ test('legacy short credentials survive logout/login and email IME punctuation is
 
 test('new eight-character passwords register, verify, logout and log in', async t => {
   const f = await fixture(t);
-  const reg = await f.call('register', { email: 'eight@example.test', username: 'eightuser', password: 'test1234', client: 'native' });
+  const reg = await f.call('register', { email: 'eight@example.test', username: 'eightuser', password: 'Mint9-k2', client: 'native' });
   assert.equal(reg.status, 201);
   assert.equal((await f.call('verify', { code: f.mail.at(-1).code }, reg.data.token)).status, 200);
   assert.equal((await f.call('logout', {}, reg.data.token)).status, 200);
-  assert.equal((await f.call('login', { identifier: 'eightuser', password: 'test1234', client: 'native' })).status, 200);
+  assert.equal((await f.call('login', { identifier: 'eightuser', password: 'Mint9-k2', client: 'native' })).status, 200);
 });

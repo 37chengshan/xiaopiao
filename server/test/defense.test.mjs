@@ -6,8 +6,11 @@ import { connect } from 'node:net';
 import { Readable } from 'node:stream';
 import { POLICY, createDefense, readJson } from '../src/defense.mjs';
 import { createApp } from '../src/app.mjs';
-import { store, hash, secret, passwordHash } from '../src/store.mjs';
+import { store, hash, secret } from '../src/store.mjs';
+import { createPasswords } from '../src/password.mjs';
 import { createAgent, sseData } from '../src/agent.mjs';
+
+const passwords = createPasswords();
 
 async function fixture(t, options = {}) {
   const db = store(':memory:');
@@ -146,7 +149,7 @@ test('authenticated circle writes retain the default JSON body limit', async t =
 test('a successful login keeps at most ten sessions for that account', async t => {
   const f = await fixture(t); f.user();
   const password = 'A long session test passphrase';
-  f.db.prepare('UPDATE users SET password=? WHERE id=?').run(await passwordHash(password), 'owner');
+  f.db.prepare('UPDATE users SET password=? WHERE id=?').run(await passwords.hash(password), 'owner');
   for (let i = 0; i < 12; i++) f.db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(secret()), 'owner', Date.now() + 60_000 + i);
   const r = await fetch(f.base + '/v1/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier: 'owner', password, client: 'native' }) });
   assert.equal(r.status, 200); const data = await r.json();

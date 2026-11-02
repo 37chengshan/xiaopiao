@@ -91,3 +91,57 @@ DB_PATH=/var/lib/xiaopiao/api.sqlite node scripts/feedback.mjs [--since=<epochMs
 每行一个 JSON 对象（`id/userId/kind/text/appVersion/device/createdAt/ipHash`，最新在前），stdout 输出；`--limit` 上限 500，`DB_PATH` 指错会直接报错而不新建空库。`GET /v1/feedback` 仍是 404。
 
 验收（2026-11-01）：`npm test --prefix server` 122/122 通过，新增 11 项覆盖匿名/登录接受、`user_id` 仅登录时写入、失效 token 按匿名收、kind/空文本/超长/未知键拒绝与边界（3000 字、32/120 字符）恰好通过、错误响应不回显正文、16 KB 上限、10 次/小时后 429 与 `Retry-After`、按账号而非 IP 计数、`ip_hash` 等于 `hash(127.0.0.1)` 且明文 IP 不出现在 feedback 行与 feedback 限流键、无 HTTP 读取、脚本读取排序与 `--since/--limit`；`npm run check` 通过。另用真实进程（`XP_DEV_MAIL=1`、`/tmp` 临时 DB）跑通 匿名 201 → 未知键/坏 kind/17 KB 各 400 → `GET` 404 → 真实注册+验证账号 201 且行内 `userId` 非空 → 过期 token 201 匿名 → 第 11 次 429 带 `Retry-After` → `scripts/feedback.mjs` 读懂全部行、`--since` 过滤、`--limit` 越界报错、`DB_PATH` 不存在不建库；服务端 stdout 只出现 dev mail 一行，没有任何反馈正文。生产未部署，未触碰 tt 账号。
+
+## 密码服务加固与认证防御（2026-11-01）
+
+代码已就位，**未部署**；生产仍为 2026-10-30 的 release。现有账号不受影响：强度规则只作用于**正在设置的**新密码，登录路径不做强度筛查，旧哈希原样可验证。
+
+### 密码强度（只对新密码生效）
+
+注册、重设密码、改密这三处的新密码必须同时满足：8–128 字符（下限沿用 2026-10-30 的裁决），且不在内置常见密码表（约 160 条，含 `password123`、`12345678`、`qwertyui`、`woaini520`、`xiaopiao` 等），不是同一字符重复（`aaaaaaaa`），不是纯数字或纯字母的严格连号（`01234567`、`abcdefgh`、`hgfedcba`），不等于用户名或邮箱本地部分（忽略大小写）。
+
+不通过返回 `400 PASSWORD_WEAK`，带 `field`：`password`（注册/重设）或 `newPassword`（改密）。文案「密码太简单，换一个更难猜的（至少 8 位，别用常见词或账号名）」由客户端直接展示，无需映射新错误码。长度问题仍是 `400 INVALID_INPUT` + 同一个 `field`。`/v1/auth/policy` 的响应字段不变，客户端不必改。
+
+### 哈希格式与自动升级
+
+新哈希：`scrypt1$<logN>$<r>$<p>$<salt b64url>$<key b64url>`，当前参数 `17/8/1`（N=2^17、r=8，每次派生 128 MiB、约 0.3 秒）。带 pepper 时前缀为 `scrypt1p$`。参数写在哈希串里，所以以后提高成本不需要停机迁移：`verify` 按**行内**参数派生，登录成功后若该行格式或成本落后于当前设置，就地静默重写（重写失败不影响这次登录）。旧的 `<salt>:<hex>` 旧格式继续可验证，并在下次登录时自动升级。
+
+无法解析的行（截断、空串、未知算法）按登录失败处理，返回 401 而不是 500：旧实现会在长度不等时抛错。
+
+### 可选 pepper
+
+`PASSWORD_PEPPER` 环境变量非空时，密码先做 `HMAC-SHA256(pepper, password)` 再进 scrypt；拿到数据库备份但没有该变量无法离线爆破。**默认关闭**，不设置时行为与今天完全一致。变体记录在哈希前缀里，所以「先上线后加 pepper」不会锁死已有账号；反过来，已经在写 `scrypt1p$` 行之后再移除该变量，那些账号将无法登录（只能离线重置）——因此启动时若发现库里有 peppered 行而变量缺失，只打一行警告、不阻断启动。
+
+### 派生并发闸门
+
+同时最多 2 个 scrypt 派生，另有 8 个排队位；超出直接 `503 SERVER_BUSY`（`Retry-After: 5`）。systemd 单元 `MemoryMax=768M`，此前 3 路并发（认证工作池上限）就已经吃掉 384 MiB；现在最坏 2×128 MiB。实测 8 个并发注册请求下进程峰值 RSS 319 MB，其中 5 个由既有认证工作池（上限 3）以 503 拒绝、3 个全部成功（第 3 个排队而非失败）。
+
+### 失败计数与锁定（`guard`）
+
+| 维度 | 阈值 | 锁定 | 说明 |
+|---|---|---|---|
+| 账号 `a:<userId>` | 15 分钟内 5 次失败 | 60 秒起，每次翻倍，上限 15 分钟 | 忘密码的人损失几十秒 |
+| 来源 `i:<hash(ip)>` | 1 小时内 20 次失败 | 1 小时 | 撞库换账号也照样被打到 |
+
+- 覆盖三条会校验密码的路径：`/v1/auth/login`、`/v1/auth/email-request`（当前密码校验）、`/v1/auth/password`。验证码相关路径仍由既有的「一码 5 次、10 分钟」上限约束。
+- 未知标识符只累积来源键，所以探测不存在的账号也会计入来源预算；已知账号同时累积账号键与来源键。
+- 一次成功即清掉两个键（含已累积的 strikes 与剩余锁定），误输几次不会长期叠加。
+- 锁定生效时返回 `429 RATE_LIMITED` + `Retry-After`，且在派生之前就拒绝（一次行读取，不烧 128 MiB）。
+- 已知取舍：知道用户名的人最多能把该账号锁 15 分钟。所以来源预算才是主防线，账号锁短且封顶。
+- `security_summary` 新增 `guard: { tracked, locked, failures }` 三个聚合整数；不记录任何 key、账号或 IP。状态行在 24 小时后由既有清理器删除。
+
+### 改密接口（不需要邮箱验证码）
+
+`POST /v1/auth/password`，已登录即可（**不要求已验证邮箱**），body `{ "currentPassword": string, "newPassword": string }`：
+
+- 校验当前密码 → 校验新密码强度 → 新旧不得相同（`400 PASSWORD_UNCHANGED`，`field: newPassword`）。
+- 成功 `200 { "ok": true }`：撤销该账号其它所有会话（当前这条保留）、删除未用完的**重置**码（验证码与换邮箱码不动）。不发 `Set-Cookie`。
+- 失败：未登录 `401`；当前密码错 `400 INVALID_CURRENT_PASSWORD`（`field: currentPassword`）；每账号 5 次/小时限流；多余请求体字段与其它 auth 路由一致地忽略。
+- 设计原因：tt 要求「拿当前密码就能改，不再走邮件」。当前密码是最强的所有权证明，同时改密后立刻踢掉其它会话，泄露时能在几秒内止损。
+- App 目前没有改密 UI，接口先就位；客户端下次迭代接入即可。
+
+### 未改变的既有行为
+
+登录不做强度筛查（历史短/弱密码照常登录）；登录的密码长度仍只做「非空且 ≤128」上限检查；同一账号最多 10 个会话；`/v1/auth/reset` 成功后撤销全部会话；验证码 10 分钟有效、5 次尝试、单次消费。新增表 `auth_guard(key, failures, strikes, window_start, locked_until, updated_at)`，无外键、可安全回滚代码（旧代码不读这张表）。
+
+验收（2026-11-01）：`npm test --prefix server` 142/142 通过（新增 20 项：`password.test.mjs` 6、`guard.test.mjs` 6、`auth-hardening.test.mjs` 8），`npm run check` 通过。真实进程（`XP_DEV_MAIL=1`、临时 DB）验收：弱密码 `password123`／`01234567`／与用户名相同 各 `400 PASSWORD_WEAK` 且用户表仍为空；强密码 201 且行内为 `scrypt1$17$8$1$…`；连续 5 次错密码 → 401×5，第 6 次（正确密码）`429` + `Retry-After: 60`，`auth_guard` 里账号键与来源键各 1 条；手工写入旧格式哈希后登录 200 且该行被就地改写为 `scrypt1$…`；`POST /v1/auth/password` 200 → 未用完的重置码清零、其它会话 401、当前会话仍 200、旧密码 401、新密码 200；`PASSWORD_PEPPER=…` 启动后新账号为 `scrypt1p$…` 且能登录、纯 `scrypt1$` 账号照常登录；去掉该变量重启后 peppered 账号 401 且 stdout 出现一行警告（不含任何用户信息）；8 个并发注册峰值 RSS 319 MB。生产未部署，未触碰 tt 账号。

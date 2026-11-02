@@ -2,12 +2,14 @@ import { createServer } from 'node:http';
 import { isIP } from 'node:net';
 import { POLICY, createDefense, readJson, securityError } from './defense.mjs';
 import { randomInt, randomUUID } from 'node:crypto';
-import { hash, secret, passwordHash, passwordMatches, publicUser } from './store.mjs';
+import { hash, secret, publicUser } from './store.mjs';
+import { createPasswords, checkStrength, PASSWORD } from './password.mjs';
+import { createGuard, GUARD, accountKey, sourceKey } from './guard.mjs';
 import { createLedger, LIMITS as LEDGER } from './ledger.mjs';
 import { createCircles, LIMITS as CIRCLE } from './circle.mjs';
 import { createAvatars, LIMITS as AVATAR } from './avatar.mjs';
 import { createFeedback, LIMITS as FEEDBACK } from './feedback.mjs';
-export const ACCOUNT_POLICY = Object.freeze({ passwordMin: 8, passwordMax: 128, usernameMin: 3, usernameMax: 30, profileEditing: true });
+export const ACCOUNT_POLICY = Object.freeze({ passwordMin: PASSWORD.min, passwordMax: PASSWORD.max, usernameMin: 3, usernameMax: 30, profileEditing: true });
 const errors = {
   INVALID_CURRENT_PASSWORD: [400, '当前密码不正确'],
   SERVER_BUSY: [503, '服务繁忙，请稍后重试'], REQUEST_TIMEOUT: [408, '请求超时，请重试'],
@@ -26,12 +28,19 @@ const errors = {
   RECEIPT_INVALID: [400, '小票卡片格式不正确'],
   AVATAR_INVALID: [400, '头像格式不支持，请换一张 JPEG/PNG/WebP 图片'],
   AVATAR_TOO_LARGE: [413, '头像图片不能超过 256 KB'], AVATAR_NOT_FOUND: [404, '还没有设置头像'],
+  PASSWORD_WEAK: [400, '密码太简单，换一个更难猜的（至少 8 位，别用常见词或账号名）'],
+  PASSWORD_UNCHANGED: [400, '新密码不能和当前密码一样'],
 };
 function fail(code, field) { throw Object.assign(new Error(code), { code, ...(field ? { field } : {}) }); }
 function text(value, max = 256) { if (typeof value !== 'string' || !value.trim() || value.length > max) fail('INVALID_INPUT'); return value.trim(); }
 function identifierOf(value) { return text(value, 254).normalize('NFKC').replace(/[。．]/g, '.').toLowerCase(); }
 function emailOf(value) { let email; try { email = identifierOf(value); } catch { fail('INVALID_INPUT', 'email'); } if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail('INVALID_INPUT', 'email'); return email; }
-function passwordOf(value) { if (typeof value !== 'string' || value.length < ACCOUNT_POLICY.passwordMin || value.length > ACCOUNT_POLICY.passwordMax) fail('INVALID_INPUT', 'password'); return value; }
+/** Length is the public rule; strength is the new rule. Only ever applied to a password being set, never to a login. */
+function newPasswordOf(value, identity, field) {
+  if (typeof value !== 'string' || value.length < ACCOUNT_POLICY.passwordMin || value.length > ACCOUNT_POLICY.passwordMax) fail('INVALID_INPUT', field);
+  if (!checkStrength(value, identity).ok) fail('PASSWORD_WEAK', field);
+  return value;
+}
 function numberParam(url, name, fallback) {
   const raw = url.searchParams.get(name);
   if (raw === null || raw === '') return fallback;
@@ -43,17 +52,24 @@ const PAYLOAD = { default: 96_000, ledger: 512_000, avatar: AVATAR.body };
 const bodyOf = (req, limit = PAYLOAD.default, tooLarge = 'INVALID_INPUT', timeoutMs) => readJson(req, limit, tooLarge, timeoutMs);
 /** Dev previews move between loopback ports; production stays pinned to one exact HTTPS origin. */
 const loopbackOrigin = /^http:\/\/(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?$/;
-export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173', production = false, trustedProxy = false, defensePolicy = POLICY }) {
+export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173', production = false, trustedProxy = false, defensePolicy = POLICY, pepper = null, kdf }) {
   // `APP_ORIGIN` takes a comma-separated list in dev (Web on 5173 and 5466); production stays one exact HTTPS origin.
   const origins = new Set(String(origin).split(',').map(value => value.trim()).filter(Boolean));
   if (!origins.size) throw new Error('APP_ORIGIN is required');
   if (production && (origins.size !== 1 || ![...origins][0].startsWith('https://'))) throw new Error('Production APP_ORIGIN must be exactly one https origin');
   const defense = createDefense(defensePolicy);
-  const dummyPassword = passwordHash(secret());
   const ledger = createLedger({ db });
   const circles = createCircles({ db });
   const avatars = createAvatars({ db });
   const feedback = createFeedback({ db });
+  const passwords = createPasswords({ pepper, ...(kdf ? { kdf } : {}) });
+  const guard = createGuard({ db });
+  // Unknown identifiers still pay for a real derivation, so a miss and a hit cost the same wall time.
+  const dummyPassword = passwords.hash(secret());
+  // A peppered row cannot be checked without the key, so a missing variable would look like wrong passwords at login.
+  if (!pepper && db.prepare("SELECT 1 FROM users WHERE password LIKE 'scrypt1p$%' LIMIT 1").get()) {
+    console.warn('password: PASSWORD_PEPPER 未设置，但库里有带 pepper 的密码哈希；这些账号将无法登录');
+  }
   /** Every user the API returns carries the avatar the clients draw; the row alone does not know it. */
   const publicOf = row => publicUser(row, avatars.json(row.id));
   const verifiedUser = req => {
@@ -71,6 +87,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
   const cookie = (token, expires = 30 * 86400) => `xp_session=${token}; HttpOnly; Path=/v1; SameSite=Strict; Max-Age=${expires}${production ? '; Secure' : ''}`;
   const cleanup = setInterval(() => {
     for (const table of ['sessions', 'codes', 'runs', 'limits', 'email_changes']) db.prepare(`DELETE FROM ${table} WHERE expires < ?`).run(Date.now());
+    db.prepare('DELETE FROM auth_guard WHERE updated_at < ?').run(Date.now() - 86_400_000);
   }, 60_000).unref();
   function rate(key, max, window = 900_000) {
     const now = Date.now();
@@ -263,7 +280,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
         return json({ error: 'NOT_FOUND' }, 404);
       }
       if (req.method !== 'POST') return json({ error: 'NOT_FOUND' }, 404);
-      const authRoute = /^\/v1\/auth\/(register|login|logout|verify|resend|forgot|reset|profile|email-request|email-confirm)$/.test(url.pathname);
+      const authRoute = /^\/v1\/auth\/(register|login|logout|verify|resend|forgot|reset|password|profile|email-request|email-confirm)$/.test(url.pathname);
       if (authRoute) {
         rate(`auth:${ip}`, 30);
         workReleases.push(defense.acquire('auth', defensePolicy.auth));
@@ -286,11 +303,12 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       if (url.pathname.startsWith('/v1/auth/')) {
         switch (url.pathname) {
           case '/v1/auth/register': {
-            const email = emailOf(body.email), username = text(body.username, 30).toLowerCase(), password = passwordOf(body.password);
+            const email = emailOf(body.email), username = text(body.username, 30).toLowerCase();
             if (!/^[a-z][a-z0-9_]{2,29}$/.test(username)) fail('INVALID_INPUT', 'username');
+            const password = newPasswordOf(body.password, { username, email }, 'password');
             if (!sendMail) fail('MAIL_UNAVAILABLE');
             if (db.prepare('SELECT id FROM users WHERE email=? OR username=?').get(email, username)) fail('ACCOUNT_EXISTS');
-            const encoded = await passwordHash(password);
+            const encoded = await passwords.hash(password);
             const user = { id: randomUUID(), email, username, verified: 0 };
             try { db.prepare('INSERT INTO users VALUES (?,?,?,?,0,?)').run(user.id, email, username, encoded, Date.now()); }
             catch { fail('ACCOUNT_EXISTS'); }
@@ -309,7 +327,15 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
           case '/v1/auth/email-request': {
             const user = verifiedUser(req), email = emailOf(body.email);
             if (email === user.email) fail('INVALID_INPUT', 'email');
-            if (typeof body.currentPassword !== 'string' || body.currentPassword.length > 128 || !await passwordMatches(body.currentPassword, user.password)) fail('INVALID_CURRENT_PASSWORD', 'currentPassword');
+            // The current-password check is a second guessing surface, so it counts toward the same locks as login.
+            const keys = [accountKey(user.id), sourceKey(ip)];
+            guard.blocked(keys);
+            if (typeof body.currentPassword !== 'string' || !body.currentPassword.length || body.currentPassword.length > PASSWORD.max ||
+                !await passwords.verify(body.currentPassword, user.password)) {
+              guard.failed(keys, GUARD.account);
+              fail('INVALID_CURRENT_PASSWORD', 'currentPassword');
+            }
+            guard.passed(keys);
             if (db.prepare('SELECT 1 FROM users WHERE email=? AND id<>?').get(email, user.id)) fail('ACCOUNT_EXISTS', 'email');
             if (mailLocks.has(`${user.id}:email`)) throw securityError('RATE_LIMITED', 5);
             db.prepare('INSERT INTO email_changes VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET email=excluded.email, expires=excluded.expires').run(user.id, email, Date.now()+600_000);
@@ -336,12 +362,20 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
           case '/v1/auth/login': {
             const identifier = identifierOf(body.identifier);
             rate(`login:${hash(identifier)}`, 10);
-            // Existing accounts may predate the new-password policy; never rewrite their credential.
-            if (typeof body.password !== 'string' || !body.password.length || body.password.length > ACCOUNT_POLICY.passwordMax) fail('INVALID_INPUT', 'password');
+            // Existing accounts may predate the password policy; never rewrite their credential, only its hash form.
+            if (typeof body.password !== 'string' || !body.password.length || body.password.length > PASSWORD.max) fail('INVALID_INPUT', 'password');
             const password = body.password;
             const user = db.prepare('SELECT * FROM users WHERE email=? OR username=?').get(identifier, identifier);
-            const matches = await passwordMatches(password, user?.password ?? await dummyPassword);
-            if (!user || !matches) fail('INVALID_CREDENTIALS');
+            // Unknown identifiers only fill the source budget, so cycling accounts from one address still gets caught.
+            const keys = [sourceKey(ip), ...(user ? [accountKey(user.id)] : [])];
+            guard.blocked(keys);
+            const matches = await passwords.verify(password, user?.password ?? await dummyPassword);
+            if (!user || !matches) { guard.failed(keys, user ? GUARD.account : GUARD.ip); fail('INVALID_CREDENTIALS'); }
+            guard.passed(keys);
+            if (passwords.needsUpgrade(user.password)) {
+              // Cost or format moved on: upgrade silently, and a failed rewrite must not cost the person their login.
+              try { db.prepare('UPDATE users SET password=? WHERE id=?').run(await passwords.hash(password), user.id); } catch {}
+            }
             return json(session(res, user, native));
           }
           case '/v1/auth/logout': {
@@ -362,16 +396,41 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
             return json({ ok: true, message: '如果邮箱已注册，我们会发送验证码' });
           }
           case '/v1/auth/reset': {
-            const email = emailOf(body.email), password = passwordOf(body.password);
+            const email = emailOf(body.email);
             const user = db.prepare('SELECT * FROM users WHERE email=?').get(email);
             if (!user) fail('CODE_INVALID');
+            // Strength is checked only after the address is known, so a weak password reveals nothing about which
+            // addresses exist.
+            const password = newPasswordOf(body.password, { username: user.username, email: user.email }, 'password');
             const row = db.prepare('SELECT expires,attempts FROM codes WHERE user_id=? AND purpose=?').get(user.id, 'reset');
             if (!row || row.expires <= Date.now() || row.attempts >= 5) fail('CODE_INVALID');
-            const encoded = await passwordHash(password);
+            const encoded = await passwords.hash(password);
             // No await between consume and update: one-use even under concurrent reset requests.
             consumeCode(user, 'reset', body.code);
             db.prepare('UPDATE users SET password=? WHERE id=?').run(encoded, user.id);
             db.prepare('DELETE FROM sessions WHERE user_id=?').run(user.id);
+            return json({ ok: true });
+          }
+          case '/v1/auth/password': {
+            // Current password is enough: no email code, so a suspected leak can be closed immediately. Email
+            // verification is not required for the same reason — knowing the current password is the strongest proof.
+            const user = userOf(req);
+            rate(`password:${user.id}`, 5, 3600_000);
+            const keys = [accountKey(user.id), sourceKey(ip)];
+            guard.blocked(keys);
+            if (typeof body.currentPassword !== 'string' || !body.currentPassword.length || body.currentPassword.length > PASSWORD.max) fail('INVALID_CURRENT_PASSWORD', 'currentPassword');
+            if (!await passwords.verify(body.currentPassword, user.password)) {
+              guard.failed(keys, GUARD.account);
+              fail('INVALID_CURRENT_PASSWORD', 'currentPassword');
+            }
+            const next = newPasswordOf(body.newPassword, { username: user.username, email: user.email }, 'newPassword');
+            if (next === body.currentPassword) fail('PASSWORD_UNCHANGED', 'newPassword');
+            const encoded = await passwords.hash(next);
+            db.prepare('UPDATE users SET password=? WHERE id=?').run(encoded, user.id);
+            // Everything else signed in with the old password goes, and so does any reset code issued before now.
+            db.prepare('DELETE FROM sessions WHERE user_id=? AND digest<>?').run(user.id, user.session_digest);
+            db.prepare("DELETE FROM codes WHERE user_id=? AND purpose='reset'").run(user.id);
+            guard.passed(keys);
             return json({ ok: true });
           }
           default: return json({ error: 'NOT_FOUND' }, 404);
@@ -445,7 +504,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       if (!res.headersSent) json({ error: code, message, ...(error.field ? { field: error.field } : {}) }, status); else res.end();
     } finally { for (const done of workReleases) done(); }
   });
-  server.defenseSnapshot = defense.snapshot;
+  server.defenseSnapshot = () => ({ ...defense.snapshot(), guard: guard.snapshot() });
   server.maxConnections = 128; server.maxRequestsPerSocket = 100;
   server.maxHeadersCount = 64; server.keepAliveTimeout = 5000;
   server.headersTimeout = 15_000; server.requestTimeout = 30_000;

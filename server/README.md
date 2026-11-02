@@ -26,6 +26,7 @@ npm start --prefix server
 | `TRUST_PROXY` | 仅私有网关后设 `1`；Compose 已配置覆盖客户端 IP 头，API 不直接暴露。默认忽略所有转发 IP 头 |
 | `HOST`, `PORT` | 本机默认 `127.0.0.1:8787`；容器为 `0.0.0.0:8787` |
 | `DB_PATH` | SQLite 路径；容器为 `/app/data/xiaopiao.sqlite` |
+| `PASSWORD_PEPPER` | 可选。设置后密码先 HMAC 再 scrypt，新哈希带 `scrypt1p$` 前缀；一旦启用必须长期保留，丢失则这些账号无法登录（启动会警告）。不设置时行为与不启用完全一致 |
 
 缺少邮件配置时注册、重发、找回密码会明确失败，不伪造发送成功。缺少模型配置时返回错误事件，客户端退回本机统计。登录不会自动同步账本。
 
@@ -91,6 +92,8 @@ Web 默认访问同源 `/v1`；需要独立同站域名时，可在构建环境�
 ## API
 
 `POST /v1/auth/register|login|verify|resend|forgot|reset|logout`；`GET /v1/auth/me`。注册邮箱、用户名、15–128 字符密码。验证码10分钟有效、最多5次尝试；重设密码立即撤销该账号全部会话。原生请求以 `client: native` 获取不透明 bearer；Web 只获取 HttpOnly Cookie。
+
+`POST /v1/auth/password`（`{currentPassword,newPassword}`，已登录即可、不要邮箱验证码）：改密成功后撤销其它会话与未用完的重置码，当前会话保留。新密码与注册/重设同一条强度规则（8–128，拒常见词/连号/重复/账号名），拒绝为 `400 PASSWORD_WEAK`。详见 `docs/API-ACCOUNT.md` 的密码服务加固一节。
 
 `POST /v1/chat`：首次传 `{messages:[{role,content}],timezone}`；收到 `tool_calls` 后本机执行，携带 `{runId,results:[{id,data}]}` 继续。SSE 类型为 `status / token / tool_calls / done / error`。关闭连接会中断上游。
 

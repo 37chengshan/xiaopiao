@@ -1,19 +1,9 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { randomBytes, randomInt, createHash, scrypt as derive, timingSafeEqual } from 'node:crypto';
-import { promisify } from 'node:util';
-const scrypt = promisify(derive);
+import { randomBytes, randomInt, createHash } from 'node:crypto';
 export const hash = value => createHash('sha256').update(value).digest('hex');
 export const secret = () => randomBytes(32).toString('base64url');
-export async function passwordHash(password, salt = secret()) {
-  const key = await scrypt(password, salt, 64, { N: 131072, r: 8, p: 1, maxmem: 256 * 1024 * 1024 });
-  return `${salt}:${key.toString('hex')}`;
-}
-export async function passwordMatches(password, stored) {
-  const candidate = await passwordHash(password, stored.split(':')[0]);
-  return timingSafeEqual(Buffer.from(candidate), Buffer.from(stored));
-}
 export function store(path) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(path);
@@ -126,7 +116,15 @@ export function store(path) {
       created_at INTEGER NOT NULL,
       ip_hash TEXT NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS feedback_created ON feedback (created_at);`);
+    CREATE INDEX IF NOT EXISTS feedback_created ON feedback (created_at);
+    CREATE TABLE IF NOT EXISTS auth_guard (
+      key TEXT PRIMARY KEY,
+      failures INTEGER NOT NULL,
+      strikes INTEGER NOT NULL DEFAULT 0,
+      window_start INTEGER NOT NULL,
+      locked_until INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL
+    );`);
   migrateCircleNumbers(db);
   return db;
 }

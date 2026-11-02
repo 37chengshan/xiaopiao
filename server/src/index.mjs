@@ -12,6 +12,7 @@ const sendMail = devMailSender({ enabled: process.env.XP_DEV_MAIL === '1', produ
     relayUrl: process.env.AGENTMAIL_RELAY_URL, relayKey: process.env.AGENTMAIL_RELAY_KEY });
 const app = createApp({
   db: store(process.env.DB_PATH ?? './data/xiaopiao.sqlite'), production, origin, trustedProxy: process.env.TRUST_PROXY === '1',
+  pepper: process.env.PASSWORD_PEPPER || null,
   agent: createAgent({ apiKey: providerKey(providerFromEnv()), provider: providerFromEnv() }),
   sendMail,
 });
@@ -22,7 +23,7 @@ for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => { app.close
 if (production) {
   const defenseLog = setInterval(() => {
     const snapshot = app.defenseSnapshot();
-    if (Object.keys(snapshot.rejected).length) console.log(JSON.stringify({ type: 'security_summary', ...snapshot }));
+    if (Object.keys(snapshot.rejected).length || snapshot.guard.locked || snapshot.guard.tracked) console.log(JSON.stringify({ type: 'security_summary', ...snapshot }));
   }, 60_000).unref();
   app.once('close', () => clearInterval(defenseLog));
 }
