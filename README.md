@@ -18,6 +18,40 @@
 
 <p align="center"><sub>产品氛围图；App 中的小票以屏幕动画呈现，无需购买打印机。</sub></p>
 
+## 先看看它动起来
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/media/print.gif" width="240" alt="点一下，今天的账打印成一张小票并盖章" /></td>
+    <td align="center" width="33%"><img src="docs/media/game.gif" width="240" alt="钱包人格测试：答题到结果页" /></td>
+    <td align="center" width="33%"><img src="docs/media/spin.gif" width="240" alt="自己填的转盘，转到哪个算哪个" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>打印今天</b><br/><sub>点一下，账本吐出一张带印章的小票</sub></td>
+    <td align="center"><b>轻量小游戏</b><br/><sub>十道题，看看你的钱包人格</sub></td>
+    <td align="center"><b>决策转盘</b><br/><sub>选项自己写，转到哪个算哪个</sub></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td align="center" width="20%"><img src="docs/media/home.jpg" alt="记账首页" /></td>
+    <td align="center" width="20%"><img src="docs/media/stats-month.jpg" alt="10 月月报" /></td>
+    <td align="center" width="20%"><img src="docs/media/receipt-studio.jpg" alt="小票工作台" /></td>
+    <td align="center" width="20%"><img src="docs/media/game-result.jpg" alt="游戏结果页" /></td>
+    <td align="center" width="20%"><img src="docs/media/wheel.jpg" alt="转盘" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>记账首页</sub></td>
+    <td align="center"><sub>月报与 AI 小结</sub></td>
+    <td align="center"><sub>纸张、墨色、版式自己挑</sub></td>
+    <td align="center"><sub>测试结果</sub></td>
+    <td align="center"><sub>多个转盘</sub></td>
+  </tr>
+</table>
+
+<p align="center"><sub>以上为 Android 真机录屏，使用样例账本，不代表真实用户数据。</sub></p>
+
 午饭、地铁、咖啡、又一次自动续费——钱花出去了，生活也发生了。
 
 今日小票把这些零散的记录整理成一本账，再把一天变成一张小票：有明细、有合计，也有一句轻松的点评。你可以看看、撕下、分享，然后继续过自己的日子。

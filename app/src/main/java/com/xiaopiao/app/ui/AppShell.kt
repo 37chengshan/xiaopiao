@@ -253,7 +253,17 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         LocalReceiptHost provides receiptHost, LocalTopBarHost provides topBarHost,
         com.xiaopiao.app.ui.account.LocalAccount provides container.account,
     ) {
-    Box(Modifier.fillMaxSize()) {
+    Box(
+        Modifier.fillMaxSize()
+            // 语音结果条（没听清 / 出错）不用等满时间：手指落在任何地方就收起（tt 2026-11-02）。
+            // 只在 Initial 阶段旁观，不消费，这一下点击照常落到下面的按钮上。
+            .pointerInput(voiceHost) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                    if (voiceHost.outcome != null) voiceHost.outcome = null
+                }
+            },
+    ) {
     Scaffold(
         containerColor = XpColors.CanvasGrouped,
         contentWindowInsets = WindowInsets(0),
