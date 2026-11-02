@@ -134,3 +134,7 @@ tt 已明确批准并完成 `89fcf19` 的 API/unit/nginx 上线，生产 release
 经 tt 批准，新账号接口先上线 9d58f101ca6e；随后按 tt 最新要求将新密码下限改为 8 位，验证码使用 HTML 品牌模板并保留 text，当前 release=4f5d7f11725d。服务端 89/89 测试与 npm check 通过，真实自有邮箱 HTML 收件、八位密码重登及私有圈子分享回归通过。mail-relay Worker 只新增可选 html 字段，仍固定路由/IP/secret/AgentMail 发送目标，日志及备用入口关闭。
 
 本次仅更新 API/unit 和已批准的同一路由 Worker 模块；nginx、安全组、DNS 及全区设置未改。部署前 DB=/var/lib/xiaopiao/backups/pre-4f5d7f11725d.sqlite，unit/resolver 备份在 /var/backups/xiaopiao/config-before-4f5d7f11725d。账号版本回滚只切回 9d58f101ca6e，并按需还原该次 unit/resolver；不要恢复早期 nginx 快照或倒退 DB。详细契约见 API-ACCOUNT.md。
+
+## 2026-11-02 头像 / 圈号 / 小票快照 / 反馈上线
+
+经 tt 批准，按上文 `update-private.sh` 流程上线 release `0be5bdf87cf2`（previous `4f5d7f11725d`，脚本已做部署前在线备份）。新增：头像（预设 + 照片，`/v1/auth/avatar`、`/v1/avatars/:id`）、圈号搜索与入圈申请（`/v1/circles/search`、`/v1/circles/requests`）、小票样式快照字段、`POST /v1/feedback`。数据库迁移在启动时自动执行（新表 avatars / circle_requests / feedback，已有圈子补圈号）。服务端 122/122 测试与 `npm run check` 通过；公网冒烟：healthz 200，新鉴权路由 401（而非 404），feedback 空体 400。nginx `client_max_body_size 512k` 足够头像请求（≤384 KB）。未改 nginx、DNS、安全组。反馈读取：`node scripts/feedback.mjs`（该脚本未随 release 打包，需要时单独上传）。回滚：切回 `4f5d7f11725d` 并重启；新表不影响旧版本运行。

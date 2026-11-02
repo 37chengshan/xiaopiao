@@ -6,18 +6,11 @@ import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -90,7 +83,6 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.shadow.Shadow
 import com.xiaopiao.app.ui.components.LocalGlass
-import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.domain.games.GameMode
 import com.xiaopiao.app.domain.games.GameOption
 import com.xiaopiao.app.domain.games.GameOutcome
@@ -107,6 +99,10 @@ import com.xiaopiao.app.domain.games.TrueFalseQuestion
 import com.xiaopiao.app.domain.yuan
 import com.xiaopiao.app.ui.components.NavScaffold
 import com.xiaopiao.app.ui.components.NavScrollNone
+import com.xiaopiao.app.ui.components.NumberTicker
+import com.xiaopiao.app.ui.components.LocalTabBarInset
+import com.xiaopiao.app.ui.motion.XpMotion
+import com.xiaopiao.app.ui.motion.XpReveal
 import com.xiaopiao.app.ui.components.XpButton
 import com.xiaopiao.app.ui.components.XpButtonSize
 import com.xiaopiao.app.ui.components.XpButtonStyle
@@ -131,6 +127,14 @@ import com.xiaopiao.app.ui.tr
 
 /** Where a single run is: the front door, the questions, or the result. */
 private enum class GameStage { Intro, Play, Result }
+
+/**
+ * How long the chosen answer stays on screen before the deck advances. The flip needs the long beat;
+ * a scale tap and a task tap settle almost at once. Named here so no call site carries a magic delay.
+ */
+private const val AnswerFlipHoldMs = 520L
+private const val AnswerHoldMs = 200L
+private const val TaskHoldMs = 160L
 
 /** How an answer chip should read right now. */
 private enum class AnswerTone { Idle, Selected, Correct, Wrong, Muted }
@@ -185,16 +189,16 @@ fun GamePlayer(game: GameDefinition, onExit: () -> Unit) {
             }
             is ChoiceQuestion -> {
                 haptics.select()
-                // 卡片翻面要 340ms，留到翻完再切下一题，否则只看到半张卡。
-                scope.launch { delay(520); advance() }
+                // 先让翻面演完，再切下一题，否则只看到半张卡。
+                scope.launch { delay(AnswerFlipHoldMs); advance() }
             }
             is ScaleQuestion -> {
                 haptics.select()
-                scope.launch { delay(200); advance() }
+                scope.launch { delay(AnswerHoldMs); advance() }
             }
             is TaskQuestion -> {
                 if (GameScoring.scoreFor(question, value) == 1) haptics.confirm() else haptics.select()
-                scope.launch { delay(160); advance() }
+                scope.launch { delay(TaskHoldMs); advance() }
             }
         }
     }
@@ -393,41 +397,49 @@ private fun PlayView(
         GameProgress(index = index, total = deck.size, skin = skin, reduced = reduced)
         AnimatedContent(
             targetState = index,
-            transitionSpec = { questionTransition(reduced) },
+            transitionSpec = {
+                when {
+                    reduced -> EnterTransition.None togetherWith ExitTransition.None
+                    // Forward through the deck, and back when a replay resets it.
+                    targetState > initialState -> XpMotion.pushForward()
+                    else -> XpMotion.pushBack()
+                }
+            },
             label = "gameQuestion",
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) { i ->
-            QuestionView(
-                question = deck[i],
-                index = i,
-                total = deck.size,
-                skin = skin,
-                reduced = reduced,
-                feedback = feedback,
-                picked = picked,
-                onAnswer = { onAnswer(deck[i], it) },
-                onContinue = onContinue,
-            )
+            // The incoming card also settles with a slight 0.97 → 1 scale on top of the slide.
+            XpReveal(
+                modifier = Modifier.fillMaxSize(),
+                animate = !reduced,
+                durationMs = 240,
+                riseDp = 4.dp,
+                scaleFrom = 0.97f,
+            ) {
+                QuestionView(
+                    question = deck[i],
+                    index = i,
+                    total = deck.size,
+                    skin = skin,
+                    reduced = reduced,
+                    feedback = feedback,
+                    picked = picked,
+                    onAnswer = { onAnswer(deck[i], it) },
+                    onContinue = onContinue,
+                )
+            }
         }
     }
     }
-}
-
-private fun questionTransition(reduced: Boolean): ContentTransform {
-    if (reduced) return EnterTransition.None togetherWith ExitTransition.None
-    val enter = slideInHorizontally(spring(dampingRatio = 1f, stiffness = 700f)) { it / 8 } +
-        fadeIn(tween(160))
-    val leave = slideOutHorizontally(tween(140)) { -it / 10 } + fadeOut(tween(120))
-    return enter togetherWith leave
 }
 
 @Composable
 private fun GameProgress(index: Int, total: Int, skin: GameSkin, reduced: Boolean) {
     val accent = skin.accentColor()
     val fraction = ((index + 1).toFloat() / total.coerceAtLeast(1)).coerceIn(0f, 1f)
-    val animated by animateFloatAsState(
+    val animated = animateFloatAsState(
         targetValue = fraction,
-        animationSpec = if (reduced) tween(0) else spring(dampingRatio = 1f, stiffness = 700f),
+        animationSpec = if (reduced) tween(0) else XpMotion.snappy(),
         label = "gameProgress",
     )
     Column(
@@ -435,10 +447,13 @@ private fun GameProgress(index: Int, total: Int, skin: GameSkin, reduced: Boolea
             .padding(start = XpSpace.page, end = XpSpace.page, top = XpSpace.s),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.games_q_counter, index + 1, total),
+            // The counter rolls its digits instead of swapping a string.
+            NumberTicker(
+                text = stringResource(R.string.games_q_counter, index + 1, total),
                 style = MaterialTheme.typography.labelMedium,
                 color = XpColors.InkSecondary,
+                rollFromZero = false,
+                staggerMs = 40,
             )
             Spacer(Modifier.weight(1f))
             Text(
@@ -447,19 +462,22 @@ private fun GameProgress(index: Int, total: Int, skin: GameSkin, reduced: Boolea
                 color = accent,
             )
         }
-        Box(
+        // The fill is drawn, not laid out: the growing fraction is read in the draw phase only.
+        Canvas(
             Modifier.fillMaxWidth()
                 .padding(top = XpSpace.s)
-                .height(6.dp)
-                .clip(RoundedCornerShape(XpRadius.pill))
-                .background(XpColors.Fill),
+                .height(6.dp),
         ) {
-            Box(
-                Modifier.fillMaxHeight()
-                    .fillMaxWidth(animated)
-                    .clip(RoundedCornerShape(XpRadius.pill))
-                    .background(accent),
-            )
+            val corner = androidx.compose.ui.geometry.CornerRadius(size.height / 2f, size.height / 2f)
+            drawRoundRect(XpColors.Fill, cornerRadius = corner)
+            val filled = size.width * animated.value.coerceIn(0f, 1f)
+            if (filled > 0f) {
+                drawRoundRect(
+                    color = accent,
+                    size = androidx.compose.ui.geometry.Size(filled, size.height),
+                    cornerRadius = corner,
+                )
+            }
         }
     }
 }
@@ -514,11 +532,7 @@ private fun QuestionView(
 
                 AnimatedVisibility(
                     visible = feedback != null,
-                    enter = if (reduced) {
-                        EnterTransition.None
-                    } else {
-                        fadeIn(tween(160)) + slideInVertically(tween(200)) { it / 6 }
-                    },
+                    enter = if (reduced) EnterTransition.None else XpMotion.enterRise(0.16f),
                     exit = ExitTransition.None,
                 ) {
                     Column {
@@ -630,7 +644,10 @@ private fun GlassPanel(
 
 /**
  * 居中的翻卡选择项：正面是选项，选中后沿 Y 轴翻到背面给结论。
- * 只有被选中的那张翻；没选中的保持正面，避免整屏一起动。
+ * 只有被选中的那张翻；没选中的只是变淡，避免整屏一起动。
+ *
+ * 两面**都常驻**，靠各自 layer 的 alpha 在 90° 处交接：翻面过程中没有任何一帧重组，
+ * 也不会再出现「读到半张卡」的中间态。
  */
 @Composable
 private fun FlipChoiceCard(
@@ -646,8 +663,14 @@ private fun FlipChoiceCard(
     val rotation = remember { Animatable(0f) }
     LaunchedEffect(flipped) {
         if (reduced) rotation.snapTo(if (flipped) 180f else 0f)
-        else rotation.animateTo(if (flipped) 180f else 0f, tween(340, easing = XpEase.out))
+        else rotation.animateTo(if (flipped) 180f else 0f, XpMotion.gentle())
     }
+    // The unchosen options fade back to 40% while the answer lands (template fade, draw phase only).
+    val fade = animateFloatAsState(
+        targetValue = if (tone == AnswerTone.Muted) 0.4f else 1f,
+        animationSpec = XpMotion.fade(),
+        label = "answerFade",
+    )
     val density = LocalDensity.current.density
     val shape = RoundedCornerShape(XpRadius.l)
     val accent = if (tone == AnswerTone.Wrong) XpColors.Warning else XpColors.Accent
@@ -657,12 +680,13 @@ private fun FlipChoiceCard(
             .graphicsLayer {
                 rotationY = rotation.value
                 cameraDistance = 12f * density
-                alpha = if (tone == AnswerTone.Muted) 0.55f else 1f
+                alpha = fade.value
             }
             .pressableClick(enabled = enabled, scaleDown = 0.97f, haptic = true, onClick = onClick),
     ) {
-        GlassPanel(modifier = Modifier.fillMaxSize(), shape = shape) {
-            if (!flipped || rotation.value < 90f) {
+        // Front face.
+        Box(Modifier.matchParentSize().graphicsLayer { alpha = if (rotation.value < 90f) 1f else 0f }) {
+            GlassPanel(modifier = Modifier.fillMaxSize(), shape = shape) {
                 Column(
                     Modifier.fillMaxSize().padding(horizontal = XpSpace.m, vertical = XpSpace.m),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -684,11 +708,18 @@ private fun FlipChoiceCard(
                         )
                     }
                 }
-            } else {
+            }
+        }
+        // Back face: pre-flipped, hidden until the card passes edge-on.
+        Box(
+            Modifier.matchParentSize().graphicsLayer {
+                rotationY = 180f
+                alpha = if (rotation.value >= 90f) 1f else 0f
+            },
+        ) {
+            GlassPanel(modifier = Modifier.fillMaxSize(), shape = shape) {
                 Column(
-                    Modifier.fillMaxSize()
-                        .graphicsLayer { rotationY = 180f }
-                        .padding(horizontal = XpSpace.m, vertical = XpSpace.m),
+                    Modifier.fillMaxSize().padding(horizontal = XpSpace.m, vertical = XpSpace.m),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
@@ -862,19 +893,36 @@ private fun GuessChip(
 ) {
     val fg = toneForeground(tone, skin)
     val shape = RoundedCornerShape(XpRadius.l)
+    // Colour and edge ramp with the answer instead of switching in one frame.
+    val background by androidx.compose.animation.animateColorAsState(
+        targetValue = toneBackground(tone, skin),
+        animationSpec = XpMotion.fade(),
+        label = "chipBackground",
+    )
+    val edge by androidx.compose.animation.animateColorAsState(
+        targetValue = fg,
+        animationSpec = XpMotion.fade(),
+        label = "chipEdge",
+    )
+    val fade = animateFloatAsState(
+        targetValue = if (tone == AnswerTone.Muted) 0.4f else 1f,
+        animationSpec = XpMotion.fade(),
+        label = "chipFade",
+    )
     Box(
         modifier
             .height(52.dp)
+            .graphicsLayer { alpha = fade.value }
             .clip(shape)
-            .background(toneBackground(tone, skin))
-            .then(if (tone.hasEdge) Modifier.border(1.5.dp, fg, shape) else Modifier)
+            .background(background)
+            .then(if (tone.hasEdge) Modifier.border(1.5.dp, edge, shape) else Modifier)
             .pressableClick(enabled = enabled, scaleDown = 0.95f, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             label,
             style = MaterialTheme.typography.titleSmall,
-            color = if (tone == AnswerTone.Idle) XpColors.Ink else fg,
+            color = if (tone == AnswerTone.Idle) XpColors.Ink else edge,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -927,25 +975,17 @@ private fun ScaleBlock(
     val onAccent = Contrast.onAccent(accent)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
         (1..5).forEach { value ->
-            val selected = picked == value.toString()
-            val shape = RoundedCornerShape(XpRadius.l)
-            Box(
-                Modifier.weight(1f)
-                    .height(64.dp)
-                    .clip(shape)
-                    .background(if (selected) accent else XpColors.Fill)
-                    .then(if (selected) Modifier.border(1.5.dp, accent, shape) else Modifier)
-                    .pressableClick(enabled = picked == null, scaleDown = 0.94f) {
-                        onAnswer(GameAnswer.Scale(value))
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    "$value",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = if (selected) onAccent else XpColors.Ink,
-                )
-            }
+            ScaleCell(
+                value = value,
+                selected = picked == value.toString(),
+                // 选了以后其余四档退到 40%：一眼看出自己点的是哪一档。
+                dimmed = picked != null && picked != value.toString(),
+                accent = accent,
+                onAccent = onAccent,
+                enabled = picked == null,
+                modifier = Modifier.weight(1f),
+                onClick = { onAnswer(GameAnswer.Scale(value)) },
+            )
         }
     }
     Row(
@@ -964,6 +1004,47 @@ private fun ScaleBlock(
             color = XpColors.InkSecondary,
             textAlign = TextAlign.End,
             modifier = Modifier.weight(1f, fill = false),
+        )
+    }
+}
+
+/** One 1–5 cell: fill, edge and the other cells' fade all ramp through [XpMotion.fade]. */
+@Composable
+private fun ScaleCell(
+    value: Int,
+    selected: Boolean,
+    dimmed: Boolean,
+    accent: Color,
+    onAccent: Color,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(XpRadius.l)
+    val fill by androidx.compose.animation.animateColorAsState(
+        targetValue = if (selected) accent else XpColors.Fill,
+        animationSpec = XpMotion.fade(),
+        label = "scaleFill",
+    )
+    val fade = animateFloatAsState(
+        targetValue = if (dimmed) 0.4f else 1f,
+        animationSpec = XpMotion.fade(),
+        label = "scaleFade",
+    )
+    Box(
+        modifier
+            .height(64.dp)
+            .graphicsLayer { alpha = fade.value }
+            .clip(shape)
+            .background(fill)
+            .then(if (selected) Modifier.border(1.5.dp, accent, shape) else Modifier)
+            .pressableClick(enabled = enabled, scaleDown = 0.94f, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            "$value",
+            style = MaterialTheme.typography.titleLarge,
+            color = if (selected) onAccent else XpColors.Ink,
         )
     }
 }
@@ -1102,126 +1183,95 @@ private fun ResultView(
     val figure = resultFigure(game, deck, answers, outcome)
     val persona = game.mode == GameMode.Persona || game.mode == GameMode.Type
 
-    Box(Modifier.fillMaxSize()) {
-    Column(
-        Modifier.fillMaxSize()
-            .background(skin.heroBrush())
-            .verticalScroll(rememberScrollState())
-            // 底部浮着标签栏（约 96dp）＋安全区，结果页最后两颗按钮要留出这段。
-            .padding(start = XpSpace.page, end = XpSpace.page, bottom = 168.dp),
-    ) {
-        Spacer(Modifier.height(XpSpace.m))
-        ResultHero(outcome = outcome, figure = figure, showBody = persona, skin = skin, reduced = reduced)
-
-        if (outcome.keywords.isNotEmpty()) {
-            Spacer(Modifier.height(XpSpace.s))
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+    val washDepth = with(androidx.compose.ui.platform.LocalDensity.current) { 420.dp.toPx() }
+    Box(Modifier.fillMaxSize().background(XpColors.CanvasGrouped).background(skin.pageWash(washDepth))) {
+        Column(Modifier.fillMaxSize()) {
+            // 1–3 是同一个故事，从上往下读：抬头 → 你的画像 → 这意味着。
+            Column(
+                Modifier.weight(1f).fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = XpSpace.page, end = XpSpace.page, top = XpSpace.m),
             ) {
-                outcome.keywords.forEach { keyword -> KeywordChip(keyword, skin) }
-            }
-        }
+                ResultHero(outcome = outcome, figure = figure, showBody = persona, skin = skin, reduced = reduced)
 
-        if (outcome.radar.isNotEmpty()) {
-            Spacer(Modifier.height(XpSpace.m))
-            RadarCard(points = outcome.radar, axes = game.axes, skin = skin, reduced = reduced)
-        }
+                if (outcome.keywords.isNotEmpty()) {
+                    Spacer(Modifier.height(XpSpace.s))
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                            .xpRevealLayer(index = 1),
+                        horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+                    ) {
+                        outcome.keywords.forEach { keyword -> KeywordChip(keyword, skin) }
+                    }
+                }
 
-        if (!persona) {
-            Spacer(Modifier.height(XpSpace.m))
-            GlassPanel(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    outcome.blurb,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = XpColors.Ink,
-                    modifier = Modifier.padding(XpSpace.l),
-                )
-            }
-        }
-        if (outcome.insights.isNotEmpty()) {
-            Spacer(Modifier.height(XpSpace.m))
-            GlassPanel(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth().padding(XpSpace.l)) {
+                // Persona results already say their score line in the hero; only real dimensions earn this block.
+                if (outcome.radar.isNotEmpty()) {
+                    Spacer(Modifier.height(XpSpace.m))
+                    PortraitSection(
+                        points = outcome.radar,
+                        axes = game.axes,
+                        scoreLine = outcome.scoreLine,
+                        skin = skin,
+                        reduced = reduced,
+                    )
+                }
+
+                Spacer(Modifier.height(XpSpace.m))
+                MeaningSection(outcome = outcome, persona = persona, skin = skin, reduced = reduced)
+
+                if (game.note.isNotBlank()) {
                     Text(
-                        stringResource(R.string.games_result_analysis),
+                        game.note,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = XpColors.InkTertiary,
+                        modifier = Modifier.padding(top = XpSpace.s).xpRevealLayer(index = 4),
+                    )
+                }
+
+                Spacer(Modifier.height(XpSpace.l))
+                Column(Modifier.xpRevealLayer(index = 5)) {
+                    Text(
+                        stringResource(R.string.games_share_title),
                         style = MaterialTheme.typography.titleSmall,
                         color = XpColors.Ink,
                     )
-                    outcome.insights.forEach { line ->
-                        Row(Modifier.padding(top = XpSpace.s)) {
-                            Box(
-                                Modifier.padding(top = 7.dp).size(5.dp).clip(CircleShape)
-                                    .background(skin.accentColor()),
+                    Spacer(Modifier.height(XpSpace.s))
+                    ShareCard(game = game, outcome = outcome, skin = skin, figure = figure)
+
+                    Spacer(Modifier.height(XpSpace.s))
+                    XpButton(
+                        text = stringResource(if (copied) R.string.games_copied else R.string.games_copy),
+                        onClick = {
+                            val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            manager.setPrimaryClip(
+                                ClipData.newPlainText(clipLabel, outcome.shareText),
                             )
-                            Text(
-                                line,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = XpColors.Ink,
-                                modifier = Modifier.padding(start = 8.dp),
-                            )
-                        }
-                    }
+                            copied = true
+                            haptics.confirm()
+                        },
+                        style = XpButtonStyle.Secondary,
+                        size = XpButtonSize.Small,
+                    )
                 }
+
+                Text(
+                    stringResource(R.string.games_disclaimer),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XpColors.InkTertiary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(top = XpSpace.l),
+                )
+                Spacer(Modifier.height(XpSpace.m))
             }
-        }
-        if (game.note.isNotBlank()) {
-            Text(
-                game.note,
-                style = MaterialTheme.typography.labelSmall,
-                color = XpColors.InkTertiary,
-                modifier = Modifier.padding(top = XpSpace.s),
+
+            // 4 · 动作固定在底部：再测一次 / 回到游戏，滚到哪都够得着。
+            ResultActionBar(
+                bottomInset = LocalTabBarInset.current,
+                onReplay = onReplay,
+                onExit = onExit,
             )
         }
-
-        Spacer(Modifier.height(XpSpace.xl))
-        Text(
-            stringResource(R.string.games_share_title),
-            style = MaterialTheme.typography.titleSmall,
-            color = XpColors.Ink,
-        )
-        Spacer(Modifier.height(XpSpace.s))
-        ShareCard(game = game, outcome = outcome, skin = skin, figure = figure)
-
-        Spacer(Modifier.height(XpSpace.s))
-        XpButton(
-            text = stringResource(if (copied) R.string.games_copied else R.string.games_copy),
-            onClick = {
-                val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                manager.setPrimaryClip(
-                    ClipData.newPlainText(clipLabel, outcome.shareText),
-                )
-                copied = true
-                haptics.confirm()
-            },
-            style = XpButtonStyle.Secondary,
-            size = XpButtonSize.Small,
-        )
-
-        Spacer(Modifier.height(XpSpace.xl))
-        XpButton(
-            text = stringResource(R.string.games_again),
-            onClick = onReplay,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(XpSpace.s))
-        XpButton(
-            text = stringResource(R.string.games_another),
-            onClick = onExit,
-            modifier = Modifier.fillMaxWidth(),
-            style = XpButtonStyle.Secondary,
-        )
-
-        Spacer(Modifier.height(XpSpace.l))
-        Text(
-            stringResource(R.string.games_disclaimer),
-            style = MaterialTheme.typography.labelSmall,
-            color = XpColors.InkTertiary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(XpSpace.xl))
-    }
         if (!reduced) ConfettiBurst(outcome.hashCode(), Modifier.fillMaxSize(), count = 70)
     }
 }
@@ -1272,72 +1322,147 @@ private fun resultFigure(
     }
 }
 
-/** 结果抬头：一张玻璃卡，字数最少的那种——类型名 + 一句判断 + 关键数字。 */
+/** 1 · 抬头：类型名 / 分数最大，一句判断紧随其后。整张卡 enterPop 落地，分数用滚字数上去。 */
 @Composable
 private fun ResultHero(outcome: GameOutcome, figure: ScoreFigure, showBody: Boolean, skin: GameSkin, reduced: Boolean) {
     val accent = skin.accentColor()
-    val pop = remember(outcome) { Animatable(if (reduced) 1f else 0.82f) }
-    LaunchedEffect(outcome) {
-        if (!reduced) pop.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 520f))
-    }
-    GlassPanel(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(XpRadius.xl)) {
-        Column(Modifier.fillMaxWidth().padding(XpSpace.page)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier.size(54.dp).clip(CircleShape).background(accent.copy(alpha = 0.16f))
-                        .graphicsLayer { scaleX = pop.value; scaleY = pop.value },
-                    contentAlignment = Alignment.Center,
-                ) { Text(outcome.emoji, style = MaterialTheme.typography.displaySmall) }
-                Column(Modifier.padding(start = XpSpace.m)) {
-                    Text(
-                        stringResource(R.string.games_result_your),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = XpColors.InkSecondary,
-                    )
-                    Text(
-                        outcome.title,
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = XpColors.Ink,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                }
-            }
-            if (figure.value.isNotBlank()) {
-                Row(Modifier.padding(top = XpSpace.s), verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        figure.value,
-                        style = MaterialTheme.typography.displayMedium,
-                        color = accent,
-                    )
-                    if (figure.unit.isNotBlank()) {
+    EnterOnce(enter = XpMotion.enterPop(), reduced = reduced) {
+        GlassPanel(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(XpRadius.xl)) {
+            Column(Modifier.fillMaxWidth().padding(XpSpace.page)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.size(54.dp).clip(CircleShape).background(accent.copy(alpha = 0.16f)),
+                        contentAlignment = Alignment.Center,
+                    ) { Text(outcome.emoji, style = MaterialTheme.typography.displaySmall) }
+                    Column(Modifier.padding(start = XpSpace.m)) {
                         Text(
-                            figure.unit,
-                            style = MaterialTheme.typography.titleMedium,
+                            stringResource(R.string.games_result_your),
+                            style = MaterialTheme.typography.labelSmall,
                             color = XpColors.InkSecondary,
-                            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                        )
+                        Text(
+                            outcome.title,
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = XpColors.Ink,
+                            modifier = Modifier.padding(top = 2.dp),
                         )
                     }
                 }
+                if (figure.value.isNotBlank()) {
+                    Row(Modifier.padding(top = XpSpace.s), verticalAlignment = Alignment.Bottom) {
+                        // 分数从 0 滚到结果，比直接出现更像「刚算出来的」。
+                        NumberTicker(
+                            text = figure.value,
+                            style = MaterialTheme.typography.displayMedium,
+                            color = accent,
+                        )
+                        if (figure.unit.isNotBlank()) {
+                            Text(
+                                figure.unit,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = XpColors.InkSecondary,
+                                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                            )
+                        }
+                    }
+                }
+                if (figure.label.isNotBlank()) {
+                    Text(
+                        figure.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = XpColors.InkSecondary,
+                        modifier = Modifier.padding(top = XpSpace.xs),
+                    )
+                }
+                if (showBody) {
+                    Text(
+                        outcome.blurb,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = XpColors.Ink,
+                        modifier = Modifier.padding(top = XpSpace.m),
+                    )
+                    Text(
+                        outcome.scoreLine,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = XpColors.InkSecondary,
+                        modifier = Modifier.padding(top = XpSpace.s),
+                    )
+                }
             }
-            if (figure.label.isNotBlank()) {
-                Text(
-                    figure.label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = XpColors.InkSecondary,
-                    modifier = Modifier.padding(top = XpSpace.xs),
+        }
+    }
+}
+
+/**
+ * 2 · 「你的画像」：雷达图 + 每条维度一条进度（进度在 draw 阶段长出来），逐条错峰入场。
+ * 没有雷达的模式（人格 / 类型）用原来那句分数当画像，不另造数据。
+ */
+@Composable
+private fun PortraitSection(
+    points: List<RadarPoint>,
+    axes: List<GameAxis>,
+    scoreLine: String,
+    skin: GameSkin,
+    reduced: Boolean,
+) {
+    GlassPanel(modifier = Modifier.fillMaxWidth().xpRevealLayer(index = 2), shape = RoundedCornerShape(XpRadius.xl)) {
+        Column(Modifier.fillMaxWidth().padding(XpSpace.l)) {
+            Text(
+                tr("你的画像", "Your profile"),
+                style = MaterialTheme.typography.titleSmall,
+                color = XpColors.Ink,
+            )
+            if (points.isNotEmpty()) {
+                RadarChart(
+                    points = points,
+                    skin = skin,
+                    reduced = reduced,
+                    showLabels = true,
+                    modifier = Modifier.fillMaxWidth().height(250.dp).padding(top = XpSpace.s),
                 )
-            }
-            if (showBody) {
+                points.forEachIndexed { index, point ->
+                    val note = axes.firstOrNull { it.label == point.label }?.let { axis ->
+                        axis.band(point.value) ?: axis.blurb
+                    }
+                    Column(Modifier.fillMaxWidth().padding(top = XpSpace.m).xpRevealLayer(index = index)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                point.label,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = XpColors.Ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.width(64.dp),
+                            )
+                            DimensionBar(
+                                value = point.value.coerceIn(0f, 1f),
+                                tint = skin.accentColor(),
+                                reduced = reduced,
+                                modifier = Modifier.weight(1f).padding(horizontal = XpSpace.s),
+                            )
+                            Text(
+                                stringResource(R.string.games_percent, (point.value * 100).roundToInt()),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = XpColors.InkSecondary,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.width(44.dp),
+                            )
+                        }
+                        if (!note.isNullOrBlank()) {
+                            Text(
+                                note,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = XpColors.InkSecondary,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                    }
+                }
+            } else if (scoreLine.isNotBlank()) {
                 Text(
-                    outcome.blurb,
+                    scoreLine,
                     style = MaterialTheme.typography.bodyLarge,
                     color = XpColors.Ink,
-                    modifier = Modifier.padding(top = XpSpace.m),
-                )
-                Text(
-                    outcome.scoreLine,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = XpColors.InkSecondary,
                     modifier = Modifier.padding(top = XpSpace.s),
                 )
             }
@@ -1345,72 +1470,117 @@ private fun ResultHero(outcome: GameOutcome, figure: ScoreFigure, showBody: Bool
     }
 }
 
+/** One dimension: the fill grows in the draw phase, so the row never recomposes while it animates. */
 @Composable
-private fun RadarCard(
-    points: List<RadarPoint>,
-    axes: List<GameAxis>,
-    skin: GameSkin,
-    reduced: Boolean,
-) {
-    GlassPanel(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(XpRadius.xl)) {
+private fun DimensionBar(value: Float, tint: Color, reduced: Boolean, modifier: Modifier = Modifier) {
+    val progress = animateFloatAsState(
+        targetValue = value,
+        animationSpec = if (reduced) tween(0) else XpMotion.snappy(),
+        label = "dimension",
+    )
+    Canvas(modifier.height(4.dp)) {
+        val corner = androidx.compose.ui.geometry.CornerRadius(size.height / 2f, size.height / 2f)
+        drawRoundRect(XpColors.Fill, cornerRadius = corner)
+        val filled = size.width * progress.value.coerceIn(0f, 1f)
+        if (filled > 0f) {
+            drawRoundRect(
+                color = tint,
+                size = androidx.compose.ui.geometry.Size(filled, size.height),
+                cornerRadius = corner,
+            )
+        }
+    }
+}
+
+/** 3 · 「这意味着」：沿用原有的一句判断 + 洞察条目，最多 4 条，逐条入场。 */
+@Composable
+private fun MeaningSection(outcome: GameOutcome, persona: Boolean, skin: GameSkin, reduced: Boolean) {
+    val lead = if (persona) "" else outcome.blurb
+    val lines = outcome.insights.take(4)
+    if (lead.isBlank() && lines.isEmpty()) return
+    GlassPanel(modifier = Modifier.fillMaxWidth().xpRevealLayer(index = 3), shape = RoundedCornerShape(XpRadius.xl)) {
         Column(Modifier.fillMaxWidth().padding(XpSpace.l)) {
             Text(
-                stringResource(R.string.games_result_radar_title),
+                tr("这意味着", "What it means"),
                 style = MaterialTheme.typography.titleSmall,
                 color = XpColors.Ink,
             )
-            RadarChart(
-                points = points,
-                skin = skin,
-                reduced = reduced,
-                showLabels = true,
-                modifier = Modifier.fillMaxWidth().height(250.dp).padding(top = XpSpace.s),
-            )
-            points.forEach { point ->
-                val axis = axes.firstOrNull { it.label == point.label }
-                Column(Modifier.fillMaxWidth().padding(top = XpSpace.m)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            point.label,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = XpColors.Ink,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.width(64.dp),
-                        )
-                        Box(
-                            Modifier.weight(1f)
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(XpRadius.pill))
-                                .background(XpColors.Fill),
-                        ) {
-                            Box(
-                                Modifier.fillMaxHeight()
-                                    .fillMaxWidth(point.value.coerceIn(0f, 1f))
-                                    .background(skin.accentColor()),
-                            )
-                        }
-                        Text(
-                            stringResource(R.string.games_percent, (point.value * 100).roundToInt()),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = XpColors.InkSecondary,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier.width(44.dp),
-                        )
-                    }
-                    val note = axis?.band(point.value) ?: axis?.blurb
-                    if (!note.isNullOrBlank()) {
-                        Text(
-                            note,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = XpColors.InkSecondary,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
+            if (lead.isNotBlank()) {
+                Text(
+                    lead,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = XpColors.Ink,
+                    modifier = Modifier.padding(top = XpSpace.s),
+                )
+            }
+            lines.forEachIndexed { index, line ->
+                Row(Modifier.padding(top = XpSpace.s).xpRevealLayer(index = index)) {
+                    Box(
+                        Modifier.padding(top = 7.dp).size(5.dp).clip(CircleShape)
+                            .background(skin.accentColor()),
+                    )
+                    Text(
+                        line,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = XpColors.Ink,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
                 }
             }
         }
     }
+}
+
+/** 4 · 底部动作条：一条主、一条次，始终在拇指够得着的位置，也不被浮起的标签栏盖住。 */
+@Composable
+private fun ResultActionBar(bottomInset: androidx.compose.ui.unit.Dp, onReplay: () -> Unit, onExit: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color.Transparent,
+                        XpColors.CanvasGrouped.copy(alpha = 0.86f),
+                        XpColors.CanvasGrouped,
+                    ),
+                ),
+            )
+            .padding(start = XpSpace.page, end = XpSpace.page, top = XpSpace.m, bottom = bottomInset + XpSpace.s),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(XpSpace.s)) {
+            XpButton(
+                text = stringResource(R.string.games_again),
+                onClick = onReplay,
+                modifier = Modifier.weight(1f),
+            )
+            XpButton(
+                text = stringResource(R.string.games_another),
+                onClick = onExit,
+                modifier = Modifier.weight(1f),
+                style = XpButtonStyle.Secondary,
+            )
+        }
+    }
+}
+
+/**
+ * Plays [enter] the first time the content appears. `AnimatedVisibility(visible = true)` starts already
+ * settled, so an entrance needs a transition state that flips one frame later.
+ */
+@Composable
+private fun EnterOnce(
+    enter: EnterTransition,
+    reduced: Boolean,
+    content: @Composable androidx.compose.animation.AnimatedVisibilityScope.() -> Unit,
+) {
+    val state = remember { androidx.compose.animation.core.MutableTransitionState(false) }
+    LaunchedEffect(Unit) { state.targetState = true }
+    AnimatedVisibility(
+        visibleState = state,
+        enter = if (reduced) EnterTransition.None else enter,
+        exit = ExitTransition.None,
+        content = content,
+    )
 }
 
 /**
@@ -1427,7 +1597,7 @@ private fun RadarChart(
 ) {
     val reveal = remember { Animatable(if (reduced) 1f else 0f) }
     LaunchedEffect(Unit) {
-        if (!reduced) reveal.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = 220f))
+        if (!reduced) reveal.animateTo(1f, XpMotion.gentle())
     }
     val accent = skin.accentColor()
     val fill = accent.copy(alpha = 0.16f)

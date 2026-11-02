@@ -147,6 +147,20 @@ fun GameSkin.heroBrush(): Brush = Brush.verticalGradient(
     ),
 )
 
+/**
+ * Full-page wash behind the result (tt 2026-11-02: 背景很生硬). It starts faint so it melts into the header
+ * instead of drawing a hard edge under it, peaks a little lower, and is gone by [depth] — the rest of the page is
+ * the normal canvas.
+ */
+@Composable
+fun GameSkin.pageWash(depthPx: Float): Brush = Brush.verticalGradient(
+    0f to accentColor().copy(alpha = if (XpColors.isDark) 0.06f else 0.04f),
+    0.35f to accentColor().copy(alpha = if (XpColors.isDark) 0.14f else 0.10f),
+    0.7f to supportColor().copy(alpha = if (XpColors.isDark) 0.07f else 0.05f),
+    1f to Color.Transparent,
+    endY = depthPx,
+)
+
 /** A tinted surface for selected answers; kept faint so the glass stays the surface. */
 @Composable
 fun GameSkin.washColor(): Color = lerp(XpColors.Card, accentColor(), if (XpColors.isDark) 0.32f else 0.16f)

@@ -1,36 +1,27 @@
 package com.xiaopiao.app.ui.games
 
-import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Remove
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,93 +30,72 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextMeasurer
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
-import com.xiaopiao.app.ui.components.NavScroll
-import com.xiaopiao.app.ui.components.NavScrollNone
 import com.xiaopiao.app.ui.components.NavScaffold
+import com.xiaopiao.app.ui.components.NavScrollNone
+import com.xiaopiao.app.ui.components.NavTextAction
+import com.xiaopiao.app.ui.components.UndoToastHost
 import com.xiaopiao.app.ui.components.XpButton
-import com.xiaopiao.app.ui.components.pressableClick
+import com.xiaopiao.app.ui.components.XpButtonSize
+import com.xiaopiao.app.ui.components.XpButtonStyle
 import com.xiaopiao.app.ui.components.rememberReducedMotion
+import com.xiaopiao.app.ui.components.rememberUndoToastState
 import com.xiaopiao.app.ui.components.rememberXpHaptics
+import com.xiaopiao.app.ui.games.wheel.MaxWheelSlices
+import com.xiaopiao.app.ui.games.wheel.MinWheelSlices
+import com.xiaopiao.app.ui.games.wheel.Wheel
+import com.xiaopiao.app.ui.games.wheel.WheelDisc
+import com.xiaopiao.app.ui.games.wheel.WheelEditor
+import com.xiaopiao.app.ui.games.wheel.WheelEase
+import com.xiaopiao.app.ui.games.wheel.WheelHistoryEntry
+import com.xiaopiao.app.ui.games.wheel.WheelHistoryRow
+import com.xiaopiao.app.ui.games.wheel.WheelPreset
+import com.xiaopiao.app.ui.games.wheel.WheelPresets
+import com.xiaopiao.app.ui.games.wheel.WheelResultCard
+import com.xiaopiao.app.ui.games.wheel.WheelStore
+import com.xiaopiao.app.ui.games.wheel.WheelSwitcher
+import com.xiaopiao.app.ui.games.wheel.landingRotation
+import com.xiaopiao.app.ui.games.wheel.newWheel
+import com.xiaopiao.app.ui.games.wheel.shouldTick
+import com.xiaopiao.app.ui.games.wheel.sliceUnder
+import com.xiaopiao.app.ui.games.wheel.spinDurationMs
+import com.xiaopiao.app.ui.games.wheel.spinTurns
+import com.xiaopiao.app.ui.games.wheel.wheelPalette
+import com.xiaopiao.app.ui.motion.XpMotion
 import com.xiaopiao.app.ui.theme.XpColors
-import com.xiaopiao.app.ui.theme.XpEase
-import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import com.xiaopiao.app.ui.tr
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import org.json.JSONArray
-import org.json.JSONObject
-import kotlin.math.roundToInt
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.random.Random
 
+/** 一次转动落在哪：扇面下标、文字、第几次。 */
+private data class SpinResult(val index: Int, val text: String, val spin: Int)
+
+/** 指针被拨开的角度。够小，看起来像被弹了一下，不像坏掉。 */
+private const val PointerKickDegrees = 7f
+
+/** 拨盘松手后还愿意转的最小角速度（度/秒）。更慢就是摆一摆，不转。 */
+private const val FlingThreshold = 320f
+
 /**
- * 转盘：通用决策模块（tt 2026-10-30）。
+ * 转盘：通用决策模块（tt 2026-10-30 首版，2026-11-02 重做）。
  *
- * 人可以建多个盘，每个盘自己选格数、自己填每一格的文字；配置存在本机，重开还在。
- * 盘只做一件事——把人已经写好的选项随机指一个出来，不给建议、不预置选项。
+ * 人可以建多个盘、自己填每一格；配置存在本机（prefs 名与 JSON 形状沿用旧版），重开还在。
+ * 盘只做一件事——把人已经写好的选项随机指一个出来，不给建议、不预设答案。
+ *
+ * 转动是**先定结果、再算角度**：赢的扇面由 Random 挑好，然后至少转 4 圈、落在那一格内部的随机点上，
+ * 永远不落在分隔线上。整段用一条 [Animatable] + 一条减速曲线跑完，转值只在 draw/layer 阶段读。
  */
-
-private const val WheelPrefs = "wheel-v1"
-private const val WheelKey = "wheels"
-private const val MinSlices = 2
-private const val MaxSlices = 12
-
-private data class Wheel(val id: String, val name: String, val slices: List<String>) {
-    /** Only filled slices take part in a spin. */
-    val live: List<String> get() = slices.map { it.trim() }.filter { it.isNotEmpty() }
-}
-
-private class WheelStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences(WheelPrefs, Context.MODE_PRIVATE)
-
-    fun load(): List<Wheel> {
-        val raw = prefs.getString(WheelKey, null) ?: return emptyList()
-        return runCatching {
-            val array = JSONArray(raw)
-            (0 until array.length()).mapNotNull { i ->
-                val o = array.optJSONObject(i) ?: return@mapNotNull null
-                val id = o.optString("id").ifBlank { return@mapNotNull null }
-                val slices = o.optJSONArray("slices")?.let { s -> (0 until s.length()).map { s.optString(it) } } ?: emptyList()
-                Wheel(id, o.optString("name", id), slices)
-            }
-        }.getOrDefault(emptyList())
-    }
-
-    fun save(wheels: List<Wheel>) {
-        val array = JSONArray()
-        wheels.forEach { w ->
-            array.put(
-                JSONObject().apply {
-                    put("id", w.id)
-                    put("name", w.name)
-                    put("slices", JSONArray(w.slices))
-                },
-            )
-        }
-        prefs.edit().putString(WheelKey, array.toString()).apply()
-    }
-}
-
-/** 转盘页：入口在 游戏 里。 */
 @Composable
 fun WheelGame(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -133,11 +103,13 @@ fun WheelGame(onBack: () -> Unit) {
     val reduced = rememberReducedMotion()
     val haptics = rememberXpHaptics()
     val scope = rememberCoroutineScope()
+    val toast = rememberUndoToastState()
 
     var wheels by remember { mutableStateOf(store.load().ifEmpty { listOf(newWheel(1)) }) }
     var currentId by rememberSaveable { mutableStateOf<String?>(null) }
     val currentIndex = wheels.indexOfFirst { it.id == currentId }.takeIf { it >= 0 } ?: 0
     val wheel = wheels[currentIndex]
+    val palette = wheelPalette()
 
     fun persist(list: List<Wheel>) {
         wheels = list
@@ -145,409 +117,362 @@ fun WheelGame(onBack: () -> Unit) {
     }
 
     fun updateCurrent(transform: (Wheel) -> Wheel) {
-        persist(wheels.mapIndexed { i, w -> if (i == currentIndex) transform(w) else w })
+        persist(wheels.mapIndexed { i, item -> if (i == currentIndex) transform(item) else item })
     }
 
+    var editing by remember(wheel.id) { mutableStateOf(false) }
     val rotation = remember(wheel.id) { Animatable(0f) }
-    var landing by remember(wheel.id) { mutableStateOf<String?>(null) }
+    /** 手指拖出来、还没折进 [rotation] 的角度。只在 draw 阶段与 [rotation] 相加。 */
+    var dragAngle by remember(wheel.id) { mutableFloatStateOf(0f) }
     var spinning by remember(wheel.id) { mutableStateOf(false) }
-    val pop = remember { Animatable(1f) }
-    val live = wheel.live
-    // The disc shows exactly what a spin can land on: the filled slices. With fewer than two, it shows the
-    // raw slices so the wedges still line up with the editor rows.
-    val disc = if (live.size >= MinSlices) live else wheel.slices
+    var spinCount by remember(wheel.id) { mutableIntStateOf(0) }
+    var result by remember(wheel.id) { mutableStateOf<SpinResult?>(null) }
+    /** 这一转里被排除的选项（只用于展示；下一转默认恢复）。 */
+    var outNow by remember(wheel.id) { mutableStateOf<Set<String>>(emptySet()) }
+    var history by remember(wheel.id) { mutableStateOf<List<WheelHistoryEntry>>(emptyList()) }
+    val pointerKick = remember { Animatable(0f) }
+    var kickJob by remember { mutableStateOf<Job?>(null) }
+    var discSize by remember { mutableStateOf(IntSize.Zero) }
 
-    fun spin() {
-        if (spinning || disc.size < MinSlices) return
-        val n = disc.size
-        val winner = Random.nextInt(n)
-        val slice = 360f / n
-        val target = -(winner * slice + slice / 2f)
-        // Keep turning forward: at least 4 extra turns, then the shortest way to the winning slice.
-        val turns = 4
-        val from = rotation.value
-        val base = from + turns * 360f
-        val delta = ((target - base) % 360f + 360f) % 360f
-        val to = base + delta
-        landing = null
-        spinning = true
-        scope.launch {
-            if (reduced) {
-                rotation.snapTo(to)
-            } else {
-                var lastSlice = sliceUnder(rotation.value, n)
-                rotation.animateTo(
-                    to,
-                    tween(1900 + Random.nextInt(300), easing = XpEase.out),
-                ) {
-                    val now = sliceUnder(value, n)
-                    if (now != lastSlice) {
-                        lastSlice = now
-                        haptics.tick()
-                    }
-                }
-            }
-            spinning = false
-            landing = disc[winner]
-            if (!reduced) {
-                pop.snapTo(0.92f)
-                pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 700f))
-            }
+    val slices = wheel.slices
+    val filled = slices.count { it.isNotBlank() }
+    val canSpin = filled >= MinWheelSlices
+
+    /** Fold the finger's angle into the animatable in one go, so the drawn angle never jumps. */
+    suspend fun foldDrag() {
+        if (dragAngle == 0f) return
+        rotation.snapTo(rotation.value + dragAngle)
+        dragAngle = 0f
+    }
+
+    fun kickPointer() {
+        kickJob?.cancel()
+        kickJob = scope.launch {
+            pointerKick.snapTo(PointerKickDegrees)
+            pointerKick.animateTo(0f, XpMotion.bouncy())
         }
     }
 
-    NavScaffold(title = tr("转盘", "Wheel"), scroll = NavScrollNone, onBack = onBack) { top ->
-        Column(
-            Modifier.fillMaxSize().padding(top = top).verticalScroll(rememberScrollState())
-                .padding(horizontal = XpSpace.page),
+    fun finish(index: Int, spin: Int) {
+        val text = slices.getOrNull(index).orEmpty().trim()
+        spinning = false
+        result = SpinResult(index, text, spin)
+        history = (listOf(WheelHistoryEntry(text, spin)) + history).take(5)
+        haptics.confirm()
+    }
+
+    fun spin(exclude: Set<String> = emptySet(), flingVelocity: Float = 0f) {
+        if (spinning) return
+        val candidates = slices.indices.filter {
+            val label = slices[it].trim()
+            label.isNotEmpty() && label !in exclude
+        }
+        if (candidates.size < MinWheelSlices) return
+        val random = Random
+        val winner = candidates[random.nextInt(candidates.size)]
+        val turns = spinTurns(flingVelocity)
+        val duration = spinDurationMs(turns)
+        val number = spinCount + 1
+        spinCount = number
+        outNow = exclude
+        result = null
+        spinning = true
+
+        scope.launch {
+            foldDrag()
+            val target = landingRotation(rotation.value, winner, slices.size, random, turns)
+            if (reduced) {
+                rotation.snapTo(target)
+                finish(winner, number)
+                return@launch
+            }
+            var lastSlice = sliceUnder(rotation.value, slices.size)
+            var lastTick = 0L
+            rotation.animateTo(target, tween(duration, easing = WheelEase)) {
+                val now = sliceUnder(value, slices.size)
+                if (now != lastSlice) {
+                    lastSlice = now
+                    val at = android.os.SystemClock.uptimeMillis()
+                    if (shouldTick(lastTick, at)) {
+                        lastTick = at
+                        haptics.tick()
+                        kickPointer()
+                    }
+                }
+            }
+            finish(winner, number)
+        }
+    }
+
+    fun restoreExcluded() {
+        outNow = emptySet()
+    }
+
+    fun removeSlice(index: Int) {
+        if (slices.size <= MinWheelSlices) {
+            toast.show(
+                tr("至少要 2 个选项，先加一个再删", "Two slices minimum — add one before removing"),
+                durationMs = 2400,
+            )
+            return
+        }
+        val before = slices
+        val removed = slices[index]
+        updateCurrent { it.copy(slices = it.slices.filterIndexed { i, _ -> i != index }) }
+        result = null
+        // 撤销把整张列表放回去：位置、文字、空格都对得上，不需要反推。
+        toast.show(
+            tr("已删掉「${removed.ifBlank { "空的一格" }}」", "Removed \u201C${removed.ifBlank { "empty slice" }}\u201D"),
+            tr("撤销", "Undo"),
         ) {
+            updateCurrent { it.copy(slices = before) }
+        }
+    }
+
+    // Driven by the page scroll like every other page: scrolled content fades under the header instead of
+    // running over the title and the status bar (tt 2026-11-02 screenshot).
+    val pageScroll = rememberScrollState()
+    val tabBarInset = com.xiaopiao.app.ui.components.LocalTabBarInset.current
+    NavScaffold(
+        title = tr("转盘", "Wheel"),
+        scroll = com.xiaopiao.app.ui.components.rememberNavScroll(pageScroll),
+        onBack = onBack,
+        trailing = {
+            // 转的时候不给编辑入口：盘面在动，改一半只会让高亮对不上。
+            if (!spinning) {
+                NavTextAction(
+                    text = if (editing) tr("完成", "Done") else tr("编辑", "Edit"),
+                    onClick = {
+                        haptics.select()
+                        editing = !editing
+                    },
+                )
+            }
+        },
+        overlay = { glass ->
+            UndoToastHost(
+                toast,
+                // Above the app's tab bar, never under it (the glass bar was sampling the toast).
+                Modifier.align(Alignment.BottomCenter).padding(bottom = tabBarInset + XpSpace.m),
+                backdrop = glass,
+            )
+        },
+    ) { top ->
+        Column(
+            Modifier.fillMaxSize()
+                .verticalScroll(pageScroll)
+                .padding(top = top, bottom = tabBarInset + XpSpace.xl)
+                .padding(horizontal = XpSpace.page),
+            verticalArrangement = Arrangement.Top,
+        ) {
+            Spacer(Modifier.height(XpSpace.s))
             WheelSwitcher(
                 wheels = wheels,
                 current = currentIndex,
-                onSelect = { currentId = wheels[it].id; landing = null },
+                enabled = !spinning,
+                onSelect = { index ->
+                    currentId = wheels[index].id
+                },
                 onAdd = {
                     val next = wheels + newWheel(wheels.size + 1)
                     persist(next)
                     currentId = next.last().id
-                    landing = null
                 },
                 onRename = { name ->
-                    if (name.isNotBlank()) updateCurrent { it.copy(name = name.trim()) }
+                    updateCurrent { it.copy(name = name) }
+                    toast.show(tr("已改名为「$name」", "Renamed to \u201C$name\u201D"), durationMs = 2000)
                 },
                 onDelete = {
+                    val removed = wheel.name
                     if (wheels.size == 1) {
                         persist(listOf(newWheel(1)))
                     } else {
                         persist(wheels.filterIndexed { i, _ -> i != currentIndex })
                     }
                     currentId = null
-                    landing = null
+                    toast.show(tr("已删掉「$removed」", "Deleted \u201C$removed\u201D"), durationMs = 2400)
                 },
             )
 
             Spacer(Modifier.height(XpSpace.m))
-            // The wheel sits on its own card: a coloured disc on a bare page read as a sticker, not a tool.
-            Box(
-                Modifier.fillMaxWidth()
-                    .clip(RoundedCornerShape(XpRadius.xl))
-                    .background(XpColors.Card)
-                    .padding(vertical = XpSpace.l),
-                contentAlignment = Alignment.Center,
-            ) {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 WheelDisc(
-                    slices = disc,
-                    rotation = rotation.value,
+                    slices = slices,
+                    palette = palette,
+                    rotationProvider = { rotation.value + dragAngle },
                     spinning = spinning,
-                    modifier = Modifier.size(280.dp).graphicsLayer {
-                        val s = pop.value
-                        scaleX = s; scaleY = s
-                    },
+                    highlight = result?.takeIf { !spinning }?.index,
+                    dimmed = result != null && !spinning,
+                    bulbsLit = result != null && !spinning,
+                    pointerKick = { pointerKick.value },
+                    hubEnabled = !spinning && canSpin,
+                    hubLabel = if (result == null) tr("转", "Spin") else tr("再转", "Again"),
+                    hubSubLabel = if (canSpin) tr("${filled} 格", "$filled slices") else tr("先填字", "Fill it"),
+                    onSpin = { spin() },
+                    modifier = Modifier.fillMaxWidth(0.94f)
+                        .aspectRatio(1f)
+                        .onSizeChanged { discSize = it }
+                        .pointerInput(wheel.id, discSize, spinning) {
+                            if (discSize.width == 0) return@pointerInput
+                            val center = Offset(discSize.width / 2f, discSize.height / 2f)
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                if (spinning) {
+                                    // A spinning wheel ignores the finger instead of fighting it.
+                                    down.consume()
+                                    return@awaitEachGesture
+                                }
+                                var lastAngle = angleAt(down.position - center)
+                                var lastAt = down.uptimeMillis
+                                var total = 0f
+                                var velocity = 0f
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (!change.pressed) break
+                                    val angle = angleAt(change.position - center)
+                                    var delta = angle - lastAngle
+                                    if (delta > 180f) delta -= 360f
+                                    if (delta < -180f) delta += 360f
+                                    total += delta
+                                    val now = change.uptimeMillis
+                                    val dt = (now - lastAt).coerceAtLeast(1L)
+                                    velocity = velocity * 0.55f + (delta / dt * 1000f) * 0.45f
+                                    lastAngle = angle
+                                    lastAt = now
+                                    dragAngle = total
+                                    change.consume()
+                                }
+                                if (abs(total) > 3f) {
+                                    haptics.tick()
+                                    if (abs(velocity) > FlingThreshold) {
+                                        spin(emptySet(), velocity)
+                                    } else {
+                                        scope.launch { foldDrag() }
+                                    }
+                                } else {
+                                    scope.launch { foldDrag() }
+                                }
+                            }
+                        },
                 )
             }
-            Spacer(Modifier.height(XpSpace.m))
 
-            // Result / hint. One line, never advice.
-            Box(
-                Modifier.fillMaxWidth().padding(bottom = XpSpace.s),
-                contentAlignment = Alignment.Center,
-            ) {
+            if (result == null) {
+                Spacer(Modifier.height(XpSpace.s))
                 Text(
-                    when {
-                        spinning -> tr("转着…", "Spinning…")
-                        landing != null -> landing!!
-                        live.size < MinSlices -> tr("先填两格以上，才能转", "Fill in at least two slices to spin")
-                        else -> tr("转一下，看落哪格", "Spin and see where it lands")
+                    if (canSpin) {
+                        tr("点中间的「转」，或者用手指拨一下盘面", "Tap 转 in the middle, or flick the disc")
+                    } else {
+                        tr("先填两格以上，才能转", "Fill in at least two slices to spin")
                     },
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (landing != null && !spinning) XpColors.OnAccent else XpColors.InkSecondary,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = XpColors.InkSecondary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .then(
-                            if (landing != null && !spinning) {
-                                Modifier.clip(RoundedCornerShape(XpRadius.pill))
-                                    .background(XpColors.Accent)
-                                    .padding(horizontal = XpSpace.l, vertical = 8.dp)
-                            } else Modifier,
-                        ),
+                    modifier = Modifier.fillMaxWidth(),
                 )
+                // 空盘不是一个死胡同：直接给一条进入编辑的路。
+                if (!canSpin && !editing) {
+                    Spacer(Modifier.height(XpSpace.s))
+                    XpButton(
+                        text = tr("填写选项", "Fill the slices"),
+                        onClick = {
+                            haptics.select()
+                            editing = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        style = XpButtonStyle.Secondary,
+                        size = XpButtonSize.Small,
+                    )
+                }
+            } else {
+                Spacer(Modifier.height(XpSpace.m))
             }
-            XpButton(
-                text = tr("转一下", "Spin"),
-                onClick = ::spin,
-                enabled = !spinning && live.size >= MinSlices,
-                modifier = Modifier.fillMaxWidth(),
-            )
+
+            WheelHistoryRow(history, Modifier.padding(top = if (result == null) XpSpace.m else 0.dp))
+
+            AnimatedVisibility(
+                visible = result != null,
+                // Reduced motion: the card just fades in, no rise.
+                enter = if (reduced) XpMotion.enterFade() else XpMotion.enterRise(),
+                exit = XpMotion.exitSink(),
+            ) {
+                val current = result
+                if (current != null) {
+                    Box(Modifier.padding(top = XpSpace.m)) {
+                        WheelResultCard(
+                            text = current.text,
+                            spinNumber = current.spin,
+                            excluded = outNow.firstOrNull(),
+                            canExclude = filled - outNow.size >= MinWheelSlices,
+                            onSpinAgain = {
+                                outNow = emptySet()
+                                spin(emptySet())
+                            },
+                            onExclude = { spin(setOf(current.text)) },
+                            onRestore = { restoreExcluded() },
+                        )
+                    }
+                }
+            }
 
             Spacer(Modifier.height(XpSpace.l))
-            SliceCountRow(
-                count = wheel.slices.size,
-                onChange = { n ->
-                    updateCurrent { w ->
-                        val fixed = when {
-                            n > w.slices.size -> w.slices + List(n - w.slices.size) { "" }
-                            else -> w.slices.take(n)
+
+            when {
+                editing && spinning -> Text(
+                    tr("转完再改。", "Edit again once the wheel stops."),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = XpColors.InkSecondary,
+                )
+                editing -> WheelEditor(
+                    wheel = wheel,
+                    palette = palette,
+                    onSliceChange = { index, text ->
+                        updateCurrent { item ->
+                            item.copy(slices = item.slices.toMutableList().also { it[index] = text })
                         }
-                        w.copy(slices = fixed)
-                    }
-                    landing = null
-                },
-            )
-            Spacer(Modifier.height(XpSpace.s))
-            wheel.slices.forEachIndexed { index, value ->
-                SliceRow(
-                    index = index,
-                    value = value,
-                    onValue = { text ->
-                        updateCurrent { w -> w.copy(slices = w.slices.toMutableList().also { it[index] = text }) }
-                        landing = null
+                        result = null
+                    },
+                    onReorder = { from, to ->
+                        updateCurrent { item ->
+                            val list = item.slices.toMutableList()
+                            if (from in list.indices && to in list.indices) {
+                                val moved = list.removeAt(from)
+                                list.add(to, moved)
+                            }
+                            item.copy(slices = list)
+                        }
+                        result = null
+                    },
+                    onDelete = { index -> removeSlice(index) },
+                    onAdd = {
+                        if (slices.size < MaxWheelSlices) {
+                            updateCurrent { it.copy(slices = it.slices + "") }
+                            haptics.select()
+                        }
+                    },
+                    onPreset = { preset: WheelPreset ->
+                        val fresh = WheelPresets.wheelFor(preset, wheels.size + 1)
+                        persist(wheels + fresh)
+                        currentId = fresh.id
+                        editing = false
+                        toast.show(tr("新建了「${fresh.name}」", "Created \u201C${fresh.name}\u201D"), durationMs = 2200)
                     },
                 )
-            }
-            Spacer(Modifier.height(XpSpace.l))
-            Text(
-                tr("盘面上的字只有你自己看得到，也只存在这台手机里。", "Your slices stay on this phone."),
-                style = MaterialTheme.typography.labelMedium,
-                color = XpColors.InkTertiary,
-                modifier = Modifier.padding(bottom = XpSpace.l),
-            )
-        }
-    }
-}
-
-private fun newWheel(number: Int) = Wheel(
-    id = "w" + System.currentTimeMillis().toString(36) + number,
-    name = tr("转盘 $number", "Wheel $number"),
-    slices = List(4) { "" },
-)
-
-/** Which slice sits under the pointer (top, -90°) for a given wheel rotation. */
-private fun sliceUnder(rotation: Float, count: Int): Int {
-    if (count <= 0) return 0
-    val slice = 360f / count
-    val normalized = ((-rotation) % 360f + 360f) % 360f
-    return (normalized / slice).toInt().coerceIn(0, count - 1)
-}
-
-@Composable
-private fun WheelDisc(slices: List<String>, rotation: Float, spinning: Boolean, modifier: Modifier = Modifier) {
-    val measurer = rememberTextMeasurer()
-    val colors = wheelColors()
-    val count = slices.size.coerceAtLeast(1)
-    val slice = 360f / count
-    Canvas(modifier) {
-        val radius = size.minDimension / 2f
-        val center = Offset(size.width / 2f, size.height / 2f)
-        // Body
-        drawCircle(XpColors.Card, radius = radius, center = center)
-        for (i in 0 until count) {
-            val start = -90f + i * slice + rotation
-            drawArc(
-                color = colors[i % colors.size],
-                startAngle = start,
-                sweepAngle = slice,
-                useCenter = true,
-            )
-            val label = slices.getOrNull(i).orEmpty().trim()
-            // An empty slice draws no text at all: a placeholder glyph rotated inside a wedge reads as noise.
-            if (label.isNotEmpty()) {
-                val angle = start + slice / 2f
-                rotate(degrees = angle, pivot = center) {
-                    drawSliceLabel(measurer, label, center, radius, count)
-                }
-            }
-        }
-        // Rim + pointer
-        drawCircle(
-            color = XpColors.Ink.copy(alpha = 0.10f),
-            radius = radius - 1.dp.toPx(),
-            center = center,
-            style = Stroke(width = 2.dp.toPx()),
-        )
-        drawCircle(XpColors.Card, radius = radius * 0.16f, center = center)
-        val pointer = radius * 0.12f
-        drawPath(
-            androidx.compose.ui.graphics.Path().apply {
-                moveTo(center.x - pointer, center.y - radius - pointer * 0.4f)
-                lineTo(center.x + pointer, center.y - radius - pointer * 0.4f)
-                lineTo(center.x, center.y - radius + pointer * 1.2f)
-                close()
-            },
-            color = XpColors.Accent,
-        )
-    }
-}
-
-/** Radial label: rotated with its slice, so text always reads outwards. */
-private fun DrawScope.drawSliceLabel(measurer: TextMeasurer, text: String, center: Offset, radius: Float, count: Int) {
-    val style = TextStyle(
-        color = XpColors.Ink,
-        fontSize = if (count > 8) 11.sp else 13.sp,
-        fontWeight = FontWeight.Medium,
-        textAlign = TextAlign.Center,
-    )
-    val maxWidth = (radius * 0.62f).roundToInt().coerceAtLeast(24)
-    val layout = measurer.measure(text, style, maxLines = 1, overflow = TextOverflow.Ellipsis, constraints = androidx.compose.ui.unit.Constraints(maxWidth = maxWidth))
-    val x = center.x + radius * 0.60f - layout.size.width / 2f
-    val y = center.y - layout.size.height / 2f
-    drawText(layout, topLeft = Offset(x, y))
-}
-
-private fun wheelColors(): List<Color> = listOf(
-    if (XpColors.isDark) XpColors.AccentSoft else XpColors.AccentSoft,
-    XpColors.InfoSoft,
-    XpColors.PositiveSoft,
-    XpColors.WarningSoft,
-    XpColors.HighlightSoft,
-)
-
-@Composable
-private fun WheelSwitcher(
-    wheels: List<Wheel>,
-    current: Int,
-    onSelect: (Int) -> Unit,
-    onAdd: () -> Unit,
-    onRename: (String) -> Unit,
-    onDelete: () -> Unit,
-) {
-    var renaming by remember { mutableStateOf(false) }
-    var renameDraft by remember { mutableStateOf(wheels[current].name) }
-    var confirmingDelete by remember { mutableStateOf(false) }
-    Column {
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(XpSpace.xs),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            wheels.forEachIndexed { index, wheel ->
-                val on = index == current
-                Text(
-                    wheel.name,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (on) XpColors.OnAccent else XpColors.Ink,
-                    maxLines = 1,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(XpRadius.pill))
-                        .background(if (on) XpColors.Accent else XpColors.Fill)
-                        .pressableClick(haptic = false) { onSelect(index) }
-                        .padding(horizontal = XpSpace.m, vertical = 6.dp),
+                else -> Text(
+                    tr(
+                        "盘面上的字只有你自己看得到，也只存在这台手机里。",
+                        "Your slices stay on this phone — nobody else sees them.",
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = XpColors.InkTertiary,
                 )
             }
-            Box(
-                Modifier.size(30.dp).clip(CircleShape).background(XpColors.Fill)
-                    .pressableClick(haptic = false, onClick = onAdd),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Outlined.Add, contentDescription = tr("新建转盘", "New wheel"), tint = XpColors.InkSecondary, modifier = Modifier.size(18.dp))
-            }
-        }
-        Spacer(Modifier.height(XpSpace.xs))
-        Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.m)) {
-            Text(
-                tr("重命名", "Rename"),
-                style = MaterialTheme.typography.labelMedium,
-                color = XpColors.InkSecondary,
-                modifier = Modifier.pressableClick(haptic = false) {
-                    renameDraft = wheels[current].name
-                    renaming = true
-                }.padding(vertical = 4.dp),
-            )
-            Text(
-                tr("删除这个盘", "Delete this wheel"),
-                style = MaterialTheme.typography.labelMedium,
-                color = XpColors.Negative,
-                modifier = Modifier.pressableClick(haptic = false) { confirmingDelete = true }.padding(vertical = 4.dp),
-            )
-        }
-    }
 
-    if (renaming) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { renaming = false },
-            title = { Text(tr("重命名转盘", "Rename wheel")) },
-            text = {
-                OutlinedTextField(
-                    value = renameDraft,
-                    onValueChange = { renameDraft = it },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions.Default,
-                )
-            },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { onRename(renameDraft); renaming = false }) {
-                    Text(tr("保存", "Save"))
-                }
-            },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { renaming = false }) { Text(tr("取消", "Cancel")) } },
-        )
-    }
-    if (confirmingDelete) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { confirmingDelete = false },
-            title = { Text(tr("删除这个盘？", "Delete this wheel?")) },
-            text = { Text(tr("盘面上的内容会一起删掉，其它盘不受影响。", "Its slices go with it. Your other wheels stay.")) },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = { onDelete(); confirmingDelete = false }) {
-                    Text(tr("删除", "Delete"), color = XpColors.Negative)
-                }
-            },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmingDelete = false }) { Text(tr("取消", "Cancel")) } },
-        )
-    }
-}
-
-@Composable
-private fun SliceCountRow(count: Int, onChange: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(tr("格数", "Slices"), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink, modifier = Modifier.weight(1f))
-        Stepper(icon = Icons.Outlined.Remove, enabled = count > MinSlices, description = tr("少一格", "One fewer")) {
-            onChange((count - 1).coerceIn(MinSlices, MaxSlices))
-        }
-        Text(
-            "$count",
-            style = MaterialTheme.typography.titleMedium,
-            color = XpColors.Ink,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = XpSpace.m),
-        )
-        Stepper(icon = Icons.Outlined.Add, enabled = count < MaxSlices, description = tr("多一格", "One more")) {
-            onChange((count + 1).coerceIn(MinSlices, MaxSlices))
+            Spacer(Modifier.height(120.dp))
         }
     }
 }
 
-@Composable
-private fun Stepper(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    enabled: Boolean,
-    description: String,
-    onClick: () -> Unit,
-) {
-    Box(
-        Modifier.size(32.dp).clip(CircleShape).background(if (enabled) XpColors.Fill else XpColors.Fill.copy(alpha = 0.4f))
-            .then(if (enabled) Modifier.pressableClick(haptic = false, onClick = onClick) else Modifier),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, contentDescription = description, tint = if (enabled) XpColors.Ink else XpColors.InkTertiary, modifier = Modifier.size(16.dp))
-    }
-}
-
-@Composable
-private fun SliceRow(index: Int, value: String, onValue: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            "${index + 1}",
-            style = MaterialTheme.typography.labelMedium,
-            color = XpColors.InkTertiary,
-            modifier = Modifier.size(20.dp),
-        )
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValue,
-            singleLine = true,
-            placeholder = { Text(tr("填这格", "Fill this slice"), style = MaterialTheme.typography.bodyMedium, color = XpColors.InkTertiary) },
-            modifier = Modifier.weight(1f),
-            textStyle = MaterialTheme.typography.bodyMedium.copy(color = XpColors.Ink),
-            shape = RoundedCornerShape(XpRadius.m),
-        )
-    }
-}
+/** 屏幕坐标系里的角度：右手边是 0°，顺时针为正（和 rotate()/drawArc 一致）。 */
+private fun angleAt(offset: Offset): Float = (atan2(offset.y, offset.x) * 180.0 / PI).toFloat()
