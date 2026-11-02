@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.record
 
+import com.xiaopiao.app.ui.motion.XpMotion
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -285,8 +286,10 @@ fun VoiceOverlay(
     AnimatedVisibility(
         visible = listening || outcome != null,
         modifier = modifier,
-        enter = expandVertically(spring(0.85f, 340f), expandFrom = Alignment.Bottom) + fadeIn(tween(120)),
-        exit = shrinkVertically(tween(140)) + fadeOut(tween(110)),
+        // Pop + rise, never expand/shrink: those clip to the animating bounds and cut the pill's 18dp shadow
+        // into a hard rectangle while it opens (tt 2026-11-02).
+        enter = XpMotion.enterPop(0.92f) + XpMotion.enterRise(0.3f),
+        exit = XpMotion.exitPop() + XpMotion.exitSink(0.3f),
     ) {
         val shape = RoundedCornerShape(XpRadius.pill)
         val tint by animateColorAsState(
@@ -308,7 +311,7 @@ fun VoiceOverlay(
         ) {
             AnimatedContent(
                 targetState = if (listening) null else outcome,
-                transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) },
+                transitionSpec = { XpMotion.crossfade() },
                 label = "voiceBar",
             ) { shown ->
                 when (shown) {

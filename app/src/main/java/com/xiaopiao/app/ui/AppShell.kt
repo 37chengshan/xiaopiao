@@ -188,10 +188,12 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         lastLedger = NavModel.lastLedger(current, lastLedger)
     }
 
+    // No saveState / restoreState: tab destinations are empty shells (the pages live in the keep-alive host), so
+    // saving only ever captured a pushed 设置 and restored it on the next visit to that tab (tt 2026-11-02:
+    // 在游戏/圈子点 AI、账单会跳到设置).
     fun go(tab: NavTab) = nav.navigate(tab.route) {
-        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+        popUpTo(nav.graph.findStartDestination().id)
         launchSingleTop = true
-        restoreState = true
     }
 
     // The resident receipt: pages place a ReceiptStrip, the ceremony itself lives here, above the navigation.
@@ -233,6 +235,14 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         // AI / 圈子 float their input above the bar; their content, like 游戏's wall, scrolls under the glass.
         current == NavTab.Chat.route || current == NavTab.Circle.route || current == NavTab.Games.route
 
+    // Back dispatcher for hidden tab pages: nothing ever dispatches to it, so their BackHandlers stay inert.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val inertBack = remember(lifecycleOwner) {
+        object : androidx.activity.OnBackPressedDispatcherOwner {
+            override val onBackPressedDispatcher = androidx.activity.OnBackPressedDispatcher()
+            override val lifecycle get() = lifecycleOwner.lifecycle
+        }
+    }
     // Which tab pages have been built at least once; they stay in the tree from then on.
     val visitedTabs = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<String, Unit>() }
 
@@ -303,7 +313,11 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                             XpColors.CanvasGrouped
                         },
                     ) {
+                        // A hidden page keeps its composition but must not keep its back handlers: 游戏's
+                        // "back → 圈子" used to steal 返回 from 设置 while 游戏 sat hidden underneath.
+                        val backOwner = if (visible) androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current ?: inertBack else inertBack
                         CompositionLocalProvider(
+                            androidx.activity.compose.LocalOnBackPressedDispatcherOwner provides backOwner,
                             LocalPageEntrance provides pageEntrance(tab.route),
                             com.xiaopiao.app.ui.components.LocalTabBarInset provides
                                 if (!navBarHidden) tabBarInset else 0.dp,

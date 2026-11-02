@@ -36,14 +36,6 @@ class ColorThemeTest {
         assertEquals(ColorTheme.Berry.tint.color(true), p.info)
     }
 
-    @Test fun merchantKeepsItsGreenWhateverTheTheme() {
-        for (dark in listOf(false, true)) {
-            val m = merchantPalette(resolvePalette(dark, ColorTheme.Sunset))
-            assertTrue(Contrast.ratio(m.onAccent, m.accent) >= Contrast.MIN_TEXT)
-            assertEquals(m.accent, merchantPalette(resolvePalette(dark, ColorTheme.Ink)).accent)
-        }
-    }
-
     /**
      * 2026-10-29 dark-mode regression: the page and the card used to be the same #1C1C1E, so every ledger /
      * stat / settings card lost its edge and only the hairline was left.

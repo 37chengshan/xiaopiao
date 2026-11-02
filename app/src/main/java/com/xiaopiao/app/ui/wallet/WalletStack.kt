@@ -1,10 +1,7 @@
 package com.xiaopiao.app.ui.wallet
 
+import androidx.compose.ui.geometry.CornerRadius
 import com.xiaopiao.app.ui.motion.XpMotion
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -127,26 +124,12 @@ fun <T> CardStack(
                             transformOrigin = TransformOrigin(0.5f, 0f)
                             alpha = if (shown) 1f else (1f - (far - maxVisible)).coerceIn(0f, 1f)
                         }
-                        // A soft contact shadow just above each card's top edge separates it from the one behind.
-                        .drawBehind {
-                            if (far > 0.05f || isFront) {
-                                val band = 14.dp.toPx()
-                                drawRect(
-                                    Brush.verticalGradient(
-                                        0f to Color.Transparent,
-                                        1f to Color.Black.copy(alpha = 0.16f),
-                                        startY = -band, endY = 0f,
-                                    ),
-                                    topLeft = Offset(size.width * 0.04f, -band),
-                                    size = Size(size.width * 0.92f, band),
-                                )
-                            }
-                        }
                         // Further cards sit a touch darker — a veil, not transparency (alpha would let the card
                         // above show through and read as a double image).
                         .drawWithContent {
                             drawContent()
-                            if (far > 0.01f) drawRect(Color.Black.copy(alpha = (0.09f * far).coerceAtMost(0.3f)))
+                            // Same 16dp corners as the card face, or the veil shows as a sharp dark rectangle.
+                            if (far > 0.01f) drawRoundRect(Color.Black.copy(alpha = (0.09f * far).coerceAtMost(0.3f)), cornerRadius = CornerRadius(16.dp.toPx()))
                         }
                 ) {
                     if (isFront) front(item) else peekContent(item)

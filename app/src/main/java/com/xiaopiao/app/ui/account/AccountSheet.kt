@@ -21,6 +21,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
 import com.xiaopiao.app.ui.motion.XpTiming
+import com.xiaopiao.app.ui.motion.xpRevealLayer
+import androidx.compose.material.icons.outlined.CheckCircle
 import com.xiaopiao.app.ui.components.rememberReducedMotion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -63,7 +65,13 @@ fun AccountSheet(client: AccountClient, onDismiss: () -> Unit) {
 fun AccountPage(client: AccountClient, onDismiss: () -> Unit) {
     val user by client.user.collectAsState()
     val policy by client.policy.collectAsState()
-    if (user?.verified == true) { AccountProfilePage(client, onDismiss); return }
+    // Profile editing is only for someone who opened this page already signed in. Signing in / verifying here
+    // ends the flow with a short success state and closes, instead of dropping into 个人资料 (tt 2026-11-02).
+    val openedSignedIn = remember { user?.verified == true }
+    if (user?.verified == true) {
+        if (openedSignedIn) AccountProfilePage(client, onDismiss) else AccountDone(user?.username.orEmpty(), onDismiss)
+        return
+    }
     val reduced = rememberReducedMotion()
     val entrance = remember { Animatable(0.7f) }
     LaunchedEffect(reduced) { if (reduced) entrance.snapTo(1f) else entrance.animateTo(1f, tween(XpTiming.PushIn, easing = XpEase.out)) }
@@ -318,4 +326,35 @@ private fun LoginField(
         ),
         modifier = modifier,
     )
+}
+
+/** Shown for a moment after a successful sign-in or verification, then the page closes by itself. */
+@Composable
+private fun AccountDone(username: String, onDismiss: () -> Unit) {
+    val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(1_100)
+        onDismiss()
+    }
+    AccountBackdrop {
+        Column(
+            Modifier.fillMaxSize().padding(XpSpace.page),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Column(
+                Modifier.xpRevealLayer(scaleFrom = 0.92f).accountGlass(androidx.compose.foundation.shape.RoundedCornerShape(XpRadius.xl))
+                    .padding(horizontal = XpSpace.xl, vertical = XpSpace.xl),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.Outlined.CheckCircle, contentDescription = null,
+                    tint = XpColors.Positive, modifier = Modifier.size(44.dp),
+                )
+                androidx.compose.foundation.layout.Spacer(Modifier.size(XpSpace.m))
+                Text(if (en) "You're in" else "登录成功", style = MaterialTheme.typography.titleMedium, color = XpColors.Ink)
+                if (username.isNotEmpty()) Text(if (en) "Welcome, $username" else "欢迎你，$username", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
+            }
+        }
+    }
 }

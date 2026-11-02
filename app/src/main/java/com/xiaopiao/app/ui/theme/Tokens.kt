@@ -145,18 +145,6 @@ internal object XpPaletteState {
     fun applyOverride(p: XpPalette?) { override = p; apply() }
 }
 
-/** Derives the 小店版 skin from the active palette: same system, different accent and canvas weight. */
-fun merchantPalette(base: XpPalette): XpPalette {
-    val green = if (base.dark) Color(0xFF4FBF8B) else Color(0xFF2F6B57)
-    val greenSoft = if (base.dark) Color(0xFF14301F) else Color(0xFFE4F1EA)
-    return base.copy(
-        accent = green, accentSoft = greenSoft, onAccent = Contrast.onAccent(green), primary = green, onPrimary = Color(0xFFFFFFFF),
-        info = green, infoSoft = greenSoft,
-        canvas = if (base.dark) Color(0xFF141815) else Color(0xFFF6F7F5),
-        canvasGrouped = if (base.dark) Color(0xFF1A1F1C) else Color(0xFFEFF1EE),
-    )
-}
-
 /** Runs [content] with a palette override (used by the 小店 global mode). */
 @Composable
 fun XpPaletteOverride(palette: XpPalette, content: @Composable () -> Unit) {

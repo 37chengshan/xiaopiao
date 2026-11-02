@@ -64,9 +64,6 @@ import com.xiaopiao.app.ui.components.NavBarItem
 import com.xiaopiao.app.ui.components.NavBarSpec
 import com.xiaopiao.app.ui.components.XpNavBar
 import com.xiaopiao.app.ui.theme.XpColors
-import com.xiaopiao.app.ui.theme.XpPaletteOverride
-import com.xiaopiao.app.ui.theme.merchantPalette
-import com.xiaopiao.app.ui.theme.paletteFor
 import com.xiaopiao.app.ui.tr
 
 /** The four destinations of 小店版. The middle nav slot is the record action, not a tab. */
@@ -149,8 +146,8 @@ private fun merchantNavSpec() = NavBarSpec(
  */
 @Composable
 fun MerchantShell(container: AppContainer, onExit: () -> Unit, onOpenSettings: () -> Unit = {}) {
-    val palette = remember(XpColors.isDark) { merchantPalette(paletteFor(XpColors.isDark)) }
-    XpPaletteOverride(palette) {
+    // Same palette as the personal app (tt 2026-11-02: 小店的主题色应该和个人统一) — no green override.
+    run {
     CompositionLocalProvider(LocalTopBarHost provides TopBarHost(openSettings = onOpenSettings)) {
         val store = remember { MerchantStore.get(container.appContext) }
         val state by store.state.collectAsState()

@@ -331,10 +331,12 @@ fun AccountNavSection(username: String?, email: String?, verified: Boolean, sync
 @Composable
 fun AiEntrySection(enabled: Boolean, onChange: (Boolean) -> Unit) {
     val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
-    GroupedSection(header = if (en) "AI bookkeeping" else "AI 记账", dividerInset = IconInset) {
+    GroupedSection(header = if (en) "AI chat" else "AI 对话", dividerInset = IconInset) {
         item {
-            GroupedRow(title = if (en) "Automatic entry" else "AI 自动入账",
-                subtitle = if (en) "Save recognized entries directly. You can undo. CSV still requires review." else "一句话和图片识别后直接记入，可撤销；CSV 保留确认",
+            // Only the AI page's sentence / screenshot recognition; payment notifications are rule-parsed and
+            // never go through this switch (tt 2026-11-02 asked what "AI 自动入账" meant).
+            GroupedRow(title = if (en) "Save chat entries without asking" else "对话识别后直接入账",
+                subtitle = if (en) "In AI chat, a sentence or screenshot is saved straight away (undo anytime). Off: confirm each one. Payment notifications always use rules." else "在 AI 页说一句话或发截图，识别出的账直接记入，可撤销；关闭则每笔先确认。支付通知按规则自动记账，不受影响",
                 leading = { IconTile(Icons.Outlined.Lightbulb, tint = XpColors.Warning, background = XpColors.WarningSoft) },
                 trailing = { XpSwitch(enabled, onChange) })
         }

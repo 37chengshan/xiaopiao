@@ -175,9 +175,12 @@ class GlassLight {
         val c = at - origin
         // Finger-sized on big panels: sized to the whole element it flooded a login form white.
         val r = (size.height.coerceAtLeast(size.width * 0.35f) * 1.3f).coerceAtMost(MaxLightRadius.toPx())
+        // Big panels get a much softer light: full strength on a 450dp form read as a white flash (tt 2026-11-02).
+        val fit = (TiltFullSize.toPx() / maxOf(size.width, size.height, 1f)).coerceAtMost(1f)
+        val a = k * fit * fit
         drawCircle(
             Brush.radialGradient(
-                0f to Color.White.copy(alpha = 0.50f * k), 0.45f to Color.White.copy(alpha = 0.18f * k), 1f to Color.Transparent,
+                0f to Color.White.copy(alpha = 0.50f * a), 0.45f to Color.White.copy(alpha = 0.18f * a), 1f to Color.Transparent,
                 center = c, radius = r,
             ),
             radius = r, center = c, blendMode = androidx.compose.ui.graphics.BlendMode.Plus,
