@@ -7,7 +7,20 @@ import com.xiaopiao.app.ui.motion.XpMotion
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animate
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.pointer.util.addPointerInputChange
+import androidx.compose.ui.layout.onSizeChanged
+import com.xiaopiao.app.ui.components.rememberReducedMotion
+import com.xiaopiao.app.ui.motion.XpTiming
+import kotlin.math.abs
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -48,11 +61,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -113,7 +124,7 @@ import com.xiaopiao.app.ui.tr
 import com.xiaopiao.app.ui.motion.LocalPageEntrance
 import com.xiaopiao.app.ui.motion.PageEntranceSeen
 
-/** The user edition's bar: 记账 · 小票 · ⊕ · 统计 | 圈子, and 账单 · ⊕ | AI · 圈子 · 游戏 once 圈子 is open. */
+/** The user edition's bar: 记账 · 小票 · ⊕ · 统计 | 圈子, and 账单 · ⊕ | AI · 生活 · 圈子 once 圈子 is open. */
 private val UserNavSpec get() = NavBarSpec(
     a = NavBarItem(NavTab.Ledger.route, NavTab.Ledger.label, NavGlyph.Ledger),
     b = NavBarItem(NavTab.Receipt.route, NavTab.Receipt.label, NavGlyph.Receipt),
@@ -121,7 +132,8 @@ private val UserNavSpec get() = NavBarSpec(
     fold = NavBarItem("fold", tr("账单", "Ledger"), NavGlyph.Ledger),
     entry = NavBarItem(NavTab.Circle.route, NavTab.Circle.label, NavGlyph.People),
     sa = NavBarItem(NavTab.Chat.route, NavTab.Chat.label, NavGlyph.Chat),
-    sb = NavBarItem(NavTab.Games.route, NavTab.Games.label, NavGlyph.Gamepad),
+    sb = if (NavModel.lifeTab) NavBarItem(NavTab.Life.route, NavTab.Life.label, NavGlyph.Leaf)
+    else NavBarItem(NavTab.Games.route, NavTab.Games.label, NavGlyph.Gamepad),
     plusLabel = tr("记一笔", "Record"), plusDescription = tr("记一笔 · 长按说一句", "Record · Hold to speak"),
 )
 
@@ -233,7 +245,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     // The rest (circle chat input, games…) still stop above it.
     val underBar = current == NavTab.Ledger.route || current == NavTab.Receipt.route || current == NavTab.Insights.route ||
         // AI / 圈子 float their input above the bar; their content, like 游戏's wall, scrolls under the glass.
-        current == NavTab.Chat.route || current == NavTab.Circle.route || current == NavTab.Games.route
+        current == NavTab.Chat.route || current == NavTab.Circle.route || current == NavTab.Games.route ||
+        current == NavTab.Life.route
 
     // Back dispatcher for hidden tab pages: nothing ever dispatches to it, so their BackHandlers stay inert.
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -245,6 +258,42 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     }
     // Which tab pages have been built at least once; they stay in the tree from then on.
     val visitedTabs = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<String, Unit>() }
+
+    // ── Tab motion (tt 2026-11-02: 组内左右滑 + 切换动画统一) ──────────────────────────────────────────────
+    // Every tab switch is one horizontal slide in bar order (记账 · 小票 · 统计 | AI · 生活 · 圈子 · 游戏); a swipe
+    // drags the same two pages and hands its release position to that slide. Fades only under reduced motion.
+    val reduced = rememberReducedMotion()
+    val shown = current ?: start
+    // The tab drawn underneath a pushed page (设置), so popping it slides back onto a page that is already there.
+    val lastTab = remember { arrayOf(start) }
+    val baseTab = if (NavModel.selected(shown) != null) shown else lastTab[0]
+    var pageWidth by remember { mutableFloatStateOf(0f) }
+    val settledTab = remember { arrayOf(baseTab) }
+    val swipeStart = remember { arrayOf<Float?>(null) }
+    val slide = remember(baseTab) {
+        val from = NavTab.entries.firstOrNull { it.route == settledTab[0] }
+        val to = NavTab.entries.firstOrNull { it.route == baseTab }
+        val startPx = swipeStart[0].also { swipeStart[0] = null }
+        if (reduced || from == null || to == null || from == to || pageWidth <= 0f) null
+        else (if (to.ordinal > from.ordinal) 1 else -1).let { dir -> TabSlide(from.route, to.route, startPx ?: dir * pageWidth, dir) }
+    }
+    androidx.compose.runtime.SideEffect { settledTab[0] = baseTab; lastTab[0] = baseTab }
+    // Build the side's other pages once the shell is idle, so the first swipe has something to drag in.
+    LaunchedEffect(side) {
+        kotlinx.coroutines.delay(1_500)
+        (if (side == NavSide.Ledger) NavModel.LEDGER_SIDE else NavModel.SOCIAL_SIDE).forEach { visitedTabs[it.route] = Unit }
+    }
+    // The finger's page offset while a swipe is undecided; [dragFor] is the page it was started on.
+    var dragX by remember { mutableFloatStateOf(0f) }
+    var dragFor by remember { mutableStateOf<String?>(null) }
+    var dragPeek by remember { mutableStateOf<NavTab?>(null) }
+    LaunchedEffect(slide) {
+        val s = slide ?: return@LaunchedEffect
+        s.progress.animateTo(1f, XpMotion.snappy(0.001f))
+        s.done = true
+        dragX = 0f; dragFor = null; dragPeek = null
+    }
+    val currentSlide by androidx.compose.runtime.rememberUpdatedState(slide)
 
     // Debug builds only: frame timing straight from Choreographer (gfxinfo is empty on the test phone).
     com.xiaopiao.app.ui.DebugFrameMonitor()
@@ -290,6 +339,61 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
         Box(
             Modifier.fillMaxSize()
                 .layerBackdrop(glass)
+                .onSizeChanged { pageWidth = it.width.toFloat() }
+                .pointerInput(shown, reduced) {
+                    // Only a horizontal drag no child has taken (pager, wheel, row swipe…) switches pages, and only
+                    // within the current side: inner gestures win, the shell gets what is left at their edges.
+                    val here = NavModel.selected(shown) ?: return@pointerInput
+                    if (NavTab.entries.none { it.route == shown }) return@pointerInput
+                    val slop = viewConfiguration.touchSlop
+                    val fling = 900.dp.toPx()
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        if (currentSlide?.done == false) return@awaitEachGesture
+                        var tx = 0f
+                        var ty = 0f
+                        var raw = 0f
+                        var dragging = false
+                        val velocity = VelocityTracker()
+                        while (true) {
+                            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) break
+                            if (!dragging) {
+                                if (change.isConsumed) return@awaitEachGesture
+                                val d = change.positionChange()
+                                tx += d.x; ty += d.y
+                                if (abs(ty) > slop && abs(ty) * 1.5f >= abs(tx)) return@awaitEachGesture
+                                if (abs(tx) <= slop || abs(tx) <= abs(ty) * 1.5f) continue
+                                dragging = true
+                                dragFor = shown
+                                NavModel.neighbor(shown, 1)?.let { visitedTabs[it.route] = Unit }
+                                NavModel.neighbor(shown, -1)?.let { visitedTabs[it.route] = Unit }
+                            } else {
+                                raw += change.positionChange().x
+                            }
+                            velocity.addPointerInputChange(change)
+                            change.consume()
+                            val next = NavModel.neighbor(shown, if (raw < 0f) 1 else -1)
+                            dragPeek = next
+                            // At either end of the side the page resists instead of leaving.
+                            if (!reduced) dragX = if (next == null) raw * 0.3f else raw.coerceIn(-pageWidth, pageWidth)
+                        }
+                        if (!dragging) return@awaitEachGesture
+                        val step = if (raw < 0f) 1 else -1
+                        val next = NavModel.neighbor(shown, step)
+                        val v = velocity.calculateVelocity().x
+                        val commit = next != null && (abs(raw) > pageWidth / 3f || -v * step > fling)
+                        if (commit && next != here) {
+                            if (!reduced) swipeStart[0] = dragX + step * pageWidth else { dragX = 0f; dragFor = null; dragPeek = null }
+                            go(next!!)
+                        } else {
+                            shellScope.launch {
+                                animate(dragX, 0f, animationSpec = XpMotion.snappy()) { value, _ -> dragX = value }
+                                dragFor = null; dragPeek = null
+                            }
+                        }
+                    }
+                }
                 // What shows behind the bar on pages that stop above it: match the page, never a grey band (tt).
                 // Light: the chat-like pages sit on card white. Dark: they must sit on the canvas, or every
                 // bubble / receipt card on them is the same #1C1C1E and the page reads as one flat slab.
@@ -311,14 +415,25 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
             // switch only changes which page is drawn, while the NavHost (whose tab destinations are empty shells)
             // still owns the back stack, so 返回, deep links and the pushed-page transitions behave as before.
             val tabBarInset = padding.calculateBottomPadding()
-            val shown = current ?: start
             NavTab.entries.forEach { tab ->
                 val visible = shown == tab.route
                 if (visible) visitedTabs[tab.route] = Unit
                 if (visitedTabs.containsKey(tab.route)) {
+                    val s = slide?.takeUnless { it.done }
+                    val x: (() -> Float)? = when {
+                        s != null && tab.route == s.to -> { { s.toX() } }
+                        s != null && tab.route == s.from -> { { s.fromX(pageWidth) } }
+                        dragFor == shown && tab.route == shown -> { { dragX } }
+                        dragFor == shown && tab == dragPeek -> {
+                            val side = if (tab.ordinal > (NavModel.selected(shown)?.ordinal ?: 0)) 1 else -1
+                            ({ dragX + side * pageWidth })
+                        }
+                        else -> null
+                    }
                     TabPageSlot(
                         visible = visible,
-                        drop = tab == NavTab.Receipt,
+                        drawn = baseTab == tab.route,
+                        x = x,
                         topInset = if (current == null) statusTop else 0.dp,
                         background = if (tab.route == NavTab.Circle.route || tab.route == NavTab.Games.route || tab.route == NavTab.Chat.route) {
                             if (XpColors.isDark) XpColors.Canvas else XpColors.Card
@@ -364,8 +479,10 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                                     onOpenSettings = { openSettingsFrom(NavTab.Circle) },
                                     onOpenGames = { go(NavTab.Games) },
                                 )
+                                NavTab.Life -> com.xiaopiao.app.ui.life.LifeHome()
                                 NavTab.Games -> GamesHub(
                                     onBack = { go(NavTab.Circle) },
+                                    onOpenCircle = { go(NavTab.Circle) },
                                     onOpenSettings = { openSettingsFrom(NavTab.Games) },
                                 )
                             }
@@ -376,8 +493,8 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
             NavHost(
                 nav, startDestination = start,
                 modifier = Modifier.zIndex(2f),
-                // Tabs are pure fades: an alpha change is a layer property, so the page's recorded glass layer
-                // is not re-recorded every frame of the transition. Pushed pages keep the drop-in (below).
+                // Tab destinations are empty shells (the slide above is the tab motion); pushed pages slide in
+                // from the trailing edge like every XpPushHost sub-page.
                 enterTransition = { XpMotion.enterFade() },
                 exitTransition = { XpMotion.exitFade() },
                 popEnterTransition = { XpMotion.enterFade() },
@@ -386,7 +503,7 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
                 // Tab destinations are shells: their pages live in the keep-alive host above. The graph still records
                 // which tab is current, which is what the bar, the insets and 返回 read.
                 NavTab.entries.forEach { tab -> page(tab.route) { } }
-                page("settings", drop = true) {
+                page("settings", push = true) {
                     SettingsScreen(
                         container,
                         onSwitchEdition = { merchantMode = true },
@@ -430,42 +547,48 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     }
 }
 
+/** A tab switch in flight: [to] slides in from [startPx] while [from] stays one page width behind it. */
+private class TabSlide(val from: String, val to: String, val startPx: Float, val dir: Int) {
+    val progress = Animatable(0f)
+    var done by mutableStateOf(false)
+    fun toX(): Float = startPx * (1f - progress.value)
+    fun fromX(width: Float): Float = toX() - dir * width
+}
+
 /**
- * One keep-alive tab page: it stays composed after its first visit, and [visible] only drives which one is drawn.
+ * One keep-alive tab page: it stays composed after its first visit. [visible] makes it the interactive page,
+ * [drawn] keeps it on screen (also under a pushed 设置), and [x] — set while it takes part in a slide or a
+ * swipe — places it horizontally.
  *
- * A hidden page fades to zero alpha and holds a consuming pointer handler, so a tap that lands where the visible page
- * has no target can never reach the page behind it.
+ * A page that is not interactive holds a consuming pointer handler, so a tap can never reach the page behind;
+ * once fully faded it also moves off screen, out of hit testing, so it cannot swallow the shell's swipe.
  */
 @Composable
 private fun TabPageSlot(
     visible: Boolean,
-    drop: Boolean,
+    drawn: Boolean,
+    x: (() -> Float)?,
     topInset: androidx.compose.ui.unit.Dp,
     background: Color,
     content: @Composable () -> Unit,
 ) {
+    // Only reduced motion (or a jump with no slide) ever sees this fade; slides draw both pages at full alpha.
     val alpha by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = if (visible) XpMotion.fade(160) else XpMotion.fadeAway(),
+        targetValue = if (drawn) 1f else 0f,
+        animationSpec = if (drawn) XpMotion.fade(160) else XpMotion.fadeAway(),
         label = "tab-alpha",
-    )
-    val shift by animateFloatAsState(
-        targetValue = if (visible) 0f else -0.09f,
-        animationSpec = XpMotion.snappy(0.0005f),
-        label = "tab-drop",
-    )
-    // The incoming page settles from 98% so a switch reads as "arrived" rather than a hard cut. Layer-only.
-    val settle by animateFloatAsState(
-        targetValue = if (visible) 1f else 0.98f,
-        animationSpec = if (visible) XpMotion.snappy(0.0005f) else XpMotion.fadeAway(),
-        label = "tab-settle",
     )
     Box(
         Modifier.fillMaxSize()
-            .zIndex(if (visible) 1f else 0f)
+            .zIndex(if (visible) 1f else if (x != null) 0.5f else 0f)
             .graphicsLayer {
-                this.alpha = alpha
-                if (drop) translationY = shift * size.height else { scaleX = settle; scaleY = settle }
+                if (x != null) {
+                    this.alpha = 1f
+                    translationX = x()
+                } else {
+                    this.alpha = alpha
+                    translationX = if (alpha == 0f) 100_000f else 0f
+                }
             }
             .background(background)
             .padding(top = topInset)
@@ -492,13 +615,13 @@ private fun TabPageSlot(
  */
 private fun androidx.navigation.NavGraphBuilder.page(
     route: String,
-    drop: Boolean = false,
+    push: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     composable(
         route = route,
-        enterTransition = if (drop) { { pageDropIn() } } else null,
-        popEnterTransition = if (drop) { { pageDropIn(travel = 0.06f) } } else null,
+        enterTransition = if (push) { { pushIn() } } else null,
+        popExitTransition = if (push) { { pushOut() } } else null,
     ) {
         CompositionLocalProvider(LocalPageEntrance provides pageEntrance(route)) { content() }
     }
@@ -508,10 +631,11 @@ private fun androidx.navigation.NavGraphBuilder.page(
 @Composable
 private fun pageEntrance(route: String): Boolean = remember(route) { PageEntranceSeen.routes.add(route) }
 
-/**
- * The page-switch entrance: the new page comes down a short distance while it fades in, so a swap reads as
- * "this page arrived" rather than "the pixels changed". Quick enough that repeated tab use never feels slow.
- */
-private fun pageDropIn(travel: Float = 0.09f, durationMs: Int = 180) =
-    slideInVertically(XpMotion.snappy(IntOffset.VisibilityThreshold)) { -(it * travel).toInt() } +
-        fadeIn(XpMotion.fade((durationMs * 0.8f).toInt()))
+/** Same distance and timing as [com.xiaopiao.app.ui.motion.XpPushHost]: in from a quarter width at the trailing edge. */
+private fun pushIn() =
+    slideInHorizontally(XpMotion.snappy(IntOffset.VisibilityThreshold)) { (it * XpTiming.PushTravel).toInt() } +
+        fadeIn(XpMotion.fade(XpTiming.PushIn))
+
+private fun pushOut() =
+    slideOutHorizontally(XpMotion.fadeAway(XpTiming.PopOut)) { (it * XpTiming.PushTravel).toInt() } +
+        fadeOut(XpMotion.fadeAway(XpTiming.PopOut))

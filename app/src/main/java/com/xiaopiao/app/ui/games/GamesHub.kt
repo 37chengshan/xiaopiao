@@ -73,7 +73,7 @@ import com.xiaopiao.app.ui.tr
  * 它们在这套界面里只抢视觉、不带信息。
  */
 @Composable
-fun GamesHub(onBack: () -> Unit, onOpenSettings: (() -> Unit)? = null) {
+fun GamesHub(onBack: () -> Unit, onOpenSettings: (() -> Unit)? = null, onOpenCircle: () -> Unit = onBack) {
     var openId by rememberSaveable { mutableStateOf<String?>(null) }
     var wheelOpen by rememberSaveable { mutableStateOf(false) }
     val game = openId?.let(GameContent::byId)
@@ -101,6 +101,13 @@ fun GamesHub(onBack: () -> Unit, onOpenSettings: (() -> Unit)? = null) {
                     bottom = LocalTabBarInset.current + XpSpace.l,
                 ),
             ) {
+                item(key = "games-switch") {
+                    com.xiaopiao.app.ui.circle.CircleGamesSwitch(
+                        gamesSelected = true,
+                        onSelect = { if (!it) onOpenCircle() },
+                        modifier = Modifier.padding(bottom = XpSpace.s),
+                    )
+                }
                 // 转盘：和其他游戏同一套行样式（GroupedSection + GroupedRow），不另做卡片。
                 item(key = "games-wheel") {
                     GroupedSection(header = tr("工具", "Tools"), dividerInset = 58.dp) {

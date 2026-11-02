@@ -1,6 +1,5 @@
 package com.xiaopiao.app.ui.insights
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -63,8 +62,11 @@ fun InsightsScreen(
         onOpenConsumed()
     }
 
-    val page = route
-    if (page == null) {
+    // Sub-pages push in from the trailing edge like every other second-level page (tt 2026-11-02: 动画统一).
+    com.xiaopiao.app.ui.motion.XpPushHost(
+        page = route?.let { page -> { InsightsSubPage(page, input, container, onOpenSettings) { route = null } } },
+        onBack = { route = null },
+    ) {
         StatsScreen(
             container = container,
             onOpenAwards = { route = InsightsRoute.AWARDS },
@@ -75,16 +77,23 @@ fun InsightsScreen(
             onOpenLedger = onOpenLedger,
             onRecord = onRecord,
         )
-        return
     }
+}
 
-    BackHandler { route = null }
+@Composable
+private fun InsightsSubPage(
+    page: InsightsRoute,
+    input: InsightsInput,
+    container: AppContainer,
+    onOpenSettings: () -> Unit,
+    onBack: () -> Unit,
+) {
     val backLabel = "统计"
     // 预算 brings its own NavScaffold (it is also the drawer over 记账); wrapping it again stacked two bars.
     if (page == InsightsRoute.BUDGET) {
         BudgetPage(
             container,
-            onBack = { route = null },
+            onBack = onBack,
             onOpenSettings = onOpenSettings,
             backLabel = backLabel,
         )
@@ -93,7 +102,7 @@ fun InsightsScreen(
     NavScaffold(
         page.label,
         NavScrollNone,
-        onBack = { route = null },
+        onBack = onBack,
         backLabel = backLabel,
     ) { top ->
         // One bar only: the sub-pages draw their own scrolling content, the reserved height travels into their

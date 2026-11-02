@@ -38,7 +38,7 @@ import kotlin.math.sin
  * Resting: outline in the tab colour. Selected: the shape fills, its inner marks turn white, and a one-shot motion
  * plays — lines are written, paper prints, bars grow, people pop up, dots type, the pad wobbles.
  */
-enum class NavGlyph { Ledger, Receipt, Chart, People, Chat, Gamepad, Calendar, Coin, Store, Person, Flask }
+enum class NavGlyph { Ledger, Receipt, Chart, People, Chat, Gamepad, Leaf, Calendar, Coin, Store, Person, Flask }
 
 /**
  * [selected] drives the fill; every false→true change (and every [replay] bump while selected) plays the motion once.
@@ -66,6 +66,7 @@ fun AnimatedNavGlyph(glyph: NavGlyph, selected: Boolean, tint: Color, reduced: B
             NavGlyph.People -> g.people()
             NavGlyph.Chat -> g.chat()
             NavGlyph.Gamepad -> g.gamepad()
+            NavGlyph.Leaf -> g.leaf()
             NavGlyph.Calendar -> g.calendar()
             NavGlyph.Coin -> g.coin()
             NavGlyph.Store -> g.store()
@@ -190,6 +191,22 @@ private class GlyphScope(val d: DrawScope, val tint: Color, val fill: Float, val
             val glow = 1f + 0.5f * sin(seg(play, 0.3f, 0.8f) * PI).toFloat()
             d.drawCircle(mark, 1.1f * u * glow, o(15.5f, 11.8f))
             d.drawCircle(mark, 1.1f * u * glow, o(17.8f, 14.2f))
+        }
+    }
+
+    // 生活: a leaf that sways on its stem while its veins draw in.
+    fun leaf() {
+        d.rotate(14f * swing(play), pivot = o(12f, 20.5f)) {
+            val p = Path().apply {
+                moveTo(12f * u, 20.5f * u)
+                cubicTo(5f * u, 17f * u, 4.5f * u, 8f * u, 12f * u, 3.5f * u)
+                cubicTo(19.5f * u, 8f * u, 19f * u, 17f * u, 12f * u, 20.5f * u)
+                close()
+            }
+            shape { s, c -> d.drawPath(p, c, style = s) }
+            line(12f, 18.5f, 12f, 8f, progress = seg(play, 0.1f, 0.5f))
+            line(12f, 14.5f, 9.2f, 11.8f, progress = seg(play, 0.35f, 0.65f))
+            line(12f, 12f, 14.8f, 9.4f, progress = seg(play, 0.5f, 0.8f))
         }
     }
 

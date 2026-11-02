@@ -16,10 +16,12 @@ enum class NavTab(val route: String, private val zhLabel: String) {
     Receipt("receipt", "小票"),
     Insights("insights", "统计"),
     Chat("chat", "AI"),
+    Life("life", "生活"),
     Circle("circle", "圈子"),
+    /** Not in the bar since v8: reached from the 圈子 | 游戏 switch at the top of 圈子. */
     Games("games", "游戏");
     val label: String get() = if (!com.xiaopiao.app.ui.isEnglish) zhLabel else when(this) {
-        Ledger -> "Ledger"; Receipt -> "Receipt"; Insights -> "Insights"; Chat -> "AI"; Circle -> "Circles"; Games -> "Games"
+        Ledger -> "Ledger"; Receipt -> "Receipt"; Insights -> "Insights"; Chat -> "AI"; Life -> "Life"; Circle -> "Circles"; Games -> "Games"
     }
 }
 
@@ -27,13 +29,17 @@ enum class NavTab(val route: String, private val zhLabel: String) {
 enum class NavSide { Ledger, Social }
 
 /** One slot in the bar. The bar always shows exactly [NavModel.ICON_COUNT] of them. */
-enum class NavSlot { Ledger, Receipt, Insights, Plus, Fold, Chat, Circle, Games }
+enum class NavSlot { Ledger, Receipt, Insights, Plus, Fold, Chat, Life, Circle, Games }
 
 /** 设置 → 打开 App 时进入. */
 enum class LaunchSide(private val zhLabel: String) {
     Ledger("记账"),
     Social("AI · 圈子");
-    val label: String get() = if (!com.xiaopiao.app.ui.isEnglish) zhLabel else if (this == Ledger) "Ledger" else "AI · Circles"
+    val label: String get() = when {
+        this == Ledger -> if (!com.xiaopiao.app.ui.isEnglish) zhLabel else "Ledger"
+        NavModel.lifeTab -> if (!com.xiaopiao.app.ui.isEnglish) "AI · 生活 · 圈子" else "AI · Life · Circles"
+        else -> if (!com.xiaopiao.app.ui.isEnglish) zhLabel else "AI · Circles"
+    }
 }
 
 /**
@@ -41,7 +47,7 @@ enum class LaunchSide(private val zhLabel: String) {
  *
  * ```
  * 记账态   ╭ 记账  小票  (⊕)  统计 ╮ ╭ 圈子 ╮        ← ⊕ at the screen centre
- * 圈子态   ╭ 账单  ＋ ╮ ╭ AI  圈子  游戏 ╮            ← still 5 icons
+ * 圈子态   ╭ 账单  ＋ ╮ ╭ AI  生活  圈子 ╮            ← still 5 icons (v8, tt 2026-11-02)
  * ```
  * The side is a function of the current route, so tapping 圈子 (route `circle`) is what flips the bar; only 账单 flips it back.
  */
@@ -51,14 +57,28 @@ object NavModel {
     /** Pages that own the whole screen without the tab bar. */
     val BARE_ROUTES = setOf("settings")
 
-    val LEDGER_SIDE = listOf(NavTab.Ledger, NavTab.Receipt, NavTab.Insights)
-    val SOCIAL_SIDE = listOf(NavTab.Chat, NavTab.Circle, NavTab.Games)
+    /**
+     * 生活 tab (v8) on: only the preview build (`com.xiaopiao.app.preview`) until 生活 ships; the everyday build keeps
+     * AI · 圈子 · 游戏 (tt 2026-11-02). Tests flip it to cover both bars.
+     */
+    var lifeTab: Boolean = com.xiaopiao.app.BuildConfig.LIFE_TAB
 
-    fun sideOf(route: String?): NavSide? = when {
-        route == null -> null
-        LEDGER_SIDE.any { route.startsWith(it.route) } -> NavSide.Ledger
-        SOCIAL_SIDE.any { route.startsWith(it.route) } -> NavSide.Social
-        else -> null
+    val LEDGER_SIDE = listOf(NavTab.Ledger, NavTab.Receipt, NavTab.Insights)
+    /** Left to right, also the order a horizontal swipe walks through (only within a side). */
+    val SOCIAL_SIDE get() = if (lifeTab) listOf(NavTab.Chat, NavTab.Life, NavTab.Circle) else listOf(NavTab.Chat, NavTab.Circle, NavTab.Games)
+
+    /** With 生活 on, 游戏 lives inside 圈子: it counts as 圈子 for the bar, the side and swiping. */
+    private fun barTab(tab: NavTab): NavTab = if (lifeTab && tab == NavTab.Games) NavTab.Circle else tab
+
+    private fun tabOf(route: String?): NavTab? = NavTab.entries.firstOrNull { route?.startsWith(it.route) == true }
+
+    fun sideOf(route: String?): NavSide? {
+        val tab = tabOf(route)?.let(::barTab) ?: return null
+        return when (tab) {
+            in LEDGER_SIDE -> NavSide.Ledger
+            in SOCIAL_SIDE -> NavSide.Social
+            else -> null
+        }
     }
 
     /** Settings and other bare pages carry no side of their own: the bar (hidden) keeps the one it had. */
@@ -66,7 +86,17 @@ object NavModel {
 
     fun showsTabBar(route: String?): Boolean = route !in BARE_ROUTES
 
-    fun selected(route: String?): NavTab? = NavTab.entries.firstOrNull { route?.startsWith(it.route) == true }
+    fun selected(route: String?): NavTab? = tabOf(route)?.let(::barTab)
+
+    /**
+     * The tab a horizontal swipe lands on: [step] = +1 for the next tab to the right, -1 for the left. Null at
+     * either end of the side — swiping never crosses from 记账 to the social side (tt 2026-11-02).
+     */
+    fun neighbor(route: String?, step: Int): NavTab? {
+        val tab = tabOf(route)?.let(::barTab) ?: return null
+        val side = if (tab in LEDGER_SIDE) LEDGER_SIDE else if (tab in SOCIAL_SIDE) SOCIAL_SIDE else return null
+        return side.getOrNull(side.indexOf(tab) + step)
+    }
 
     fun startRoute(launch: LaunchSide): String = when (launch) {
         LaunchSide.Ledger -> NavTab.Ledger.route
@@ -76,7 +106,8 @@ object NavModel {
     /** The icons on screen for [side], left to right across both capsules. Always [ICON_COUNT] long. */
     fun slots(side: NavSide): List<NavSlot> = when (side) {
         NavSide.Ledger -> listOf(NavSlot.Ledger, NavSlot.Receipt, NavSlot.Plus, NavSlot.Insights, NavSlot.Circle)
-        NavSide.Social -> listOf(NavSlot.Fold, NavSlot.Plus, NavSlot.Chat, NavSlot.Circle, NavSlot.Games)
+        NavSide.Social -> if (lifeTab) listOf(NavSlot.Fold, NavSlot.Plus, NavSlot.Chat, NavSlot.Life, NavSlot.Circle)
+        else listOf(NavSlot.Fold, NavSlot.Plus, NavSlot.Chat, NavSlot.Circle, NavSlot.Games)
     }
 
     /** Where tapping [slot] goes, or null when it does not navigate (＋ opens the record sheet; the bar stays). */
@@ -85,6 +116,7 @@ object NavModel {
         NavSlot.Receipt -> NavTab.Receipt
         NavSlot.Insights -> NavTab.Insights
         NavSlot.Chat -> NavTab.Chat
+        NavSlot.Life -> NavTab.Life
         // 圈子 always lands on the group chat home, never on 游戏 or a remembered sub-page.
         NavSlot.Circle -> NavTab.Circle
         NavSlot.Games -> NavTab.Games

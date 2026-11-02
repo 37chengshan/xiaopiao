@@ -168,3 +168,21 @@ private fun tornCardPath(width: Float, height: Float, tooth: Float, depth: Float
         close()
     }
 }
+
+/**
+ * 「圈子 | 游戏」 at the top of both pages (v8, tt 2026-11-02): 游戏 left the tab bar to make room for 生活 and lives
+ * inside 圈子. Both pages put it in the same spot right under the header, so switching reads as one page.
+ */
+@Composable
+fun CircleGamesSwitch(gamesSelected: Boolean, onSelect: (games: Boolean) -> Unit, modifier: Modifier = Modifier) {
+    com.xiaopiao.app.ui.components.Segmented(
+        options = listOf(
+            com.xiaopiao.app.ui.tr("圈子", "Circles"),
+            com.xiaopiao.app.ui.tr("游戏", "Games"),
+        ),
+        selected = if (gamesSelected) 1 else 0,
+        onSelect = { onSelect(it == 1) },
+        pill = true,
+        modifier = modifier.fillMaxWidth().padding(horizontal = XpSpace.l),
+    )
+}

@@ -1,12 +1,17 @@
 package com.xiaopiao.app.ui.insights
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -215,231 +220,237 @@ fun StatsScreen(
     }
     val narrative = remember(snapshot) { StatsNarrative.line(snapshot) }
 
-    if (aiOpen) {
-        AiAnalysisPage(
-            snapshot = snapshot,
-            narrative = narrative,
-            onBack = { aiOpen = false },
-            onOpenLedger = {
-                onOpenLedger(
-                    LedgerFilter(
-                        direction = snapshot.direction,
-                        range = LedgerRange.Custom,
-                        customFrom = snapshot.from,
-                        customTo = snapshot.to - DAY,
-                    ),
-                )
-            },
-            onOpenAwards = onOpenAwards.takeIf { snapshot.range == StatsRange.Week },
-        )
-        return
-    }
+    // AI 分析 pushes in from the trailing edge like every other second-level page (tt 2026-11-02: 动画统一).
+    com.xiaopiao.app.ui.motion.XpPushHost(
+        page = if (!aiOpen) null else { {
+            AiAnalysisPage(
+                snapshot = snapshot,
+                narrative = narrative,
+                onBack = { aiOpen = false },
+                onOpenLedger = {
+                    onOpenLedger(
+                        LedgerFilter(
+                            direction = snapshot.direction,
+                            range = LedgerRange.Custom,
+                            customFrom = snapshot.from,
+                            customTo = snapshot.to - DAY,
+                        ),
+                    )
+                },
+                onOpenAwards = onOpenAwards.takeIf { snapshot.range == StatsRange.Week },
+            )
+        } },
+        onBack = { aiOpen = false },
+    ) {
+        val scope = rememberCoroutineScope()
+        // The page follows the finger (dragPx) and settles with a spring (slide); the two add up.
+        val slide = remember { Animatable(0f) }
+        var dragPx by remember { mutableFloatStateOf(0f) }
 
-    val scope = rememberCoroutineScope()
-    // The page follows the finger (dragPx) and settles with a spring (slide); the two add up.
-    val slide = remember { Animatable(0f) }
-    var dragPx by remember { mutableFloatStateOf(0f) }
+        NavScaffold(
+            tr("统计", "Insights"),
+            NavScrollNone,
+            leading = { LedgerSideLeading() },
+            trailing = { AppTopActions() },
+        ) { top ->
+            // The top inset is scroll content, not a frame: cards slide up under the glass capsules.
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val pageWidth = constraints.maxWidth.toFloat().coerceAtLeast(1f)
+                val density = LocalDensity.current
+                val commitPx = with(density) { maxOf(44.dp.toPx(), pageWidth * 0.14f) }
+                // 自定义 has no neighbours in the swipe cycle; swiping is off while it is showing.
+                val swipeable = range != StatsRange.Custom && !more
 
-    NavScaffold(
-        tr("统计", "Insights"),
-        NavScrollNone,
-        leading = { LedgerSideLeading() },
-        trailing = { AppTopActions() },
-    ) { top ->
-        // The top inset is scroll content, not a frame: cards slide up under the glass capsules.
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            val pageWidth = constraints.maxWidth.toFloat().coerceAtLeast(1f)
-            val density = LocalDensity.current
-            val commitPx = with(density) { maxOf(44.dp.toPx(), pageWidth * 0.14f) }
-            // 自定义 has no neighbours in the swipe cycle; swiping is off while it is showing.
-            val swipeable = range != StatsRange.Custom && !more
+                Box(
+                    Modifier.fillMaxSize().clipToBounds()
+                        .pointerInput(swipeable, reduceMotion, pageWidth, range) {
+                            if (!swipeable) return@pointerInput
+                            var axis = 0            // 0 = undecided, 1 = horizontal (paging), -1 = vertical (let the list scroll)
+                            var totalX = 0f
+                            var totalY = 0f
+                            // Finger travel after damping: the commit threshold must work even without the visual slide.
+                            var dragged = 0f
+                            val slop = viewConfiguration.touchSlop
 
-            Box(
-                Modifier.fillMaxSize().clipToBounds()
-                    .pointerInput(swipeable, reduceMotion, pageWidth, range) {
-                        if (!swipeable) return@pointerInput
-                        var axis = 0            // 0 = undecided, 1 = horizontal (paging), -1 = vertical (let the list scroll)
-                        var totalX = 0f
-                        var totalY = 0f
-                        // Finger travel after damping: the commit threshold must work even without the visual slide.
-                        var dragged = 0f
-                        val slop = viewConfiguration.touchSlop
-
-                        detectHorizontalDragGestures(
-                            onDragStart = {
-                                axis = 0
-                                totalX = 0f
-                                totalY = 0f
-                                dragged = 0f
-                                dragPx = 0f
-                                scope.launch { slide.stop() }
-                            },
-                            onDragCancel = {
-                                if (reduceMotion) {
+                            detectHorizontalPaging(
+                                // Towards an end with nothing beyond (周报 ← / 年报 →) the drag is left to the shell,
+                                // which switches tab instead (页内手势优先，到边界再切页).
+                                accept = { over -> neighborOf(range, forward = over < 0f) != null },
+                                onDragStart = {
+                                    axis = 0
+                                    totalX = 0f
+                                    totalY = 0f
+                                    dragged = 0f
                                     dragPx = 0f
-                                    scope.launch { slide.snapTo(0f) }
-                                } else {
-                                    val travelled = slide.value + dragPx
-                                    if (travelled == 0f) {
+                                    scope.launch { slide.stop() }
+                                },
+                                onDragCancel = {
+                                    if (reduceMotion) {
                                         dragPx = 0f
+                                        scope.launch { slide.snapTo(0f) }
                                     } else {
+                                        val travelled = slide.value + dragPx
+                                        if (travelled == 0f) {
+                                            dragPx = 0f
+                                        } else {
+                                            scope.launch {
+                                                slide.snapTo(travelled)
+                                                dragPx = 0f
+                                                slide.animateTo(0f, XpMotion.gentle())
+                                            }
+                                        }
+                                    }
+                                },
+                                onDragEnd = {
+                                    val travelled = if (reduceMotion) dragged else slide.value + dragPx
+                                    val next = if (axis == 1 && abs(travelled) >= commitPx) {
+                                        neighborOf(range, forward = travelled < 0f)
+                                    } else null
+
+                                    if (reduceMotion) {
+                                        dragPx = 0f
+                                        scope.launch { slide.snapTo(0f) }
+                                        if (next != null) range = next
+                                    } else {
+                                        // dragPx keeps painting the release position until the Animatable owns it.
                                         scope.launch {
                                             slide.snapTo(travelled)
                                             dragPx = 0f
-                                            slide.animateTo(0f, XpMotion.gentle())
+                                            if (next == null) {
+                                                slide.animateTo(0f, XpMotion.gentle())
+                                            } else {
+                                                // Old page leaves in the drag direction, new page enters from the far side.
+                                                val forward = travelled < 0f
+                                                val exit = if (forward) minOf(travelled, -pageWidth * 0.18f)
+                                                else maxOf(travelled, pageWidth * 0.18f)
+                                                slide.animateTo(exit, tween(90, easing = XpEase.out))
+                                                range = next
+                                                slide.snapTo(if (forward) pageWidth * 0.10f else -pageWidth * 0.10f)
+                                                slide.animateTo(0f, XpMotion.gentle())
+                                            }
                                         }
                                     }
-                                }
-                            },
-                            onDragEnd = {
-                                val travelled = if (reduceMotion) dragged else slide.value + dragPx
-                                val next = if (axis == 1 && abs(travelled) >= commitPx) {
-                                    neighborOf(range, forward = travelled < 0f)
-                                } else null
-
-                                if (reduceMotion) {
-                                    dragPx = 0f
-                                    scope.launch { slide.snapTo(0f) }
-                                    if (next != null) range = next
-                                } else {
-                                    // dragPx keeps painting the release position until the Animatable owns it.
-                                    scope.launch {
-                                        slide.snapTo(travelled)
-                                        dragPx = 0f
-                                        if (next == null) {
-                                            slide.animateTo(0f, XpMotion.gentle())
-                                        } else {
-                                            // Old page leaves in the drag direction, new page enters from the far side.
-                                            val forward = travelled < 0f
-                                            val exit = if (forward) minOf(travelled, -pageWidth * 0.18f)
-                                            else maxOf(travelled, pageWidth * 0.18f)
-                                            slide.animateTo(exit, tween(90, easing = XpEase.out))
-                                            range = next
-                                            slide.snapTo(if (forward) pageWidth * 0.10f else -pageWidth * 0.10f)
-                                            slide.animateTo(0f, XpMotion.gentle())
+                                },
+                                onHorizontalDrag = { change, amount ->
+                                    if (axis == 0) {
+                                        totalX += amount
+                                        totalY += change.position.y - change.previousPosition.y
+                                        axis = when {
+                                            // Clearly vertical: never translate, so a diagonal scroll scrolls.
+                                            abs(totalY) > abs(totalX) + slop -> -1
+                                            abs(totalX) >= slop -> 1
+                                            else -> 0
                                         }
                                     }
-                                }
-                            },
-                            onHorizontalDrag = { change, amount ->
-                                if (axis == 0) {
-                                    totalX += amount
-                                    totalY += change.position.y - change.previousPosition.y
-                                    axis = when {
-                                        // Clearly vertical: never translate, so a diagonal scroll scrolls.
-                                        abs(totalY) > abs(totalX) + slop -> -1
-                                        abs(totalX) >= slop -> 1
-                                        else -> 0
-                                    }
-                                }
-                                if (axis != 1) return@detectHorizontalDragGestures
-                                // At 周报's left edge / 年报's right edge the page resists instead of leaving.
-                                val canGo = neighborOf(range, forward = amount < 0f) != null
-                                val step = if (canGo) amount else amount * 0.3f
-                                dragged = (dragged + step).coerceIn(-pageWidth * 0.5f, pageWidth * 0.5f)
-                                if (!reduceMotion) dragPx = dragged
-                            },
-                        )
-                    },
-            ) {
-                Column(
-                    Modifier.fillMaxSize()
-                        .graphicsLayer {
-                            val dx = slide.value + dragPx
-                            translationX = dx
-                            alpha = 1f - (abs(dx) / pageWidth * 0.6f).coerceIn(0f, 0.25f)
-                        }
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = XpSpace.page)
-                        .padding(top = top + XpSpace.xs, bottom = 128.dp),
-                    verticalArrangement = Arrangement.spacedBy(XpSpace.m),
-                ) {
-                    RangeSegments(range, more, onSelect = { range = it; more = false }, onMore = { more = true })
-                    if (more) {
-                        MoreSection(onOpenBudget, onOpenAwards, onOpenSubscriptions, onOpenRegret)
-                        return@Column
-                    }
-                    val openEntry: (StatsEntry) -> Unit = { entry ->
-                        onOpenLedger(
-                            LedgerFilter(
-                                direction = snapshot.direction, range = LedgerRange.Custom, categories = setOf(entry.category),
-                                customFrom = snapshot.from, customTo = snapshot.to - DAY,
-                            ),
-                        )
-                    }
-                    PeriodRow(
-                        snapshot = snapshot,
-                        range = range,
-                        onShift = { step ->
-                            anchor = StatsAggregator.shiftAnchor(range, anchor, step)
+                                    if (axis != 1) return@detectHorizontalPaging
+                                    // At 周报's left edge / 年报's right edge the page resists instead of leaving.
+                                    val canGo = neighborOf(range, forward = amount < 0f) != null
+                                    val step = if (canGo) amount else amount * 0.3f
+                                    dragged = (dragged + step).coerceIn(-pageWidth * 0.5f, pageWidth * 0.5f)
+                                    if (!reduceMotion) dragPx = dragged
+                                },
+                            )
                         },
-                        onOpenPicker = { if (range == StatsRange.Week) weekSheet = true else rangeSheet = true },
-                        direction = direction,
-                        onDirection = { direction = it },
-                    )
-                    // Nothing in this period: no chart of zeros, no ¥0 KPIs, no empty ranking — one honest
-                    // empty state instead (移动七条 §7), and the 「更多」 tab stays reachable above it.
-                    if (snapshot.isEmpty) {
-                        StatsEmptyState(
-                            ledgerEmpty = txns.isEmpty(),
-                            // 自定义 has no previous period to show, so its only way out is a new record.
-                            canGoBack = range != StatsRange.Custom,
-                            onRecord = onRecord,
-                            onPrevious = { anchor = StatsAggregator.shiftAnchor(range, anchor, -1) },
-                        )
-                    } else {
-                        if (narrative != null) {
-                            AiSummaryCard(
-                                title = snapshot.aiTitle,
-                                line = narrative,
-                                onOpen = { aiOpen = true },
-                                modifier = Modifier.enterOnce(0, reduceMotion),
+                ) {
+                    Column(
+                        Modifier.fillMaxSize()
+                            .graphicsLayer {
+                                val dx = slide.value + dragPx
+                                translationX = dx
+                                alpha = 1f - (abs(dx) / pageWidth * 0.6f).coerceIn(0f, 0.25f)
+                            }
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = XpSpace.page)
+                            .padding(top = top + XpSpace.xs, bottom = 128.dp),
+                        verticalArrangement = Arrangement.spacedBy(XpSpace.m),
+                    ) {
+                        RangeSegments(range, more, onSelect = { range = it; more = false }, onMore = { more = true })
+                        if (more) {
+                            MoreSection(onOpenBudget, onOpenAwards, onOpenSubscriptions, onOpenRegret)
+                            return@Column
+                        }
+                        val openEntry: (StatsEntry) -> Unit = { entry ->
+                            onOpenLedger(
+                                LedgerFilter(
+                                    direction = snapshot.direction, range = LedgerRange.Custom, categories = setOf(entry.category),
+                                    customFrom = snapshot.from, customTo = snapshot.to - DAY,
+                                ),
                             )
                         }
-                        KpiCard(snapshot, Modifier.enterOnce(1, reduceMotion))
-                        TrendCard(
-                            snapshot, Modifier.enterOnce(2, reduceMotion),
-                            onPickBucket = { b -> anchor = b.start },
-                        )
-                        CompositionCard(
+                        PeriodRow(
                             snapshot = snapshot,
-                            grouping = grouping,
-                            onGrouping = { grouping = it },
-                            onOpen = openEntry,
-                            modifier = Modifier.enterOnce(3, reduceMotion),
+                            range = range,
+                            onShift = { step ->
+                                anchor = StatsAggregator.shiftAnchor(range, anchor, step)
+                            },
+                            onOpenPicker = { if (range == StatsRange.Week) weekSheet = true else rangeSheet = true },
+                            direction = direction,
+                            onDirection = { direction = it },
                         )
-                        RankingCard(snapshot, Modifier.enterOnce(4, reduceMotion), onOpen = openEntry)
+                        // Nothing in this period: no chart of zeros, no ¥0 KPIs, no empty ranking — one honest
+                        // empty state instead (移动七条 §7), and the 「更多」 tab stays reachable above it.
+                        if (snapshot.isEmpty) {
+                            StatsEmptyState(
+                                ledgerEmpty = txns.isEmpty(),
+                                // 自定义 has no previous period to show, so its only way out is a new record.
+                                canGoBack = range != StatsRange.Custom,
+                                onRecord = onRecord,
+                                onPrevious = { anchor = StatsAggregator.shiftAnchor(range, anchor, -1) },
+                            )
+                        } else {
+                            if (narrative != null) {
+                                AiSummaryCard(
+                                    title = snapshot.aiTitle,
+                                    line = narrative,
+                                    onOpen = { aiOpen = true },
+                                    modifier = Modifier.enterOnce(0, reduceMotion),
+                                )
+                            }
+                            KpiCard(snapshot, Modifier.enterOnce(1, reduceMotion))
+                            TrendCard(
+                                snapshot, Modifier.enterOnce(2, reduceMotion),
+                                onPickBucket = { b -> anchor = b.start },
+                            )
+                            CompositionCard(
+                                snapshot = snapshot,
+                                grouping = grouping,
+                                onGrouping = { grouping = it },
+                                onOpen = openEntry,
+                                modifier = Modifier.enterOnce(3, reduceMotion),
+                            )
+                            RankingCard(snapshot, Modifier.enterOnce(4, reduceMotion), onOpen = openEntry)
+                        }
                     }
                 }
             }
         }
-    }
 
-    if (weekSheet) {
-        WeekPickerSheet(
-            anchorWeekStart = startOfWeek(anchor),
-            currentWeekStart = startOfWeek(now),
-            onPick = { start ->
-                anchor = start
-                range = StatsRange.Week
-                weekSheet = false
-            },
-            onDismiss = { weekSheet = false },
-        )
-    }
-    if (rangeSheet) {
-        RangePickerSheet(
-            from = customFrom,
-            to = customTo,
-            onApply = { from, to ->
-                customFrom = from
-                customTo = to
-                anchor = from
-                range = StatsRange.Custom
-                rangeSheet = false
-            },
-            onDismiss = { rangeSheet = false },
-        )
+        if (weekSheet) {
+            WeekPickerSheet(
+                anchorWeekStart = startOfWeek(anchor),
+                currentWeekStart = startOfWeek(now),
+                onPick = { start ->
+                    anchor = start
+                    range = StatsRange.Week
+                    weekSheet = false
+                },
+                onDismiss = { weekSheet = false },
+            )
+        }
+        if (rangeSheet) {
+            RangePickerSheet(
+                from = customFrom,
+                to = customTo,
+                onApply = { from, to ->
+                    customFrom = from
+                    customTo = to
+                    anchor = from
+                    range = StatsRange.Custom
+                    rangeSheet = false
+                },
+                onDismiss = { rangeSheet = false },
+            )
+        }
     }
 }
 
@@ -871,7 +882,6 @@ private fun AiAnalysisPage(
     onOpenLedger: () -> Unit,
     onOpenAwards: (() -> Unit)?,
 ) {
-    BackHandler(onBack = onBack)
     val scroll = rememberScrollState()
     val noun = if (snapshot.direction == Direction.OUT) "支出" else "收入"
     NavScaffold(tr("AI 分析", "AI analysis"), NavScrollNone, onBack = onBack, backLabel = tr("统计", "Insights")) { top ->
@@ -987,4 +997,32 @@ private fun FactRow(label: String, value: String, tone: Color = XpColors.Ink) {
         Text(label, style = Body13, color = XpColors.InkSecondary, modifier = Modifier.weight(1f))
         Text(value, style = RowMoney, color = tone, maxLines = 1)
     }
+}
+
+/**
+ * detectHorizontalDragGestures, except a drag whose first move [accept] refuses is never consumed, so an ancestor
+ * (the shell's tab swipe) can take it.
+ */
+private suspend fun PointerInputScope.detectHorizontalPaging(
+    accept: (overSlop: Float) -> Boolean,
+    onDragStart: () -> Unit,
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit,
+    onHorizontalDrag: (change: PointerInputChange, dragAmount: Float) -> Unit,
+) = awaitEachGesture {
+    val down = awaitFirstDown(requireUnconsumed = false)
+    var overSlop = 0f
+    val drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
+        if (accept(over)) {
+            change.consume()
+            overSlop = over
+        }
+    } ?: return@awaitEachGesture
+    onDragStart()
+    onHorizontalDrag(drag, overSlop)
+    val ended = horizontalDrag(drag.id) {
+        onHorizontalDrag(it, it.positionChange().x)
+        it.consume()
+    }
+    if (ended) onDragEnd() else onDragCancel()
 }

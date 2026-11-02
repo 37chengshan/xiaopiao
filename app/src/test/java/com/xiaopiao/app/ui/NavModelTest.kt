@@ -9,9 +9,25 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 
+/** The v8 bar (生活 on, the preview build); [everydayBarKeepsGamesAndCircleInTheMiddle] covers the everyday one. */
 class NavModelTest {
+    @Before fun lifeOn() { NavModel.lifeTab = true }
+    @After fun reset() { NavModel.lifeTab = com.xiaopiao.app.BuildConfig.LIFE_TAB }
+
+    @Test fun everydayBarKeepsGamesAndCircleInTheMiddle() {
+        NavModel.lifeTab = false
+        assertEquals(listOf(NavSlot.Fold, NavSlot.Plus, NavSlot.Chat, NavSlot.Circle, NavSlot.Games), NavModel.slots(NavSide.Social))
+        assertEquals(NavTab.Games, NavModel.selected("games"))
+        assertEquals(NavTab.Circle, NavModel.neighbor("chat", +1))
+        assertEquals(NavTab.Games, NavModel.neighbor("circle", +1))
+        assertNull(NavModel.neighbor("games", +1))
+        assertEquals(NavSide.Social, NavModel.sideOf("games"))
+    }
+
     @Test fun barAlwaysShowsFiveIconsOnBothSides() {
         NavSide.entries.forEach { assertEquals(NavModel.ICON_COUNT, NavModel.slots(it).size) }
         // Plus is the one element that exists on both sides.
@@ -22,8 +38,8 @@ class NavModelTest {
         val l = NavModel.slots(NavSide.Ledger)
         assertEquals(listOf(NavSlot.Ledger, NavSlot.Receipt, NavSlot.Plus, NavSlot.Insights, NavSlot.Circle), l)
         assertFalse(NavSlot.Chat in l)
-        // The social half: ＋ right of 账单, then AI · 圈子 · 游戏.
-        assertEquals(listOf(NavSlot.Fold, NavSlot.Plus, NavSlot.Chat, NavSlot.Circle, NavSlot.Games), NavModel.slots(NavSide.Social))
+        // The social half (v8): ＋ right of 账单, then AI · 生活 · 圈子 with 圈子 rightmost.
+        assertEquals(listOf(NavSlot.Fold, NavSlot.Plus, NavSlot.Chat, NavSlot.Life, NavSlot.Circle), NavModel.slots(NavSide.Social))
     }
 
     @Test fun tappingCircleOpensTheSocialSideOnTheCircleHome() {
@@ -38,7 +54,7 @@ class NavModelTest {
         assertNull(NavModel.destination(NavSlot.Plus, NavTab.Ledger))
         NavModel.SOCIAL_SIDE.forEach { tab ->
             assertEquals(NavSide.Social, NavModel.sideOf(tab.route))
-            // Moving between AI / 圈子 / 游戏 never lands on the ledger side.
+            // Moving between AI / 生活 / 圈子 never lands on the ledger side.
             NavModel.slots(NavSide.Social).mapNotNull { NavModel.destination(it, NavTab.Ledger) }
                 .filter { it != NavTab.Ledger }.forEach { assertEquals(NavSide.Social, NavModel.sideOf(it.route)) }
         }
@@ -57,6 +73,9 @@ class NavModelTest {
     @Test fun settingsHidesTheBarAndKeepsTheSide() {
         assertFalse(NavModel.showsTabBar("settings"))
         NavTab.entries.forEach { assertTrue(NavModel.showsTabBar(it.route)) }
+        // 游戏 sits inside 圈子: the bar highlights 圈子 and keeps the social side.
+        assertEquals(NavTab.Circle, NavModel.selected("games"))
+        assertEquals(NavSide.Social, NavModel.sideOf("games"))
         assertNull(NavModel.sideOf("settings"))
         assertEquals(NavSide.Social, NavModel.side("settings", NavSide.Social))
         assertEquals(NavSide.Ledger, NavModel.side("ledger", NavSide.Social))
@@ -95,9 +114,23 @@ class NavModelTest {
         val original = com.xiaopiao.app.ui.AppLocale.english
         try {
             com.xiaopiao.app.ui.AppLocale.english = false
-            assertEquals("AI · 圈子", LaunchSide.Social.label)
+            assertEquals("AI · 生活 · 圈子", LaunchSide.Social.label)
             com.xiaopiao.app.ui.AppLocale.english = true
-            assertEquals("AI · Circles", LaunchSide.Social.label)
+            assertEquals("AI · Life · Circles", LaunchSide.Social.label)
         } finally { com.xiaopiao.app.ui.AppLocale.english = original }
+    }
+
+    @Test fun swipingWalksOneSideAndStopsAtItsEnds() {
+        assertEquals(NavTab.Receipt, NavModel.neighbor("ledger", +1))
+        assertEquals(NavTab.Insights, NavModel.neighbor("receipt", +1))
+        assertNull(NavModel.neighbor("insights", +1))      // never crosses into AI
+        assertNull(NavModel.neighbor("ledger", -1))
+        assertEquals(NavTab.Life, NavModel.neighbor("chat", +1))
+        assertEquals(NavTab.Circle, NavModel.neighbor("life", +1))
+        assertNull(NavModel.neighbor("circle", +1))
+        assertNull(NavModel.neighbor("chat", -1))
+        // From 游戏 a swipe behaves as from 圈子.
+        assertEquals(NavTab.Life, NavModel.neighbor("games", -1))
+        assertNull(NavModel.neighbor("settings", +1))
     }
 }

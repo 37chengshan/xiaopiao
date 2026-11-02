@@ -27,9 +27,20 @@ android {
         val apiBase = providers.gradleProperty("xiaopiao.apiBaseUrl").orElse("").get()
         require(apiBase.isEmpty() || apiBase.matches(Regex("https?://[A-Za-z0-9.:-]+/?")))
         buildConfigField("String", "API_BASE_URL", "\"$apiBase\"")
+        // 生活 tab + 导航 v8 bar: only in the preview build until 生活 ships.
+        buildConfigField("boolean", "LIFE_TAB", "false")
     }
 
     buildTypes {
+        // 测试包（tt 2026-11-02）：另一个包名和名字，和日常用的 debug 包并排装、互不覆盖，数据也各自独立。
+        //   ./gradlew :app:assemblePreview -Pxiaopiao.apiBaseUrl=https://xiaopiao.citygenius.top
+        create("preview") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            matchingFallbacks += listOf("debug")
+            buildConfigField("boolean", "LIFE_TAB", "true")
+        }
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("debug")

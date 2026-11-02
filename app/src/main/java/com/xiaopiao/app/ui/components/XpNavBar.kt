@@ -85,7 +85,8 @@ data class NavSpan(val start: Float, val end: Float) {
  * Where everything sits, as a pure function of the bar width (dp) so it can be unit-tested at 320 / 360 / 411 / 480.
  *
  * Two states share five icons. State 0 (记账): `a b ⊕ c` left with ⊕ on the exact screen centre, `entry` alone right.
- * State 1 (社交): `fold ⊕` left, `sa entry sb` right. Slot width is derived from the width, never hard-coded.
+ * State 1 (社交): `fold ⊕` left, `sa sb entry` right — entry (圈子) stays rightmost in both states (tt 2026-11-02,
+ * v8: AI · 生活 · 圈子). Slot width is derived from the width, never hard-coded.
  */
 object NavBarGeometry {
     const val MARGIN = 16f
@@ -114,7 +115,8 @@ object NavBarGeometry {
     fun slot(width: Float): Float =
         minOf(MAX_SLOT, (width / 2f - MARGIN - 3f * PAD - PLUS / 2f - GAP) / 2f).coerceAtLeast(0f)
 
-    fun layout(width: Float): Layout {
+    /** [entryLast]: 圈子 rightmost (v8, with 生活); false keeps the older `sa entry sb` (AI · 圈子 · 游戏). */
+    fun layout(width: Float, entryLast: Boolean = true): Layout {
         val s = slot(width)
         val cx = width / 2f
         val sa1 = width - MARGIN - PAD - 2.5f * s
@@ -127,7 +129,9 @@ object NavBarGeometry {
             a0 = cx - PLUS / 2f - 1.5f * s, b0 = cx - PLUS / 2f - 0.5f * s, c0 = cx + PLUS / 2f + 0.5f * s,
             plus0 = cx, entry0 = width - MARGIN - PAD - s / 2f,
             fold1 = MARGIN + PAD + s / 2f, plus1 = MARGIN + PAD + 1.5f * s,
-            sa1 = sa1, entry1 = sa1 + s, sb1 = sa1 + 2f * s,
+            sa1 = sa1,
+            sb1 = if (entryLast) sa1 + s else sa1 + 2f * s,
+            entry1 = if (entryLast) sa1 + 2f * s else sa1 + s,
         )
     }
 }
@@ -196,7 +200,7 @@ fun XpNavBar(
         modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = XpSpace.s)
             .graphicsLayer { translationY = hide * (size.height + 24.dp.toPx()); alpha = 1f - hide },
     ) {
-        val g = remember(maxWidth.value) { NavBarGeometry.layout(maxWidth.value) }
+        val g = remember(maxWidth.value) { NavBarGeometry.layout(maxWidth.value, entryLast = com.xiaopiao.app.ui.NavModel.lifeTab) }
         val s = g.slot
         val interactive = !hidden
         // Finger-follow light (glass only): watched on the Initial pass so the tabs still get their clicks.
@@ -217,7 +221,7 @@ fun XpNavBar(
             Slot(lerpF(g.c0, g.fold1, pos), s, fadeOut) { NavBarTab(spec.c, selectedId == spec.c.id, interactive && !social) { onSelect(spec.c.id) } }
             Slot(g.fold1, s, p) { NavBarTab(spec.fold, false, interactive && social, onClick = onFold) }
 
-            // 社交 side: AI and 游戏 unfold from behind the entry item, which slides to the middle of the three.
+            // 社交 side: AI and 生活 unfold leftwards from behind 圈子, which keeps its place on the right.
             Slot(lerpF(g.entry0, g.sa1, pos), s, p) { NavBarTab(spec.sa, selectedId == spec.sa.id, interactive && social) { onSelect(spec.sa.id) } }
             Slot(lerpF(g.entry0, g.sb1, pos), s, p) { NavBarTab(spec.sb, selectedId == spec.sb.id, interactive && social) { onSelect(spec.sb.id) } }
             Slot(lerpF(g.entry0, g.entry1, pos), s, 1f) { NavBarTab(spec.entry, selectedId == spec.entry.id, interactive) { onSelect(spec.entry.id) } }

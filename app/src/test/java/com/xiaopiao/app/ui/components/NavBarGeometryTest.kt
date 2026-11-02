@@ -64,7 +64,9 @@ class NavBarGeometryTest {
         widths.forEach { w ->
             val g = NavBarGeometry.layout(w)
             assertTrue(g.a0 < g.b0 && g.b0 < g.plus0 && g.plus0 < g.c0 && g.c0 < g.entry0)
-            assertTrue(g.fold1 < g.plus1 && g.plus1 < g.sa1 && g.sa1 < g.entry1 && g.entry1 < g.sb1)
+            assertTrue(g.fold1 < g.plus1 && g.plus1 < g.sa1 && g.sa1 < g.sb1 && g.sb1 < g.entry1)
+            val old = NavBarGeometry.layout(w, entryLast = false)
+            assertTrue(old.sa1 < old.entry1 && old.entry1 < old.sb1)
         }
     }
 }

@@ -305,7 +305,8 @@ private fun SystemFeedNote(post: SystemPost, modifier: Modifier) {
 // --- entries under the header -------------------------------------------------------------------
 
 /**
- * 排行榜 / 颁奖 / 游戏 as one row of capsules (tt: 收进顶部胶囊作为入口). The row stays under the header while the
+ * 「圈子 | 游戏」 switch, then 排行榜 / 颁奖 as one row of capsules (tt: 收进顶部胶囊作为入口; 游戏 moved to the switch
+ * in v8). The row stays under the header while the
  * feed scrolls beneath it, so each capsule is liquid glass sampling [backdrop] (the feed, a sibling).
  */
 @Composable
@@ -317,13 +318,15 @@ fun CircleEntryRow(
     modifier: Modifier = Modifier,
 ) {
     val en = LocalConfiguration.current.locales[0].language == "en"
-    Row(
-        modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = XpSpace.l, vertical = XpSpace.s),
-        horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
-    ) {
-        EntryCapsule("🏆", if (en) "Leaderboard" else "排行榜", backdrop, onLeaderboard)
-        EntryCapsule("🎖", if (en) "This week's titles" else "本周颁奖", backdrop, onAward)
-        EntryCapsule("🎮", if (en) "Games" else "小游戏", backdrop, onGames)
+    androidx.compose.foundation.layout.Column(modifier.fillMaxWidth()) {
+        CircleGamesSwitch(gamesSelected = false, onSelect = { if (it) onGames() }, modifier = Modifier.padding(top = XpSpace.xs))
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = XpSpace.l, vertical = XpSpace.s),
+            horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+        ) {
+            EntryCapsule("🏆", if (en) "Leaderboard" else "排行榜", backdrop, onLeaderboard)
+            EntryCapsule("🎖", if (en) "This week's titles" else "本周颁奖", backdrop, onAward)
+        }
     }
 }
 

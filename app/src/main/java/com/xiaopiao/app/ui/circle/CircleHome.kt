@@ -78,13 +78,13 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
     val book by store.book.collectAsStateWithLifecycle()
     val sync by store.sync.collectAsStateWithLifecycle()
     CompositionLocalProvider(LocalCircleStore provides store) {
-        if (book.circles.isEmpty()) CircleNoCircle(container, sync) else CircleFeedHome(container, onOpenGames)
+        if (book.circles.isEmpty()) CircleNoCircle(container, sync, onOpenGames) else CircleFeedHome(container, onOpenGames)
     }
 }
 
 /** 圈子 before there is a feed: signed out, loading, failed, or simply no circle yet. Never demo data. */
 @Composable
-private fun CircleNoCircle(container: AppContainer, sync: CircleSync) {
+private fun CircleNoCircle(container: AppContainer, sync: CircleSync, onOpenGames: () -> Unit) {
     val store = container.circles
     val scope = rememberCoroutineScope()
     var accountOpen by remember { mutableStateOf(false) }
@@ -93,6 +93,8 @@ private fun CircleNoCircle(container: AppContainer, sync: CircleSync) {
     // Coming back to the tab re-checks: a circle may have been created from the receipt's 「发到圈子」.
     LaunchedEffect(Unit) { if (sync != CircleSync.SignedOut) store.refresh() }
     NavScaffold(title = stringResource(R.string.circle_title_fallback), scroll = NavScrollNone, trailing = { AppTopActions() }) { top ->
+        // 游戏 must stay reachable with no circle yet: the switch sits on this page too.
+        CircleGamesSwitch(gamesSelected = false, onSelect = { if (it) onOpenGames() }, modifier = Modifier.padding(top = top + XpSpace.xs))
         Box(Modifier.fillMaxSize().padding(top = top), contentAlignment = Alignment.Center) {
             when (sync) {
                 CircleSync.Loading -> androidx.compose.material3.CircularProgressIndicator(color = XpColors.Accent)
