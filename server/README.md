@@ -95,3 +95,5 @@ Web 默认访问同源 `/v1`；需要独立同站域名时，可在构建环境�
 `POST /v1/chat`：首次传 `{messages:[{role,content}],timezone}`；收到 `tool_calls` 后本机执行，携带 `{runId,results:[{id,data}]}` 继续。SSE 类型为 `status / token / tool_calls / done / error`。关闭连接会中断上游。
 
 `POST /v1/ledger/push`（`{deviceId,txns,categories}`，≤500 条，LWW）、`GET /v1/ledger/changes?since=&limit=`（含墓碑）。只收结构化字段，账单原文一律拒收；鉴权同上，且要求已验证邮箱。完整字段、错误码与客户端流程见 `docs/API-SYNC.md`。
+
+`POST /v1/feedback`（`{kind,text,appVersion,device}`，登录可选，body ≤16 KB，每发送者 10 次/小时 + 全局 300 次/小时）。正文不写日志、没有读取接口，只有服务器上的 `node scripts/feedback.mjs [--since=<ms>] [--limit=50]` 能读；详见 `docs/API-ACCOUNT.md` 的 Feedback 一节。

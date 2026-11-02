@@ -51,3 +51,43 @@
 存储：新增 SQLite 表 `avatars(user_id PRIMARY KEY → users ON DELETE CASCADE, preset, mime, bytes BLOB, updated_at)`，与既有表一致的级联删除，不新建目录、不改其它表。
 
 验收（2026-11-01）：`npm test --prefix server` 97/97 通过（新增 8 项覆盖档位设置/清除、JPEG/PNG/WebP 接收、GIF 与随机字节拒绝、恰好 256 KiB 接受与超限 413、本人/圈友可取和对陌生人 404、退圈即失效、成员表带头像、未验证 403），`npm run check` 通过；另用真实进程（`XP_DEV_MAIL=1`、临时 DB）跑通 注册→验证→设档位→传照片→取图（`image/png`、`private, max-age=86400`、`nosniff`）→超限 413→GIF 400。生产未部署，未触碰 tt 账号。
+
+## Feedback 一键反馈给开发者（2026-11-01）
+
+App 的「反馈给开发者」把用户**自己看过、自己删改过**的一小段文字发给开发者：设置页是一般反馈，识别失败的通知条目可带一条通知原文（`kind=capture_miss`）。发出去的全部内容在发送前就显示在弹窗里，点「发送」才上传。
+
+`POST /v1/feedback`，**登录可选**：带有效 Bearer/cookie 就记在这个账号名下，否则匿名；带了一个失效 token 也按匿名收，**不返回 401**——App 收到 401 会清掉登录态，为一张过期 cookie 丢掉整条反馈不值得。
+
+Body 是**严格白名单**，多一个键就是 `400 INVALID_INPUT`（客户端 bug，不是新字段）：
+
+```json
+{ "kind": "capture_miss" | "general", "text": "1..3000 字符（去空白后非空）",
+  "appVersion": "≤32（可省略→存空串）", "device": "≤120（可省略→存空串）" }
+```
+
+- 成功 `201 { "ok": true, "id": "<uuid>" }`。id 只用来对日志，不回显任何提交内容。
+- 失败只用既有码：`400 INVALID_INPUT`（kind 不认识、text 空或超长、appVersion/device 超长或不是字符串、未知键、body 不是 JSON 对象或超过 16 KB）、`429 RATE_LIMITED`（带 `Retry-After`）。
+- body 上限 **16 KB**（`readJson` 在解析前按字节计，超限直接 400，不落到字符校验）。其它路由的限额不变。
+- 限流：**每发送者 10 次/小时**（登录按账号 id，匿名按 ip_hash），**全局 300 次/小时**。与既有路由一致，被拒绝的请求也占配额。
+
+存储：新增 SQLite 表
+
+```
+feedback(id TEXT PK, user_id TEXT NULL → users ON DELETE CASCADE,
+         kind, text, app_version, device, created_at INTEGER, ip_hash TEXT)
+```
+
+`ip_hash = hash(客户端 IP)`，即会话用的那个 sha256 助手；**原始 IP 不入表**（既有 `limits` 表的 `global:<ip>` 键是旧行为，本接口的限流键同样只存 `feedback:<ip_hash>`）。删除账号时该账号的反馈随之一并删除，匿名行不受影响。
+
+隐私边界：
+
+- 反馈正文（可能含一条通知原文）**不写任何日志**，`console.log`/`security_summary` 都不碰；错误响应也不回显提交值。
+- **没有 HTTP 读取接口**。开发者只在服务器上读：
+
+```bash
+DB_PATH=/var/lib/xiaopiao/api.sqlite node scripts/feedback.mjs [--since=<epochMs>] [--limit=50]
+```
+
+每行一个 JSON 对象（`id/userId/kind/text/appVersion/device/createdAt/ipHash`，最新在前），stdout 输出；`--limit` 上限 500，`DB_PATH` 指错会直接报错而不新建空库。`GET /v1/feedback` 仍是 404。
+
+验收（2026-11-01）：`npm test --prefix server` 122/122 通过，新增 11 项覆盖匿名/登录接受、`user_id` 仅登录时写入、失效 token 按匿名收、kind/空文本/超长/未知键拒绝与边界（3000 字、32/120 字符）恰好通过、错误响应不回显正文、16 KB 上限、10 次/小时后 429 与 `Retry-After`、按账号而非 IP 计数、`ip_hash` 等于 `hash(127.0.0.1)` 且明文 IP 不出现在 feedback 行与 feedback 限流键、无 HTTP 读取、脚本读取排序与 `--since/--limit`；`npm run check` 通过。另用真实进程（`XP_DEV_MAIL=1`、`/tmp` 临时 DB）跑通 匿名 201 → 未知键/坏 kind/17 KB 各 400 → `GET` 404 → 真实注册+验证账号 201 且行内 `userId` 非空 → 过期 token 201 匿名 → 第 11 次 429 带 `Retry-After` → `scripts/feedback.mjs` 读懂全部行、`--since` 过滤、`--limit` 越界报错、`DB_PATH` 不存在不建库；服务端 stdout 只出现 dev mail 一行，没有任何反馈正文。生产未部署，未触碰 tt 账号。

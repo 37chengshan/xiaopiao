@@ -6,6 +6,7 @@ import { hash, secret, passwordHash, passwordMatches, publicUser } from './store
 import { createLedger, LIMITS as LEDGER } from './ledger.mjs';
 import { createCircles, LIMITS as CIRCLE } from './circle.mjs';
 import { createAvatars, LIMITS as AVATAR } from './avatar.mjs';
+import { createFeedback, LIMITS as FEEDBACK } from './feedback.mjs';
 export const ACCOUNT_POLICY = Object.freeze({ passwordMin: 8, passwordMax: 128, usernameMin: 3, usernameMax: 30, profileEditing: true });
 const errors = {
   INVALID_CURRENT_PASSWORD: [400, '当前密码不正确'],
@@ -52,6 +53,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
   const ledger = createLedger({ db });
   const circles = createCircles({ db });
   const avatars = createAvatars({ db });
+  const feedback = createFeedback({ db });
   /** Every user the API returns carries the avatar the clients draw; the row alone does not know it. */
   const publicOf = row => publicUser(row, avatars.json(row.id));
   const verifiedUser = req => {
@@ -77,10 +79,14 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
     if (!row && db.prepare('SELECT count(*) AS n FROM limits').get().n >= defensePolicy.rateKeys) throw securityError('SERVER_BUSY', 60);
     db.prepare('INSERT INTO limits(key,count,expires) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=CASE WHEN expires <= ? THEN 1 ELSE count+1 END, expires=CASE WHEN expires <= ? THEN excluded.expires ELSE expires END').run(key, now + window, now, now);
   }
-  function userOf(req) {
+  /** `null` for no token or a dead one: feedback is the only route where a missing session is not an error. */
+  function sessionUser(req) {
     const token = req.headers.authorization?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1] ?? cookieToken(req);
-    if (!token) fail('UNAUTHORIZED');
-    const user = db.prepare('SELECT u.*, s.digest AS session_digest FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.digest=? AND s.expires>?').get(hash(token), Date.now());
+    if (!token) return null;
+    return db.prepare('SELECT u.*, s.digest AS session_digest FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.digest=? AND s.expires>?').get(hash(token), Date.now()) ?? null;
+  }
+  function userOf(req) {
+    const user = sessionUser(req);
     if (!user) fail('UNAUTHORIZED');
     return user;
   }
@@ -170,6 +176,16 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
         res.setHeader('Cache-Control', 'private, max-age=86400');
         res.writeHead(200, { 'Content-Type': photo.mime, 'Content-Length': photo.bytes.length });
         return res.end(photo.bytes);
+      }
+      // Feedback works without a session, so it cannot sit behind the POST-only gate below. A dead token counts as
+      // anonymous instead of 401: the App clears its login on 401 and the note would be lost for a stale cookie.
+      if (url.pathname === '/v1/feedback' && req.method === 'POST') {
+        const user = sessionUser(req);
+        // Signed-in senders are counted per account, anonymous ones per hashed address; the whole table has a cap too.
+        rate(`feedback:${user?.id ?? hash(String(ip))}`, FEEDBACK.perHour, 3600_000);
+        rate('feedback:all', FEEDBACK.globalPerHour, 3600_000);
+        const body = await bodyOf(req, FEEDBACK.body, 'INVALID_INPUT', defensePolicy.bodyMs);
+        return json(feedback.add({ userId: user?.id ?? null, ipHash: hash(String(ip)), body }), 201);
       }
       if (url.pathname === '/v1/ledger/changes' && req.method === 'GET') {
         const user = verifiedUser(req);
