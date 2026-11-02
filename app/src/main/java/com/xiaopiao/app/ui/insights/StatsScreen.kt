@@ -94,7 +94,7 @@ import com.xiaopiao.app.ui.components.rememberReducedMotion
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpEase
 import com.xiaopiao.app.ui.theme.XpFonts
-import com.xiaopiao.app.ui.theme.XpMotion
+import com.xiaopiao.app.ui.motion.XpMotion
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.motion.XpTiming
 import com.xiaopiao.app.ui.motion.rememberDtProgress

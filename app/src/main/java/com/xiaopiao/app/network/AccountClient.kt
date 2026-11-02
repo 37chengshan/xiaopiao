@@ -16,7 +16,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 
-data class AccountUser(val id: String, val email: String, val username: String, val verified: Boolean)
+data class AccountUser(val id: String, val email: String, val username: String, val verified: Boolean, val avatar: RemoteAvatar? = null)
 class ApiException(val code: String, message: String, val field: String? = null) : Exception(message)
 
 /** Application-owned session only; never stores the model key or a QMuse identity. */
@@ -29,7 +29,7 @@ class AccountClient(context: Context, private val apiBaseUrl: String = BuildConf
     private val mutablePolicy = MutableStateFlow(com.xiaopiao.app.domain.AccountPolicy())
     val policy = mutablePolicy.asStateFlow()
     val configured: Boolean get() = apiBaseUrl.isNotBlank()
-    private fun parseUser(o: JsonObject) = AccountUser(o.getValue("id").jsonPrimitive.content, o.getValue("email").jsonPrimitive.content, o.getValue("username").jsonPrimitive.content, o.getValue("verified").jsonPrimitive.boolean)
+    private fun parseUser(o: JsonObject) = AccountUser(o.getValue("id").jsonPrimitive.content, o.getValue("email").jsonPrimitive.content, o.getValue("username").jsonPrimitive.content, o.getValue("verified").jsonPrimitive.boolean, CircleApi.avatarOf(o["avatar"]))
     private fun connection(path: String): HttpURLConnection {
         if (!configured) throw ApiException("NOT_CONFIGURED", "云端连接尚未配置，可以继续本机记账")
         val uri = URI(apiBaseUrl)
@@ -41,10 +41,10 @@ class AccountClient(context: Context, private val apiBaseUrl: String = BuildConf
             token?.let { setRequestProperty("Authorization", "Bearer $it") }
         }
     }
-    suspend fun request(path: String, data: JsonObject? = null): JsonObject = withContext(Dispatchers.IO) {
+    suspend fun request(path: String, data: JsonObject? = null, method: String? = null): JsonObject = withContext(Dispatchers.IO) {
         val c = connection(path)
         try {
-            c.requestMethod = if (data == null) "GET" else "POST"
+            c.requestMethod = method ?: if (data == null) "GET" else "POST"
             if (data != null) { c.doOutput = true; c.outputStream.use { it.write(data.toString().toByteArray()) } }
             val ok = c.responseCode in 200..299
             val result = (if (ok) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
@@ -78,6 +78,28 @@ class AccountClient(context: Context, private val apiBaseUrl: String = BuildConf
         val obj = request("/v1/auth/me")
         obj["user"]?.jsonObject?.let { mutableUser.value = parseUser(it); prefs.edit().putString("user", it.toString()).apply() }
     }
+    /** Avatar (docs/API-ACCOUNT.md, Avatar): a preset id `p1`…`p12`, a ≤256 KiB JPEG, or none. */
+    suspend fun setAvatarPreset(id: String) = applyUser(request("/v1/auth/avatar", buildJsonObject { put("preset", id) }, method = "PUT"))
+
+    suspend fun setAvatarImage(jpeg: ByteArray) = applyUser(
+        request("/v1/auth/avatar", buildJsonObject { put("image", java.util.Base64.getEncoder().encodeToString(jpeg)) }, method = "PUT"),
+    )
+
+    suspend fun clearAvatar() = applyUser(request("/v1/auth/avatar", method = "DELETE"))
+
+    private suspend fun applyUser(obj: JsonObject) = withContext(Dispatchers.IO) {
+        obj["user"]?.jsonObject?.let { mutableUser.value = parseUser(it); prefs.edit().putString("user", it.toString()).apply() }
+    }
+
+    /** Raw bytes of an authenticated GET (avatar photos). */
+    suspend fun fetchBytes(path: String): ByteArray = withContext(Dispatchers.IO) {
+        val c = connection(path)
+        try {
+            if (c.responseCode !in 200..299) throw ApiException("NETWORK", "图片加载失败")
+            c.inputStream.use { it.readBytes() }
+        } finally { c.disconnect() }
+    }
+
     suspend fun logout() {
         try { request("/v1/auth/logout", buildJsonObject {}) } finally { clear() }
     }

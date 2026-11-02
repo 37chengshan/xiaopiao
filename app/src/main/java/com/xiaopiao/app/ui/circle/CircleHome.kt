@@ -1,5 +1,21 @@
 package com.xiaopiao.app.ui.circle
 
+import com.xiaopiao.app.ui.theme.XpRadius
+import com.xiaopiao.app.ui.components.pressableClick
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import com.xiaopiao.app.ui.components.XpButtonStyle
+import com.xiaopiao.app.ui.components.XpButton
+import com.xiaopiao.app.ui.motion.xpRevealLayer
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.CompositionLocalProvider
 import com.xiaopiao.app.ui.theme.XpColors
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.background
@@ -60,7 +76,75 @@ import com.xiaopiao.app.ui.theme.XpSpace
 fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenGames: () -> Unit = {}) {
     val store = container.circles
     val book by store.book.collectAsStateWithLifecycle()
+    val sync by store.sync.collectAsStateWithLifecycle()
+    CompositionLocalProvider(LocalCircleStore provides store) {
+        if (book.circles.isEmpty()) CircleNoCircle(container, sync) else CircleFeedHome(container, onOpenGames)
+    }
+}
+
+/** 圈子 before there is a feed: signed out, loading, failed, or simply no circle yet. Never demo data. */
+@Composable
+private fun CircleNoCircle(container: AppContainer, sync: CircleSync) {
+    val store = container.circles
+    val scope = rememberCoroutineScope()
+    var accountOpen by remember { mutableStateOf(false) }
+    var creating by remember { mutableStateOf(false) }
+    var joining by remember { mutableStateOf(false) }
+    // Coming back to the tab re-checks: a circle may have been created from the receipt's 「发到圈子」.
+    LaunchedEffect(Unit) { if (sync != CircleSync.SignedOut) store.refresh() }
+    NavScaffold(title = stringResource(R.string.circle_title_fallback), scroll = NavScrollNone, trailing = { AppTopActions() }) { top ->
+        Box(Modifier.fillMaxSize().padding(top = top), contentAlignment = Alignment.Center) {
+            when (sync) {
+                CircleSync.Loading -> androidx.compose.material3.CircularProgressIndicator(color = XpColors.Accent)
+                CircleSync.SignedOut -> CircleStateCard(
+                    title = stringResource(R.string.circle_signed_out_title),
+                    body = stringResource(R.string.circle_signed_out_body),
+                    primary = stringResource(R.string.circle_signed_out_action) to { accountOpen = true },
+                )
+                CircleSync.Failed -> CircleStateCard(
+                    title = stringResource(R.string.circle_failed_title),
+                    body = stringResource(R.string.circle_failed_body),
+                    primary = stringResource(R.string.circle_failed_retry) to { scope.launch { store.refresh() } },
+                )
+                CircleSync.Ready -> CircleStateCard(
+                    title = stringResource(R.string.circle_none_title),
+                    body = stringResource(R.string.circle_none_body),
+                    primary = stringResource(R.string.circle_none_create) to { creating = true },
+                    secondary = stringResource(R.string.circle_none_join) to { joining = true },
+                )
+            }
+        }
+    }
+    if (accountOpen) com.xiaopiao.app.ui.account.AccountSheet(container.account) { accountOpen = false }
+    if (creating) CreateCircleDialog(onDismiss = { creating = false }, onCreate = { name -> store.create(name); creating = false })
+    if (joining) CircleJoinSheet(onDismiss = { joining = false }, onJoined = { joining = false })
+}
+
+@Composable
+private fun CircleStateCard(title: String, body: String, primary: Pair<String, () -> Unit>, secondary: Pair<String, () -> Unit>? = null) {
+    Column(
+        Modifier.padding(horizontal = XpSpace.page).xpRevealLayer(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(Icons.Outlined.Groups, contentDescription = null, tint = XpColors.Accent, modifier = Modifier.size(44.dp))
+        Text(title, style = MaterialTheme.typography.titleMedium, color = XpColors.Ink, modifier = Modifier.padding(top = XpSpace.m))
+        Text(
+            body, style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(top = XpSpace.xs),
+        )
+        XpButton(primary.first, primary.second, modifier = Modifier.padding(top = XpSpace.l).fillMaxWidth())
+        secondary?.let { (label, action) ->
+            XpButton(label, action, style = XpButtonStyle.Secondary, modifier = Modifier.padding(top = XpSpace.s).fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+private fun CircleFeedHome(container: AppContainer, onOpenGames: () -> Unit) {
+    val store = container.circles
+    val book by store.book.collectAsStateWithLifecycle()
     val myLikes by store.myLikes.collectAsStateWithLifecycle()
+    val likeCounts by store.likeCount.collectAsStateWithLifecycle()
     val circle = book.current()
     val viewerId = CircleDemo.MY_ID
     val now = remember(book) { System.currentTimeMillis() }
@@ -106,6 +190,23 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                     bottom = bottomInset + 96.dp,
                 ),
             ) {
+                if (circle.pendingRequests > 0) {
+                    item(key = "requests") {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = XpSpace.page, vertical = XpSpace.s)
+                                .clip(RoundedCornerShape(XpRadius.m)).background(XpColors.AccentSoft)
+                                .pressableClick { sheet = "requests" }
+                                .padding(horizontal = XpSpace.l, vertical = XpSpace.m),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                if (en) "${circle.pendingRequests} join request(s)" else "${circle.pendingRequests} 个加入申请待处理",
+                                style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink, modifier = Modifier.weight(1f),
+                            )
+                            Text(if (en) "Review" else "去处理", style = MaterialTheme.typography.labelLarge, color = XpColors.Accent)
+                        }
+                    }
+                }
                 if (posts.isEmpty()) {
                     item(key = "empty") {
                         EmptyState(
@@ -129,10 +230,11 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
                             viewerId = viewerId,
                             now = now,
                             liked = post.id in myLikes,
+                            likes = likeCounts[post.id] ?: 0,
                             onLike = { store.toggleLike(post.id) },
                             onComment = { commentsFor = post.id },
                             onReceiptOpen = { openedPost = it },
-                            onMemberClick = { id -> sheet = "member:$id" },
+                            onMemberClick = { sheet = "members" },
                         )
                     }
                 }
@@ -174,12 +276,19 @@ fun CircleHome(container: AppContainer, onOpenSettings: () -> Unit = {}, onOpenG
             onClose = { sheet = null },
             onGames = { sheet = null; onOpenGames() },
             onMembers = { sheet = "members" },
+            onJoin = { sheet = "join" },
+            onRequests = { sheet = "requests" },
             onInvite = { sheet = "invite" },
             onLeaderboard = { sheet = "leaderboard" },
             onAward = { sheet = "award" },
             onShare = { sheet = "compose" },
             viewerId = viewerId,
         )
+        sheet == "requests" -> CircleRequestsSheet(circle, onDismiss = { sheet = null })
+        sheet == "join" -> CircleJoinSheet(onDismiss = { sheet = null }, onJoined = { name ->
+            sheet = null
+            toast.show(if (en) "Joined $name" else "已加入「$name」")
+        })
         sheet == "members" -> CircleMembersSheet(
             book = book,
             onBookChange = store::set,

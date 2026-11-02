@@ -283,7 +283,7 @@ test('the receipt card is a strict whitelist: lines are opt-in and bill text is 
     [receipt({ count: 1.5 }), 'RECEIPT_INVALID'],
     [receipt({ date: '2026-02-31' }), 'RECEIPT_INVALID'],
     [receipt({ date: '10/29' }), 'RECEIPT_INVALID'],
-    [receipt({ comment: '啰'.repeat(61) }), 'RECEIPT_INVALID'],
+    [receipt({ comment: '啰'.repeat(121) }), 'RECEIPT_INVALID'],
     [receipt({ lines: [...lines, { label: '第31笔', amountCents: 1 }] }), 'RECEIPT_INVALID'],
     [receipt({ lines: [{ label: '超长的一行标签在这里真的放不下呀哈', amountCents: 1 }] }), 'RECEIPT_INVALID'],
     [[], 'RECEIPT_INVALID'],

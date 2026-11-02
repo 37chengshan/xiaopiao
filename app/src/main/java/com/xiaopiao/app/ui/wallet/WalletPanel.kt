@@ -77,7 +77,7 @@ import com.xiaopiao.app.ui.components.pressableClick
 import com.xiaopiao.app.ui.components.rememberWindowBlurBehind
 import com.xiaopiao.app.ui.motion.xpRevealLayer
 import com.xiaopiao.app.ui.theme.XpColors
-import com.xiaopiao.app.ui.theme.XpMotion
+import com.xiaopiao.app.ui.motion.XpMotion
 import com.xiaopiao.app.ui.theme.XpFonts
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace

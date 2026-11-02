@@ -173,7 +173,7 @@ fun SettingsScreen(
         NavScaffold(tr("设置", "Settings"), rememberNavScroll(scroll), onBack = onBack, backLabel = backLabel) { top ->
             Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(top = top, bottom = 120.dp)) {
                 val sync by container.ledgerSync.status.collectAsState()
-                AccountNavSection(user?.username, user?.email, user?.verified == true, syncNote(sync).takeIf { user?.verified == true }) { sub = SettingsSub.Account }
+                AccountNavSection(user?.username, user?.email, user?.verified == true, syncNote(sync).takeIf { user?.verified == true }, avatar = user?.avatar) { sub = SettingsSub.Account }
                 if (user != null) com.xiaopiao.app.ui.components.GroupedSection {
                     item { com.xiaopiao.app.ui.components.GroupedRow(
                         title = if (accountEn) "Sign out" else "退出登录", titleColor = com.xiaopiao.app.ui.theme.XpColors.Negative,

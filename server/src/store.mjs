@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { randomBytes, createHash, scrypt as derive, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomInt, createHash, scrypt as derive, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 const scrypt = promisify(derive);
 export const hash = value => createHash('sha256').update(value).digest('hex');
@@ -22,6 +22,7 @@ export function store(path) {
     CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, verified INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS sessions (digest TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS email_changes (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, email TEXT NOT NULL, expires INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS avatars (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, preset TEXT, mime TEXT, bytes BLOB, updated_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS codes (user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, purpose TEXT NOT NULL, digest TEXT NOT NULL, expires INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(user_id,purpose));
     CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, state TEXT NOT NULL, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);
@@ -64,7 +65,8 @@ export function store(path) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      no TEXT
     );
     CREATE TABLE IF NOT EXISTS circle_members (
       circle_id TEXT NOT NULL REFERENCES circles(id) ON DELETE CASCADE,
@@ -74,6 +76,12 @@ export function store(path) {
       PRIMARY KEY (circle_id, user_id)
     );
     CREATE INDEX IF NOT EXISTS circle_members_user ON circle_members (user_id);
+    CREATE TABLE IF NOT EXISTS circle_requests (
+      circle_id TEXT NOT NULL REFERENCES circles(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (circle_id, user_id)
+    );
     CREATE TABLE IF NOT EXISTS circle_invites (
       code TEXT PRIMARY KEY,
       circle_id TEXT NOT NULL REFERENCES circles(id) ON DELETE CASCADE,
@@ -108,6 +116,33 @@ export function store(path) {
       deleted INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS post_comments_post ON post_comments (post_id, created_at);`);
+  migrateCircleNumbers(db);
   return db;
 }
-export function publicUser(row) { return { id: row.id, email: row.email, username: row.username, verified: Boolean(row.verified) }; }
+/**
+ * `circles.no`: the 7-digit number a person can be told out loud to find a circle. Databases created before it
+ * existed get the column and a number per circle here, so an upgrade needs no manual step. The unique index is
+ * created after the column: SQLite allows several NULLs in a unique index, so either order is safe, but this one
+ * keeps a half-filled table from ever looking valid.
+ */
+function migrateCircleNumbers(db) {
+  if (!db.prepare('PRAGMA table_info(circles)').all().some(column => column.name === 'no')) {
+    db.exec('ALTER TABLE circles ADD COLUMN no TEXT');
+  }
+  const missing = db.prepare('SELECT id FROM circles WHERE no IS NULL').all();
+  if (missing.length) {
+    const taken = new Set(db.prepare('SELECT no FROM circles WHERE no IS NOT NULL').all().map(row => row.no));
+    const assign = db.prepare('UPDATE circles SET no=? WHERE id=?');
+    for (const circle of missing) {
+      let number;
+      do { number = String(randomInt(1_000_000, 10_000_000)); } while (taken.has(number));
+      taken.add(number);
+      assign.run(number, circle.id);
+    }
+  }
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS circles_no ON circles (no)');
+}
+/** `avatar` is null, `{ preset }` or `{ url }` (see avatar.mjs); callers resolve it, never the stored bytes. */
+export function publicUser(row, avatar = null) {
+  return { id: row.id, email: row.email, username: row.username, verified: Boolean(row.verified), avatar };
+}

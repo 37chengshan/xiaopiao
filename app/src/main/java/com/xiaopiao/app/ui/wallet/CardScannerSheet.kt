@@ -54,6 +54,7 @@ import java.util.concurrent.Executors
 enum class ScanMode(val title: String, val hint: String) {
     CardNumber(tr("拍照识别卡号", "Scan card number"), tr("把卡号放进取景框", "Fit the card number in the frame")),
     MemberCode(tr("扫码录入会员号", "Scan member number"), tr("对准条形码或二维码", "Point at the barcode or QR code")),
+    CircleInvite(tr("扫码加入圈子", "Scan to join a circle"), tr("对准圈子邀请二维码", "Point at the circle's invite QR code")),
 }
 
 /**
@@ -133,7 +134,8 @@ fun CardScannerSheet(
                                                 if (raw.isNullOrEmpty()) {
                                                     hint = tr("没找到条码，把会员码对准取景框", "No barcode found — center the member code in the frame")
                                                 } else {
-                                                    onScanned(raw.filter { it.isLetterOrDigit() }.take(32))
+                                                    // A circle invite QR is a link; its code is parsed by the caller.
+                                                    onScanned(if (mode == ScanMode.CircleInvite) raw.take(200) else raw.filter { it.isLetterOrDigit() }.take(32))
                                                 }
                                             }
                                             .addOnCompleteListener { proxy.close() }

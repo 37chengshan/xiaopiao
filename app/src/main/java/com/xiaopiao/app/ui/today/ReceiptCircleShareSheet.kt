@@ -24,7 +24,7 @@ private data class ShareCircle(val id: String, val name: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ReceiptCircleShareSheet(client: AccountClient, receipt: DailyReceipt, onDismiss: () -> Unit, onPosted: (String) -> Unit) {
+internal fun ReceiptCircleShareSheet(client: AccountClient, receipt: DailyReceipt, snapshot: com.xiaopiao.app.domain.ReceiptSnapshot?, onDismiss: () -> Unit, onPosted: (String) -> Unit) {
     val user by client.user.collectAsState()
     val en = LocalConfiguration.current.locales[0].language == "en"
     fun copy(zh: String, english: String) = if (en) english else zh
@@ -33,7 +33,8 @@ internal fun ReceiptCircleShareSheet(client: AccountClient, receipt: DailyReceip
     var selected by remember { mutableStateOf<String?>(null) }
     var caption by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
-    var includeCategories by remember { mutableStateOf(false) }
+    // On by default when the printed paper showed categories, so the shared card looks like the print.
+    var includeCategories by remember { mutableStateOf(snapshot?.let { com.xiaopiao.app.ui.today.ReceiptContent.fromBits(it.content).let { c -> c.items || c.bars } } ?: false) }
     var accountOpen by remember { mutableStateOf(false) }
     var generation by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(false) }
@@ -97,7 +98,13 @@ internal fun ReceiptCircleShareSheet(client: AccountClient, receipt: DailyReceip
                         posting = true; error = null
                         scope.launch {
                             try {
-                                client.request("/v1/circles/${circle.id}/posts", ReceiptCirclePayload.build(receipt, caption, includeCategories))
+                                try {
+                                    client.request("/v1/circles/${circle.id}/posts", ReceiptCirclePayload.build(receipt, caption, includeCategories, snapshot))
+                                } catch (e: com.xiaopiao.app.network.ApiException) {
+                                    // A server without the print-snapshot fields refuses them; share the plain card instead.
+                                    if (e.code != "RECEIPT_FIELD" || snapshot == null) throw e
+                                    client.request("/v1/circles/${circle.id}/posts", ReceiptCirclePayload.build(receipt, caption, includeCategories))
+                                }
                                 onPosted(circle.name)
                             } catch (e: CancellationException) { throw e }
                             catch (e: Exception) { error = copy("发布未确认，请先查看圈子再重试，避免重复发送。", "Publishing could not be confirmed. Check the circle before retrying to avoid duplicates.") }

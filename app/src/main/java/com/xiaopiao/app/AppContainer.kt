@@ -47,7 +47,7 @@ class AppContainer(context: Context) {
 
     /** 用户自设的日/周/月预算（tt#70），DataStore 存储、已花由账本实时算。 */
     val budget: BudgetRepository by lazy { BudgetRepository(appContext) }
-    val circles by lazy { com.xiaopiao.app.ui.circle.CircleStore() }
+    val circles by lazy { com.xiaopiao.app.ui.circle.CircleStore(account) }
     val captureProcessor: CaptureProcessor by lazy { CaptureProcessor(ledger, captureLog) }
     val csvImporter: CsvImporter by lazy { CsvImporter(appContext.contentResolver, ledger) }
 

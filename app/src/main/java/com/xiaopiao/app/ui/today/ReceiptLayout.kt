@@ -29,7 +29,14 @@ data class ReceiptLine(
 )
 
 /** Facts about the moment of printing that are not part of the day itself. */
-data class ReceiptMeta(val printedAtMs: Long = 0L, val previousOutCents: Cents? = null)
+data class ReceiptMeta(
+    val printedAtMs: Long = 0L,
+    val previousOutCents: Cents? = null,
+    /** A receipt rebuilt from a circle post: the real entry count (its items are one row per category). */
+    val entryCount: Int? = null,
+    /** Category totals only — no per-entry rows, since a shared card never carries them. */
+    val aggregateOnly: Boolean = false,
+)
 
 /** Turns a [DailyReceipt] into fixed-width printable lines (grouped by category, ellipsis, wrapping). Pure and testable. */
 object ReceiptLayout {
@@ -198,7 +205,7 @@ object ReceiptLayout {
         out += ReceiptLine(LineKind.META, tr("出票", "Printed"), clock(meta.printedAtMs))
         out += ReceiptLine(LineKind.DASH)
         if (content.total) {
-            if (spend.isEmpty()) {
+            if (if (meta.aggregateOnly) receipt.totalOutCents == 0L else spend.isEmpty()) {
                 out += ReceiptLine(LineKind.BIG, tr("今日无消费", "No spending today"))
             } else {
                 out += ReceiptLine(
@@ -216,7 +223,7 @@ object ReceiptLayout {
             if (content.items || brief) {
                 dash()
                 out += ReceiptLine(LineKind.HEADER, tr("分类 / 明细", "Category / items"), tr("金额", "Amount"))
-                out += groupLines(receipt.items, expanded, brief)
+                out += groupLines(receipt.items, expanded, brief || meta.aggregateOnly)
             }
             if (content.bars) {
                 val bars = shareBars(spend)
@@ -225,7 +232,7 @@ object ReceiptLayout {
             if (content.weekCompare && !brief) {
                 dash()
                 out += ReceiptLine(
-                    LineKind.STATS, tr("笔数 ${receipt.items.size}", "${receipt.items.size} entries"),
+                    LineKind.STATS, tr("笔数 ${meta.entryCount ?: receipt.items.size}", "${meta.entryCount ?: receipt.items.size} entries"),
                     deltaText(receipt.totalOutCents, meta.previousOutCents, isToday),
                     extra = weekDayNumber(receipt.dayStart),
                 )
@@ -242,7 +249,7 @@ object ReceiptLayout {
         }
         if (content.stamp) out += ReceiptLine(LineKind.STAMP_SPACE, stampText(receipt))
         else dash()
-        if (content.barcode) out += ReceiptLine(LineKind.BARCODE, serialFor(receipt))
+        if (content.barcode) out += ReceiptLine(LineKind.BARCODE, serialFor(receipt, meta.entryCount))
         out += ReceiptLine(LineKind.FOOTER, FOOTER_TEXT)
         out += ReceiptLine(LineKind.BLANK)
         return out
@@ -263,9 +270,9 @@ object ReceiptLayout {
     }
 
     /** "NO.20261028-0731": the day plus a stable four-digit hash of what was printed, so a reprint carries the same number. */
-    fun serialFor(receipt: DailyReceipt): String {
+    fun serialFor(receipt: DailyReceipt, entryCount: Int? = null): String {
         val c = Calendar.getInstance().apply { timeInMillis = receipt.dayStart }
-        val seed = receipt.totalOutCents * 31 + receipt.items.size * 7 + receipt.dayStart / 86_400_000L
+        val seed = receipt.totalOutCents * 31 + (entryCount ?: receipt.items.size) * 7 + receipt.dayStart / 86_400_000L
         return "NO.%04d%02d%02d-%04d".format(c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH), kotlin.math.abs(seed) % 10_000)
     }
 

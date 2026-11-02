@@ -657,7 +657,7 @@ fun ChatScreen(
     val drawer = remember { Animatable(if (drawerOpen) 1f else 0f) }
     LaunchedEffect(drawerOpen) {
         if (reduced) drawer.snapTo(if (drawerOpen) 1f else 0f)
-        else drawer.animateTo(if (drawerOpen) 1f else 0f, com.xiaopiao.app.ui.theme.XpMotion.snappy())
+        else drawer.animateTo(if (drawerOpen) 1f else 0f, com.xiaopiao.app.ui.motion.XpMotion.snappy())
     }
 
     // The page is recorded for the session drawer, a glass sheet that rises over it (a sibling, never its parent).

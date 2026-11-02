@@ -59,7 +59,7 @@
     <string name="circle_members_nickname_prefix">Nickname: %1$s</string>
     <string name="circle_members_remove_title">Remove this member?</string>
     <string name="circle_members_remove_body">Their past receipts stay but are masked once they leave the circle.</string>
-    <string name="circle_members_footer">Everyone owns their own sharing; admins cannot change it for them.</string>
+    <string name="circle_members_footer">The owner can remove members; posts are visible to members only.</string>
     <string name="circle_nickname_title">Circle nickname</string>
     <string name="circle_nickname_placeholder">The name your family sees (max 8)</string>
     <string name="circle_remark_title">Private note</string>
@@ -90,7 +90,7 @@
 
     <!-- Invite -->
     <string name="circle_invite_title">Invite family</string>
-    <string name="circle_invite_subtitle">6-character code, valid for 24 hours</string>
+    <string name="circle_invite_subtitle">8-character code, valid for 7 days</string>
     <string name="circle_invite_remaining">%1$d joins left</string>
     <string name="circle_invite_expires">Expires in %1$s</string>
     <string name="circle_invite_expired">Expired. Generate a new code.</string>
@@ -103,11 +103,11 @@
     <string name="circle_invite_members">%1$d of %2$d members</string>
     <string name="circle_invite_join">Join a circle</string>
     <string name="circle_invite_join_title">Join a circle</string>
-    <string name="circle_invite_join_placeholder">Enter the 6-character code</string>
+    <string name="circle_invite_join_placeholder">Enter the 8-character code</string>
     <string name="circle_invite_join_confirm">Join</string>
     <string name="circle_invite_joined">Joined %1$s</string>
     <string name="circle_invite_joiner_name">New member</string>
-    <string name="circle_invite_footer">The code only works in this on-device demo; nothing is sent anywhere.</string>
+    <string name="circle_invite_footer">They join by entering the code under “Join a circle” or by scanning the QR code.</string>
     <string name="circle_dur_hm">%1$dh %2$dm</string>
     <string name="circle_dur_m">%1$dm</string>
 
@@ -172,4 +172,23 @@
     <string name="circle_lb_stub">HOUSE LEDGER · THIS WEEK</string>
     <string name="circle_lb_total">%1$d on the board</string>
     <string name="circle_lb_scope">totals only</string>
+    <string name="circle_invite_loading">Getting a code…</string>
+    <string name="circle_invite_failed">Couldn\'t get a code. Tap “New code” to retry.</string>
+    <string name="circle_signed_out_title">Sign in to use circles</string>
+    <string name="circle_signed_out_body">Circle posts live in the cloud. Sign in and verify your email to share receipts with family and friends.</string>
+    <string name="circle_signed_out_action">Sign in / Sign up</string>
+    <string name="circle_none_title">No circles yet</string>
+    <string name="circle_none_body">Create one, or join family and friends with an invite code or QR code.</string>
+    <string name="circle_none_create">Create a circle</string>
+    <string name="circle_none_join">Join a circle</string>
+    <string name="circle_failed_title">Circles didn\'t load</string>
+    <string name="circle_failed_body">Check your connection and try again.</string>
+    <string name="circle_failed_retry">Reload</string>
+    <string name="circle_leave">Leave circle</string>
+    <string name="circle_leave_body">You\'ll stop seeing this circle\'s posts. If the owner leaves, the circle is deleted.</string>
+    <string name="circle_title_fallback">Circles</string>
+    <string name="circle_none_join_any">Join a circle</string>
+    <string name="circle_requests_title">Join requests</string>
+    <string name="circle_requests_pending">%1$d waiting</string>
+    <string name="circle_invite_number">Circle No. %1$s · others can search it to ask to join</string>
 </resources>

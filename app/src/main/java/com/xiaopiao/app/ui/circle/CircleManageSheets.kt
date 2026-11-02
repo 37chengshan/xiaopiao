@@ -2,6 +2,8 @@
 
 package com.xiaopiao.app.ui.circle
 
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -555,6 +557,8 @@ internal fun CircleMembersContent(
     var nicknameFor by remember { mutableStateOf<CircleMember?>(null) }
     var remarkFor by remember { mutableStateOf<CircleMember?>(null) }
     var removeFor by remember { mutableStateOf<CircleMember?>(null) }
+    val circleStore = LocalCircleStore.current
+    val scope = rememberCoroutineScope()
 
     Column(
         Modifier.fillMaxWidth()
@@ -661,14 +665,11 @@ internal fun CircleMembersContent(
             confirmLabel = stringResource(R.string.circle_members_remove),
             destructive = true,
             onConfirm = {
-                val result = removeMember(book, circle.id, member.id)
-                if (result.error != null) {
-                    error = result.error
-                } else {
-                    error = null
-                    onBookChange(result.book)
-                }
                 removeFor = null
+                val store = circleStore ?: return@CircleConfirmDialog
+                scope.launch {
+                    error = runCatching { store.removeMember(circle.id, member.id) }.exceptionOrNull()?.let(::circleErrorOf)
+                }
             },
             onDismiss = { removeFor = null },
         )
@@ -747,31 +748,9 @@ private fun CircleMemberRow(
                     horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
                     verticalArrangement = Arrangement.spacedBy(XpSpace.s),
                 ) {
-                    CircleActionChip(
-                        text = stringResource(
-                            if (self) R.string.circle_members_my_shares else R.string.circle_members_view_shares,
-                        ),
-                        onClick = onVisibility,
-                    )
-                    if (self) {
-                        CircleActionChip(
-                            text = stringResource(R.string.circle_members_nickname_action),
-                            onClick = onNickname,
-                        )
-                    }
+                    // Shares, nicknames, admins and remarks were local-only; the circle API has none of them, so
+                    // they stay hidden rather than pretending to save (tt 2026-11-02: 圈子不要 mock).
                     if (isOwner && member.id != circle.ownerId) {
-                        val isAdmin = member.role == CircleRole.Admin
-                        CircleActionChip(
-                            text = stringResource(
-                                if (isAdmin) R.string.circle_members_unmake_admin else R.string.circle_members_make_admin,
-                            ),
-                            enabled = isAdmin || !adminFull,
-                            onClick = onToggleAdmin,
-                        )
-                        CircleActionChip(
-                            text = stringResource(R.string.circle_members_remark_action),
-                            onClick = onRemark,
-                        )
                         CircleActionChip(
                             text = stringResource(R.string.circle_members_remove),
                             tone = XpColors.Negative,
@@ -779,7 +758,7 @@ private fun CircleMemberRow(
                         )
                     }
                 }
-                if (isOwner && member.id != circle.ownerId && member.role != CircleRole.Admin && adminFull) {
+                if (false) {
                     Text(
                         stringResource(R.string.circle_members_admin_limit),
                         style = MaterialTheme.typography.labelSmall,
@@ -907,6 +886,20 @@ internal fun CircleInviteContent(
 ) {
     val circle = book.current()
     val invite = circle.invite
+    val circleStore = LocalCircleStore.current
+    val scope = rememberCoroutineScope()
+    var inviteBusy by remember { mutableStateOf(false) }
+    var inviteError by remember { mutableStateOf<CircleError?>(null) }
+    fun issueInvite() {
+        val store = circleStore ?: return
+        inviteBusy = true; inviteError = null
+        scope.launch {
+            inviteError = runCatching { store.invite(circle.id) }.exceptionOrNull()?.let(::circleErrorOf)
+            inviteBusy = false
+        }
+    }
+    // Codes are issued by the server: ask for one when the sheet opens without a live code.
+    LaunchedEffect(circle.id) { if (invite.code.isEmpty() || !invite.isValid(System.currentTimeMillis())) issueInvite() }
     var tick by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(invite.code, invite.createdAt, invite.uses) {
         tick = System.currentTimeMillis()
@@ -948,13 +941,22 @@ internal fun CircleInviteContent(
             onBack = onBack,
         )
 
+        CircleErrorLine(inviteError)
+        if (invite.code.isEmpty()) {
+            Text(
+                if (inviteBusy) stringResource(R.string.circle_invite_loading) else stringResource(R.string.circle_invite_failed),
+                style = MaterialTheme.typography.bodyMedium,
+                color = XpColors.InkSecondary,
+                modifier = Modifier.padding(vertical = XpSpace.l),
+            )
+        }
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(XpSpace.s),
+            horizontalArrangement = Arrangement.spacedBy(XpSpace.xs),
         ) {
             invite.code.forEach { char ->
                 Box(
-                    Modifier.weight(1f).height(58.dp)
+                    Modifier.weight(1f).height(52.dp)
                         .clip(RoundedCornerShape(XpRadius.m))
                         .background(XpColors.Fill),
                     contentAlignment = Alignment.Center,
@@ -999,6 +1001,14 @@ internal fun CircleInviteContent(
                 color = XpColors.InkSecondary,
                 modifier = Modifier.padding(top = 2.dp),
             )
+            if (circle.no.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.circle_invite_number, circle.no),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = XpColors.Ink,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
             Text(
                 stringResource(R.string.circle_invite_members, circle.members.size, CIRCLE_MAX_MEMBERS),
                 style = MaterialTheme.typography.bodySmall,
@@ -1022,7 +1032,7 @@ internal fun CircleInviteContent(
                 onClick = {
                     joinedName = null
                     haptics.tick()
-                    onBookChange(regenerateInvite(book, circle.id, System.currentTimeMillis()))
+                    issueInvite()
                 },
                 style = XpButtonStyle.Secondary,
                 modifier = Modifier.weight(1f),
@@ -1030,7 +1040,7 @@ internal fun CircleInviteContent(
         }
 
         val qr = remember(invite.code) { inviteQrBitmap("xiaopiao://circle/join?code=${invite.code}", 512) }
-        if (qr != null) {
+        if (qr != null && invite.code.isNotEmpty()) {
             Column(
                 Modifier.fillMaxWidth().padding(top = XpSpace.l),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -1084,13 +1094,11 @@ internal fun CircleInviteContent(
     }
 
     if (showJoin) {
-        CircleJoinDialog(
-            book = book,
+        CircleJoinSheet(
             onDismiss = { showJoin = false },
-            onJoined = { name, updated ->
+            onJoined = { name ->
                 haptics.confirm()
                 joinedName = name
-                onBookChange(updated)
                 showJoin = false
             },
         )
@@ -1371,14 +1379,16 @@ private fun CircleNameDialog(
 }
 
 @Composable
-private fun CircleJoinDialog(
+internal fun CircleJoinDialog(
     book: CircleBook,
     onDismiss: () -> Unit,
-    onJoined: (String, CircleBook) -> Unit,
+    onJoined: (String) -> Unit,
 ) {
     var code by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<CircleError?>(null) }
-    val joinerName = stringResource(R.string.circle_invite_joiner_name)
+    var busy by remember { mutableStateOf(false) }
+    val circleStore = LocalCircleStore.current
+    val scope = rememberCoroutineScope()
     CircleInputDialogCore(
         title = stringResource(R.string.circle_invite_join_title),
         value = code,
@@ -1389,21 +1399,15 @@ private fun CircleJoinDialog(
         placeholder = stringResource(R.string.circle_invite_join_placeholder),
         confirmLabel = stringResource(R.string.circle_invite_join_confirm),
         error = error,
-        confirmEnabled = code.length == INVITE_LENGTH,
+        confirmEnabled = code.length == INVITE_LENGTH && !busy,
         onConfirm = {
-            val now = System.currentTimeMillis()
-            val target = book.circles.firstOrNull { it.invite.code == code }
-            val joiner = CircleMember(
-                id = "joined-$now",
-                name = joinerName,
-                initial = joinerName.take(1),
-                tone = CircleTone.Info,
-            )
-            val result = redeemInvite(book, code, now, joiner)
-            if (result.error != null) {
-                error = result.error
-            } else {
-                onJoined(target?.name.orEmpty(), result.book)
+            val store = circleStore ?: return@CircleInputDialogCore
+            busy = true; error = null
+            scope.launch {
+                runCatching { store.join(code) }
+                    .onSuccess { onJoined(it) }
+                    .onFailure { error = circleErrorOf(it) }
+                busy = false
             }
         },
         onDismiss = onDismiss,

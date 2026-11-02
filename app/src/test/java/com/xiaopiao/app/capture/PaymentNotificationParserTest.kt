@@ -87,8 +87,8 @@ class PaymentNotificationParserTest {
         assertEquals(888L, p.amountCents); assertEquals(Direction.IN, p.direction)
     }
 
-    @Test fun wechat_red_packet_without_amount_is_unparsed() {
-        assertEquals(ParseResult.Unparsed, wx("张三", "[微信红包]恭喜发财，大吉大利"))
+    @Test fun wechat_red_packet_without_amount_needs_amount() {
+        assertEquals(ParseResult.NeedsAmount("张三", Direction.IN), wx("张三", "[微信红包]恭喜发财，大吉大利"))
     }
 
     @Test fun wechat_pay_to_merchant() {
@@ -235,7 +235,8 @@ class PaymentNotificationParserTest {
         Sample("微信支付", "先享后付扣款成功 ￥4.50", Expected.Paid(450)),
         Sample("微信支付", "微信支付分已开通，额度 ¥5,000.00", Expected.Ignored),
         Sample("微信支付", "先享后付服务已关闭", Expected.Ignored),
-        Sample("微信支付", "免密支付扣款成功 ¥20.00", Expected.Unparsed),
+        // 2026-11-02: deductions are money leaving the account whatever the product name — booked as spend.
+        Sample("微信支付", "免密支付扣款成功 ¥20.00", Expected.Paid(2000)),
         Sample("WeChat Pay", "Deferred payment charged ¥12.00", Expected.Paid(1200)),
         Sample("WeChat Pay", "Pay-after-use order completed, charged ¥23.50", Expected.Paid(2350)),
         Sample("WeChat Pay", "Deferred payment charged ¥8.80 · Green Cafe", Expected.Paid(880, merchant = "Green Cafe")),
@@ -268,5 +269,55 @@ class PaymentNotificationParserTest {
         listOf(alipayCorpus, wechatCorpus, deferredPayCorpus).forEach { corpus ->
             assertTrue(corpus.count { it.expected is Expected.Paid } >= 10)
         }
+    }
+
+    // ---- tt 真机通知（2026-11-02 截图）----
+
+    @Test fun wechat_stacked_deduction_is_booked() {
+        val p = wx("微信支付", "[2条]微信支付: 已扣费¥3.00").payment()
+        assertEquals(300L, p.amountCents); assertEquals(Direction.OUT, p.direction)
+    }
+
+    @Test fun wechat_stacked_paid_still_booked() {
+        assertEquals(4990L, wx("微信支付", "[8条]微信支付: 已支付¥49.90").payment().amountCents)
+    }
+
+    @Test fun deduction_variants_are_booked() {
+        assertEquals(1500L, wx("微信支付", "自动扣费 ¥15.00 爱奇艺会员").payment().amountCents)
+        assertEquals(2500L, ali("支付宝", "代扣成功 25.00元").payment().amountCents)
+        assertEquals(680L, wx("微信支付", "¥6.80 已扣款").payment().amountCents)
+    }
+
+    @Test fun service_notice_without_amount_is_ignored_not_missed() {
+        assertTrue(wx("微信支付", "「先享后付」服务使用通知") is ParseResult.Ignored)
+    }
+
+    @Test fun friend_red_packet_card_waits_for_amount() {
+        assertEquals(ParseResult.NeedsAmount("袁开浩", Direction.IN), wx("袁开浩", "[微信红包] 恭喜发财，大吉大利"))
+    }
+
+    @Test fun alipay_red_packet_without_amount_waits_for_amount() {
+        assertTrue(ali("支付宝", "小李给你发了一个红包，快去领取吧") is ParseResult.NeedsAmount)
+    }
+
+    @Test fun red_packet_marketing_is_not_a_red_packet() {
+        assertTrue(ali("支付宝", "红包雨来了！限时抢红包") !is ParseResult.NeedsAmount)
+    }
+
+    @Test fun friend_chat_mentioning_payment_is_chat() {
+        assertEquals(ParseResult.Irrelevant, wx("倪毓", "[7条]倪毓: [表情]麦超所值狂欢季，付款就送"))
+    }
+
+    @Test fun friend_transfer_with_amount_still_counts() {
+        val p = wx("小王", "小王向你转账 ¥100.00").payment()
+        assertEquals(10000L, p.amountCents); assertEquals(Direction.IN, p.direction)
+    }
+
+    @Test fun wechat_chat_transfer_card_waits_for_amount() {
+        assertEquals(ParseResult.NeedsAmount("小王", Direction.IN, kind = "转账"), wx("小王", "[转账]请收款"))
+    }
+
+    @Test fun wechat_transfer_with_amount_is_booked_directly() {
+        assertEquals(5000L, wx("微信支付", "已收款 ¥50.00").payment().amountCents)
     }
 }

@@ -1,5 +1,9 @@
 package com.xiaopiao.app.ui.circle
 
+import androidx.compose.material.icons.outlined.PersonAdd
+import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -79,15 +83,22 @@ fun CircleMenuDrawer(
     onAward: () -> Unit,
     onShare: () -> Unit,
     viewerId: String = CircleDemo.MY_ID,
+    onJoin: () -> Unit = {},
+    onRequests: () -> Unit = {},
 ) {
     var creating by remember { mutableStateOf(false) }
+    var leaving by remember { mutableStateOf(false) }
+    var leaveBusy by remember { mutableStateOf(false) }
+    var leaveError by remember { mutableStateOf<String?>(null) }
+    val circleStore = LocalCircleStore.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val reduced = com.xiaopiao.app.ui.components.rememberReducedMotion()
     val progress = remember { androidx.compose.animation.core.Animatable(0f) }
     var afterClose by remember { mutableStateOf<(() -> Unit)?>(null) }
     fun closeThen(action: () -> Unit = onClose) { afterClose = action }
     androidx.compose.runtime.LaunchedEffect(afterClose != null, reduced) {
         val to = if (afterClose == null) 1f else 0f
-        if (reduced) progress.snapTo(to) else progress.animateTo(to, com.xiaopiao.app.ui.theme.XpMotion.snappy())
+        if (reduced) progress.snapTo(to) else progress.animateTo(to, com.xiaopiao.app.ui.motion.XpMotion.snappy())
         if (to == 0f) afterClose?.invoke()
     }
     androidx.activity.compose.BackHandler { closeThen() }
@@ -146,16 +157,34 @@ fun CircleMenuDrawer(
                         subtitle = null,
                         onClick = { creating = true },
                     )
+                    DrawerRow(
+                        leading = { IconTileInline(Icons.Outlined.QrCodeScanner) },
+                        title = stringResource(R.string.circle_none_join_any),
+                        subtitle = null,
+                        onClick = { closeThen(onJoin) },
+                    )
 
                     Spacer(Modifier.height(XpSpace.s))
                     DrawerHairline()
                     DrawerLabel(stringResource(R.string.circle_menu_manage))
                     DrawerRow({ IconTileInline(Icons.Outlined.Group) }, stringResource(R.string.circle_home_members), null, onClick = { closeThen(onMembers) })
+                    val current = book.circles.firstOrNull { it.id == book.currentId }
+                    if (current != null && current.ownerId == viewerId) {
+                        DrawerRow(
+                            { IconTileInline(Icons.Outlined.PersonAdd) },
+                            stringResource(R.string.circle_requests_title),
+                            if (current.pendingRequests > 0) stringResource(R.string.circle_requests_pending, current.pendingRequests) else null,
+                            onClick = { closeThen(onRequests) },
+                        )
+                    }
                     DrawerRow({ IconTileInline(Icons.Outlined.QrCode2) }, stringResource(R.string.circle_home_invite), null, onClick = { closeThen(onInvite) })
                     DrawerRow({ IconTileInline(Icons.Outlined.Share) }, stringResource(R.string.circle_menu_share), stringResource(R.string.circle_menu_share_sub), onClick = { closeThen(onShare) })
                     DrawerRow({ IconTileInline(Icons.Outlined.EmojiEvents) }, stringResource(R.string.circle_home_leaderboard), null, onClick = { closeThen(onLeaderboard) })
                     DrawerRow({ IconTileInline(Icons.Outlined.Lock) }, stringResource(R.string.circle_home_award), stringResource(R.string.circle_home_award_sub), onClick = { closeThen(onAward) })
                     DrawerRow({ IconTileInline(Icons.Outlined.SportsEsports) }, stringResource(R.string.circle_home_games_title), stringResource(R.string.circle_home_games_meta, 8), onClick = { closeThen(onGames) })
+                    if (book.circles.isNotEmpty()) {
+                        DrawerRow({ IconTileInline(Icons.AutoMirrored.Outlined.Logout) }, stringResource(R.string.circle_leave), null, onClick = { leaving = true })
+                    }
                 }
             }
         }
@@ -165,14 +194,38 @@ fun CircleMenuDrawer(
         CreateCircleDialog(
             onDismiss = { creating = false },
             onCreate = { name ->
-                val me = book.current().member(viewerId) ?: CircleDemo.members().first()
-                val result = createCircle(book, name, me, System.currentTimeMillis())
-                if (result.error == null) {
-                    onBookChange(result.book)
-                    creating = false
-                    closeThen()
+                val store = circleStore ?: error("CircleStore missing")
+                store.create(name)
+                creating = false
+                closeThen()
+            },
+        )
+    }
+    if (leaving) {
+        val circle = book.circles.firstOrNull { it.id == book.currentId }
+        AlertDialog(
+            onDismissRequest = { if (!leaveBusy) leaving = false },
+            title = { Text(stringResource(R.string.circle_leave), color = XpColors.Ink) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.circle_leave_body), color = XpColors.InkSecondary)
+                    leaveError?.let { Text(it, color = XpColors.Negative, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = XpSpace.s)) }
                 }
             },
+            confirmButton = {
+                TextButton(enabled = !leaveBusy && circle != null, onClick = {
+                    val store = circleStore ?: return@TextButton
+                    leaveBusy = true; leaveError = null
+                    scope.launch {
+                        runCatching { store.leave(circle!!.id) }
+                            .onSuccess { leaving = false; closeThen() }
+                            .onFailure { leaveError = it.message }
+                        leaveBusy = false
+                    }
+                }) { Text(stringResource(R.string.circle_leave), color = XpColors.Negative) }
+            },
+            dismissButton = { TextButton(onClick = { leaving = false }, enabled = !leaveBusy) { Text(stringResource(R.string.circle_home_cancel), color = XpColors.InkSecondary) } },
+            containerColor = XpColors.Card,
         )
     }
 }
@@ -245,36 +298,53 @@ private fun DrawerRow(
 }
 
 @Composable
-private fun CreateCircleDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
+internal fun CreateCircleDialog(onDismiss: () -> Unit, onCreate: suspend (String) -> Unit) {
     var name by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var failure by remember { mutableStateOf<String?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val failedText = stringResource(R.string.circle_failed_body)
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!busy) onDismiss() },
         title = { Text(stringResource(R.string.circle_home_new), color = XpColors.Ink) },
         text = {
-            Box(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.m)).background(XpColors.Fill)
-                    .padding(horizontal = XpSpace.m, vertical = 12.dp),
-            ) {
-                if (name.isEmpty()) {
-                    Text(stringResource(R.string.circle_home_name_hint), style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
+            Column {
+                Box(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.m)).background(XpColors.Fill)
+                        .padding(horizontal = XpSpace.m, vertical = 12.dp),
+                ) {
+                    if (name.isEmpty()) {
+                        Text(stringResource(R.string.circle_home_name_hint), style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
+                    }
+                    BasicTextField(
+                        value = name,
+                        onValueChange = { name = it.take(CIRCLE_MAX_NAME); failure = null },
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = XpColors.Ink),
+                        cursorBrush = SolidColor(XpColors.Accent),
+                        singleLine = true,
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-                BasicTextField(
-                    value = name,
-                    onValueChange = { name = it.take(CIRCLE_MAX_NAME) },
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = XpColors.Ink),
-                    cursorBrush = SolidColor(XpColors.Accent),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                failure?.let { Text(it, color = XpColors.Negative, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = XpSpace.s)) }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onCreate(name) }, enabled = name.isNotBlank()) {
-                Text(stringResource(R.string.circle_home_create), color = if (name.isNotBlank()) XpColors.Accent else XpColors.InkTertiary)
+            TextButton(onClick = {
+                busy = true; failure = null
+                scope.launch {
+                    runCatching { onCreate(name) }.onFailure { failure = it.message ?: failedText }
+                    busy = false
+                }
+            }, enabled = name.isNotBlank() && !busy) {
+                Text(
+                    if (busy) "…" else stringResource(R.string.circle_home_create),
+                    color = if (name.isNotBlank() && !busy) XpColors.Accent else XpColors.InkTertiary,
+                )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.circle_home_cancel), color = XpColors.InkSecondary) }
+            TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.circle_home_cancel), color = XpColors.InkSecondary) }
         },
         containerColor = XpColors.Card,
     )

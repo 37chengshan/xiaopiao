@@ -249,7 +249,10 @@ fun AppShell(container: AppContainer, open: OpenRequest? = null, onOpenConsumed:
     // Debug builds only: frame timing straight from Choreographer (gfxinfo is empty on the test phone).
     com.xiaopiao.app.ui.DebugFrameMonitor()
 
-    CompositionLocalProvider(LocalReceiptHost provides receiptHost, LocalTopBarHost provides topBarHost) {
+    CompositionLocalProvider(
+        LocalReceiptHost provides receiptHost, LocalTopBarHost provides topBarHost,
+        com.xiaopiao.app.ui.account.LocalAccount provides container.account,
+    ) {
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = XpColors.CanvasGrouped,

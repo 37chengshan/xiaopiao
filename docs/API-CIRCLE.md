@@ -33,27 +33,34 @@
 ### 2.1 `circle`
 
 ```json
-{ "id": "f75ad2bb-…", "name": "家人", "role": "owner", "memberCount": 2, "createdAt": 1793331895128 }
+{ "id": "f75ad2bb-…", "name": "家人", "no": "7960407", "role": "owner", "memberCount": 2,
+  "pendingRequests": 1, "createdAt": 1793331895128 }
 ```
 
 | 字段 | 说明 |
 |---|---|
 | `name` | 1–20 字（首尾空白会 trim；空 → `400 INVALID_INPUT`） |
+| `no` | 圈子号：7 位、不以 0 开头、建圈时随机分配且永久不变（§9 用它找圈子/申请加入） |
 | `role` | `owner` \| `member`：**我**在这个圈子里的角色 |
 | `memberCount` | 现有成员数（含圈主） |
+| `pendingRequests` | 等着我批准的加入申请数；**只有圈主**看到真实数字，其他人恒为 `0` |
 | `createdAt` | 毫秒时间戳 |
 
 ### 2.2 `receipt` 小票卡片（严格白名单）
 
 ```json
 {
-  "date": "2026-10-29",
+  "date": "2026-11-01",
   "totalCents": 8350,
   "title": "午饭自由人",
   "count": 3,
   "comment": "比昨天省了 12 块。",
+  "style": { "paper": "kraft", "ink": 4292417061, "font": "serif", "content": 91 },
+  "stamp": "午饭自由人",
+  "printedAt": 1793589000000,
+  "prevCents": 10750,
   "lines": [
-    { "label": "早饭", "amountCents": 1200 },
+    { "label": "早饭", "amountCents": 1200, "count": 2 },
     { "label": "午饭", "amountCents": 3500 }
   ]
 }
@@ -65,12 +72,34 @@
 | `totalCents` | 是 | 整数分，`0 ≤ x ≤ 10^10`（浮点、负数拒） |
 | `title` | 是 | 头衔，1–16 字 |
 | `count` | 是 | 笔数，整数 `0..1_000_000` |
-| `comment` | 否 | 小票上那句话，≤ 60 字，缺省 `""` |
-| `lines` | 否 | ≤ 30 条 `{label: 1–16 字, amountCents: 整数分}`；**只有作者主动打开明细时才会带** |
+| `comment` | 否 | 小票上那句话，≤ **120** 字，缺省 `""` |
+| `style` | 否 | 作者打印这张小票时的版式快照，见下 |
+| `stamp` | 否 | 头衔印章文字，trim 后 1–16 字 |
+| `printedAt` | 否 | 打印时刻，安全整数毫秒时间戳（`≥ 0`） |
+| `prevCents` | 否 | 上一周期的花费（整数分）或 `null`，给「比上周少 X」那行用 |
+| `lines` | 否 | ≤ 30 条 `{label: 1–16 字, amountCents: 整数分, count?: 0..1_000_000}`；**只有作者主动打开明细时才会带** |
 
+`style`（打印快照，四个键都可选，缺省表示用客户端默认）：
+
+| 键 | 规则 |
+|---|---|
+| `paper` | `"classic"` \| `"kraft"` \| `"mint"` \| `"sakura"` \| `"night"` |
+| `ink` | 32 位 ARGB 整数 `0..4294967295`，或 `null`（跟随纸色默认） |
+| `font` | `"thermal"` \| `"sans"` \| `"serif"` |
+| `content` | 整数 `0..127`：打印哪些区块的位掩码 |
+
+- 卡片带着作者当时的纸、墨、字体、区块和印章一起发出去，收的人看到的就是同一张纸；服务端只存**规范化后的值**，
+  并且在发帖响应和 feed 里原样回显，**缺省的字段不回显**（`null` 是值，会回显）。
 - 默认只露总额和头衔 —— 数据底线：默认卡片里没有明细行。
-- 白名单之外的字段 → `400 RECEIPT_FIELD`；原文类字段 → `400 RECEIPT_RAW_TEXT`（`lines[].merchant` 同理）。
-- 其它形状问题（字段类型、超长、日期非法）→ `400 RECEIPT_INVALID`。
+- 白名单之外的字段 → `400 RECEIPT_FIELD`；原文类字段 → `400 RECEIPT_RAW_TEXT`（`lines[].merchant`、
+  `style.merchant` 同理）。`style.content` 是位掩码，不是原文，因此不受原文规则影响。
+- 其它形状问题（字段类型、取值越界、超长、日期非法、`style` 不是对象）→ `400 RECEIPT_INVALID`。
+
+> 2026-11-01 变更：新增 `style` / `stamp` / `printedAt` / `prevCents` 与 `lines[].count`，`comment` 上限 60 → 120
+> （AI 点评变长）。原文类字段的拒绝规则没有任何放宽。验收：`npm test --prefix server` 111/111 通过
+> （新增 `test/receipt-snapshot.test.mjs` 5 项：整张快照经 post → feed 往返、缺省字段不回显而 `null` 回显、
+> 24 种越界值逐个拒绝、`style` 未知键 `RECEIPT_FIELD` 与 `style/lines` 里的原文 `RECEIPT_RAW_TEXT`、
+> 120 字通过 121 字拒绝），`npm run check` 通过；真实进程也跑过一次带快照的发帖 → 拉 feed。
 
 ### 2.3 `post`
 
@@ -264,7 +293,7 @@
 | 邀请码 | 8 位，默认 7 天 / 20 次 |
 | 帖子文字 | ≤ 500 字；`text` 与 `receipt` 至少一个 |
 | 评论文字 | ≤ 200 字 |
-| 小票头衔 / 小票句子 / 明细行标签 | 16 / 60 / 16 字 |
+| 小票头衔 / 小票句子 / 明细行标签 / 印章 | 16 / 120 / 16 / 16 字 |
 | 小票明细行 | ≤ 30 条 |
 | feed / comments 分页 | 1–50，缺省 20 |
 
@@ -301,6 +330,7 @@
 | 404 | `CIRCLE_NOT_FOUND` | 圈子不存在，或我不是成员 |
 | 404 | `POST_NOT_FOUND` | 帖子/评论不存在、已删，或我不是成员 |
 | 404 | `MEMBER_NOT_FOUND` | 圈主要移出的人不在圈子里 |
+| 404 | `REQUEST_NOT_FOUND` | 这条加入申请不存在，或已经被批准/拒绝过 |
 | 409 | `CIRCLE_LIMIT` | 自己已经有 10 个圈子 |
 | 409 | `CIRCLE_FULL` | 圈子已满 50 人 |
 | 409 | `CIRCLE_OWNER_LEAVE` | 圈主还有别的成员时想退出 |
@@ -346,3 +376,80 @@ curl -s "$B/v1/circles/$CID/feed?limit=20" -H "Authorization: Bearer $B_TOKEN"
 ```
 
 完整一次跑通的输出（含 401 / 非成员 404 / 原文小票 400 / 软删后空 feed）见 `qa/circle-api/REPORT.md`。
+
+---
+
+## 9. 圈子号：找到圈子、申请加入（2026-11-01）
+
+圈子仍然是私密的：邀请码**直接**把人加进来（§3 不变），圈子号只能让人**找到**并**申请**，放不放人由圈主决定。
+两条路都留在服务端，客户端不需要本地状态机。
+
+圈子号在建圈时随机分配（7 位、不以 0 开头、唯一），此后不再变化；已有库在启动迁移时补号，不需要手工步骤。
+
+### `GET /v1/circles/search?no=1234567`
+
+已登录 + 已验证：
+
+```json
+{ "circle": { "no": "1234567", "name": "家人", "memberCount": 3, "status": "none" } }
+```
+
+| `status` | 含义 |
+|---|---|
+| `member` | 我已经在这个圈子里 |
+| `pending` | 我的申请在等圈主处理 |
+| `none` | 我不在里面，也还没申请 |
+
+- **只回这四个字段**：没有 `id`、没有成员表、没有帖子。找到圈子 ≠ 看到圈子。
+- 号码不存在 → `404 CIRCLE_NOT_FOUND`；格式不对（不是 7 位、以 0 开头、非数字、缺参）→ `400 INVALID_INPUT`。
+- 限流 30 次/小时/人：号码天然可猜，不能让搜索变成穷举接口。
+
+### `POST /v1/circles/requests`
+
+```json
+{ "no": "1234567" }
+```
+
+- 新申请 → `201 { "ok": true, "status": "pending" }`。
+- 已经在圈子里 → `200 { "ok": true, "status": "member" }`（不会重复建申请）。
+- 重复申请幂等：返回同样的 `pending`，申请人自己那条记录的时间不被刷新。
+- 圈子满 50 人 → `409 CIRCLE_FULL`；号码不存在 → `404 CIRCLE_NOT_FOUND`。
+- 限流 20 次/小时/人。
+
+### `GET /v1/circles/:id/requests` — 圈主的申请箱
+
+```json
+{ "requests": [ { "userId": "69befd0a-…", "username": "alice", "createdAt": 1793331895268, "avatar": { "preset": "p3" } } ] }
+```
+
+- 只有**待处理**的申请，按申请时间正序（最老的先处理）。`avatar` 形状同 `docs/API-ACCOUNT.md`。
+- 圈主 → `200`；同圈但不是圈主 → `403 FORBIDDEN`；非成员 → `404 CIRCLE_NOT_FOUND`（同 §1 的隐私规则）。
+
+### `POST /v1/circles/:id/requests/:userId/approve` · `.../reject`
+
+两者都只收圈主，成功都是 `{ "ok": true }`（`200`）：
+
+- `approve`：把这个人加成 `member` 并删掉申请；满 50 人 → `409 CIRCLE_FULL`（申请保留，等人少了还能批）；
+  对方自己已经有 10 个圈子 → `409 CIRCLE_LIMIT`（申请同样保留）。已经在圈子里的人会被直接收编，不会重复入圈。
+- `reject`：只删申请，人还在外面；对方可以之后重新申请。
+- 申请不存在 / 已经处理过 → `404 REQUEST_NOT_FOUND`。不是圈主 → `403`，非成员 → `404`。
+- 限流 120 次/小时/人（两个动作共用一个桶）。
+
+### 清理
+
+圈子被删除时申请一并随外键删除；成员退出或被移出时，他在这圈子里残留的申请也一起清掉；用邀请码直接加入时，
+他自己那条待处理申请会被删掉（不然圈主的箱子里会留一条已经解决的事）。
+
+### 存储与迁移
+
+新表 `circle_requests(circle_id → circles ON DELETE CASCADE, user_id → users ON DELETE CASCADE, created_at,
+PRIMARY KEY(circle_id,user_id))`；`circles` 新增 `no` 列 + 唯一索引 `circles_no`。旧库在 `store()` 启动时补列、
+按 `no IS NULL` 补号，再建唯一索引；重复启动不会重新编号。
+
+### 验收（2026-11-01）
+
+`npm test --prefix server` 106/106 通过（新增 `test/circle-requests.test.mjs` 9 项：编号格式/唯一/稳定、搜索三态与
+不泄漏 id 成员帖子、未知号 404 与坏格式 400、申请→圈主可见→批准→能读 feed、幂等不刷新时间、拒绝路径、
+非圈主 403 / 非成员 404、满员后批准被拒、列表角标只给圈主、删圈与退出清理、旧库迁移补号且不重编）。
+`npm run check` 通过。另用真实进程跑通：建圈拿号 → 另一个账号搜索 `none` → 申请 `pending` → 批准前 feed 404 →
+圈主申请箱看到 `username/createdAt/avatar` → 批准 → feed 200 → 角标归零 → 未知号 404。

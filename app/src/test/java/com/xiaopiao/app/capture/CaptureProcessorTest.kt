@@ -4,6 +4,7 @@ import com.xiaopiao.app.data.CaptureLogEntry
 import com.xiaopiao.app.data.InMemoryLedgerRepository
 import com.xiaopiao.app.domain.Category
 import com.xiaopiao.app.domain.Source
+import com.xiaopiao.app.domain.needsAmount
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -31,6 +32,14 @@ class CaptureProcessorTest {
         assertEquals(Category.DRINK, txn.category); assertEquals(Source.NOTIFICATION, txn.source)
         assertEquals("", txn.note) // raw text never reaches the ledger
         assertTrue(log.entries.single().result.startsWith("PARSED:"))
+    }
+
+    @Test fun redPacketWithoutAmountLandsInLedgerToFillIn() = runBlocking {
+        processor.process(PaymentApps.WECHAT, "袁开浩", "[微信红包] 恭喜发财，大吉大利", t)
+        val txn = ledger.observeAll().first().single()
+        assertEquals(0L, txn.amountCents); assertEquals("袁开浩的红包", txn.merchant)
+        assertEquals(Category.SOCIAL, txn.category); assertTrue(txn.needsAmount)
+        assertTrue(log.entries.single().result.startsWith(CaptureProcessor.NEEDS_AMOUNT))
     }
 
     @Test fun repeatedNotificationIsDeduped() = runBlocking {

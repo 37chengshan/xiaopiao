@@ -59,7 +59,7 @@
     <string name="circle_members_nickname_prefix">圈内昵称：%1$s</string>
     <string name="circle_members_remove_title">移除成员？</string>
     <string name="circle_members_remove_body">移除后 TA 的历史小票会脱敏保留，人不在群里了。</string>
-    <string name="circle_members_footer">共享范围由每个人自己决定，管理员也不能替成员改。</string>
+    <string name="circle_members_footer">圈主可以移出成员；发到圈子的内容只有成员能看到。</string>
     <string name="circle_nickname_title">圈内昵称</string>
     <string name="circle_nickname_placeholder">家人看到的名字（最多 8 字）</string>
     <string name="circle_remark_title">备注名</string>
@@ -90,7 +90,7 @@
 
     <!-- 邀请 -->
     <string name="circle_invite_title">邀请家人</string>
-    <string name="circle_invite_subtitle">6 位邀请码，24 小时内有效</string>
+    <string name="circle_invite_subtitle">8 位邀请码，7 天内有效</string>
     <string name="circle_invite_remaining">还可加入 %1$d 次</string>
     <string name="circle_invite_expires">%1$s后失效</string>
     <string name="circle_invite_expired">已过期，换一个新码</string>
@@ -103,11 +103,11 @@
     <string name="circle_invite_members">当前 %1$d/%2$d 人</string>
     <string name="circle_invite_join">加入圈子</string>
     <string name="circle_invite_join_title">加入圈子</string>
-    <string name="circle_invite_join_placeholder">输入 6 位邀请码</string>
+    <string name="circle_invite_join_placeholder">输入 8 位邀请码</string>
     <string name="circle_invite_join_confirm">加入</string>
     <string name="circle_invite_joined">已加入「%1$s」</string>
     <string name="circle_invite_joiner_name">新家人</string>
-    <string name="circle_invite_footer">邀请码只在本机演示里有效，不会真的发出去。</string>
+    <string name="circle_invite_footer">对方在「加入圈子」输入邀请码，或扫描二维码即可加入。</string>
     <string name="circle_dur_hm">%1$d 小时 %2$d 分</string>
     <string name="circle_dur_m">%1$d 分</string>
 
@@ -172,4 +172,23 @@
     <string name="circle_lb_stub">家庭账本 · 本周</string>
     <string name="circle_lb_total">共 %1$d 人上榜</string>
     <string name="circle_lb_scope">只排总额</string>
+    <string name="circle_invite_loading">正在生成邀请码…</string>
+    <string name="circle_invite_failed">邀请码生成失败，点「换一个」重试</string>
+    <string name="circle_signed_out_title">登录后使用圈子</string>
+    <string name="circle_signed_out_body">圈子里的动态保存在云端，登录并验证邮箱后，和家人朋友一起看小票。</string>
+    <string name="circle_signed_out_action">登录 / 注册</string>
+    <string name="circle_none_title">还没有圈子</string>
+    <string name="circle_none_body">建一个圈子，或者用邀请码 / 二维码加入家人朋友的圈子。</string>
+    <string name="circle_none_create">新建圈子</string>
+    <string name="circle_none_join">加入圈子</string>
+    <string name="circle_failed_title">圈子没加载出来</string>
+    <string name="circle_failed_body">检查一下网络，再试一次。</string>
+    <string name="circle_failed_retry">重新加载</string>
+    <string name="circle_leave">退出圈子</string>
+    <string name="circle_leave_body">退出后看不到这个圈子的动态；圈主退出会解散圈子。</string>
+    <string name="circle_title_fallback">圈子</string>
+    <string name="circle_none_join_any">加入圈子</string>
+    <string name="circle_requests_title">加入申请</string>
+    <string name="circle_requests_pending">%1$d 个待处理</string>
+    <string name="circle_invite_number">圈号 %1$s · 别人可以搜这个号申请加入</string>
 </resources>

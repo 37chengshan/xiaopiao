@@ -1,5 +1,8 @@
 package com.xiaopiao.app.ui.settings
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.outlined.Feedback
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -70,7 +73,18 @@ fun DataNavSection(onOpen: () -> Unit) {
 
 @Composable
 fun AboutNavSection(onOpen: () -> Unit) {
+    val account = com.xiaopiao.app.ui.account.LocalAccount.current
+    var feedback by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     GroupedSection(dividerInset = IconInset) {
+        item {
+            GroupedRow(
+                title = tr("反馈问题", "Report a problem"),
+                subtitle = tr("一键发给开发者，发送前可以看到全部内容", "Sent to the developer; you see everything before it goes"),
+                leading = { IconTile(Icons.Outlined.Feedback) },
+                chevron = true,
+                onClick = { feedback = true },
+            )
+        }
         item {
             GroupedRow(
                 title = com.xiaopiao.app.ui.UiLabels.title("关于"),
@@ -81,6 +95,7 @@ fun AboutNavSection(onOpen: () -> Unit) {
             )
         }
     }
+    if (feedback && account != null) FeedbackSheet(account, attached = null) { feedback = false }
 }
 
 /** 外观 sub-page: one thing to do, reached with a real push instead of a scroll. */

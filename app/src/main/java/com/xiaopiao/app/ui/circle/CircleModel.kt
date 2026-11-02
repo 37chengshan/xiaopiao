@@ -65,8 +65,15 @@ data class ReceiptPost(
     val items: List<CircleItem>,
     /** What the author typed above the receipt (朋友圈-style post); blank = the receipt alone. */
     val caption: String = "",
+    /** The card's own total and count when it came from the server: a total-only share carries no lines. */
+    val sharedTotal: Cents? = null,
+    val sharedCount: Int? = null,
+    /** The author's print settings and AI remark, so the opened receipt looks like their paper. */
+    val snapshot: com.xiaopiao.app.domain.ReceiptSnapshot? = null,
+    val remark: String = "",
 ) : CirclePost {
-    val totalCents: Cents get() = items.sumOf { it.cents }
+    val totalCents: Cents get() = sharedTotal ?: items.sumOf { it.cents }
+    val entryCount: Int get() = sharedCount ?: items.size
 }
 
 /** A reply under a post. Lives on its [Circle], like the posts. */

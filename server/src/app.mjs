@@ -5,6 +5,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { hash, secret, passwordHash, passwordMatches, publicUser } from './store.mjs';
 import { createLedger, LIMITS as LEDGER } from './ledger.mjs';
 import { createCircles, LIMITS as CIRCLE } from './circle.mjs';
+import { createAvatars, LIMITS as AVATAR } from './avatar.mjs';
 export const ACCOUNT_POLICY = Object.freeze({ passwordMin: 8, passwordMax: 128, usernameMin: 3, usernameMax: 30, profileEditing: true });
 const errors = {
   INVALID_CURRENT_PASSWORD: [400, '当前密码不正确'],
@@ -18,9 +19,12 @@ const errors = {
   CIRCLE_NOT_FOUND: [404, '圈子不存在'], POST_NOT_FOUND: [404, '内容不存在'], MEMBER_NOT_FOUND: [404, '成员不存在'],
   CIRCLE_LIMIT: [409, '最多加入 10 个圈子'], CIRCLE_FULL: [409, '圈子已满 50 人'],
   CIRCLE_OWNER_LEAVE: [409, '圈主还有成员时不能退出'], INVITE_INVALID: [400, '邀请码无效或已过期'],
+  REQUEST_NOT_FOUND: [404, '这条加入申请不存在或已经处理'],
   FORBIDDEN: [403, '没有权限这么做'], POST_EMPTY: [400, '文字和小票至少填一个'],
   RECEIPT_FIELD: [400, '小票卡片里有不支持的字段'], RECEIPT_RAW_TEXT: [400, '小票卡片不能包含账单原文'],
   RECEIPT_INVALID: [400, '小票卡片格式不正确'],
+  AVATAR_INVALID: [400, '头像格式不支持，请换一张 JPEG/PNG/WebP 图片'],
+  AVATAR_TOO_LARGE: [413, '头像图片不能超过 256 KB'], AVATAR_NOT_FOUND: [404, '还没有设置头像'],
 };
 function fail(code, field) { throw Object.assign(new Error(code), { code, ...(field ? { field } : {}) }); }
 function text(value, max = 256) { if (typeof value !== 'string' || !value.trim() || value.length > max) fail('INVALID_INPUT'); return value.trim(); }
@@ -34,7 +38,7 @@ function numberParam(url, name, fallback) {
   return Number(raw);
 }
 function cookieToken(req) { return /(?:^|;\s*)xp_session=([A-Za-z0-9_-]+)/.exec(req.headers.cookie ?? '')?.[1]; }
-const PAYLOAD = { default: 96_000, ledger: 512_000 };
+const PAYLOAD = { default: 96_000, ledger: 512_000, avatar: AVATAR.body };
 const bodyOf = (req, limit = PAYLOAD.default, tooLarge = 'INVALID_INPUT', timeoutMs) => readJson(req, limit, tooLarge, timeoutMs);
 /** Dev previews move between loopback ports; production stays pinned to one exact HTTPS origin. */
 const loopbackOrigin = /^http:\/\/(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?$/;
@@ -47,6 +51,9 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
   const dummyPassword = passwordHash(secret());
   const ledger = createLedger({ db });
   const circles = createCircles({ db });
+  const avatars = createAvatars({ db });
+  /** Every user the API returns carries the avatar the clients draw; the row alone does not know it. */
+  const publicOf = row => publicUser(row, avatars.json(row.id));
   const verifiedUser = req => {
     const user = userOf(req);
     if (!user.verified) fail('EMAIL_UNVERIFIED');
@@ -83,7 +90,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
     db.prepare('DELETE FROM sessions WHERE digest IN (SELECT digest FROM sessions WHERE user_id=? ORDER BY expires DESC LIMIT -1 OFFSET 9)').run(user.id);
     db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token), user.id, Date.now() + 30 * 86400_000);
     res.setHeader('Set-Cookie', cookie(token));
-    return { user: publicUser(user), ...(native ? { token } : {}) };
+    return { user: publicOf(user), ...(native ? { token } : {}) };
   }
   const mailLocks = new Set();
   async function issueCode(user, purpose, deliveryEmail = user.email) {
@@ -142,7 +149,28 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       rate(`global:${ip}`, 300, 60_000);
       rate('requests:all', 3000, 60_000);
       if (url.pathname === '/v1/auth/policy' && req.method === 'GET') return json(ACCOUNT_POLICY);
-      if (url.pathname === '/v1/auth/me' && req.method === 'GET') return json({ user: publicUser(userOf(req)) });
+      if (url.pathname === '/v1/auth/me' && req.method === 'GET') return json({ user: publicOf(userOf(req)) });
+      // One avatar per account, either a preset or a photo; both live behind the same route so a client can
+      // never end up with a preset in one place and a photo in another.
+      if (url.pathname === '/v1/auth/avatar' && (req.method === 'PUT' || req.method === 'DELETE')) {
+        const user = verifiedUser(req);
+        rate(`avatar:${user.id}`, AVATAR.perHour, 3600_000);
+        if (req.method === 'DELETE') { avatars.clear(user.id); return json({ user: publicOf(user) }); }
+        avatars.set(user.id, await bodyOf(req, PAYLOAD.avatar, 'AVATAR_TOO_LARGE', defensePolicy.bodyMs));
+        return json({ user: publicOf(user) });
+      }
+      const avatarGet = /^\/v1\/avatars\/([^/]{1,64})$/.exec(url.pathname);
+      if (avatarGet && req.method === 'GET') {
+        const user = verifiedUser(req);
+        rate(`avatar-get:${user.id}`, 600, 3600_000);
+        const target = decodeURIComponent(avatarGet[1]);
+        // Not a member of any shared circle → 404, exactly like a circle a stranger cannot see.
+        const photo = target === user.id || circles.shares(user.id, target) ? avatars.photo(target) : null;
+        if (!photo) return json({ error: 'AVATAR_NOT_FOUND' }, 404);
+        res.setHeader('Cache-Control', 'private, max-age=86400');
+        res.writeHead(200, { 'Content-Type': photo.mime, 'Content-Length': photo.bytes.length });
+        return res.end(photo.bytes);
+      }
       if (url.pathname === '/v1/ledger/changes' && req.method === 'GET') {
         const user = verifiedUser(req);
         rate(`ledger:${user.id}`, 900, 3600_000);
@@ -154,7 +182,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       if (/^\/v1\/(?:circles|posts|comments)(?:\/|$)/.test(url.pathname)) {
         const user = verifiedUser(req);
         const parts = url.pathname.split('/').filter(Boolean);
-        const [, root, one, two, three] = parts;
+        const [, root, one, two, three, four] = parts;
         const me = user.id;
         const feedLimit = () => count(numberParam(url, 'limit', CIRCLE.defaultPostsPage), CIRCLE.postsPage);
         if (root === 'circles' && !one && req.method === 'GET') return json(circles.list(me));
@@ -162,9 +190,26 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
           rate(`circle-create:${me}`, 20, 3600_000);
           return json({ circle: circles.create(me, (await bodyOf(req)).name) }, 201);
         }
+        // A number is guessable by nature, so both reading one and asking with it are rate-limited hard.
+        if (root === 'circles' && one === 'search' && !two && req.method === 'GET') {
+          rate(`circle-search:${me}`, 30, 3600_000);
+          return json(circles.search(me, url.searchParams.get('no')));
+        }
+        if (root === 'circles' && one === 'requests' && !two && req.method === 'POST') {
+          rate(`circle-request:${me}`, 20, 3600_000);
+          const asked = circles.request(me, (await bodyOf(req)).no);
+          return json(asked, asked.status === 'pending' ? 201 : 200);
+        }
         if (root === 'circles' && one === 'join' && req.method === 'POST') {
           rate(`circle-join:${me}`, 30, 3600_000);
           return json({ circle: circles.join(me, (await bodyOf(req)).code) });
+        }
+        // The owner's inbox: who is asking, oldest first. A member's answer is 403, a stranger's 404.
+        if (root === 'circles' && two === 'requests' && !three && req.method === 'GET') return json(circles.requests(me, one));
+        if (root === 'circles' && two === 'requests' && three && ['approve', 'reject'].includes(four) && req.method === 'POST') {
+          if (parts.length !== 6) return json({ error: 'NOT_FOUND' }, 404);
+          rate(`circle-approve:${me}`, 120, 3600_000);
+          return json(four === 'approve' ? circles.approve(me, one, three) : circles.reject(me, one, three));
         }
         if (root === 'circles' && two === 'members' && !three && req.method === 'GET') return json(circles.members(me, one));
         if (root === 'circles' && two === 'members' && three && req.method === 'DELETE') {
@@ -243,7 +288,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
             if (!/^[a-z][a-z0-9_]{2,29}$/.test(username)) fail('INVALID_INPUT', 'username');
             if (db.prepare('SELECT 1 FROM users WHERE username=? AND id<>?').get(username, user.id)) fail('ACCOUNT_EXISTS', 'username');
             db.prepare('UPDATE users SET username=? WHERE id=?').run(username, user.id);
-            return json({ user: publicUser({ ...user, username }) });
+            return json({ user: publicOf({ ...user, username }) });
           }
           case '/v1/auth/email-request': {
             const user = verifiedUser(req), email = emailOf(body.email);
@@ -270,7 +315,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
               db.prepare('DELETE FROM sessions WHERE user_id=? AND digest<>?').run(user.id, user.session_digest);
               db.exec('COMMIT');
             } catch (error) { db.exec('ROLLBACK'); throw error; }
-            return json({ user: publicUser({ ...user, email: pending.email }) });
+            return json({ user: publicOf({ ...user, email: pending.email }) });
           }
           case '/v1/auth/login': {
             const identifier = identifierOf(body.identifier);
@@ -290,7 +335,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
           case '/v1/auth/verify': {
             const user = userOf(req); consumeCode(user, 'verify', body.code);
             db.prepare('UPDATE users SET verified=1 WHERE id=?').run(user.id);
-            return json({ user: publicUser({ ...user, verified: 1 }) });
+            return json({ user: publicOf({ ...user, verified: 1 }) });
           }
           case '/v1/auth/resend': { const user = userOf(req); if (!user.verified) await issueCode(user, 'verify'); return json({ ok: true }); }
           case '/v1/auth/forgot': {

@@ -18,11 +18,14 @@ enum class CircleRole { Owner, Admin, Member }
 
 /** 6 characters from an alphabet without look-alikes (0/O, 1/I/L). */
 private const val INVITE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
-const val INVITE_LENGTH = 6
+/** The server issues 8-character codes (server/src/circle.mjs LIMITS.inviteCode). */
+const val INVITE_LENGTH = 8
 const val INVITE_TTL_MS = 24 * 60 * 60 * 1000L
 const val INVITE_MAX_USES = 10
-const val CIRCLE_MAX_MEMBERS = 6
-const val CIRCLE_MAX_NAME = 12
+/** Server limit (LIMITS.membersPerCircle). */
+const val CIRCLE_MAX_MEMBERS = 50
+/** Server limit (LIMITS.name). */
+const val CIRCLE_MAX_NAME = 20
 const val MEMBER_MAX_NICKNAME = 8
 const val CIRCLE_MAX_ADMINS = 3
 
@@ -46,6 +49,10 @@ data class Circle(
     val posts: List<CirclePost>,
     val invite: CircleInvite,
     val comments: List<CircleComment> = emptyList(),
+    /** 7-digit circle number others search to ask to join (docs/API-CIRCLE.md §9). */
+    val no: String = "",
+    /** Join requests waiting for me — only ever non-zero for circles I own. */
+    val pendingRequests: Int = 0,
 ) {
     fun member(id: String): CircleMember? = members.firstOrNull { it.id == id }
     fun owner(): CircleMember? = member(ownerId)

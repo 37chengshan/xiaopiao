@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.account
 
+import com.xiaopiao.app.ui.components.pressableClick
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -59,6 +60,7 @@ internal fun AccountProfilePage(client: AccountClient, onDismiss: () -> Unit) {
     var message by remember { mutableStateOf<String?>(null) }
     var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var saved by remember { mutableStateOf(false) }
+    var avatarOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { client.refreshPolicy(); runCatching { client.refresh() } }
     BackHandler { if (!busy) onDismiss() }
     fun save() {
@@ -92,6 +94,16 @@ internal fun AccountProfilePage(client: AccountClient, onDismiss: () -> Unit) {
                 AccountClose(onClick = { if (!busy) onDismiss() }, description = copy("返回", "Back"))
             }
             Column(Modifier.fillMaxWidth().accountGlass(RoundedCornerShape(XpRadius.xl)).padding(XpSpace.xl), verticalArrangement = Arrangement.spacedBy(XpSpace.m)) {
+                // Avatar: tap to pick a preset or a photo (saved at once; the sheet reports the result).
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    androidx.compose.runtime.CompositionLocalProvider(LocalAccount provides client) {
+                        XpAvatar(
+                            user?.avatar, user?.username.orEmpty(), size = 76.dp,
+                            modifier = Modifier.pressableClick(scaleDown = 0.94f) { avatarOpen = true },
+                        )
+                    }
+                    TextButton(onClick = { avatarOpen = true }) { Text(copy("更换头像", "Change avatar")) }
+                }
                 OutlinedTextField(username, { username = it; errors = errors - "username" }, label = { Text(copy("用户名", "Username")) },
                     isError = "username" in errors, supportingText = { Text(errors["username"] ?: copy("3–30 位字母、数字或下划线，以字母开头", "3–30 letters, digits or underscores; start with a letter")) },
                     singleLine = true, enabled = !busy && pending == null, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(XpRadius.m))
@@ -112,6 +124,11 @@ internal fun AccountProfilePage(client: AccountClient, onDismiss: () -> Unit) {
                 }
                 if (pending != null) TextButton(onClick = { pending = null; code = ""; message = null; errors = emptyMap() }, enabled = !busy) { Text(copy("重新填写邮箱", "Use another address")) }
             }
+        }
+    }
+    if (avatarOpen) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalAccount provides client) {
+            AvatarPickerSheet(client, user?.avatar, onDismiss = { avatarOpen = false })
         }
     }
 }

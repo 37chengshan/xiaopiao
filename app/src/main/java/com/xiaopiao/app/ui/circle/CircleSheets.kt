@@ -1,4 +1,6 @@
 package com.xiaopiao.app.ui.circle
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import com.xiaopiao.app.ui.components.MoneyText
 
 import androidx.compose.foundation.layout.Arrangement
@@ -119,50 +121,29 @@ fun CircleShareSheet(
     }
 }
 
-/** Opened by tapping a receipt card: the same masked view, one level larger. */
+/** Opened by tapping a receipt card: the receipt as it was printed, on the same thermal paper as 小票. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CircleReceiptSheet(post: ReceiptPost, author: CircleMember?, now: Long, onDismiss: () -> Unit) {
+    val view = post.viewFor(author?.shares ?: emptyMap())
+    val lines = remember(post) {
+        post.items.groupBy { it.category }.map { (c, items) -> com.xiaopiao.app.ui.today.SharedReceiptLine(c, items.sumOf { it.cents }) }
+    }
     XpSheet(onDismiss = onDismiss) {
-        androidx.compose.foundation.layout.Column(Modifier.padding(horizontal = XpSpace.xl, vertical = XpSpace.s)) {
-            Text(
-                "${author?.name ?: "家人"} · ${dayLabel(post.dayStart, now)}的小票",
-                style = MaterialTheme.typography.titleMedium,
-                color = XpColors.Ink,
+        androidx.compose.foundation.layout.Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(vertical = XpSpace.s),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            com.xiaopiao.app.ui.today.SharedReceiptPaper(
+                dayStart = post.dayStart,
+                totalCents = view.totalCents ?: post.totalCents,
+                count = post.entryCount,
+                lines = if (view.slices != null) lines else emptyList(),
+                remark = post.remark,
+                snapshot = post.snapshot,
+                isToday = post.dayStart == com.xiaopiao.app.domain.startOfDay(now),
+                postedAt = post.at,
             )
-            val view = post.viewFor(author?.shares ?: emptyMap())
-            if (view.totalCents == null) {
-                Text(
-                    "TA 没开金额共享，这里只有一句话：这天发过一张小票。",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = XpColors.InkSecondary,
-                    modifier = Modifier.padding(top = XpSpace.m),
-                )
-            } else {
-                MoneyText(
-                    view.totalCents,
-                    style = MaterialTheme.typography.displayMedium,
-                    modifier = Modifier.padding(top = XpSpace.m),
-                )
-                view.slices?.forEach { slice ->
-                    Row(
-                        Modifier.fillMaxWidth().padding(top = XpSpace.s),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("${slice.category.emoji} ${slice.category.label}", style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
-                        Text("${slice.percent}%", style = MaterialTheme.typography.bodyMedium, color = XpColors.InkSecondary)
-                    }
-                }
-                view.full?.let { full ->
-                    Text("明细", style = MaterialTheme.typography.labelMedium, color = XpColors.InkSecondary, modifier = Modifier.padding(top = XpSpace.m))
-                    full.forEach { item ->
-                        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(item.merchant, style = MaterialTheme.typography.bodySmall, color = XpColors.Ink)
-                            MoneyText(item.cents, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
-                        }
-                    }
-                }
-            }
             androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = XpSpace.l))
         }
     }

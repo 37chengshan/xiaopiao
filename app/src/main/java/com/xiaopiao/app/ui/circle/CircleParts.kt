@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.circle
 
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -43,7 +44,7 @@ import kotlin.math.roundToInt
 private val TornDepth = 5.dp
 private val TornTooth = 10.dp
 
-/** Initial-only avatar: a tinted circle, never an image (all members are local demo data). */
+/** A member's avatar: their preset / photo from the server, or a tinted initial. */
 @Composable
 fun CircleAvatar(
     member: CircleMember,
@@ -61,17 +62,12 @@ fun CircleAvatar(
         Modifier.pressableClick(scaleDown = 0.94f, onClick = onClick)
             .semantics { contentDescription = "查看${member.name}的共享范围" }
     } else Modifier
-    Box(
-        modifier.size(size).clip(CircleShape).background(background).then(click),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            member.initial,
-            style = if (size >= 34.dp) MaterialTheme.typography.titleSmall else MaterialTheme.typography.labelMedium,
-            color = ink,
-            maxLines = 1,
-        )
-    }
+    // The member's own avatar (preset or photo) when they set one; the tinted initial otherwise.
+    val avatars = LocalCircleStore.current?.memberAvatars?.collectAsState()?.value
+    com.xiaopiao.app.ui.account.XpAvatar(
+        avatars?.get(member.id), member.initial, size = size, modifier = modifier.then(click),
+        fallbackBackground = background, fallbackInk = ink,
+    )
 }
 
 /**

@@ -74,7 +74,7 @@ import com.xiaopiao.app.ui.components.rememberXpToast
 import com.xiaopiao.app.ui.ledger.LedgerCalendarSheet
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpEase
-import com.xiaopiao.app.ui.theme.XpMotion
+import com.xiaopiao.app.ui.motion.XpMotion
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
 import com.xiaopiao.app.ui.tr

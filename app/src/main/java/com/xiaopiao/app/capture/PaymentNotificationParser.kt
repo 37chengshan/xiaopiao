@@ -31,6 +31,11 @@ sealed interface ParseResult {
     data object Unparsed : ParseResult
     /** Ordinary chatter — never stored. */
     data object Irrelevant : ParseResult
+    /**
+     * Certainly money, amount not shown — a red-packet card ("[微信红包]恭喜发财"). Logged so the user can fill the
+     * amount in with one tap (tt 2026-11-02: 红包都可以加上记录让用户自己去补充金额). [from] is the sender, if named.
+     */
+    data class NeedsAmount(val from: String?, val direction: Direction, val kind: String = "红包") : ParseResult
 }
 
 /**
@@ -104,6 +109,11 @@ object PaymentNotificationParser {
         rule("wechat.deferred.deduct", WX, """(?:先享后付|先用后付|支付分)[^。\n]{0,24}(?:扣款|扣费|付款|补缴)[^。\n\d¥￥]{0,10}[¥￥]?\s*{AMT}"""),
         rule("wechat.deferred.keyword", WX, """(?:先享后付|先用后付|支付分)[^。\n]{0,24}?{YEN}{AMT}\s*元?"""),
 
+        // ---- 扣费 / 扣款（tt 2026-11-02 真机：「微信支付: 已扣费¥3.00」没认出）----
+        // 免密、自动续费、先享后付、亲属卡的扣款都是从自己账户出去的钱，统一记支出。
+        rule("generic.deduct", BOTH, """(?:已扣费|扣费成功|已扣款|扣款成功|自动扣款|自动扣费|代扣成功|本次扣款)[^\d¥￥]{0,12}{YEN}{AMT}\s*元?"""),
+        rule("generic.deduct.amount-first", BOTH, """[¥￥]\s*{AMT}\s*(?:已扣款|已扣费|扣款成功|扣费成功)"""),
+
         // ---- English UI（金额强制带 ¥/￥ 或 yuan/rmb：英文里 `A123` 这种订单号不能被当成钱）（文案取自两个 App 自带 en_US 词条，见 docs/research/wechat-deferred-pay.md §2.2）----
         // 支付宝收银台 en_US: "Payment amount: #val# yuan" / "amount paid #val# Yuan."
         rule("generic.en.amount", BOTH, """(?i)(?:payment amount|amount paid)[:：]?\s*{YEN}{AMT}\s*(?:yuan|rmb|元)"""),
@@ -143,7 +153,7 @@ object PaymentNotificationParser {
 
     /** Phrases that prove a real transaction even when marketing words are also present. */
     private val strongPayment = Regex(
-        """付款成功|成功付款|已支付|支付成功|的支出|的收入|收款到账|已收款|成功收款|向你转账|扣款成功|扣费成功|payment successful|amount paid|payment amount|refund""",
+        """付款成功|成功付款|已支付|支付成功|的支出|的收入|收款到账|已收款|成功收款|向你转账|扣款成功|扣费成功|已扣费|已扣款|自动扣款|代扣成功|payment successful|amount paid|payment amount|refund""",
         RegexOption.IGNORE_CASE,
     )
 
@@ -163,8 +173,29 @@ object PaymentNotificationParser {
     private val invisible = Regex("[\\u200b-\\u200f\\u00a0\\ufeff]")
     private val whitespace = Regex("\\s+")
 
+    /** WeChat stacks unread notifications as "[8条]微信支付: …"; the counter is never part of the message. */
+    private val stackCounter = Regex("""\[\d{1,4}条]""")
+
     fun normalize(title: String, text: String): String =
-        "$title $text".replace(invisible, " ").replace(whitespace, " ").trim()
+        "$title $text".replace(stackCounter, " ").replace(invisible, " ").replace(whitespace, " ").trim()
+
+    /** WeChat's own senders. Anything else under com.tencent.mm is a person or a group chat. */
+    private val wechatSystemTitles = Regex("""^(?:微信支付|微信收款助手|微信支付分|微信转账|微信红包|服务通知|微信团队|WeChat Pay|Weixin Pay)""", RegexOption.IGNORE_CASE)
+
+    /** A chat can still be a transfer that names its amount ("向你转账 ¥100"); a bare 红包 / 转账 card cannot. */
+    private val chatMoney = Regex("""向你转账|已收款|收款到账|已存入零钱|已到账""")
+
+    /** Any amount at all: without one a notification cannot be a booking, only a service message. */
+    private val anyAmount = Regex("""[¥￥]\s*\d|\d+(?:\.\d{1,2})?\s*元|\d+\.\d{1,2}\b|(?i)\d+(?:\.\d{1,2})?\s*(?:yuan|rmb)""")
+
+    /** Named service messages. "交易提醒：你有一笔支付" is NOT one: that is a real payment with the amount hidden. */
+    private val serviceNotice = Regex("""服务(?:使用)?通知|使用通知|服务提醒|服务已(?:开通|生效|关闭)|开通成功""")
+
+    /** A transfer card in a chat ("[转账]请收款"): the amount is inside the card, not the notification. */
+    private val transferCard = Regex("""\[转账]|转账给你|向你发起(?:了)?(?:一笔)?转账|请收款|待你收款""")
+
+    /** A red-packet card whose amount only shows once it is opened. */
+    private val redPacketCard = Regex("""\[(?:微信)?红包]|给你发了(?:一个)?红包|发来(?:一个)?红包|收到(?:一个|一笔)?红包|红包来了""")
 
     private fun isRelated(t: String): Boolean = relatedWords.any { t.contains(it) } || relatedEn.containsMatchIn(t)
 
@@ -174,6 +205,19 @@ object PaymentNotificationParser {
         if (pkg !in PaymentApps.all) return ParseResult.Irrelevant
         val t = normalize(title, text)
         if (!isRelated(t)) return ParseResult.Irrelevant
+        val chat = pkg == PaymentApps.WECHAT && title.isNotBlank() && !wechatSystemTitles.containsMatchIn(normalize(title, ""))
+        // A red packet with its amount hidden: keep it so the user can fill the amount in.
+        if (redPacketCard.containsMatchIn(t) && !anyAmount.containsMatchIn(t) && adKeywords.none { it != "领取" && t.contains(it) }) {
+            return ParseResult.NeedsAmount(if (chat) cleanMerchant(normalize(title, "")) else null, Direction.IN)
+        }
+        if (transferCard.containsMatchIn(t) && !anyAmount.containsMatchIn(t)) {
+            return ParseResult.NeedsAmount(if (chat) cleanMerchant(normalize(title, "")) else null, Direction.IN, kind = "转账")
+        }
+        // Friends and groups: a chat that mentions 支付 is talk, not a booking.
+        if (chat && !chatMoney.containsMatchIn(t)) return ParseResult.Irrelevant
+        // 「先享后付」服务使用通知 and the like: payment words, no amount, no "paid" — nothing to book, nothing missed.
+        // ("Payment successful" with the amount hidden is still a miss the user should see.)
+        if (!anyAmount.containsMatchIn(t) && serviceNotice.containsMatchIn(t)) return ParseResult.Ignored("服务通知（无金额）")
         if (!strongPayment.containsMatchIn(t)) {
             adKeywords.firstOrNull { t.contains(it, ignoreCase = true) }
                 ?.let { return ParseResult.Ignored("营销通知（$it）") }

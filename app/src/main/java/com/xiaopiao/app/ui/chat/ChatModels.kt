@@ -446,18 +446,18 @@ data class ChatTurn(var period: ChatPeriod = ChatPeriod.Week, var category: Cate
 data class FamilyLine(val name: String, val cents: Cents?, val posts: Int)
 
 object ChatFamily {
-    /** Reads the same demo circle the 圈子 tab shows; masked members report null, never a fake 0. */
+    /** Reads the circles the 圈子 tab shows (from the server); only receipts members actually posted count. */
     fun week(now: Long): List<FamilyLine> {
         val from = now - 7L * 24 * 60 * 60 * 1000
-        val members = com.xiaopiao.app.ui.circle.CircleDemo.members()
-            .filter { !it.isMe }
-        val posts = com.xiaopiao.app.ui.circle.CircleDemo.feed(now)
+        val circles = com.xiaopiao.app.ui.circle.CircleStore.latest?.book?.value?.circles.orEmpty()
+        val members = circles.flatMap { it.members }.filter { !it.isMe }.distinctBy { it.id }
+        val posts = circles.flatMap { it.posts }
             .filterIsInstance<com.xiaopiao.app.ui.circle.ReceiptPost>()
             .filter { it.at >= from }
+            .distinctBy { it.id }
         return members.map { m ->
             val mine = posts.filter { it.authorId == m.id }
-            val shared = m.shows(com.xiaopiao.app.ui.circle.CircleShare.TodayTotal)
-            FamilyLine(m.name, if (shared) mine.sumOf { it.totalCents } else null, mine.size)
+            FamilyLine(m.name, if (mine.isEmpty()) null else mine.sumOf { it.totalCents }, mine.size)
         }
     }
 

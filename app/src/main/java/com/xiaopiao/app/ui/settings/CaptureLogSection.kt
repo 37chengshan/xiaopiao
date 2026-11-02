@@ -1,5 +1,15 @@
 package com.xiaopiao.app.ui.settings
 
+import com.xiaopiao.app.ui.tr
+import com.xiaopiao.app.ui.theme.XpRadius
+import com.xiaopiao.app.ui.components.pressableClick
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +49,20 @@ fun LogRow(e: CaptureLogEntry) {
             style = ReceiptText.copy(fontSize = 12.sp, color = XpColors.Ink), maxLines = 3, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(vertical = 4.dp).fillMaxWidth().background(XpColors.Fill, RoundedCornerShape(8.dp)).padding(8.dp),
         )
-        Text(label.text, style = MaterialTheme.typography.labelMedium, color = toneColor)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label.text.substringBefore("（").substringBefore(" ("), style = MaterialTheme.typography.labelMedium, color = toneColor, modifier = Modifier.weight(1f))
+            // A miss can go to the developer in one tap — after the user sees exactly what will be sent.
+            val account = com.xiaopiao.app.ui.account.LocalAccount.current
+            if (e.result == "UNPARSED" && account != null) {
+                var open by remember { mutableStateOf(false) }
+                Text(
+                    tr("一键反馈", "Report"),
+                    style = MaterialTheme.typography.labelMedium, color = XpColors.Accent,
+                    modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill)).pressableClick { open = true }
+                        .padding(horizontal = XpSpace.s, vertical = 4.dp),
+                )
+                if (open) FeedbackSheet(account, "${PaymentApps.label(e.packageName)} | ${e.title} | ${e.text}") { open = false }
+            }
+        }
     }
 }

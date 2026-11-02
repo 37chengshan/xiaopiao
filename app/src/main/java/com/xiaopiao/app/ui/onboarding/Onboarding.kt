@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.onboarding
 
+import androidx.compose.foundation.verticalScroll
 import android.content.Context
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -111,7 +112,7 @@ fun OnboardingHost(onLogin: () -> Unit = {}, signedIn: Boolean = false, onDone: 
                     val selectedDot = i == page
                     val size by androidx.compose.animation.core.animateDpAsState(
                         targetValue = if (selectedDot) 8.dp else 6.dp,
-                        animationSpec = com.xiaopiao.app.ui.theme.XpMotion.snappy(),
+                        animationSpec = com.xiaopiao.app.ui.motion.XpMotion.snappy(),
                         label = "dotSize$i",
                     )
                     val dotColor by androidx.compose.animation.animateColorAsState(
@@ -204,13 +205,16 @@ private fun GestureRow(
 @Composable
 private fun PageCapture() {
     val en = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "en"
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
+    // Scrolls: with the coverage card it no longer fits a 360dp phone at large font.
+    Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = XpSpace.xl)) {
         PageHead(
             if (en) "Pay, and it's\nalready written." else "付完款，\n账已经记好了。",
             if (en) "Daily Slip reads WeChat and Alipay payment notifications. Three switches, once." else "读微信、支付宝的付款通知自动记账。开三个开关，只需一次。",
         )
         Spacer(Modifier.height(XpSpace.xl))
         com.xiaopiao.app.ui.capture.CaptureSetupSteps()
+        Spacer(Modifier.height(XpSpace.l))
+        com.xiaopiao.app.ui.capture.CaptureCoverage()
     }
 }
 

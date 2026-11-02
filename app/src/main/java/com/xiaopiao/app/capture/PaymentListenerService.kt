@@ -72,6 +72,7 @@ class PaymentListenerService : NotificationListenerService() {
                 is ParseResult.Parsed -> Log.i(TAG, "PARSED:${result.payment.ruleId} ${result.payment.amountCents}")
                 ParseResult.Unparsed -> Log.i(TAG, "UNPARSED")
                 is ParseResult.Ignored -> Log.i(TAG, "IGNORED")
+                is ParseResult.NeedsAmount -> Log.i(TAG, "NEEDS_AMOUNT")
                 ParseResult.Irrelevant -> Unit
             }
         }

@@ -130,7 +130,7 @@ fun ChatDrawer(
     }
     suspend fun settle(velocity: Float) {
         val target = if (velocity > 600f || progress.value < 0.6f) 0f else 1f
-        if (reduced) progress.snapTo(target) else progress.animateTo(target, com.xiaopiao.app.ui.theme.XpMotion.snappy())
+        if (reduced) progress.snapTo(target) else progress.animateTo(target, com.xiaopiao.app.ui.motion.XpMotion.snappy())
         if (target == 0f) onClose()
     }
     BoxWithConstraints(

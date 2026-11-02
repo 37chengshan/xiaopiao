@@ -34,6 +34,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -73,6 +76,8 @@ fun CircleFeedPost(
     viewerId: String,
     now: Long,
     liked: Boolean,
+    /** Like total from the server (already includes the viewer's own like). */
+    likes: Int,
     onLike: () -> Unit,
     onComment: () -> Unit,
     onReceiptOpen: (ReceiptPost) -> Unit,
@@ -90,7 +95,7 @@ fun CircleFeedPost(
     }
     val author = circle.member(authorId)
     val comments = remember(circle.comments, post.id) { circle.comments.filter { it.postId == post.id }.sortedBy { it.at } }
-    val likeCount = (baseReactions(post.id)["❤️"] ?: 0) + if (liked) 1 else 0
+    val likeCount = likes
     val en = LocalConfiguration.current.locales[0].language == "en"
 
     Row(modifier.fillMaxWidth().padding(horizontal = XpSpace.l, vertical = XpSpace.m)) {
@@ -266,9 +271,9 @@ private fun FeedReceiptCard(
         } else {
             Text(
                 when {
-                    post.items.isEmpty() -> if (en) "No spending today" else "今天一笔没花"
-                    en -> "${post.items.size} entries · details not shared"
-                    else -> tr("${post.items.size} 笔 · 明细未共享", "${post.items.size} entries · details not shared")
+                    post.entryCount == 0 -> if (en) "No spending today" else "今天一笔没花"
+                    en -> "${post.entryCount} entries · details not shared"
+                    else -> tr("${post.entryCount} 笔 · 明细未共享", "${post.entryCount} entries · details not shared")
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = XpColors.InkTertiary,
@@ -384,6 +389,9 @@ fun CircleComposeSheet(
     var attach by rememberSaveable { mutableStateOf(attachByDefault && todayReceipt != null) }
     val circle = book.circles.firstOrNull { it.id == circleId } ?: book.current()
     val canPost = text.isNotBlank() || (attach && todayReceipt != null)
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var failure by remember { mutableStateOf<String?>(null) }
 
     XpSheet(onDismiss = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.page).padding(bottom = XpSpace.l).imePadding()) {
@@ -441,22 +449,25 @@ fun CircleComposeSheet(
                     onClick = {},
                 )
             }
+            failure?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = XpColors.Negative, modifier = Modifier.padding(top = XpSpace.s)) }
             XpButton(
-                text = if (en) "Post" else "发布",
+                text = if (busy) (if (en) "Posting…" else "发布中…") else if (en) "Post" else "发布",
                 onClick = {
-                    val now = System.currentTimeMillis()
                     val words = text.trim()
-                    val post: CirclePost = if (attach && todayReceipt != null) {
-                        todayReceipt.copy(id = "local-$now", at = now, caption = words)
-                    } else {
-                        TextPost("local-$now", now, viewerId, words, localOnly = true)
+                    busy = true; failure = null
+                    scope.launch {
+                        try {
+                            if (attach && todayReceipt != null) store.postReceipt(listOf(circle.id), todayReceipt.copy(caption = words))
+                            else store.postText(circle.id, words)
+                            haptics.confirm()
+                            onPosted(circle.name)
+                            onDismiss()
+                        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                        catch (e: Exception) { failure = e.message ?: if (en) "Couldn't post. Try again." else "发布失败，请重试" }
+                        finally { busy = false }
                     }
-                    store.post(circle.id, post)
-                    haptics.confirm()
-                    onPosted(circle.name)
-                    onDismiss()
                 },
-                enabled = canPost,
+                enabled = canPost && !busy,
                 modifier = Modifier.fillMaxWidth().padding(top = XpSpace.l),
             )
         }
@@ -472,6 +483,11 @@ fun CircleCommentsSheet(store: CircleStore, circleId: String, postId: String, vi
     val circle = book.circles.firstOrNull { it.id == circleId } ?: return
     val comments = circle.comments.filter { it.postId == postId }.sortedBy { it.at }
     var draft by rememberSaveable { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    var sending by remember { mutableStateOf(false) }
+    var failure by remember { mutableStateOf<String?>(null) }
+    // The feed carries only the latest three replies; the sheet loads the rest.
+    LaunchedEffect(postId) { runCatching { store.loadComments(circleId, postId) } }
     XpSheet(onDismiss = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = XpSpace.page).padding(bottom = XpSpace.l).imePadding()) {
             Text(
@@ -505,6 +521,7 @@ fun CircleCommentsSheet(store: CircleStore, circleId: String, postId: String, vi
                     }
                 }
             }
+            failure?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = XpColors.Negative, modifier = Modifier.padding(bottom = XpSpace.s)) }
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.Fill)
                     .padding(start = XpSpace.l, end = XpSpace.xs, top = XpSpace.xs, bottom = XpSpace.xs),
@@ -523,14 +540,19 @@ fun CircleCommentsSheet(store: CircleStore, circleId: String, postId: String, vi
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                val canSend = draft.isNotBlank()
+                val canSend = draft.isNotBlank() && !sending
                 Box(
                     Modifier.size(40.dp).clip(CircleShape)
                         .background(if (canSend) XpColors.Accent else XpColors.Fill)
                         .pressableClick(enabled = canSend) {
-                            val now = System.currentTimeMillis()
-                            store.comment(circleId, CircleComment("local-c-$now", postId, viewerId, draft.trim(), now))
-                            draft = ""
+                            val words = draft.trim()
+                            sending = true; failure = null
+                            scope.launch {
+                                try { store.comment(circleId, postId, words); draft = "" }
+                                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                                catch (e: Exception) { failure = e.message ?: if (en) "Couldn't send. Try again." else "发送失败，请重试" }
+                                finally { sending = false }
+                            }
                         },
                     contentAlignment = Alignment.Center,
                 ) {

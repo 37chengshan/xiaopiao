@@ -35,10 +35,10 @@ class CircleDomainTest {
     // --- invite codes --------------------------------------------------------------------------
 
     @Test
-    fun `invite codes are six unambiguous characters`() {
+    fun `invite codes are eight unambiguous characters like the server's`() {
         repeat(50) { seed ->
             val code = inviteCode(seed.toLong())
-            assertEquals(6, code.length)
+            assertEquals(INVITE_LENGTH, code.length)
             assertTrue(code.all { it in "ABCDEFGHJKMNPQRSTUVWXYZ23456789" })
         }
     }
@@ -66,16 +66,16 @@ class CircleDomainTest {
     }
 
     @Test
-    fun `seventh member is refused`() {
-        val six = (1..6).map { member("m$it") }
-        val result = redeemInvite(book(circle(members = six)), circle(members = six).invite.code, now, member("late"))
+    fun `a full circle refuses the next member`() {
+        val full = (1..CIRCLE_MAX_MEMBERS).map { member("m$it") }
+        val result = redeemInvite(book(circle(members = full)), circle(members = full).invite.code, now, member("late"))
         assertEquals(CircleError.CircleFull, result.error)
     }
 
     @Test
-    fun `circle names are capped at twelve glyphs`() {
+    fun `circle names are capped like the server's`() {
         val b = book(circle())
-        assertEquals(CircleError.NameTooLong, renameCircle(b, "c", "十二个字的名字确实放不下吧").error)
+        assertEquals(CircleError.NameTooLong, renameCircle(b, "c", "这".repeat(CIRCLE_MAX_NAME + 1)).error)
         assertEquals(CircleError.EmptyName, renameCircle(b, "c", "  ").error)
         assertEquals("新家", renameCircle(b, "c", " 新家 ").book.circles.first().name)
     }
@@ -205,7 +205,7 @@ class CircleDomainTest {
         assertEquals("新家", created.name)
         assertEquals("me", created.ownerId)
         assertEquals(CircleRole.Owner, created.members.single().role)
-        assertEquals(CircleError.NameTooLong, createCircle(b, "一个超过十二个字的圈子名字呀", member("me"), now).error)
+        assertEquals(CircleError.NameTooLong, createCircle(b, "这".repeat(CIRCLE_MAX_NAME + 1), member("me"), now).error)
     }
 
     @Test

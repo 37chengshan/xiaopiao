@@ -248,16 +248,6 @@ object XpRadius {
     val pill = 999.dp
 }
 
-/** Shared spring recipes (docs/APP-DESIGN.md §7). Default UI motion is critically damped — no bounce. */
-object XpMotion {
-    /** Default for position/size: damping 1.0, response ≈ 0.35s. */
-    fun <T> snappy() = androidx.compose.animation.core.spring<T>(dampingRatio = 1f, stiffness = 400f)
-    /** Momentum / ceremony only (flick, tear, stamp, awards). */
-    fun <T> bouncy() = androidx.compose.animation.core.spring<T>(dampingRatio = 0.72f, stiffness = 380f)
-    /** Sheets and drawers. */
-    fun <T> gentle() = androidx.compose.animation.core.spring<T>(dampingRatio = 0.85f, stiffness = 300f)
-}
-
 /** Easing curves (docs/APP-DESIGN.md §7). Strong ease-out for color/opacity and anything entering. */
 object XpEase {
     val out = androidx.compose.animation.core.CubicBezierEasing(0.23f, 1f, 0.32f, 1f)

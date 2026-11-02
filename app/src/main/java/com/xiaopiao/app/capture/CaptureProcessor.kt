@@ -29,6 +29,7 @@ class CaptureProcessor(
         when (result) {
             ParseResult.Irrelevant -> Unit
             ParseResult.Unparsed -> record(pkg, title, text, postedAt, "UNPARSED", null)
+            is ParseResult.NeedsAmount -> storeRedPacket(pkg, title, text, postedAt, result)
             is ParseResult.Ignored -> record(pkg, title, text, postedAt, "IGNORED:${result.reason}", null)
             is ParseResult.Parsed -> store(pkg, title, text, postedAt, result.payment)
         }
@@ -40,6 +41,20 @@ class CaptureProcessor(
         val id = if (isNearDuplicate(txn)) null else ledger.add(txn)
         val tag = if (id == null) "DUPLICATE:${p.ruleId}" else "PARSED:${p.ruleId}"
         record(pkg, title, text, postedAt, tag, id)
+    }
+
+    /**
+     * A red packet or transfer whose amount the notification hides goes straight into the ledger at ¥0, flagged in the list
+     * as 「待填金额」 (tt 2026-11-02); the user opens it and types the amount. See [Txn.needsAmount].
+     */
+    private suspend fun storeRedPacket(pkg: String, title: String, text: String, postedAt: Long, r: ParseResult.NeedsAmount) {
+        val who = r.from?.takeIf { it.isNotBlank() }
+        val txn = Txn(
+            amountCents = 0L, direction = r.direction, merchant = who?.let { "${it}的${r.kind}" } ?: r.kind,
+            category = Category.SOCIAL, occurredAt = postedAt, source = Source.NOTIFICATION,
+            dedupeKey = DedupeKeys.notification(pkg, "PENDING-${r.kind}", 0L, postedAt, who.orEmpty()),
+        )
+        record(pkg, title, text, postedAt, NEEDS_AMOUNT + who.orEmpty(), ledger.add(txn))
     }
 
     /** Apps often post the same payment twice (e.g. a bare "支出" then a "付款成功" with merchant). */
@@ -54,6 +69,9 @@ class CaptureProcessor(
 
     companion object {
         private const val NEAR_MS = 2 * 60_000L
+
+        /** Log tag of a red packet waiting for its amount; the sender (may be empty) follows the colon. */
+        const val NEEDS_AMOUNT = "NEEDS_AMOUNT:"
 
         fun toTxn(pkg: String, postedAt: Long, p: ParsedPayment, cardLast4: String = ""): Txn {
             val redPacket = p.ruleId.contains("redpacket")

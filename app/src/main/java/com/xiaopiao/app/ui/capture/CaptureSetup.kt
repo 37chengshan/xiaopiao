@@ -1,5 +1,8 @@
 package com.xiaopiao.app.ui.capture
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.EditNote
 import android.content.Context
 import android.os.Build
 import android.os.PowerManager
@@ -116,6 +119,50 @@ fun CaptureSetupSteps(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * What auto-capture can and can't do, said up front (tt 2026-11-02: 引导页需要告诉用户能识别 / 不能识别 / 需要补的).
+ * Three groups: booked automatically, booked as 「待填金额」, and left for manual entry.
+ */
+@Composable
+fun CaptureCoverage(modifier: Modifier = Modifier) {
+    val en = LocalConfiguration.current.locales[0].language == "en"
+    Column(
+        modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.m)).background(XpColors.Fill).padding(XpSpace.l),
+        verticalArrangement = Arrangement.spacedBy(XpSpace.s),
+    ) {
+        CoverageRow(
+            Icons.Outlined.Check, XpColors.Positive,
+            if (en) "Booked automatically" else "自动记账",
+            if (en) "WeChat / Alipay payments, password-free and auto-renew deductions, pay-later charges, money received, refunds."
+            else "微信、支付宝付款；免密 / 自动续费 / 先享后付扣费；收款、退款。",
+        )
+        CoverageRow(
+            Icons.Outlined.EditNote, XpColors.Warning,
+            if (en) "Booked — you add the amount" else "先记一笔，金额你来填",
+            if (en) "Red packets and chat transfers hide the amount: they appear in the ledger as “Add amount”. Tap to fill in."
+            else "红包、聊天里的转账看不到金额：会出现在账单里，标着「待填金额」，点一下补上。",
+        )
+        CoverageRow(
+            Icons.Outlined.Block, XpColors.InkSecondary,
+            if (en) "Not recognised — record by hand" else "识别不了，需要手动记",
+            if (en) "Bank-card SMS, cash, other apps, and WeChat with “show message details” off (amounts are hidden)."
+            else "银行卡短信、现金、其他 App；以及微信关了「通知显示消息详情」时（看不到金额）。",
+        )
+    }
+}
+
+@Composable
+private fun CoverageRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color, title: String, body: String) {
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.padding(top = 2.dp).size(18.dp))
+        Spacer(Modifier.width(XpSpace.s))
+        Column {
+            Text(title, style = MaterialTheme.typography.labelLarge, color = XpColors.Ink)
+            Text(body, style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+        }
+    }
+}
+
 @Composable
 private fun SetupStep(
     number: Int,
@@ -209,6 +256,8 @@ fun CaptureNudge(modifier: Modifier = Modifier) {
                 )
                 Spacer(Modifier.size(XpSpace.xl))
                 CaptureSetupSteps()
+                Spacer(Modifier.size(XpSpace.l))
+                CaptureCoverage()
                 if (listenerOn && !connected) {
                     Spacer(Modifier.size(XpSpace.l))
                     if (reconnect.phase == ReconnectPhase.Failed) {

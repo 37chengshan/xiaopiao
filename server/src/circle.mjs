@@ -5,8 +5,13 @@
  * - The receipt card is a strict whitelist of structured numbers and short copy. Anything that could be
  *   bill text (rawText, notification, screenshot, merchant …) is refused by name, like the ledger does.
  * - A non-member gets 404, never 403: whether a circle or a post exists is itself private inside a circle.
+ *
+ * Two ways in: an invite code joins directly, a number only lets you *ask* — the owner decides. A number is
+ * 7 digits so it can be read out loud, and searching it returns the name, the head count and my own status,
+ * never the id or the member list.
  */
 import { randomInt, randomUUID } from 'node:crypto';
+import { avatarJson } from './avatar.mjs';
 
 export const LIMITS = {
   name: 20,
@@ -20,8 +25,9 @@ export const LIMITS = {
   defaultCommentsPage: 20,
   previewComments: 3,
   receiptTitle: 16,
-  receiptComment: 60,
+  receiptComment: 120,
   receiptLineLabel: 16,
+  receiptStamp: 16,
   receiptLines: 30,
   receiptCount: 1_000_000,
   maxCents: 10_000_000_000,
@@ -29,6 +35,9 @@ export const LIMITS = {
   inviteDays: 7,
   inviteUses: 20,
   username: 30,
+  /** The public circle number: 7 digits, never a leading zero, so it can be read out loud. */
+  numberMin: 1_000_000,
+  numberMax: 10_000_000,
 };
 
 /** Receipt cards carry structured numbers, never bill text. These names are refused with a clear reason. */
@@ -37,8 +46,14 @@ const RECEIPT_RAW_FIELDS = new Set([
   'screenshot', 'screenshots', 'image', 'images', 'photo', 'photos', 'html', 'payload',
   'attachment', 'notification', 'notifications', 'rawmessage', 'raw_message',
 ]);
-const RECEIPT_FIELDS = ['date', 'totalCents', 'title', 'count', 'comment', 'lines'];
-const LINE_FIELDS = ['label', 'amountCents'];
+const RECEIPT_FIELDS = ['date', 'totalCents', 'title', 'count', 'comment', 'lines', 'style', 'stamp', 'printedAt', 'prevCents'];
+const LINE_FIELDS = ['label', 'amountCents', 'count'];
+/** The print snapshot: how the paper looked when the author printed it, never what was on the bill. */
+const STYLE_FIELDS = ['paper', 'ink', 'font', 'content'];
+const PAPERS = new Set(['classic', 'kraft', 'mint', 'sakura', 'night']);
+const FONTS = new Set(['thermal', 'sans', 'serif']);
+const INK_MAX = 0xffff_ffff;
+const CONTENT_MAX = 127;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 /** No 0/O/1/I: an invite code is read aloud and typed by hand. */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -78,6 +93,42 @@ function validReceipt(raw) {
   if (!Number.isSafeInteger(card.count) || card.count < 0 || card.count > LIMITS.receiptCount) return { reason: 'RECEIPT_INVALID' };
   const comment = card.comment ?? '';
   if (typeof comment !== 'string' || comment.length > LIMITS.receiptComment) return { reason: 'RECEIPT_INVALID' };
+  // The print settings are copied from the author's own receipt so the card on the wall looks like their paper.
+  // They say how it prints, never what was bought, so the raw-field rule above still governs the card.
+  let style;
+  if (card.style !== undefined) {
+    if (!isObject(card.style)) return { reason: 'RECEIPT_INVALID' };
+    style = {};
+    for (const [key, value] of Object.entries(card.style)) {
+      // `content` is a legal name here (the printed-section bit mask), so the field list votes before the raw list.
+      if (!STYLE_FIELDS.includes(key)) {
+        return { reason: RECEIPT_RAW_FIELDS.has(key.toLowerCase()) ? 'RECEIPT_RAW_TEXT' : 'RECEIPT_FIELD' };
+      }
+      if (key === 'paper') {
+        if (!PAPERS.has(value)) return { reason: 'RECEIPT_INVALID' };
+        style.paper = value;
+      } else if (key === 'font') {
+        if (!FONTS.has(value)) return { reason: 'RECEIPT_INVALID' };
+        style.font = value;
+      } else if (key === 'ink') {
+        if (value !== null && !(Number.isSafeInteger(value) && value >= 0 && value <= INK_MAX)) return { reason: 'RECEIPT_INVALID' };
+        style.ink = value;
+      } else {
+        if (!Number.isSafeInteger(value) || value < 0 || value > CONTENT_MAX) return { reason: 'RECEIPT_INVALID' };
+        style.content = value;
+      }
+    }
+  }
+  let stamp;
+  if (card.stamp !== undefined) {
+    if (typeof card.stamp !== 'string') return { reason: 'RECEIPT_INVALID' };
+    stamp = card.stamp.trim();
+    if (!stamp || stamp.length > LIMITS.receiptStamp) return { reason: 'RECEIPT_INVALID' };
+  }
+  const printedAt = card.printedAt;
+  if (printedAt !== undefined && !(Number.isSafeInteger(printedAt) && printedAt >= 0)) return { reason: 'RECEIPT_INVALID' };
+  const prevCents = card.prevCents;
+  if (prevCents !== undefined && prevCents !== null && !isCents(prevCents)) return { reason: 'RECEIPT_INVALID' };
   let lines;
   if (card.lines !== undefined) {
     if (!Array.isArray(card.lines) || card.lines.length > LIMITS.receiptLines) return { reason: 'RECEIPT_INVALID' };
@@ -90,7 +141,10 @@ function validReceipt(raw) {
       }
       if (typeof line.label !== 'string' || !line.label.trim() || line.label.trim().length > LIMITS.receiptLineLabel) return { reason: 'RECEIPT_INVALID' };
       if (!isCents(line.amountCents)) return { reason: 'RECEIPT_INVALID' };
-      lines.push({ label: line.label.trim(), amountCents: line.amountCents });
+      if (line.count !== undefined && !(Number.isSafeInteger(line.count) && line.count >= 0 && line.count <= LIMITS.receiptCount)) {
+        return { reason: 'RECEIPT_INVALID' };
+      }
+      lines.push({ label: line.label.trim(), amountCents: line.amountCents, ...(line.count === undefined ? {} : { count: line.count }) });
     }
   }
   return {
@@ -100,12 +154,28 @@ function validReceipt(raw) {
       title: card.title.trim(),
       count: card.count,
       comment,
+      ...(style ? { style } : {}),
+      ...(stamp === undefined ? {} : { stamp }),
+      ...(printedAt === undefined ? {} : { printedAt }),
+      ...(prevCents === undefined ? {} : { prevCents }),
       ...(lines ? { lines } : {}),
     },
   };
 }
 
-const circleJson = row => ({ id: row.id, name: row.name, role: row.role, memberCount: row.member_count, createdAt: row.created_at });
+const circleJson = row => ({
+  id: row.id, name: row.name, no: row.no, role: row.role, memberCount: row.member_count,
+  /** Only the owner is asked to let people in; everyone else always sees 0. */
+  pendingRequests: row.pending_requests ?? 0,
+  createdAt: row.created_at,
+});
+
+/** The number is typed from memory, so the shape is checked here instead of being queried blindly. */
+function circleNumber(value) {
+  const raw = typeof value === 'string' ? value.trim() : typeof value === 'number' ? String(value) : '';
+  if (!/^[1-9]\d{6}$/.test(raw)) fail('INVALID_INPUT');
+  return raw;
+}
 
 /** The cursor is opaque on purpose: `<createdAt>.<rowid>`, base64url, so a client cannot invent a page start. */
 const encodeCursor = (at, rid) => Buffer.from(`${at}.${rid}`).toString('base64url');
@@ -119,14 +189,22 @@ function decodeCursor(value) {
 }
 
 export function createCircles({ db, now = Date.now }) {
-  const circleRow = db.prepare(`SELECT c.id, c.name, c.created_at, m.role,
-      (SELECT COUNT(*) FROM circle_members x WHERE x.circle_id=c.id) AS member_count
+  const circleRow = db.prepare(`SELECT c.id, c.name, c.no, c.created_at, m.role,
+      (SELECT COUNT(*) FROM circle_members x WHERE x.circle_id=c.id) AS member_count,
+      CASE WHEN m.role='owner' THEN (SELECT COUNT(*) FROM circle_requests r WHERE r.circle_id=c.id) ELSE 0 END AS pending_requests
     FROM circles c JOIN circle_members m ON m.circle_id=c.id WHERE c.id=? AND m.user_id=?`);
   const memberRow = db.prepare('SELECT role FROM circle_members WHERE circle_id=? AND user_id=?');
   const memberTotal = db.prepare('SELECT COUNT(*) AS n FROM circle_members WHERE circle_id=?');
-  const circlesOf = db.prepare(`SELECT c.id, c.name, c.created_at, m.role,
-      (SELECT COUNT(*) FROM circle_members x WHERE x.circle_id=c.id) AS member_count
+  const circlesOf = db.prepare(`SELECT c.id, c.name, c.no, c.created_at, m.role,
+      (SELECT COUNT(*) FROM circle_members x WHERE x.circle_id=c.id) AS member_count,
+      CASE WHEN m.role='owner' THEN (SELECT COUNT(*) FROM circle_requests r WHERE r.circle_id=c.id) ELSE 0 END AS pending_requests
     FROM circles c JOIN circle_members m ON m.circle_id=c.id WHERE m.user_id=? ORDER BY c.created_at DESC`);
+  const byNumber = db.prepare(`SELECT c.id, c.name, c.no, c.created_at,
+      (SELECT COUNT(*) FROM circle_members x WHERE x.circle_id=c.id) AS member_count
+    FROM circles c WHERE c.no=?`);
+  const requestRow = db.prepare('SELECT created_at FROM circle_requests WHERE circle_id=? AND user_id=?');
+  const requestsOf = db.prepare(`SELECT r.user_id, r.created_at, u.username FROM circle_requests r
+    JOIN users u ON u.id=r.user_id WHERE r.circle_id=? ORDER BY r.created_at, u.username`);
   const circleCount = db.prepare('SELECT COUNT(*) AS n FROM circle_members WHERE user_id=?');
   const membersOf = db.prepare(`SELECT m.user_id, m.role, m.joined_at, u.username FROM circle_members m
     JOIN users u ON u.id=m.user_id WHERE m.circle_id=? ORDER BY m.role='owner' DESC, m.joined_at, u.username`);
@@ -139,6 +217,9 @@ export function createCircles({ db, now = Date.now }) {
     JOIN users u ON u.id=c.author_id WHERE c.post_id=? AND c.deleted=0
     ORDER BY c.created_at DESC, c.rowid DESC LIMIT ?`);
   const commentRow = db.prepare('SELECT rowid AS rid, * FROM post_comments WHERE id=?');
+  /** One row when the two people are in the same circle — the gate for another member's avatar. */
+  const sharedCircle = db.prepare(`SELECT 1 AS ok FROM circle_members a JOIN circle_members b ON b.circle_id=a.circle_id
+    WHERE a.user_id=? AND b.user_id=? LIMIT 1`);
 
   /** Non-members are told "not found", never "forbidden": membership itself is private. */
   function membership(userId, circleId) {
@@ -167,13 +248,21 @@ export function createCircles({ db, now = Date.now }) {
     const label = trimmed(name, LIMITS.name);
     if (circleCount.get(userId).n >= LIMITS.circlesPerUser) fail('CIRCLE_LIMIT');
     const id = randomUUID(); const at = now();
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      db.prepare('INSERT INTO circles(id,name,owner_id,created_at) VALUES (?,?,?,?)').run(id, label, userId, at);
-      db.prepare("INSERT INTO circle_members(circle_id,user_id,role,joined_at) VALUES (?,?,'owner',?)").run(id, userId, at);
-      db.exec('COMMIT');
-    } catch (error) { db.exec('ROLLBACK'); throw error; }
-    return view(userId, id);
+    // The unique index on `no` is the arbiter: a collision rolls the whole insert back and draws again.
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const no = String(randomInt(LIMITS.numberMin, LIMITS.numberMax));
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        db.prepare('INSERT INTO circles(id,name,owner_id,created_at,no) VALUES (?,?,?,?,?)').run(id, label, userId, at, no);
+        db.prepare("INSERT INTO circle_members(circle_id,user_id,role,joined_at) VALUES (?,?,'owner',?)").run(id, userId, at);
+        db.exec('COMMIT');
+        return view(userId, id);
+      } catch (error) {
+        db.exec('ROLLBACK');
+        if (!/UNIQUE|constraint/i.test(error.message)) throw error;
+      }
+    }
+    throw new Error('circle number space exhausted');
   }
 
   function list(userId) {
@@ -185,8 +274,72 @@ export function createCircles({ db, now = Date.now }) {
     const rows = membersOf.all(circleId);
     return {
       count: rows.length,
-      members: rows.map(row => ({ id: row.user_id, username: row.username, role: row.role, joinedAt: row.joined_at })),
+      members: rows.map(row => ({
+        id: row.user_id, username: row.username, role: row.role, joinedAt: row.joined_at,
+        avatar: avatarJson(db, row.user_id),
+      })),
     };
+  }
+
+  /**
+   * Finding a circle by its number reveals only what a stranger needs to decide: the name, how many people are in
+   * it, and where I stand. The id, the member list and the feed stay inside the circle.
+   */
+  function search(userId, value) {
+    const row = byNumber.get(circleNumber(value));
+    if (!row) fail('CIRCLE_NOT_FOUND');
+    const status = memberRow.get(row.id, userId) ? 'member' : requestRow.get(row.id, userId) ? 'pending' : 'none';
+    return { circle: { no: row.no, name: row.name, memberCount: row.member_count, status } };
+  }
+
+  /** Asking to join is not joining: only the owner's approval below adds a member. */
+  function request(userId, value) {
+    const row = byNumber.get(circleNumber(value));
+    if (!row) fail('CIRCLE_NOT_FOUND');
+    if (memberRow.get(row.id, userId)) return { ok: true, status: 'member' };
+    if (memberTotal.get(row.id).n >= LIMITS.membersPerCircle) fail('CIRCLE_FULL');
+    // ON CONFLICT DO NOTHING keeps a second tap idempotent and keeps the first asking time.
+    db.prepare('INSERT INTO circle_requests(circle_id,user_id,created_at) VALUES (?,?,?) ON CONFLICT DO NOTHING')
+      .run(row.id, userId, now());
+    return { ok: true, status: 'pending' };
+  }
+
+  function requests(userId, circleId) {
+    if (membership(userId, circleId) !== 'owner') fail('FORBIDDEN');
+    return {
+      requests: requestsOf.all(circleId).map(row => ({
+        userId: row.user_id, username: row.username, createdAt: row.created_at,
+        avatar: avatarJson(db, row.user_id),
+      })),
+    };
+  }
+
+  function approve(userId, circleId, targetId) {
+    if (membership(userId, circleId) !== 'owner') fail('FORBIDDEN');
+    if (!requestRow.get(circleId, targetId)) fail('REQUEST_NOT_FOUND');
+    if (memberRow.get(circleId, targetId)) { db.prepare('DELETE FROM circle_requests WHERE circle_id=? AND user_id=?').run(circleId, targetId); return { ok: true }; }
+    if (memberTotal.get(circleId).n >= LIMITS.membersPerCircle) fail('CIRCLE_FULL');
+    // Approval is a join: the person still has to be inside their own ten-circle budget.
+    if (circleCount.get(targetId).n >= LIMITS.circlesPerUser) fail('CIRCLE_LIMIT');
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      // Re-read under the write lock so two owners' taps cannot add the same person twice or overflow the cap.
+      if (!db.prepare('SELECT 1 AS ok FROM circle_requests WHERE circle_id=? AND user_id=?').get(circleId, targetId)) fail('REQUEST_NOT_FOUND');
+      if (!db.prepare('SELECT 1 AS ok FROM circle_members WHERE circle_id=? AND user_id=?').get(circleId, targetId)) {
+        if (db.prepare('SELECT COUNT(*) AS n FROM circle_members WHERE circle_id=?').get(circleId).n >= LIMITS.membersPerCircle) fail('CIRCLE_FULL');
+        db.prepare("INSERT INTO circle_members(circle_id,user_id,role,joined_at) VALUES (?,?,'member',?)").run(circleId, targetId, now());
+      }
+      db.prepare('DELETE FROM circle_requests WHERE circle_id=? AND user_id=?').run(circleId, targetId);
+      db.exec('COMMIT');
+    } catch (error) { db.exec('ROLLBACK'); throw error; }
+    return { ok: true };
+  }
+
+  function reject(userId, circleId, targetId) {
+    if (membership(userId, circleId) !== 'owner') fail('FORBIDDEN');
+    if (!requestRow.get(circleId, targetId)) fail('REQUEST_NOT_FOUND');
+    db.prepare('DELETE FROM circle_requests WHERE circle_id=? AND user_id=?').run(circleId, targetId);
+    return { ok: true };
   }
 
   function invite(userId, circleId) {
@@ -223,6 +376,8 @@ export function createCircles({ db, now = Date.now }) {
       if (db.prepare('SELECT COUNT(*) AS n FROM circle_members WHERE circle_id=?').get(found.circle_id).n >= LIMITS.membersPerCircle) fail('CIRCLE_FULL');
       db.prepare("INSERT INTO circle_members(circle_id,user_id,role,joined_at) VALUES (?,?,'member',?)").run(found.circle_id, userId, now());
       db.prepare('UPDATE circle_invites SET uses=uses+1 WHERE code=?').run(value);
+      // Joining by invite answers the ask; a pending request left behind would show up in the owner's list.
+      db.prepare('DELETE FROM circle_requests WHERE circle_id=? AND user_id=?').run(found.circle_id, userId);
       db.exec('COMMIT');
     } catch (error) { db.exec('ROLLBACK'); throw error; }
     return view(userId, found.circle_id);
@@ -237,6 +392,7 @@ export function createCircles({ db, now = Date.now }) {
       return { ok: true, deleted: true };
     }
     db.prepare('DELETE FROM circle_members WHERE circle_id=? AND user_id=?').run(circleId, userId);
+    db.prepare('DELETE FROM circle_requests WHERE circle_id=? AND user_id=?').run(circleId, userId);
     return { ok: true, deleted: false };
   }
 
@@ -245,6 +401,7 @@ export function createCircles({ db, now = Date.now }) {
     if (targetId === userId) fail('INVALID_INPUT');
     if (!memberRow.get(circleId, targetId)) fail('MEMBER_NOT_FOUND');
     db.prepare('DELETE FROM circle_members WHERE circle_id=? AND user_id=?').run(circleId, targetId);
+    db.prepare('DELETE FROM circle_requests WHERE circle_id=? AND user_id=?').run(circleId, targetId);
     return { ok: true };
   }
 
@@ -361,7 +518,15 @@ export function createCircles({ db, now = Date.now }) {
     return { ok: true };
   }
 
-  return { create, list, members, invite, join, leave, removeMember, feed, post, removePost, like, unlike, comments, comment, removeComment };
+  /** True when both accounts belong to at least one circle together; never reveals which one. */
+  function shares(userId, otherId) {
+    return typeof otherId === 'string' && otherId !== '' && Boolean(sharedCircle.get(userId, otherId));
+  }
+
+  return {
+    create, list, members, invite, join, leave, removeMember, feed, post, removePost,
+    like, unlike, comments, comment, removeComment, shares, search, request, requests, approve, reject,
+  };
 }
 
 export { validReceipt };

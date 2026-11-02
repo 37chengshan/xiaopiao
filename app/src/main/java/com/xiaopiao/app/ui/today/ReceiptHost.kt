@@ -30,7 +30,12 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.CompositionLocalProvider
 
 /** One receipt on its way out of the printer. */
-class PrintJob(val day: Long, val lines: List<ReceiptLine>, val timeline: PrintTimeline, val stampText: String, val share: ShareContent, val receipt: com.xiaopiao.app.domain.DailyReceipt? = null)
+class PrintJob(
+    val day: Long, val lines: List<ReceiptLine>, val timeline: PrintTimeline, val stampText: String, val share: ShareContent,
+    val receipt: com.xiaopiao.app.domain.DailyReceipt? = null,
+    /** How this paper was printed, so 「发到圈子」 can send the same look along (tt 2026-11-02). */
+    val snapshot: com.xiaopiao.app.domain.ReceiptSnapshot? = null,
+)
 
 /**
  * The print ceremony's owner, one per app shell: it holds the settings, today's number for the resident strip
@@ -77,7 +82,11 @@ class ReceiptHost internal constructor(
                 font = settings.font,
             )
             val timeline = PrintTimeline.build(lines, reduced)
-            job = PrintJob(day, lines, timeline, stamp, share, receipt)
+            val snapshot = com.xiaopiao.app.domain.ReceiptSnapshot(
+                paper = settings.theme.id, ink = settings.customInk, font = settings.font.id, content = settings.content.toBits(),
+                stamp = stamp.takeIf { content.stamp }, printedAt = meta.printedAtMs, prevCents = meta.previousOutCents,
+            )
+            job = PrintJob(day, lines, timeline, stamp, share, receipt, snapshot)
             session.open(timeline, reduced, from)
         }
     }
@@ -154,11 +163,13 @@ fun ReceiptHostOverlay(host: ReceiptHost) {
 private fun ReceiptCircleCompose(host: ReceiptHost) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val receipt = host.job?.receipt ?: return
-    ReceiptCircleShareSheet(host.container.account, receipt,
+    ReceiptCircleShareSheet(host.container.account, receipt, host.job?.snapshot,
         onPosted = { name ->
             host.circleCompose = false
+            host.container.circles.refreshSoon()
             android.widget.Toast.makeText(context, "已发到「$name」", android.widget.Toast.LENGTH_SHORT).show()
         },
-        onDismiss = { host.circleCompose = false },
+        // A circle may have been created in the sheet: let 圈子 pick it up.
+        onDismiss = { host.circleCompose = false; host.container.circles.refreshSoon() },
     )
 }

@@ -48,6 +48,9 @@ data class Txn(
     val channel: String = "",
 )
 
+/** A red packet captured without its amount (¥0 from a notification): the list shows 「待填金额」 until filled in. */
+val Txn.needsAmount: Boolean get() = amountCents == 0L && source == Source.NOTIFICATION
+
 data class Badge(
     val code: String,
     val title: String,

@@ -1,5 +1,6 @@
 package com.xiaopiao.app.ui.ledger
 
+import com.xiaopiao.app.domain.needsAmount
 import kotlin.math.roundToInt
 import com.xiaopiao.app.ui.motion.XpMotion
 import kotlinx.coroutines.launch
@@ -462,12 +463,24 @@ fun LedgerRowContent(
         Spacer(Modifier.width(XpSpace.s))
         Text(clock, style = TabularSmall, color = XpColors.InkTertiary, maxLines = 1)
         Spacer(Modifier.width(XpSpace.m))
-        Text(
-            if (hidden) "¥ $AMOUNT_MASK" else (if (income) "+" else "-") + txn.amountCents.yuanGrouped(),
-            style = RowAmount,
-            color = if (income) XpColors.Accent else XpColors.Ink,
-            maxLines = 1,
-        )
+        if (txn.needsAmount) {
+            // Red packet captured without its amount: tap the row to fill it in.
+            Text(
+                tr("待填金额", "Add amount"),
+                style = MaterialTheme.typography.labelMedium,
+                color = XpColors.Warning,
+                maxLines = 1,
+                modifier = Modifier.clip(RoundedCornerShape(XpRadius.pill)).background(XpColors.WarningSoft)
+                    .padding(horizontal = XpSpace.s, vertical = 3.dp),
+            )
+        } else {
+            Text(
+                if (hidden) "¥ $AMOUNT_MASK" else (if (income) "+" else "-") + txn.amountCents.yuanGrouped(),
+                style = RowAmount,
+                color = if (income) XpColors.Accent else XpColors.Ink,
+                maxLines = 1,
+            )
+        }
     }
 }
 

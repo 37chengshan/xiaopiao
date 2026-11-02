@@ -112,7 +112,7 @@ private fun ReceiptMessage(
                                 CircleChip(tr("未共享", "Not shared"))
                             }
                         }
-                        if (post.items.isEmpty() && view.totalCents != null) {
+                        if (post.entryCount == 0 && view.totalCents != null) {
                             Text(
                                 tr("今天钱包休息", "Wallet resting today"),
                                 style = MaterialTheme.typography.bodySmall,
@@ -254,7 +254,7 @@ private fun ReceiptBody(post: ReceiptPost) {
             .padding(horizontal = XpSpace.s + 2.dp, vertical = XpSpace.s),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(tr("NO.$serial · ${post.items.size} 笔", "NO.$serial · ${post.items.size} entries"), style = mono, color = XpColors.InkSecondary)
+        Text(tr("NO.$serial · ${post.entryCount} 笔", "NO.$serial · ${post.entryCount} entries"), style = mono, color = XpColors.InkSecondary)
         Text("------------------------", style = mono, color = XpColors.InkTertiary, maxLines = 1)
         post.items.forEach { item ->
             Row(Modifier.fillMaxWidth()) {

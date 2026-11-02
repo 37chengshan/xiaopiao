@@ -15,6 +15,7 @@ object CaptureLogFormat {
             "PARSED" -> LogResultLabel(tr("已记账 · $detail", "Recorded · $detail"), LogTone.GOOD)
             "DUPLICATE" -> LogResultLabel(tr("重复，已跳过 · $detail", "Duplicate, skipped · $detail"), LogTone.NEUTRAL)
             "IGNORED" -> LogResultLabel(tr("已忽略 · $detail", "Ignored · $detail"), LogTone.NEUTRAL)
+            "NEEDS_AMOUNT" -> LogResultLabel(tr("已记入账单，待填金额", "Added to the ledger — amount to fill in"), LogTone.GOOD)
             "UNPARSED" -> LogResultLabel(tr("没认出（可以反馈给开发者）", "Not recognised (you can report it)"), LogTone.WARN)
             else -> LogResultLabel(result, LogTone.NEUTRAL)
         }
