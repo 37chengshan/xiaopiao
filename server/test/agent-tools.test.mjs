@@ -335,6 +335,33 @@ test('a meal or activity draft that carries calories is refused before it can be
   assert.ok(!JSON.stringify(events).includes('600'), 'no invented or echoed calorie reaches the client');
 });
 
+test('soft and indirect advice shapes are caught, review statements are not', () => {
+  const advice = [
+    '建议你多吃蔬菜', '不妨多吃点粗粮', '可以试试少吃主食', '最好别吃夜宵', '少吃点炸鸡', '多喝水', '多喝点水',
+    '要少喝奶茶', '记得吃早饭', '控制饮食很重要', '少吃油炸食品', '你这样吃健康有风险', '可能导致血糖升高',
+    'You should eat more vegetables', 'Try eating less sugar', 'Cut down on fried food', "I'd recommend oatmeal",
+    'Eat more protein', 'Reduce your sugar intake', 'a weight-loss plan', 'a healthier choice would be salad',
+  ];
+  for (const text of advice) assert.ok(ADVICE_PATTERNS.some(pattern => pattern.test(text)), `must be caught: ${text}`);
+
+  const review = [
+    '你这周吃了 3 次火锅', '午餐花了 ¥45.00', '我只帮记录、复盘和算账，吃什么由你决定',
+    '这周外卖 5 次，堂食 2 次', '25 笔支出里吃的最多', '这顿吃了点饺子', '他多喝了两杯', '少吃了 3 顿',
+    '要不要吃点水果', '早餐 2 次、午餐 5 次、晚餐 3 次',
+  ];
+  for (const text of review) assert.equal(ADVICE_PATTERNS.some(pattern => pattern.test(text)), false, `must pass: ${text}`);
+});
+
+test('a suggestion hidden in the last sentence of a long answer is still refused', async () => {
+  const long = `${'你这周记录得很完整，早餐两次、午餐五次、晚餐三次，'.repeat(2)}不妨多吃点粗粮。`;
+  const { fetcher, seen } = scripted([text(long), text('这周的早中晚都记到了。')], [MODEL, FALLBACK]);
+  const agent = createAgent({ apiKey: 'test-placeholder', fetcher });
+  const events = [];
+  await agent({ messages: [{ role: 'user', content: '我这周吃得怎么样' }], round: 0, timezone: 'UTC' }, e => events.push(e), signal());
+  assert.equal(seen.length, 2);
+  assert.equal(events.some(event => event.type === 'token' && event.text.includes('粗粮')), false);
+});
+
 test('the prompt allows review and simulation, and refuses advice', () => {
   const prompt = buildSystemPrompt({ timezone: 'Asia/Shanghai', today: '2026-11-03' });
   assert.match(prompt, /复盘/);
@@ -353,4 +380,60 @@ test('the prompt names every tool, the plan step and the draft kinds', () => {
   assert.ok(prompt.includes('draft'));
   assert.match(prompt, /不推荐买什么/);
   assert.match(prompt, /整数分/);
+});
+
+test('a long answer is checked as a whole: a late unsourced number is never shown', async () => {
+  const long = `${'这周你的支出比较平稳，前三类分别是吃饭、交通和购物，'.repeat(3)}加起来一共 ¥987,654.00。`;
+  assert.ok(long.length > 64, 'the answer is far past the old 64-character gate');
+  const { fetcher, seen } = scripted([text(long), text('这周支出平稳，前三类是吃饭、交通和购物。')], [MODEL, FALLBACK]);
+  const agent = createAgent({ apiKey: 'test-placeholder', fetcher });
+  const events = [];
+  await agent({ messages: [{ role: 'user', content: '我这周花得怎么样' }], round: 0, timezone: 'UTC' }, e => events.push(e), signal());
+  assert.equal(seen.length, 2, 'the whole answer was rejected and another model got the turn');
+  assert.equal(events.some(event => event.type === 'token' && event.text.includes('987')), false);
+  assert.ok(events.some(event => event.type === 'token' && event.text.includes('前三类')));
+});
+
+test('a long answer is checked as a whole: advice in the last sentence is never shown', async () => {
+  const long = `${'你这周吃得挺规律的，早餐和午餐都有记录，晚餐偶尔漏记，'.repeat(3)}不过建议你多吃点蔬菜。`;
+  const { fetcher, seen } = scripted([text(long), text('我只帮记录、复盘和算账，吃什么由你决定。')], [MODEL, FALLBACK]);
+  const agent = createAgent({ apiKey: 'test-placeholder', fetcher });
+  const events = [];
+  await agent({ messages: [{ role: 'user', content: '我这周吃得怎么样' }], round: 0, timezone: 'UTC' }, e => events.push(e), signal());
+  assert.equal(seen.length, 2);
+  assert.equal(events.some(event => event.type === 'token' && event.text.includes('多吃点蔬菜')), false);
+  assert.ok(events.some(event => event.type === 'token' && event.text.includes('吃什么由你决定')));
+});
+
+test('when no model passes the content checks the person gets an error, not a bad answer', async () => {
+  const { fetcher } = scripted([text(`${'很长的开场白，'.repeat(12)}一共 ¥987,654.00。`)], [MODEL]);
+  const agent = createAgent({ apiKey: 'test-placeholder', fetcher });
+  const events = [];
+  await assert.rejects(agent({ messages: [{ role: 'user', content: '我这周花得怎么样' }], round: 0, timezone: 'UTC' }, e => events.push(e), signal()),
+    /MODEL_UNAVAILABLE|UPSTREAM/);
+  assert.equal(events.some(event => event.type === 'token'), false, 'not one character of the rejected answer was shown');
+});
+
+test('a long legitimate answer is emitted once, in full, only after it was checked', async () => {
+  const body = '今天三笔支出都在吃饭，合计 ¥45.00，比昨天少了 ¥12.00。';
+  const long = `${body}${'整体节奏和上周接近。'.repeat(6)}`;
+  const { fetcher, seen } = scripted([text(long)], [MODEL]);
+  const agent = createAgent({ apiKey: 'test-placeholder', fetcher });
+  const events = [];
+  await agent({
+    messages: [
+      { role: 'user', content: '今天花了多少，和昨天比呢' },
+      { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'summarize_period', arguments: '{"period":"today"}' } }] },
+      {
+        role: 'tool', tool_call_id: 'c1',
+        // 4500 cents total over three rows; yesterday's 5700 in the same result is what the difference comes from.
+        content: JSON.stringify({ unit: 'cents', count: 3, total_out: 4500, yesterday_cents: 5700, rows: [{ cents: 1500 }, { cents: 1500 }, { cents: 1500 }] }),
+      },
+    ],
+    round: 2, pending: [], timezone: 'UTC',
+  }, e => events.push(e), signal());
+  assert.equal(seen.length, 1);
+  const tokens = events.filter(event => event.type === 'token');
+  assert.equal(tokens.length, 1, 'one token event, the whole answer');
+  assert.equal(tokens[0].text, long);
 });

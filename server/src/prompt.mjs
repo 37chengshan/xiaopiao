@@ -6,7 +6,7 @@
  * The tool list and the draft kinds are interpolated from `tools.mjs`, so this file cannot describe a tool that
  * does not exist or forget one that does.
  */
-import { DATA_TOOLS, DRAFT_KINDS, promptDraftLine, promptToolLines } from './tools.mjs';
+import { DATA_TOOLS, DRAFT_KINDS, VIEWS, promptDraftLine, promptToolLines } from './tools.mjs';
 
 const RULES = [
   '你只做四件事：把一句话变成待确认的草稿、查询本机账本与生活记录、解释数字、提醒。',
@@ -33,17 +33,6 @@ const RULES = [
   '不要输出内部思考过程或推理，只输出答案本身。',
 ];
 
-/** The view catalogue: id, when to use it, and the payload it expects. Mirrored by both clients. */
-export const VIEWS = [
-  ['spend_summary', '一个周期的总额和笔数', 'total_cents, count, period'],
-  ['category_split', '按分类拆分支出', 'rows[{label, cents}], total_cents, period'],
-  ['trend', '按天走势', 'points[{label, cents}], period'],
-  ['entries', '最近几条明细', 'rows[{merchant, cents, category, occurred_at}]'],
-  ['peak', '最大的一天/一笔', 'label, cents, dimension'],
-  ['weekly_report', '周报卡', 'total_cents, count, top_category, week_label'],
-  ['subscriptions', '规律扣款', 'rows[{merchant, cents, cadence}]'],
-  ['draft_list', '待确认的账目草稿', 'rows[{merchant, cents, category}]'],
-];
 
 const dateIn = timezone => {
   try {
@@ -73,7 +62,7 @@ export function buildSystemPrompt({ timezone = 'Asia/Shanghai', today } = {}) {
     '可用取数工具（在本机执行，只返回结构化统计；金额一律整数分）：',
     ...promptToolLines(),
     '可用视图（kind → 用途 → 需要填的字段，金额都是整数分）：',
-    ...VIEWS.map(([kind, use, fields]) => `- ${kind}：${use}；${fields}`),
+    ...VIEWS.map(view => `- ${view.kind}：${view.use}；${view.fields}`),
     '对话示例：',
     ...EXAMPLES.map(([question, answer]) => `- 用户：${question} → ${answer}`),
   ].join('\n');

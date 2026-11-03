@@ -4,11 +4,10 @@ import { buildSystemPrompt } from './prompt.mjs';
 import { commandcode, endpoints, headersFor } from './providers.mjs';
 import { createStreamSanitizer } from './sanitize.mjs';
 import { viewFromToolResults } from './views.mjs';
-import { VIEWS } from './prompt.mjs';
 import { textBounded } from './bounded.mjs';
 import { buildSources, unsourcedNumbers } from './sources.mjs';
 import {
-  DATA_TOOLS, SERVER_TOOLS, TOOL_LABELS, normalizeDraft, normalizePlan, toolDefinitions,
+  DATA_TOOLS, SERVER_TOOLS, TOOL_LABELS, VIEW_KINDS, normalizeDraft, normalizePlan, toolDefinitions,
 } from './tools.mjs';
 
 export { toolDefinitions } from './tools.mjs';
@@ -28,12 +27,26 @@ export const AGENT_LIMITS = Object.freeze({ rounds: 8, turnMs: 150_000, calls: 6
  * sentence such as 「我只帮记录、复盘和算账，吃什么由你决定」 passes untouched.
  */
 export const ADVICE_PATTERNS = [
-  /(建议|推荐|应该)(你|您)?(多|少)?(吃|喝|选|买|改|换)/,
-  /(减肥|减重|增肌|瘦身)(计划|方案|目标|食谱)/,
+  // Direct or softened Chinese suggestions about what to eat or drink.
+  /(建议|推荐|应该|最好|不妨|可以|尽量|记得)(你|您)?(多|少|别|不要|不)?(吃|喝|选|改|换|忌口)/,
+  // Imperatives that dropped the verb «建议»: 「多喝水」「少吃点炸鸡」. Past/completed forms (「少吃了 3 顿」) are a
+  // review, not advice, so they are excluded.
+  /(多|少)(吃|喝)(?!了|过)/,
+  /忌口|戒掉|控制饮食|管住嘴|别吃了|别喝了/,
+  /(减肥|减重|增肌|瘦身)(计划|方案|目标|食谱|餐)/,
   /帮你(减肥|减重|瘦)/,
-  /你(吃|喝)得(太|有点|比较)(多|少|油腻|咸|甜)/,
-  /(营养|健康)(风险|隐患|问题)/,
-  /可能导致/,
+  /你(吃|喝)得(太|有点|比较|不够)(多|少|油腻|咸|甜)/,
+  /(营养|健康)(有|会|存在)?(风险|隐患|问题|不良|负担)/,
+  /可能导致|会引起|不利于/,
+  // English is a first language for part of the audience; the same imperative shapes must be caught.
+  /you (?:should|might|may|had better|need to)\s+(?:eat|drink|try|avoid|cut)/i,
+  /(?:try|consider)\s+(?:eating|drinking|cutting|avoiding)/i,
+  /cut down on|cut back on/i,
+  /I(?:'| a)?d? (?:recommend|suggest)/i,
+  /(?:eat|drink) (?:more|less)\b/i,
+  /(?:reduce|lower) your (?:intake|calories|sugar|salt|fat)/i,
+  /weight[- ]loss plan|lose weight/i,
+  /(?:healthy|healthier) (?:choice|option|alternative)/i,
 ];
 
 /** Parses arbitrary UTF-8/SSE boundaries; ignores comments and multiline data is reassembled. */
@@ -153,7 +166,6 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
       const budget = router.firstTokenBudget(model);
       const startedAt = now();
       let started = false;
-      let shown = false;
       let status = 0;
       let note = '';
       const firstToken = AbortSignal.timeout(budget);
@@ -181,16 +193,11 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
         let content = '', done = false;
         const calls = new Map();
         const sanitizer = createStreamSanitizer();
-        // Short answers are held for a beat so a fabricated number is caught before the user sees it.
-        // Anything longer than the gate streams live; it is already showing real content by then.
-        let gate = '';
-        let streaming = false;
-        const flush = (text) => { if (text) { shown = true; emit({ type: 'token', text }); } };
-        const pushContent = (text) => {
-          if (streaming) { flush(text); return; }
-          gate += text;
-          if (gate.length >= 64) { streaming = true; flush(gate); gate = ''; }
-        };
+        // The answer is buffered to the end of the model's turn and only then shown, in one piece. Both content
+        // checks (numbers must be sourced, no advice) need the *whole* answer: the offending sentence is usually
+        // the last one, and a 64-character window would let a long reply stream right past them. Progress events —
+        // status, plan, step — are still live, so the UI is not blank while the model writes.
+        // A reply is capped at 24k characters, so this buffer is bounded as well.
         for await (const data of sseData(response.body)) {
           if (data === '[DONE]') { done = true; break; }
           const choice = JSON.parse(data).choices?.[0];
@@ -203,10 +210,8 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
             if (clean) {
               content += clean;
               if (content.length > 24_000) throw new Error('OUTPUT_LIMIT');
-              pushContent(clean);
             }
           }
-          if (delta.tool_calls?.length) { streaming = true; flush(gate); gate = ''; }
           for (const part of delta.tool_calls ?? []) {
             const call = calls.get(part.index) ?? { id: '', type: 'function', function: { name: '', arguments: '' } };
             call.id += part.id ?? '';
@@ -221,7 +226,10 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
         }
         if (!done) throw new Error('UPSTREAM_TRUNCATED');
         const rest = sanitizer.finish();
-        if (rest) { content += rest; pushContent(rest); }
+        if (rest) {
+          content += rest;
+          if (content.length > 24_000) throw new Error('OUTPUT_LIMIT');
+        }
         const pending = [...calls.values()];
         for (const call of pending) {
           if (!toolDefinitions.some(tool => tool.function.name === call.function.name)) throw new Error('UNKNOWN_TOOL');
@@ -234,7 +242,7 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
           if (call.function.name !== 'show_view') return true;
           try {
             const args = JSON.parse(call.function.arguments || '{}');
-            return VIEWS.some(([kind]) => kind === args.kind);
+            return VIEW_KINDS.includes(args.kind);
           } catch { return false; }
         });
         // A draft is an action proposal, so it must be exactly right or not exist at all. A model that invents a
@@ -243,7 +251,7 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
         for (const call of usable.filter(item => item.function.name === 'draft')) {
           let draft = null;
           try { draft = normalizeDraft(JSON.parse(call.function.arguments || '{}'), { now: now() }); } catch { draft = null; }
-          if (!draft) throw new Error(shown ? 'DRAFT_AFTER_STREAM' : 'INVALID_DRAFT');
+          if (!draft) throw new Error('INVALID_DRAFT');
           call.function.arguments = JSON.stringify(draft);
           drafts.push(draft);
         }
@@ -252,17 +260,18 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
         const synthesized = !state.views && !pending.some(call => call.function.name === 'show_view') ? groundedView : null;
         // A view (model's or ours) is a complete answer: no text required.
         if (!pending.length && !content.trim() && !synthesized && !state.views) throw new Error('EMPTY_RESPONSE');
-        // Two content checks, both only possible while nothing has been shown yet — a rejected answer is invisible:
+        // Two checks over the complete answer, before a single character is shown:
         // - every number must be explained by a source (tool result or the person's own words);
         // - advice the product refuses (what to eat, weight-loss plans, medical guidance) is not shown at all.
-        if (!shown && content.trim()) {
+        // A failure costs a retry on another model and the person sees nothing of the rejected text.
+        if (content.trim()) {
           if (unsourcedNumbers(content, sources).length) throw new Error('UNSOURCED_NUMBER');
           if (ADVICE_PATTERNS.some(pattern => pattern.test(content))) throw new Error('OUT_OF_SCOPE_ADVICE');
         }
-        // The answer was short enough to stay gated: it is legitimate, so show it now, in one piece.
-        if (!streaming && gate) { const held = gate; gate = ''; streaming = true; flush(held); }
         state.messages.push({ role: 'assistant', content: content || null, ...(pending.length ? { tool_calls: pending } : {}) });
         state.round++;
+        // Validated: the answer goes out in one piece. `token` keeps its existing shape, so a client needs no change.
+        if (content.trim()) emit({ type: 'token', text: content });
         router.report(model, { ok: true, latencyMs: firstTokenAt ? firstTokenAt - startedAt : undefined, needsTools });
         if (synthesized) { state.views = 1; emit({ type: 'view', view: synthesized }); }
         // A plan is a note to self. It is acknowledged here and never forwarded as a tool call, so an old client
