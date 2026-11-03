@@ -153,6 +153,19 @@ test('the vision call is bounded, uses the provider shape, and never streams a p
     error => error.code === 'RECOGNIZE_UNAVAILABLE');
 });
 
+test('the vision call uses the same provider descriptor as the text model', async () => {
+  const seen = [];
+  const provider = { id: 'test', baseUrl: 'https://vision.example/v1', headers: { 'User-Agent': 'Xiaopiao-Agent/1.0' }, auth: 'bearer' };
+  const vision = createVision({
+    apiKey: 'test-placeholder', model: 'vision-test', provider,
+    fetcher: async (url, options) => { seen.push({ url, headers: options.headers }); return Response.json({ choices: [{ message: { content: '{"items":[]}' } }] }); },
+  });
+  await vision.describe(Buffer.from([0xff, 0xd8, 0xff, 0x00]), 'image/jpeg');
+  assert.equal(seen[0].url, 'https://vision.example/v1/chat/completions');
+  assert.equal(seen[0].headers['User-Agent'], 'Xiaopiao-Agent/1.0', 'the descriptor header is not bypassed');
+  assert.match(seen[0].headers.Authorization, /^Bearer /);
+});
+
 test('header parsing reads the real pixel size instead of trusting the client', () => {
   assert.deepEqual(dimensions(jpeg(600, 400)), { width: 600, height: 400 });
   assert.deepEqual(dimensions(webp(512, 288)), { width: 512, height: 288 });

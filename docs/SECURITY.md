@@ -61,14 +61,18 @@ body 按 bytes 累计，收齐后统一 UTF-8 解码，修复中文跨 chunk 被
 
 | 威胁 | 对策 | 代码位置 |
 |---|---|---|
-| 绑定票据被重放 | 票据 43 字符随机、只存 sha256 摘要；绑定成功即 `status='bound'`，重放命中同一条即 `400`；「挂 openid」与「消费票据」在同一个 `BEGIN IMMEDIATE` 事务里，两次并发扫码只有一次 `changes=1` | `wechat.mjs` `bind` |
-| 票据被第三方截获后轮询 | 轮询要求**生成票据的账号**在线，别人的 401/400 与「票据不存在」同码同文案；票据本身不含账号 id、不含 openid | `app.mjs` `ticketPoll` |
-| 票据被第三方拿去绑定自己的微信 | 绑定会把**扫码者的 openid** 挂到持票账号上。因此票据 5 分钟过期 + 每账号 10 次/小时 + 只在 App 内显示一次；风险等价于「把小程序码给陌生人」（等于让对方登进你的账号），已在客户端文案里写明 | `wechat.mjs`、`app.mjs` |
+| 绑定票据被重放 | 票据 20 字符随机（15 字节 base64url）、只存 sha256 摘要；绑定成功即 `status='bound'`，重放命中同一条即 `400`；「挂 openid」与「消费票据」在同一个 `BEGIN IMMEDIATE` 事务里，两次并发确认只有一次 `changes=1` | `wechat.mjs` `confirm` |
+| 票据被第三方截获后轮询 | 轮询与确认都要求**生成票据的账号**在线，别人的 401/400 与「票据不存在」同码同文案；票据本身不含账号 id、不含 openid；小程序侧的 `bind-status` 只返回状态枚举 | `app.mjs` `ticketPoll`、`wechat.mjs` `scanStatus` |
+| 票据被第三方拿去绑定自己的微信 | **扫码不再等于绑定**：小程序扫码只把票据置为 `scanned` 并带上昵称/头像，必须由已登录的 App 持有者点确认才写入 openid；App 不确认或超时则永不绑定，拒绝直接把票据作废 | `wechat.mjs` `claim`/`confirm`/`reject` |
+| 票据长度导致绑定整体不可用 | 微信 `getwxacodeunlimit` 的 `scene` 上限 32 字符，上一版 43 字符票据会 100% 失败；票据改为 20 字符（`b:` + 20 = 22），`bindCode` 在发请求前断言 `scene.length <= 32`，测试断言真实长度而不是只跑 mock | `wechat.mjs` `LIMITS`/`bindCode`、`test/bounded.test.mjs` |
+| 上游响应无界读取 | 模型、微信、视觉三处统一走 `src/bounded.mjs`：先看 `Content-Length`，再按字节上限边读边算，任何路径都 `cancel()` 释放 socket；`!response.ok` 也取消 body | `bounded.mjs` |
+| 用 email-attach 探测邮箱是否注册 | 先扣限流（每账号 5 次/小时、每地址 4 次/小时）再查占用，连续探测在第 5 次即 `429`；文案与占用结果不增加额外信息量 | `app.mjs` `email-attach` |
 | openid 枚举 | `session_key` 不落库不下发；`/v1/auth/wechat` 只接受 `wx.login` 的一次性 code（微信侧也校验），不提供任何「查某个 openid 是否已注册」的接口；绑定冲突只返回 `WECHAT_IN_USE`/`WECHAT_ALREADY_BOUND`，不回显对方账号 id、邮箱或用户名 | `wechat.mjs`、`app.mjs` |
 | session_key 泄漏 | 只在 `openidFor()` 内解析 `openid`，其余字段（含 `session_key`、`unionid`）读出即丢；错误体只做 `errcode` 分类，原文不转发、不写日志；测试用 `session_key` 标记断言它不出现在任何响应里 | `wechat.mjs` `openidFor` |
 | 微信接口不可用时的降级 | 缺少 `WX_MP_APPID`/`WX_MP_SECRET` 时直接 `503 WECHAT_UNAVAILABLE`，不会走假成功；微信上游超时 8 s、错误体上限 64 KB、`redirect: 'error'` | `wechat.mjs` |
 | 解绑把账号锁死 | 解绑前要求「有邮箱 **且** 有密码」，否则 `409 WECHAT_LAST_LOGIN`；微信账号第一次设密码要求先挂邮箱（否则忘了无法找回） | `app.mjs` 解绑与 `password` 分支 |
 | 邮箱被两个账号争用（合并提权） | 拒绝而非合并：`409 EMAIL_BOUND_ELSEWHERE`，提示去拥有邮箱的一端扫码绑定。合并会牵动账本/圈子/会话，不是一次邮件验证码能授权的操作 | `app.mjs` `email-attach` |
+| 同一 openid 被两个账号同时认领 | 确认前先查占用，写入被唯一索引拦下时映射为 `409 WECHAT_IN_USE`（不是 500），事务回滚后票据状态不变 | `wechat.mjs` `confirm` |
 | 老库迁移期间的数据丢失 | `users` 重建时 `PRAGMA foreign_keys=OFF`（否则 `DROP TABLE` 会级联删除所有子表行），事务内完成复制/替换/重命名，结束后重新开启并跑 `PRAGMA foreign_key_check`；有老库夹具测试覆盖账本与会话行 | `store.mjs` `migrateWeChatUsers` |
 | 拍照识别被当作免费模型代理 | 每账号 6 次/分钟、60 次/天，每来源 30 次/分钟，全实例 2 个并发视觉调用（独立池，不挤占 chat），另有既有的同 IP 300 次/分钟 | `app.mjs`、`defense.mjs` |
 | 图片成为持久化隐私风险 | 不落盘、不入库、不写日志、不回显；请求体上限 280 KB 只对这一条路由；解码后再校验 200 KB 与长边 512 px；函数返回即丢弃 buffer | `life.mjs` |
@@ -82,7 +86,7 @@ body 按 bytes 累计，收齐后统一 UTF-8 解码，修复中文跨 chunk 被
 ### 仍需在上线前后确认
 
 1. 真实 AppSecret 写入 `/etc/xiaopiao/server.env`（`600`）后，`jscode2session` 与 `getwxacodeunlimit` 各跑一次真实调用；确认 `access_token` 缓存命中、错误码映射正确。当前没有在生产调用过微信接口。
-2. 小程序码 `page=pages/bind/bind` 必须是**已发布版本里存在的页面**，否则 `getUnlimited` 会报 41030；需要小程序侧先有这个页面。
+2. 小程序码 `page=pages/bind/bind` 必须是**已发布版本里存在的页面**，否则 `getUnlimited` 会报 41030；需要小程序侧先有这个页面。用真实 AppID 跑一次 `getwxacodeunlimit` 确认 22 字符的 `scene` 被接受（本地只验证了长度约束）。
 3. 视觉模型：选定 `LIFE_VISION_MODEL` 并确认它对中文菜品名的输出稳定；未设置时接口整体 503，属于预期状态。
 4. 老库迁移要在生产库的副本上跑一次并比对行数（`users`/`sessions`/`ledger_txns`/`circle_members`），再在真实库执行；在线备份按 `DEPLOY.md` 保留。
 

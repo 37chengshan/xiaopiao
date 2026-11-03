@@ -130,13 +130,26 @@ export function store(path) {
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       status TEXT NOT NULL DEFAULT 'pending',
       openid TEXT,
+      nickname TEXT,
+      avatar_url TEXT,
       created_at INTEGER NOT NULL,
       expires INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS wechat_bind_tickets_user ON wechat_bind_tickets (user_id);`);
   migrateCircleNumbers(db);
   migrateWeChatUsers(db);
+  migrateTicketColumns(db);
   return db;
+}
+/**
+ * The binding ticket gained two columns when binding became a two-step decision (the App confirms what the mini
+ * program claimed). A database written by the previous shape gets them here; existing rows stay pending.
+ */
+function migrateTicketColumns(db) {
+  const columns = new Set(db.prepare('PRAGMA table_info(wechat_bind_tickets)').all().map(column => column.name));
+  for (const name of ['nickname', 'avatar_url']) {
+    if (!columns.has(name)) db.exec(`ALTER TABLE wechat_bind_tickets ADD COLUMN ${name} TEXT`);
+  }
 }
 /**
  * WeChat-only accounts have no email and no password, so those two columns must be nullable. SQLite cannot drop a

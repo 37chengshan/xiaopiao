@@ -11,7 +11,8 @@
  * - A model that answers with prose, a broken JSON fragment or a dish name full of markdown yields `items: []` with
  *   a 200: "not recognised" is an answer the person can act on, not a server error.
  */
-import { endpoints, headersFor } from './providers.mjs';
+import { commandcode, endpoints, headersFor } from './providers.mjs';
+import { readBounded } from './bounded.mjs';
 
 export const LIMITS = Object.freeze({
   /** Compressed bytes, as the app promises: long side ≤ 512 px, ≤ 200 KB. */
@@ -98,10 +99,11 @@ const asText = value => {
 };
 
 /**
- * The vision call. A provider that returns prose, a truncated body or a rate limit is "nothing recognised", not a
- * failed request — except a timeout, which the client shows as "没认出来，手动搜一下".
+ * The vision call. A provider that returns prose, a truncated body, a rate limit or no configured model at all is
+ * not a crash: the first three are "nothing recognised" (`items: []`), the last is a clear 503 — see `recognize`
+ * below. Only a timeout is reported as a timeout, which the client shows as 「没认出来，手动搜一下」.
  */
-export function createVision({ apiKey, model, baseUrl = 'https://api.commandcode.ai/provider/v1',
+export function createVision({ apiKey, model, provider = commandcode, baseUrl = provider.baseUrl,
   fetcher = fetch, timeoutMs = LIMITS.timeoutMs }) {
   const usable = Boolean(apiKey && model);
   const url = endpoints({ baseUrl }).chat;
@@ -113,7 +115,8 @@ export function createVision({ apiKey, model, baseUrl = 'https://api.commandcode
     try {
       response = await fetcher(url, {
         method: 'POST', redirect: 'error', signal,
-        headers: { ...headersFor({}, apiKey), 'Content-Type': 'application/json' },
+        // Same descriptor as the text model, so the user-agent / auth header rules live in exactly one place.
+        headers: { ...headersFor(provider, apiKey), 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model, stream: false, max_tokens: 400, temperature: 0,
           messages: [{
@@ -131,19 +134,8 @@ export function createVision({ apiKey, model, baseUrl = 'https://api.commandcode
     if (!response.ok) { await response.body?.cancel().catch(() => {}); fail('RECOGNIZE_UNAVAILABLE'); }
     let raw;
     try {
-      const reader = response.body?.getReader();
-      if (!reader) fail('RECOGNIZE_UNAVAILABLE');
-      const chunks = []; let total = 0;
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        total += value.byteLength;
-        if (total > LIMITS.responseBytes) { await reader.cancel().catch(() => {}); fail('RECOGNIZE_UNAVAILABLE'); }
-        chunks.push(value);
-      }
-      raw = new TextDecoder().decode(Buffer.concat(chunks));
-    } catch (error) {
-      if (error?.code) throw error;
+      raw = (await readBounded(response, LIMITS.responseBytes, { code: 'RECOGNIZE_UNAVAILABLE' })).toString('utf8');
+    } catch {
       fail(signal.aborted ? 'RECOGNIZE_TIMEOUT' : 'RECOGNIZE_UNAVAILABLE');
     }
     return parseItems(raw);

@@ -19,7 +19,8 @@ const wechatClient = createWechatClient({ appId: process.env.WX_MP_APPID, secret
 const vision = createVision({
   apiKey: process.env.LIFE_VISION_API_KEY || providerKey(provider),
   model: process.env.LIFE_VISION_MODEL || null,
-  baseUrl: process.env.LIFE_VISION_BASE_URL || provider.baseUrl,
+  provider,
+  ...(process.env.LIFE_VISION_BASE_URL ? { baseUrl: process.env.LIFE_VISION_BASE_URL } : {}),
 });
 const app = createApp({
   db: store(process.env.DB_PATH ?? './data/xiaopiao.sqlite'), production, origin, trustedProxy: process.env.TRUST_PROXY === '1',

@@ -177,8 +177,11 @@ DB_PATH=/var/lib/xiaopiao/api.sqlite node scripts/feedback.mjs [--since=<epochMs
 |---|---|---|---|
 | POST | `/v1/auth/wechat` | 无 | 小程序登录：`{code, client:"native"}` |
 | POST | `/v1/auth/wechat/bind-ticket` | 已登录 | 生成一次性绑定票据 + 小程序码 |
-| GET | `/v1/auth/wechat/bind-ticket/:ticket` | 已登录（须是票据所属账号） | 轮询票据状态 |
-| POST | `/v1/auth/wechat/bind` | 无（小程序侧） | `{ticket, code, client:"native"}` 完成绑定 |
+| GET | `/v1/auth/wechat/bind-ticket/:ticket` | 已登录（须是票据所属账号） | 轮询票据状态：`pending` / `scanned` / `bound` / `rejected` / `expired` |
+| POST | `/v1/auth/wechat/bind` | 无（小程序侧） | `{ticket, code, nickname?, avatarUrl?}` **扫码登记**，不绑定 |
+| GET | `/v1/auth/wechat/bind-status?ticket=` | 无（小程序侧） | 只返回状态枚举，没有账号数据、没有会话 |
+| POST | `/v1/auth/wechat/bind-ticket/:ticket/confirm` | 已登录（票据所属账号） | App 侧确认，**这一步才写入 openid** |
+| POST | `/v1/auth/wechat/bind-ticket/:ticket/reject` | 已登录（票据所属账号） | App 侧拒绝，票据作废 |
 | DELETE | `/v1/auth/wechat` | 已登录 | 解绑微信 |
 | POST | `/v1/auth/email-attach` | 已登录、账号无邮箱 | 给微信账号挂邮箱：`{email}` |
 | POST | `/v1/auth/email-attach/confirm` | 同上 | `{code}` 确认 |
@@ -196,40 +199,67 @@ DB_PATH=/var/lib/xiaopiao/api.sqlite node scripts/feedback.mjs [--since=<epochMs
 - 错误：`400 WECHAT_CODE_INVALID`（code 无效/已用过）、`503 WECHAT_UNAVAILABLE`。
 - 限流：同 IP 60 次/15 分钟，另受全局认证工作池约束。
 
-#### 2. 绑定票据（App / Web → 小程序）
+#### 2. 绑定票据：扫码登记 + App 确认（两步）
+
+```
+App                    服务端                    小程序
+ |-- bind-ticket ------>|                         |
+ |<- id/scene/QR 图片 --|                         |
+ |   （显示二维码）      |<---- bind {ticket,code} |  扫码
+ |                      |  status=scanned         |
+ |-- GET bind-ticket -->|                         |
+ |<- status=scanned + 昵称/头像 --------------     |
+ |   （弹窗：绑定这个微信？）                      |
+ |-- POST .../confirm ->|  写 openid, status=bound
+ |                      |<---- bind-status -------|  （可选，只读状态）
+ |                      |<---- POST /v1/auth/wechat {新 code} → 会话
+```
 
 ```json
 POST /v1/auth/wechat/bind-ticket   {}            →  201
-{ "id": "<43 字符票据>", "scene": "b:<票据>", "expiresAt": 1762143000000,
+{ "id": "<20 字符票据>", "scene": "b:<票据>", "expiresAt": 1762143000000,
   "mime": "image/png", "image": "<小程序码 PNG 的 base64>" }
 ```
 
-- 票据 5 分钟有效、**一次性**、只存在它的 sha256 摘要；绑定成功即作废，重放返回 `400 WECHAT_TICKET_INVALID`。
-- 小程序码用 `wxacode.getUnlimited` 生成，`scene=b:<票据>`、`page=pages/bind/bind`。`access_token` 只在服务端缓存（提前 100 分钟刷新），不经过客户端。
+- 票据 **20 个字符**（15 字节 base64url）、5 分钟有效、**一次性**、只存 sha256 摘要。长度是硬约束：微信 `getwxacodeunlimit` 的 `scene` 上限 **32 字符**，`b:` + 20 = 22 才装得下；服务端在生成二维码前还会校验 `scene.length <= 32`，装不下就报错而不是发一张注定 503 的请求。
+- 小程序码 `scene=b:<票据>`、`page=pages/bind/bind`。`access_token` 只在服务端缓存（提前 100 分钟刷新），不经过客户端。
 - 二维码只用来传票据，票据本身不带账号信息，泄露也换不到登录态。
 - 限流：每账号 10 次/小时；账号已绑微信 → `409 WECHAT_ALREADY_BOUND`。
 
 ```json
 GET /v1/auth/wechat/bind-ticket/<票据>   →  200
-{ "status": "pending", "expiresAt": 1762143000000 }
-{ "status": "bound",   "user": { ...publicUser } }
+{ "status": "pending",  "expiresAt": 1762143000000 }
+{ "status": "scanned",  "wechat": { "nickname": "阿票", "avatarUrl": "https://..." } }
+{ "status": "bound",    "user": { ...publicUser } }
+{ "status": "rejected" }
 { "status": "expired" }
 ```
 
 - 只有生成票据的那个账号能查；别人拿着票据查一律 `400 WECHAT_TICKET_INVALID`（与「不存在」同一个回答，不泄漏票据是否有效）。
-- 建议 App 2 秒轮询一次，`status` 变化就停；`bound` 时用返回的 `user` 直接刷新账号信息。
+- 建议 App 2 秒轮询；看到 `scanned` 就弹确认框，`bound` 后直接用返回的 `user` 刷新账号。
+- `wechat.nickname` / `wechat.avatarUrl` 只是给确认弹窗看的，**不写进账号**（头像仍走 `/v1/auth/avatar`）。
 
 ```json
 POST /v1/auth/wechat/bind
-{ "ticket": "<票据>", "code": "<小程序自己的 wx.login code>", "client": "native" }   →  200 {user, token}
+{ "ticket": "<票据>", "code": "<小程序自己的 wx.login code>", "nickname": "阿票", "avatarUrl": "https://..." }
+  →  202 { "status": "scanned", "poll": "/v1/auth/wechat/bind-status?ticket=<票据>" }
 ```
 
-- 小程序打开 `pages/bind/bind?scene=b:<票据>` 后，带着票据和**它自己**的 `wx.login` code 调这里。
-- 事务内完成「挂 openid + 票据置 bound」，并发扫两次只有一次成功（票据只能消费一次）；成功后小程序直接就是该账号的登录态。
-- 拒绝规则：
-  - 该 openid 已属于另一个账号 → `409 WECHAT_IN_USE`（先在那一边解绑，不自动合并）。
-  - 目标账号已绑了另一个 openid → `409 WECHAT_ALREADY_BOUND`。
-  - 票据过期/用过/不存在 → `400 WECHAT_TICKET_INVALID`。
+- 小程序打开 `pages/bind/bind?scene=b:<票据>` 后，带着票据和**它自己**的 `wx.login` code 调这里。这一步只**登记**：记录 openid 与昵称/头像，状态变 `scanned`，**账号什么都没变，也不下发会话**。
+- 同一个 openid 重复调是幂等的；换另一个微信来抢已经 `scanned` 的票据 → `400 WECHAT_TICKET_INVALID`。
+- 该 openid 已属于另一个账号 → `409 WECHAT_IN_USE`（先在那一边解绑，不自动合并）。
+
+```json
+POST /v1/auth/wechat/bind-ticket/<票据>/confirm  {}  → 200 {user}
+POST /v1/auth/wechat/bind-ticket/<票据>/reject   {}  → 200 {status:"rejected", user}
+```
+
+- 只有票据所属账号、且状态是 `scanned` 才能确认；确认在**一个事务**里完成「挂 openid + 票据置 bound」，两次并发确认只有一次成功，另一次 `400 WECHAT_TICKET_INVALID`。
+- 写入时撞上唯一索引（另一台设备刚好把同一个微信绑了别的账号）→ `409 WECHAT_IN_USE`，不是 500。
+- 拒绝把票据置 `rejected` 并清掉登记的信息，之后不能确认；账号不变。
+- **为什么要这一步**：二维码是给「本人手机」看的，但任何人都可能把别人的码扫走。只有持有已登录 App 的人点确认，微信身份才会被挂上——扫码本身不足以证明是账号主人在操作。
+
+小程序侧拿到会话的方式（二选一，**推荐前者**）：确认成功后它的 `bind-status` 会变成 `bound`，此时重新 `wx.login` 拿一个新 code 调 `POST /v1/auth/wechat`（这时 openid 已绑在该账号上，返回的就是那个账号的会话）。不要用票据本身换会话：票据不证明 openid。
 
 #### 3. 解绑 `DELETE /v1/auth/wechat`
 
@@ -284,10 +314,10 @@ POST /v1/auth/email-attach/confirm  { "code": "123456" }            → 200 {use
 
 ### 需要前端配合
 
-1. App/Web：设置页加「绑定微信」→ 调 `bind-ticket` → 显示 `image`（PNG）→ 轮询 → `bound` 后刷新账号；账号对象新增 `wechat` 字段，`email` 可能是 `null`。
-2. 小程序：`wx.login` 拿 code → `POST /v1/auth/wechat`（带 `client:"native"`）；扫码页读 `scene=b:<票据>` → `wx.login` → `POST /v1/auth/wechat/bind`；「绑定邮箱」页复用验证码 UI 调 `email-attach` / `email-attach/confirm`。
+1. App/Web：设置页加「绑定微信」→ 调 `bind-ticket` → 显示 `image`（PNG）→ 轮询：`pending` 显示「等待扫码」，`scanned` 弹「绑定微信「昵称」？」→ 用户点确认调 `.../confirm`（点拒绝调 `.../reject`）→ `bound` 后刷新账号；账号对象新增 `wechat` 字段，`email` 可能是 `null`。
+2. 小程序：`wx.login` 拿 code → `POST /v1/auth/wechat`（带 `client:"native"`）；扫码页读 `scene=b:<票据>` → `wx.login` → `POST /v1/auth/wechat/bind`（可带 `nickname`/`avatarUrl`）→ 显示「等待 App 确认」→ 轮询 `bind-status` → `bound` 后重新 `wx.login` 并调 `POST /v1/auth/wechat` 取会话；`rejected` 显示「已取消」。「绑定邮箱」页复用验证码 UI 调 `email-attach` / `email-attach/confirm`。
 3. 老客户端遇到 `email: null` / 未知字段 `wechat` 不应崩溃（Android `AccountUser` 目前读 `email` 为必填，建议改成可空）。
 
 ### 验收（2026-11-03，未部署）
 
-`npm test --prefix server` 177/177 通过，其中新增 13 项微信测试（新用户建号、重复登录不重复建号、无效 code、`session_key` 不出服务端、票据生成/轮询/绑定/重放、过期票据、他人轮询、并发绑定只成功一次、票据限流、邮箱被占拒绝、挂邮箱+设首个密码+用新密码登录、无邮箱不能设密码、解绑保护与解绑成功、openid 已被占用、账号已绑其它微信、未配置时 503、绑定/解绑/挂邮箱的真实进程 smoke），另有 1 项老库迁移测试（可空列、数据与子表外键保留、可重复执行）。`npm run check` 通过。
+`npm test --prefix server` 193/193 通过，其中 18 项微信测试：新用户建号（id 是 UUID）、重复登录不重复建号、无效 code、`session_key` 不出服务端、票据长度与 `scene ≤ 32`（断言真实值，不靠 mock）、扫码登记不下发会话、App 确认后才写入 openid、拒绝作废票据、他人扫码但 App 不确认则不绑定、过期票据、他人轮询/他人确认、并发确认只成功一次、换微信抢已登记票据被拒、同一 openid 竞争时 409 而非 500、票据限流、邮箱探测先限流再查占用、邮箱被占拒绝、挂邮箱+设首个密码+用新密码登录、无邮箱不能设密码、解绑保护与解绑成功、未配置时 503；另有老库迁移测试（可空列、数据与子表外键保留、可重复执行）。`npm run check` 通过。

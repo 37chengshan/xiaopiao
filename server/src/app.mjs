@@ -192,15 +192,21 @@ export function createApp({ db, agent, sendMail, wechatClient = createWechatClie
       rate('requests:all', 3000, 60_000);
       if (url.pathname === '/v1/auth/policy' && req.method === 'GET') return json(ACCOUNT_POLICY);
       if (url.pathname === '/v1/auth/me' && req.method === 'GET') return json({ user: publicOf(userOf(req)) });
-      // WeChat binding, App / Web side: the ticket is the only thing that crosses the QR code, and polling is
-      // scoped to the account that asked for it. A ticket never reveals another account to whoever holds it.
-      const ticketPoll = /^\/v1\/auth\/wechat\/bind-ticket\/([A-Za-z0-9_-]{20,64})$/.exec(url.pathname);
+      // WeChat binding, App side: the ticket is the only thing that crosses the QR code, and every read is scoped to
+      // the account that asked for it. `scanned` is the moment the person decides: nothing is bound until they
+      // confirm, so a QR code someone else scans cannot attach their WeChat to this account.
+      const ticketPoll = /^\/v1\/auth\/wechat\/bind-ticket\/([A-Za-z0-9_-]{20})$/.exec(url.pathname);
       if (ticketPoll && req.method === 'GET') {
         const user = userOf(req);
-        rate(`wechat-ticket-poll:${user.id}`, 300, 3600_000);
+        rate(`wechat-ticket-poll:${user.id}`, 600, 3600_000);
         const state = wechat.status(user.id, ticketPoll[1]);
         const bound = state.status === 'bound' ? { user: publicOf(userOf(req)) } : {};
         return json({ ...state, ...bound });
+      }
+      // Mini program side: status only — no account data, no session, and no way to learn whose ticket it is.
+      if (url.pathname === '/v1/auth/wechat/bind-status' && req.method === 'GET') {
+        rate(`wechat-scan-status:${hash(String(ip))}`, 600, 600_000);
+        return json(wechat.scanStatus(url.searchParams.get('ticket')));
       }
       // Removing WeChat must never leave an account nobody can sign in to: an email and a password must remain.
       if (url.pathname === '/v1/auth/wechat' && req.method === 'DELETE') {
@@ -315,11 +321,14 @@ export function createApp({ db, agent, sendMail, wechatClient = createWechatClie
         return json({ error: 'NOT_FOUND' }, 404);
       }
       if (req.method !== 'POST') return json({ error: 'NOT_FOUND' }, 404);
+      // The App's half of the binding: confirm or reject what the mini program claimed.
+      const ticketAction = /^\/v1\/auth\/wechat\/bind-ticket\/([A-Za-z0-9_-]{20})\/(confirm|reject)$/.exec(url.pathname);
       const authRoute = /^\/v1\/auth\/(register|login|logout|verify|resend|forgot|reset|password|profile|email-request|email-confirm|wechat|wechat\/bind|wechat\/bind-ticket|email-attach|email-attach\/confirm)$/.test(url.pathname);
       if (authRoute) {
         rate(`auth:${ip}`, 30);
         workReleases.push(defense.acquire('auth', defensePolicy.auth));
-      } else if (['/v1/chat', '/v1/ledger/push', '/v1/life/recognize'].includes(url.pathname)) verifiedUser(req);
+      } else if (ticketAction) verifiedUser(req);
+      else if (['/v1/chat', '/v1/ledger/push', '/v1/life/recognize'].includes(url.pathname)) verifiedUser(req);
       else return json({ error: 'NOT_FOUND' }, 404);
       const ledgerPush = url.pathname === '/v1/ledger/push';
       const recognize = url.pathname === '/v1/life/recognize';
@@ -336,6 +345,13 @@ export function createApp({ db, agent, sendMail, wechatClient = createWechatClie
         if (!Array.isArray(txns) || !Array.isArray(categories)) fail('INVALID_INPUT');
         if (txns.length + categories.length > LEDGER.items) fail('LEDGER_TOO_MANY');
         return json(ledger.push(user.id, deviceId, txns, categories));
+      }
+      if (ticketAction) {
+        const user = userOf(req);
+        const [, ticket, action] = ticketAction;
+        rate(`wechat-ticket-action:${user.id}`, 60, 3600_000);
+        if (action === 'confirm') return json({ user: publicOf(wechat.confirm(user.id, ticket).user) });
+        return json({ ...wechat.reject(user.id, ticket), user: publicOf(user) });
       }
       // One photo, one question: recognised food only, never calories. The image is decoded, inspected and
       // forwarded to the vision model in memory; nothing is written to disk, logged or echoed back.
@@ -424,22 +440,25 @@ export function createApp({ db, agent, sendMail, wechatClient = createWechatClie
             return json({ id: ticket, scene: sceneFor(ticket), expiresAt: expires, mime: 'image/png', image: image.toString('base64') }, 201);
           }
           case '/v1/auth/wechat/bind': {
-            // Mini program side: its own login code plus the scanned ticket. Single use, five minutes, owner only.
+            // Mini program side: its own login code plus the scanned ticket. This only CLAIMS the ticket; the App
+            // holder confirms, and only then does the openid become that account's login method.
             const ticket = text(body.ticket, 64);
             const code = text(body.code, 128);
             rate(`wechat-bind:${hash(String(ip))}`, 20, 600_000);
             rate(`wechat-bind-ticket:${hash(ticket)}`, 10, 600_000);
-            const { user } = await wechat.bind({ ticket, code });
-            return json(session(res, user, native));
+            const state = await wechat.claim({ ticket, code, nickname: body.nickname, avatarUrl: body.avatarUrl });
+            return json({ ...state, poll: '/v1/auth/wechat/bind-status?ticket=' + ticket }, 202);
           }
           case '/v1/auth/email-attach': {
             // A WeChat-only account has no email to change, so it gets the code-verified attach path instead.
             const user = verifiedUser(req);
             if (user.email) fail('EMAIL_ALREADY_SET');
             const email = emailOf(body.email);
+            // Rate first: whether an address is taken must not be answerable faster than a rate limit allows.
+            rate(`email-attach:${user.id}`, 5, 3600_000);
+            rate(`email-attach-address:${hash(email)}`, 4, 3600_000);
             if (!sendMail) fail('MAIL_UNAVAILABLE');
             if (db.prepare('SELECT 1 FROM users WHERE email=? AND id<>?').get(email, user.id)) fail('EMAIL_BOUND_ELSEWHERE', 'email');
-            rate(`email-attach:${user.id}`, 5, 3600_000);
             if (mailLocks.has(`${user.id}:email`)) throw securityError('RATE_LIMITED', 5);
             db.prepare('INSERT INTO email_changes VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET email=excluded.email, expires=excluded.expires').run(user.id, email, Date.now() + 600_000);
             try { await issueCode(user, 'email', email); }
