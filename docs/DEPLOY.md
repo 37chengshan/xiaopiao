@@ -142,3 +142,9 @@ tt 已明确批准并完成 `89fcf19` 的 API/unit/nginx 上线，生产 release
 ## 2026-11-02 密码安全加固上线
 
 经 tt 批准，按 `update-private.sh` 流程上线 release `2bc18889d9fa`（previous `0be5bdf87cf2`，脚本已做部署前在线备份）。内容：新密码弱口令筛查、`POST /v1/auth/password`（凭当前密码改密，撤销其它会话）、账号/来源两维失败锁定、派生并发闸门、哈希版本化与登录时自动升级，详见 SECURITY.md 与 API-ACCOUNT.md。服务端 142/142 测试与 `npm run check` 通过；公网冒烟：healthz 200，`/v1/auth/password` 与 `/v1/auth/me` 未登录 401，弱密码注册返回 400 `PASSWORD_WEAK`。未改 nginx、DNS、安全组、Worker。回滚：切回 `0be5bdf87cf2` 并重启。注意旧版只认 `<salt>:<hex>` 旧哈希，上线后注册或登录过（被自动升级成 `scrypt1$…`）的账号在旧版上无法登录，需走找回密码重设。
+
+## 2026-11-03 AI × 生活工具 / 微信扫码绑定上线
+
+经 tt 批准，`37chengshan/server-agent-wx` 合入 main（`4630ecc`），按 `update-private.sh` 流程上线 release `f7cb350c0738`（previous `2bc18889d9fa`，脚本已做部署前在线备份）。内容：工具单一注册表（`server/src/tools.mjs`）、生活复盘工具与 meal / activity 草稿、回答整段缓冲后校验（数字溯源 `sources.mjs`、越界建议 `advice.mjs`）、微信小程序扫码绑定（App 二次确认、`POST /v1/auth/wechat/bind-status`、不收头像）、生活拍照识别接口。服务端 215/215 测试与 `npm run check` 通过。公网冒烟：healthz 200；`/v1/chat`、`/v1/life/recognize`、`/v1/auth/me` 未登录 401；`POST /v1/auth/wechat/bind-status` 空票据 400 `WECHAT_TICKET_INVALID`，旧的 GET 形式 404。
+
+未新增生产 env：`WX_MP_APPID` / `WX_MP_SECRET` 未配置，微信路由返回 503 `WECHAT_UNAVAILABLE`；`LIFE_VISION_*` 未配置时视觉识别沿用默认 provider key。未改 nginx、DNS、安全组、Worker。回滚：切回 `2bc18889d9fa` 并重启；新增列 / 表不影响旧版本运行。
