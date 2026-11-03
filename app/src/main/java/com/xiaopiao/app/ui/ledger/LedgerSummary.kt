@@ -97,7 +97,7 @@ private val ColumnNumber = TextStyle(
 )
 
 /**
- * 总览卡 (reference `041428`): 「今日支出（元）」+ 眼睛 + 30sp number, then 本月支出 / 本月收入 as two
+ * 总览卡 (reference `041428`): 「今日净支出（元）」(or 今日支出 + 今日收入, per [TodayShow]) + 眼睛 + 30sp number, then 本月支出 / 本月收入 as two
  * 22sp columns, then a full-bleed bottom strip — budget entry when no budget is set, remaining quota
  * when one is. The card is the page's only large colour field; the strip is a lighter tint of it.
  */
@@ -107,6 +107,8 @@ fun LedgerSummaryCard(
     hidden: Boolean,
     onToggleHidden: () -> Unit,
     budget: BudgetSummary?,
+    /** 设置 → 账本 → 今日显示: one net number, or spend with today's income beside it. */
+    show: TodayShow,
     onOpenBudget: () -> Unit,
     modifier: Modifier = Modifier,
     /** 按天查看 sits in the card's top-right corner (tt: inside the card, not a row of its own). Null hides it. */
@@ -126,11 +128,18 @@ fun LedgerSummaryCard(
                     .clip(CircleShape).background(LedgerHighlight.decor),
             )
         }
+        val net = summary.todayOutCents - summary.todayInCents
+        val heroLabel = when {
+            show == TodayShow.Split -> tr("今日支出（元）", "Spent today (¥)")
+            net < 0 -> tr("今日净收入（元）", "Net received today (¥)")
+            else -> tr("今日净支出（元）", "Net spent today (¥)")
+        }
+        val heroCents = if (show == TodayShow.Split) summary.todayOutCents else kotlin.math.abs(net)
         Column(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(start = XpSpace.page, end = XpSpace.page, top = 18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        tr("今日支出（元）", "Spent today (¥)"),
+                        heroLabel,
                         style = MaterialTheme.typography.bodySmall,
                         color = XpColors.InkSecondary,
                     )
@@ -168,22 +177,29 @@ fun LedgerSummaryCard(
                     }
                 }
                 Spacer(Modifier.height(2.dp))
-                // The mask and the number are different widgets, so they cross-fade instead of rolling into garbage.
-                AnimatedContent(
-                    targetState = hidden,
-                    transitionSpec = { XpMotion.crossfade() },
-                    label = "mask",
-                ) { masked ->
-                    if (masked) {
-                        Text(AMOUNT_MASK, style = HeroNumber, color = XpColors.Ink)
-                    } else {
-                        NumberTicker(
-                            text = summary.todayOutCents.yuanGrouped(),
-                            style = HeroNumber,
-                            color = XpColors.Ink,
-                            rollFromZero = false, // the hero must never flash 0 on first paint
-                            staggerMs = 26L,
-                        )
+                // Split: today's income sits in the right column, lined up with 本月收入 below.
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                    // The mask and the number are different widgets, so they cross-fade instead of rolling into garbage.
+                    AnimatedContent(
+                        targetState = hidden,
+                        transitionSpec = { XpMotion.crossfade() },
+                        label = "mask",
+                        modifier = Modifier.weight(1f),
+                    ) { masked ->
+                        if (masked) {
+                            Text(AMOUNT_MASK, style = HeroNumber, color = XpColors.Ink)
+                        } else {
+                            NumberTicker(
+                                text = heroCents.yuanGrouped(),
+                                style = HeroNumber,
+                                color = XpColors.Ink,
+                                rollFromZero = false, // the hero must never flash 0 on first paint
+                                staggerMs = 26L,
+                            )
+                        }
+                    }
+                    if (show == TodayShow.Split) {
+                        SummaryColumn(tr("今日收入（元）", "Received today (¥)"), summary.todayInCents, hidden, Modifier.weight(1f).padding(bottom = 3.dp))
                     }
                 }
                 Spacer(Modifier.height(14.dp))

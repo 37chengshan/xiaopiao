@@ -104,6 +104,8 @@ fun SettingsScreen(
     val launchSide by navPrefs.observeLaunch().collectAsState(initial = NavPrefs.cachedLaunch ?: LaunchSide.Ledger)
     val soundPrefs = remember(context) { ReceiptSoundPrefs(context.applicationContext) }
     val soundOn by soundPrefs.observeEnabled().collectAsState(initial = ReceiptSoundPrefs.cachedEnabled ?: true)
+    val ledgerPrefs = remember(context) { com.xiaopiao.app.ui.ledger.LedgerPrefs(context.applicationContext) }
+    val todayShow by ledgerPrefs.observeTodayShow().collectAsState(initial = com.xiaopiao.app.ui.ledger.TodayShow.Net)
 
     // The user comes back from system settings: re-check both permissions.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -198,6 +200,7 @@ fun SettingsScreen(
                 Box(Modifier.xpRevealLayer(index = 2)) {
                     ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }
                 }
+                TodayShowSection(todayShow) { scope.launch { ledgerPrefs.setTodayShow(it) } }
                 BudgetCountingSection(budgetSettings.counting) { kind, counted ->
                     scope.launch { container.budget.setCountIn(kind, counted) }
                 }

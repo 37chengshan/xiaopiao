@@ -22,9 +22,10 @@ data class DayGroup(
     val inCents: Cents,
 )
 
-/** What the summary card states: today's spend plus this month's both directions. */
+/** What the summary card states: today's both directions plus this month's both directions. */
 data class LedgerSummary(
     val todayOutCents: Cents,
+    val todayInCents: Cents,
     val monthOutCents: Cents,
     val monthInCents: Cents,
 )
@@ -131,21 +132,24 @@ object LedgerRanges {
     )
 }
 
-/** Today's spend + this month's two columns, computed once per data change. */
+/** Today's two directions + this month's two columns, computed once per data change. */
 object LedgerTotals {
     fun summary(txns: List<Txn>, now: Long): LedgerSummary {
         val today = startOfDay(now)
         val monthFrom = LedgerRanges.monthStart(now)
         var todayOut = 0L
+        var todayIn = 0L
         var monthOut = 0L
         var monthIn = 0L
         txns.forEach { t ->
-            if (t.direction == Direction.OUT && t.occurredAt >= today) todayOut += t.amountCents
+            if (t.occurredAt >= today) {
+                if (t.direction == Direction.OUT) todayOut += t.amountCents else todayIn += t.amountCents
+            }
             if (t.occurredAt >= monthFrom) {
                 if (t.direction == Direction.OUT) monthOut += t.amountCents else monthIn += t.amountCents
             }
         }
-        return LedgerSummary(todayOut, monthOut, monthIn)
+        return LedgerSummary(todayOut, todayIn, monthOut, monthIn)
     }
 }
 

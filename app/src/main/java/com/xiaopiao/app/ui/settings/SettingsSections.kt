@@ -91,6 +91,23 @@ fun ReceiptSection(soundOn: Boolean, onSound: (Boolean) -> Unit) {
     }
 }
 
+/** 账本总览卡的今日数字：净支出，或支出 + 收入（tt 2026-11-03）。 */
+@Composable
+fun TodayShowSection(show: com.xiaopiao.app.ui.ledger.TodayShow, onShow: (com.xiaopiao.app.ui.ledger.TodayShow) -> Unit) {
+    val options = com.xiaopiao.app.ui.ledger.TodayShow.entries
+    GroupedSection(header = tr("账本首页显示今日", "Today on the ledger")) {
+        item {
+            Box(Modifier.fillMaxWidth().padding(XpSpace.m)) {
+                Segmented(
+                    options.map { if (it == com.xiaopiao.app.ui.ledger.TodayShow.Net) tr("净支出", "Net spent") else tr("支出 + 收入", "Spent + received") },
+                    show.ordinal,
+                    { onShow(options[it]) },
+                )
+            }
+        }
+    }
+}
+
 /** 收到的转账、红包是否计入预算（tt 2026-11-03）；默认关，只算支出。 */
 @Composable
 fun BudgetCountingSection(counting: BudgetCounting, onSet: (TxnKind, Boolean) -> Unit) {

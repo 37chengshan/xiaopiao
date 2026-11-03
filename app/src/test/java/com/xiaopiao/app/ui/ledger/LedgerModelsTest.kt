@@ -69,6 +69,7 @@ class LedgerModelsTest {
         val summary = LedgerTotals.summary(
             listOf(
                 txn(1800, now),                       // today, counts in both
+                txn(500, now, Direction.IN),          // today's income
                 txn(23200, at(2026, 10, 2)),          // this month, not today
                 txn(12000, at(2026, 10, 3), Direction.IN),
                 txn(9900, at(2026, 9, 30)),           // last month: ignored
@@ -76,8 +77,9 @@ class LedgerModelsTest {
             now,
         )
         assertEquals(1800L, summary.todayOutCents)
+        assertEquals(500L, summary.todayInCents)
         assertEquals(25000L, summary.monthOutCents)
-        assertEquals(12000L, summary.monthInCents)
+        assertEquals(12500L, summary.monthInCents)
     }
 
     @Test fun rangesAreHalfOpenMonthAndYearWindows() {
