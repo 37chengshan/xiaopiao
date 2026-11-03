@@ -208,7 +208,7 @@ export function createWechatAccounts({ db, client, now = Date.now }) {
 
   /**
    * Mini program half: its own `wx.login` code plus the scanned ticket. This only *claims* the ticket — the openid
-   * is remembered with the nickname/avatar so the App can ask "attach this WeChat?" — nothing is bound yet.
+   * and the self-reported nickname are remembered so the App can ask "attach this WeChat?" — nothing is bound yet.
    */
   async function claim({ ticket, code, nickname }) {
     if (!isTicket(ticket)) fail('WECHAT_TICKET_INVALID');

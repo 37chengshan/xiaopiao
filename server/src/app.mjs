@@ -448,7 +448,8 @@ export function createApp({ db, agent, sendMail, wechatClient = createWechatClie
             const code = text(body.code, 128);
             rate(`wechat-bind:${hash(String(ip))}`, 20, 600_000);
             rate(`wechat-bind-ticket:${hash(ticket)}`, 10, 600_000);
-            const state = await wechat.claim({ ticket, code, nickname: body.nickname, avatarUrl: body.avatarUrl });
+            // Only the nickname: the scanning side may not report an avatar (see `wechat.mjs`).
+            const state = await wechat.claim({ ticket, code, nickname: body.nickname });
             return json({ ...state, poll: '/v1/auth/wechat/bind-status' }, 202);
           }
           case '/v1/auth/email-attach': {
