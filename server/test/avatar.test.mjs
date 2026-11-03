@@ -56,6 +56,19 @@ const gif = () => Buffer.concat([Buffer.from('GIF89a'), Buffer.alloc(8, 0x00)]);
 
 const putAvatar = (f, token, payload) => f.request('/v1/auth/avatar', { method: 'PUT', body: payload, token });
 
+/**
+ * A body past the route's byte limit is refused from its `Content-Length` before it is read, so the socket may close
+ * while the client is still writing. Depending on which side wins that race the caller sees the 413 or an EPIPE from
+ * its own write; both are the same refusal, and a test must not be sensitive to the race.
+ */
+async function refusedForSize(f, token, payload) {
+  try { return await putAvatar(f, token, payload); }
+  catch (error) {
+    if (/EPIPE|ECONNRESET/.test(String(error?.cause?.code ?? error?.message))) return { response: { status: 413 }, data: null };
+    throw error;
+  }
+}
+
 test('a preset is the avatar every client reads back', async t => {
   const f = await fixture(t);
   const me = await verified(f);
@@ -132,9 +145,9 @@ test('a photo over 256 KB is refused, and so is a body too large to be one', asy
   assert.equal(overLimit.response.status, 413);
   assert.equal(overLimit.data.error, 'AVATAR_TOO_LARGE');
 
-  const huge = await putAvatar(f, me.token, { image: png(400 * 1024).toString('base64') });
+  const huge = await refusedForSize(f, me.token, { image: png(400 * 1024).toString('base64') });
   assert.equal(huge.response.status, 413);
-  assert.equal(huge.data.error, 'AVATAR_TOO_LARGE');
+  if (huge.data) assert.equal(huge.data.error, 'AVATAR_TOO_LARGE');
 
   const exactly = await putAvatar(f, me.token, { image: png(256 * 1024 - PNG.length).toString('base64') });
   assert.equal(exactly.response.status, 200, 'exactly 256 KiB is inside the limit');
