@@ -39,10 +39,14 @@ test('every data tool is declared with a strict schema and the cents unit', () =
   for (const name of ['read_budget', 'summarize_range', 'read_subscriptions', 'read_weekly_report', 'query_transactions']) {
     assert.match(tool(name).function.description, /分/, `${name} states the unit`);
   }
-  assert.match(tool('read_life_logs').function.description, /kcal/);
+  for (const name of ['get_life_days', 'get_life_top_foods']) assert.match(tool(name).function.description, /kcal|次数/);
+  assert.match(tool('get_meal_spend').function.description, /分/);
   assert.deepEqual(tool('read_budget').function.parameters.properties.period.enum, ['day', 'week', 'month', 'all']);
   assert.deepEqual(tool('summarize_range').function.parameters.properties.group_by.enum, ['day', 'week', 'month', 'category']);
-  assert.deepEqual(tool('read_life_logs').function.parameters.properties.kind.enum, ['eat', 'exercise', 'move', 'all']);
+  assert.deepEqual(Object.keys(tool('get_life_days').function.parameters.properties).sort(), ['from', 'to']);
+  assert.deepEqual(Object.keys(tool('get_life_top_foods').function.parameters.properties).sort(), ['from', 'limit', 'to']);
+  assert.equal(tool('get_life_top_foods').function.parameters.properties.limit.maximum, 20);
+  assert.deepEqual(Object.keys(tool('get_meal_spend').function.parameters.properties).sort(), ['from', 'to']);
   assert.deepEqual(tool('list_categories').function.parameters.properties, {});
   // Card wallet and note bodies are not reachable: no tool takes an account, card or raw-text field.
   const names = toolDefinitions.map(item => item.function.name);
@@ -67,9 +71,26 @@ test('an invalid draft shape is refused before it can reach a client', () => {
     { kind: 'reminder', at: Date.now() + 60_000, text: '' },
     { kind: 'transfer', amount_cents: 100 },
     { kind: 'record', amount_cents: 2500, direction: 'OUT', note: 'x'.repeat(121) },
+    { kind: 'meal', meal: 'brunch', at: 1, items: [{ name: '牛肉面', qty: 1, unit: '碗' }] }, // unknown meal
+    { kind: 'meal', meal: 'lunch', at: 1, items: [] }, // no items
+    { kind: 'meal', meal: 'lunch', at: 1, items: [{ name: '牛肉面', qty: 1, unit: '碗', kcal: 600 }] }, // model-supplied kcal
+    { kind: 'meal', meal: 'lunch', at: 1, items: [{ name: '牛肉面', qty: 0, unit: '碗' }] }, // qty must be positive
+    { kind: 'meal', meal: 'lunch', at: 1, items: [{ name: '牛肉面', qty: 1 }] }, // unit is required
+    { kind: 'meal', meal: 'lunch', at: 1, items: [{ name: '牛肉面', qty: 1, unit: '碗' }], kcal: 600 }, // kcal on the draft
+    { kind: 'activity', name: '跑步', at: 1 }, // neither minutes nor sets
+    { kind: 'activity', name: '深蹲', at: 1, sets: [{ reps: 0 }] },
+    { kind: 'activity', name: '深蹲', at: 1, sets: [{ reps: 10, kcal: 40 }] },
+    { kind: 'activity', name: '跑步', at: 1, minutes: 0 },
   ]) assert.equal(normalizeDraft(bad), null, JSON.stringify(bad));
   assert.deepEqual(normalizeDraft({ kind: 'budget', period: 'month', limit_cents: 300000 }),
     { kind: 'budget', period: 'month', limit_cents: 300000 });
+  // A meal and an activity carry quantities only; every calorie comes from the app's knowledge base.
+  assert.deepEqual(normalizeDraft({ kind: 'meal', meal: 'lunch', at: 1, items: [{ name: '牛肉面', qty: 1, unit: '碗' }], price_cents: 2500 }),
+    { kind: 'meal', meal: 'lunch', at: 1, items: [{ name: '牛肉面', qty: 1, unit: '碗' }], price_cents: 2500 });
+  assert.deepEqual(normalizeDraft({ kind: 'activity', name: '深蹲', at: 1, sets: [{ reps: 10, kg: 60 }, { reps: 8 }] }),
+    { kind: 'activity', name: '深蹲', at: 1, sets: [{ reps: 10, kg: 60 }, { reps: 8 }] });
+  assert.deepEqual(normalizeDraft({ kind: 'activity', name: '跑步', at: 1, minutes: 30 }),
+    { kind: 'activity', name: '跑步', at: 1, minutes: 30 });
   assert.deepEqual(normalizePlan({ steps: [{ tool: 'read_budget', label: '正在查预算' }] }),
     [{ tool: 'read_budget', label: '正在查预算' }]);
   assert.equal(normalizePlan({ steps: [{ tool: 'draft', label: 'x' }] }), null);
@@ -243,6 +264,30 @@ test('a newer result without a view kind cannot resurrect an older card', () => 
     { role: 'tool', tool_call_id: 's', content: JSON.stringify({ unit: 'cents', rows: [{ merchant: '网飞', cents: 2500, cadence: '每月' }] }) },
   ]);
   assert.deepEqual(viewFromToolResults(subscriptions).rows, [{ merchant: '网飞', cents: 2500, cadence: '每月' }]);
+});
+
+test('a meal or activity draft that carries calories is refused before it can be shown', async () => {
+  const { fetcher, seen } = scripted([
+    calls([call(0, 'draft', { kind: 'meal', meal: 'lunch', at: 1, items: [{ name: '牛肉面', qty: 1, unit: '碗', kcal: 600 }] })]),
+    text('热量得让 App 自己算，我先不记。'),
+  ], [MODEL, FALLBACK]);
+  const agent = createAgent({ apiKey: 'test-placeholder', fetcher });
+  const events = [];
+  await agent({ messages: [{ role: 'user', content: '午饭牛肉面，600 大卡' }], round: 0, timezone: 'UTC' }, e => events.push(e), signal());
+  assert.equal(seen.length, 2, 'the bad draft is handed to another model');
+  assert.equal(events.some(event => event.type === 'draft'), false);
+  assert.ok(!JSON.stringify(events).includes('600'), 'no invented or echoed calorie reaches the client');
+});
+
+test('the prompt allows review and simulation, and refuses advice', () => {
+  const prompt = buildSystemPrompt({ timezone: 'Asia/Shanghai', today: '2026-11-03' });
+  assert.match(prompt, /复盘/);
+  assert.match(prompt, /模拟后果/);
+  assert.match(prompt, /只帮记录、复盘和算账/);
+  for (const forbidden of ['推荐吃什么', '减重或增肌计划', '医疗或营养治疗建议', '不说「超标」']) {
+    assert.ok(prompt.includes(forbidden), `the prompt names the boundary: ${forbidden}`);
+  }
+  assert.match(prompt, /按每天少一杯算/);
 });
 
 test('the prompt names every tool, the plan step and the draft kinds', () => {

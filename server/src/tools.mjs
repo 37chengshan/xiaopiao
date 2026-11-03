@@ -35,7 +35,9 @@ export const TOOL_LABELS = Object.freeze({
   summarize_range: '正在对比区间支出',
   read_subscriptions: '正在找规律扣款',
   read_weekly_report: '正在看周报和头衔',
-  read_life_logs: '正在汇总生活记录',
+  get_life_days: '正在汇总每天的吃和动',
+  get_life_top_foods: '正在数常吃的食物',
+  get_meal_spend: '正在对餐饮支出',
   list_categories: '正在读取分类',
   show_view: '正在生成视图',
   draft: '正在起草',
@@ -45,13 +47,14 @@ export const TOOL_LABELS = Object.freeze({
 /** Read-only queries. A tool result from any of these licenses numbers in the answer. */
 export const DATA_TOOLS = Object.freeze([
   'summarize_period', 'find_peak', 'query_transactions', 'read_circle',
-  'read_budget', 'summarize_range', 'read_subscriptions', 'read_weekly_report', 'read_life_logs', 'list_categories',
+  'read_budget', 'summarize_range', 'read_subscriptions', 'read_weekly_report',
+  'get_life_days', 'get_life_top_foods', 'get_meal_spend', 'list_categories',
 ]);
 
 /** Server-side tools: never forwarded to the client, so an old client needs no change to keep working. */
 export const SERVER_TOOLS = Object.freeze(['plan_steps']);
 
-export const DRAFT_KINDS = Object.freeze(['record', 'budget', 'reminder']);
+export const DRAFT_KINDS = Object.freeze(['record', 'budget', 'reminder', 'meal', 'activity']);
 
 export const toolDefinitions = [
   definition('summarize_period', '汇总本机账本一个周期的总额、笔数与分组；只返回统计结果，不上传账单原文。金额单位是分（cents）。',
@@ -78,12 +81,15 @@ export const toolDefinitions = [
   definition('read_weekly_report',
     '读取本机已生成的周报与头衔：周区间标签、支出合计（分）、笔数、与上周比较的百分比、前三分类、最大一笔、获得的头衔。',
     schema({ week_offset: int(0, 12) })),
-  definition('read_life_logs',
-    '汇总本机生活记录（吃/练/动）的每日热量与次数：摄入 kcal、消耗 kcal、净值、按天或按类型分组。不返回备注原文、不返回单条食物的明细。',
-    schema({
-      from: int(TIME_MIN, TIME_MAX), to: int(TIME_MIN, TIME_MAX),
-      kind: enumString(['eat', 'exercise', 'move', 'all']), group_by: enumString(['day', 'kind']),
-    })),
+  definition('get_life_days',
+    '按天读本机生活记录：摄入 kcal、消耗 kcal、五类食物（staple 主食 / veg 蔬果 / protein 蛋白 / drink 饮品 / snack 零食）的 kcal、蛋白脂肪碳水克数、餐次时间、运动分钟与类型。用来复盘「这周吃得怎么样」「哪天吃得最晚」。单位 kcal 与克；不返回备注原文，也不返回单个食物的明细。',
+    schema({ from: int(TIME_MIN, TIME_MAX), to: int(TIME_MIN, TIME_MAX) })),
+  definition('get_life_top_foods',
+    '读本机生活记录里最常吃的食物与次数（不含热量明细、不含备注）。用来回答「我常吃什么」。',
+    schema({ from: int(TIME_MIN, TIME_MAX), to: int(TIME_MIN, TIME_MAX), limit: int(1, 20) })),
+  definition('get_meal_spend',
+    '对账：把餐饮类支出与饮食记录关联起来，外卖/堂食各花多少（分）、单餐均价（分）、多少顿有对应账单。不读备注原文。',
+    schema({ from: int(TIME_MIN, TIME_MAX), to: int(TIME_MIN, TIME_MAX) })),
   definition('list_categories', '列出本机账本的分类（id、名称、收支方向）。用于把用户说的「吃饭」对应到实际分类；不返回金额。', schema({})),
 ];
 
@@ -129,9 +135,26 @@ toolDefinitions.push(definition('plan_steps',
     },
   })));
 
-/** The action proposal. Fields are a strict whitelist: an unknown key is a bug, not a new capability. */
+const mealItem = {
+  type: 'object',
+  properties: { name: { type: 'string', maxLength: 40 }, qty: { type: 'number', exclusiveMinimum: 0, maximum: 100 }, unit: { type: 'string', maxLength: 8 } },
+  required: ['name', 'qty', 'unit'],
+  additionalProperties: false,
+};
+const setItem = {
+  type: 'object',
+  properties: { reps: int(1, 100), kg: { type: 'number', minimum: 0, maximum: 500 } },
+  required: ['reps'],
+  additionalProperties: false,
+};
+
+/**
+ * The action proposal. Fields are a strict whitelist: an unknown key is a bug, not a new capability.
+ * `meal` and `activity` deliberately have no calorie field anywhere — the app's own food and MET knowledge base
+ * computes every number, so a model that volunteers `kcal` is rejected rather than trusted.
+ */
 export const draftDefinition = definition('draft',
-  '起草一个要让用户确认的操作，不直接执行。kind=record 记一笔（金额分、方向、分类，可选备注与时间）；kind=budget 设预算（分类或 total、周期、额度分）；kind=reminder 设提醒（触发时间 epoch 毫秒、文案）。用户在本机点确认后才会写入。',
+  '起草一个要让用户确认的操作，不直接执行。kind=record 记一笔（金额分、方向、分类，可选备注与时间）；kind=budget 设预算（可选分类、周期、额度分）；kind=reminder 设提醒（时间 epoch 毫秒、文案）；kind=meal 记一顿（餐次、时间、食物 items[{name,qty,unit}]、可选 price_cents）；kind=activity 记运动（name、minutes 或 sets[{reps,kg}]、时间）。不要给热量，热量由 App 本机知识库算。用户在本机点确认后才会写入。',
   schema({
     kind: enumString(DRAFT_KINDS),
     amount_cents: int(1, 10_000_000_000),
@@ -143,6 +166,12 @@ export const draftDefinition = definition('draft',
     limit_cents: int(1, 10_000_000_000),
     at: int(TIME_MIN, TIME_MAX),
     text: text(120),
+    meal: enumString(['breakfast', 'lunch', 'dinner', 'snack']),
+    items: { type: 'array', minItems: 1, maxItems: 12, items: mealItem },
+    price_cents: int(1, 10_000_000),
+    name: text(40),
+    minutes: int(1, 600),
+    sets: { type: 'array', minItems: 1, maxItems: 30, items: setItem },
   }));
 toolDefinitions.push(draftDefinition);
 
@@ -150,12 +179,21 @@ const FIELDS = {
   record: ['kind', 'amount_cents', 'direction', 'category', 'note', 'occurred_at'],
   budget: ['kind', 'category', 'period', 'limit_cents'],
   reminder: ['kind', 'at', 'text'],
+  meal: ['kind', 'meal', 'at', 'items', 'price_cents'],
+  activity: ['kind', 'name', 'at', 'minutes', 'sets'],
 };
 const REQUIRED = {
   record: ['amount_cents', 'direction'],
   budget: ['period', 'limit_cents'],
   reminder: ['at', 'text'],
+  meal: ['meal', 'at', 'items'],
+  activity: ['name', 'at'],
 };
+export const MEALS = Object.freeze(['breakfast', 'lunch', 'dinner', 'snack']);
+const ITEM_FIELDS = ['name', 'qty', 'unit'];
+const SET_FIELDS = ['reps', 'kg'];
+const isQty = value => typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 100;
+const isPrice = value => Number.isSafeInteger(value) && value > 0 && value <= 10_000_000;
 
 const isCents = value => Number.isSafeInteger(value) && value > 0 && value <= 10_000_000_000;
 const isTime = value => Number.isSafeInteger(value) && value >= TIME_MIN && value <= TIME_MAX;
@@ -193,6 +231,42 @@ export function normalizeDraft(raw) {
     return {
       kind, period: raw.period, limit_cents: raw.limit_cents,
       ...(raw.category !== undefined ? { category: raw.category.trim() } : {}),
+    };
+  }
+  if (raw.kind === 'meal') {
+    if (!MEALS.includes(raw.meal)) return null;
+    if (!isTime(raw.at)) return null;
+    if (!Array.isArray(raw.items) || raw.items.length < 1 || raw.items.length > 12) return null;
+    const items = [];
+    for (const item of raw.items) {
+      // The item object is a whitelist too: `{name, qty, unit, kcal}` is a model that does not understand the task.
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+      if (Object.keys(item).some(key => !ITEM_FIELDS.includes(key))) return null;
+      if (!isText(item.name, 40) || !isQty(item.qty) || !isText(item.unit, 8)) return null;
+      items.push({ name: item.name.trim().slice(0, 40), qty: Math.round(item.qty * 100) / 100, unit: item.unit.trim().slice(0, 8) });
+    }
+    if (raw.price_cents !== undefined && !isPrice(raw.price_cents)) return null;
+    return { kind: 'meal', meal: raw.meal, at: raw.at, items, ...(raw.price_cents !== undefined ? { price_cents: raw.price_cents } : {}) };
+  }
+  if (raw.kind === 'activity') {
+    if (!isText(raw.name, 40) || !isTime(raw.at)) return null;
+    if (raw.minutes === undefined && raw.sets === undefined) return null;
+    if (raw.minutes !== undefined && !(Number.isSafeInteger(raw.minutes) && raw.minutes >= 1 && raw.minutes <= 600)) return null;
+    let sets;
+    if (raw.sets !== undefined) {
+      if (!Array.isArray(raw.sets) || raw.sets.length < 1 || raw.sets.length > 30) return null;
+      sets = [];
+      for (const set of raw.sets) {
+        if (!set || typeof set !== 'object' || Array.isArray(set)) return null;
+        if (Object.keys(set).some(key => !SET_FIELDS.includes(key))) return null;
+        if (!(Number.isSafeInteger(set.reps) && set.reps >= 1 && set.reps <= 100)) return null;
+        if (set.kg !== undefined && !(typeof set.kg === 'number' && Number.isFinite(set.kg) && set.kg >= 0 && set.kg <= 500)) return null;
+        sets.push({ reps: set.reps, ...(set.kg !== undefined ? { kg: Math.round(set.kg * 10) / 10 } : {}) });
+      }
+    }
+    return {
+      kind: 'activity', name: raw.name.trim().slice(0, 40), at: raw.at,
+      ...(raw.minutes !== undefined ? { minutes: raw.minutes } : {}), ...(sets ? { sets } : {}),
     };
   }
   if (!isTime(raw.at)) return null;

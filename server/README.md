@@ -83,10 +83,10 @@ Web 默认访问同源 `/v1`；需要独立同站域名时，可在构建环境�
 
 ## 数据与 Agent 边界
 
-- 十种只读工具：`summarize_period`、`find_peak`、`query_transactions`、`read_circle`、`read_budget`、`summarize_range`、`read_subscriptions`、`read_weekly_report`、`read_life_logs`、`list_categories`，全部在手机 / 浏览器本机执行。schema 与返回形状见 `docs/API-AGENT.md`。
+- 十二种只读工具：`summarize_period`、`find_peak`、`query_transactions`、`read_circle`、`read_budget`、`summarize_range`、`read_subscriptions`、`read_weekly_report`、`get_life_days`、`get_life_top_foods`、`get_meal_spend`、`list_categories`，全部在手机 / 浏览器本机执行。schema 与返回形状见 `docs/API-AGENT.md`。
 - 最多八轮、每次请求最多六个工具，整轮 150 s 上限；到上限用已有结果收尾（合成视图或一句说明 + `done.truncated`），不空着结束。
 - 「先计划再逐步查」：模型可调服务端私有工具 `plan_steps`，服务端只发 `plan` / `step` 事件，**不下发该工具**，旧客户端不受影响。
-- 不提供模型写入工具。要记一笔 / 设预算 / 设提醒时只能 `draft` 起草：服务端校验字段后推给客户端，用户本机确认才走 `POST /v1/ledger/push`。自动入账是用户预先打开的本机偏好，可撤销；CSV 保留确认。
+- 不提供模型写入工具。要记一笔 / 设预算 / 设提醒 / 记一顿 / 记运动时只能 `draft` 起草：服务端校验字段后推给客户端，用户本机确认才生效。`meal` / `activity` 里没有热量字段——模型给 `kcal` 会被整条拒绝，热量由 App 本机知识库算。自动入账是用户预先打开的本机偏好，可撤销；CSV 保留确认。
 - 只传白名单结构化字段，不传账单原文、CSV、图片、通知日志、备注原文或卡包。数值单位为整数分；生活记录汇总单位是 kcal。
 - 展示实际步骤摘要，不展示模型内部 `reasoning_content`。未知工具、错误参数、超时与截断均失败关闭。
 - 免费模型白名单按 `/models` 检查可用性，`/models` 失败时退回静态免费白名单；已输出内容后不拼接另一个模型的回答。
