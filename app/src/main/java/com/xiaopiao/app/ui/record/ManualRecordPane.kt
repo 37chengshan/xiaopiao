@@ -6,7 +6,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.material.icons.automirrored.outlined.KeyboardReturn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.animation.AnimatedVisibility
 import com.xiaopiao.app.ui.components.LocalSheetGlass
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -142,7 +141,6 @@ internal fun ManualRecordPane(
     val canSave = cents > 0L
 
     val noteFocus = remember { FocusRequester() }
-    var noteFocused by remember { mutableStateOf(false) }
     // Once the note has had its turn, the ↵ key saves instead of sending the finger back there again.
     var noteVisited by remember { mutableStateOf(seed?.merchant?.isNotBlank() == true) }
     val phrases = remember(history, category.id) { NotePhrases.rank(history, category.id, openedAt) }
@@ -213,14 +211,12 @@ internal fun ManualRecordPane(
             Modifier.fillMaxWidth().background(XpColors.CanvasGrouped.copy(alpha = if (LocalSheetGlass.current) 0.55f else 1f))
                 .padding(horizontal = XpSpace.page).padding(bottom = XpSpace.xs),
         ) {
-            AnimatedVisibility(
-                visible = noteFocused && phrases.isNotEmpty(),
-                enter = XpMotion.enterFade(),
-                exit = XpMotion.exitFade(),
-            ) {
+            // 常驻（tt 2026-11-02）：不用先点备注，一打开就能直接点短语填进去。
+            if (phrases.isNotEmpty()) {
                 PhraseRow(phrases) { phrase ->
                     haptics.select()
                     merchant = phrase
+                    noteVisited = true
                 }
             }
             NoteRow(
@@ -229,7 +225,6 @@ internal fun ManualRecordPane(
                 onCamera = { toast.show(tr("拍照记账即将支持", "Receipt photo capture is coming soon")) },
                 focusRequester = noteFocus,
                 onFocusChange = { focused ->
-                    noteFocused = focused
                     if (focused) noteVisited = true
                 },
                 onDone = {

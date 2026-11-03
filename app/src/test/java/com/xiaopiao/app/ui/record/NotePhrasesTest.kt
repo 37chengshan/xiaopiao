@@ -39,6 +39,15 @@ class NotePhrasesTest {
     }
 
     @Test
+    fun moreUsesWinEvenWhenTheyAreOlder() {
+        val txns = listOf(
+            txn("便利店", Category.MEAL, 80), txn("便利店", Category.MEAL, 81), txn("便利店", Category.MEAL, 82),
+            txn("食堂", Category.MEAL, 0), txn("食堂", Category.MEAL, 1),
+        )
+        assertEquals(listOf("便利店", "食堂"), NotePhrases.rank(txns, "meal", now))
+    }
+
+    @Test
     fun dropsBlankNumericLongAndOldNotes() {
         val txns = listOf(
             txn("  ", Category.MEAL, 1),
