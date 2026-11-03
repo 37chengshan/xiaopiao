@@ -87,6 +87,15 @@ private val HeroNumber = TextStyle(
     fontFeatureSettings = "tnum",
 )
 
+/** 15sp/600 tabular — today's income riding next to the hero in 支出 + 收入 mode. */
+private val IncomeNote = TextStyle(
+    fontFamily = XpFonts.sans,
+    fontSize = 15.sp,
+    lineHeight = 20.sp,
+    fontWeight = FontWeight.SemiBold,
+    fontFeatureSettings = "tnum",
+)
+
 /** 22sp/600 tabular — the month's two columns. */
 private val ColumnNumber = TextStyle(
     fontFamily = XpFonts.sans,
@@ -97,7 +106,7 @@ private val ColumnNumber = TextStyle(
 )
 
 /**
- * 总览卡 (reference `041428`): 「今日净支出（元）」(or 今日支出 + 今日收入, per [TodayShow]) + 眼睛 + 30sp number, then 本月支出 / 本月收入 as two
+ * 总览卡 (reference `041428`): 「今日净支出（元）」(or 今日支出 with a small 收入 note beside it, per [TodayShow]) + 眼睛 + 30sp number, then 本月支出 / 本月收入 as two
  * 22sp columns, then a full-bleed bottom strip — budget entry when no budget is set, remaining quota
  * when one is. The card is the page's only large colour field; the strip is a lighter tint of it.
  */
@@ -177,18 +186,17 @@ fun LedgerSummaryCard(
                     }
                 }
                 Spacer(Modifier.height(2.dp))
-                // Split: today's income sits in the right column, lined up with 本月收入 below.
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                    // The mask and the number are different widgets, so they cross-fade instead of rolling into garbage.
-                    AnimatedContent(
-                        targetState = hidden,
-                        transitionSpec = { XpMotion.crossfade() },
-                        label = "mask",
-                        modifier = Modifier.weight(1f),
-                    ) { masked ->
-                        if (masked) {
-                            Text(AMOUNT_MASK, style = HeroNumber, color = XpColors.Ink)
-                        } else {
+                // The mask and the number are different widgets, so they cross-fade instead of rolling into garbage.
+                AnimatedContent(
+                    targetState = hidden,
+                    transitionSpec = { XpMotion.crossfade() },
+                    label = "mask",
+                ) { masked ->
+                    if (masked) {
+                        Text(AMOUNT_MASK, style = HeroNumber, color = XpColors.Ink)
+                    } else {
+                        // Split: today's income rides right after the hero as a small note (tt: 紧挨着的小字, no column).
+                        Row(verticalAlignment = Alignment.Bottom) {
                             NumberTicker(
                                 text = heroCents.yuanGrouped(),
                                 style = HeroNumber,
@@ -196,10 +204,27 @@ fun LedgerSummaryCard(
                                 rollFromZero = false, // the hero must never flash 0 on first paint
                                 staggerMs = 26L,
                             )
+                            if (show == TodayShow.Split) {
+                                Row(
+                                    Modifier.padding(start = 10.dp, bottom = 6.dp),
+                                    verticalAlignment = Alignment.Bottom,
+                                ) {
+                                    Text(
+                                        tr("收入", "in"),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = XpColors.InkSecondary,
+                                        modifier = Modifier.padding(end = 3.dp, bottom = 1.dp),
+                                    )
+                                    NumberTicker(
+                                        text = "+" + summary.todayInCents.yuanGrouped(),
+                                        style = IncomeNote,
+                                        color = XpColors.Accent,
+                                        rollFromZero = false,
+                                        staggerMs = 18L,
+                                    )
+                                }
+                            }
                         }
-                    }
-                    if (show == TodayShow.Split) {
-                        SummaryColumn(tr("今日收入（元）", "Received today (¥)"), summary.todayInCents, hidden, Modifier.weight(1f).padding(bottom = 3.dp))
                     }
                 }
                 Spacer(Modifier.height(14.dp))
