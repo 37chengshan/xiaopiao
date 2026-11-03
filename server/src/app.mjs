@@ -203,11 +203,6 @@ export function createApp({ db, agent, sendMail, wechatClient = createWechatClie
         const bound = state.status === 'bound' ? { user: publicOf(userOf(req)) } : {};
         return json({ ...state, ...bound });
       }
-      // Mini program side: status only — no account data, no session, and no way to learn whose ticket it is.
-      if (url.pathname === '/v1/auth/wechat/bind-status' && req.method === 'GET') {
-        rate(`wechat-scan-status:${hash(String(ip))}`, 600, 600_000);
-        return json(wechat.scanStatus(url.searchParams.get('ticket')));
-      }
       // Removing WeChat must never leave an account nobody can sign in to: an email and a password must remain.
       if (url.pathname === '/v1/auth/wechat' && req.method === 'DELETE') {
         const user = userOf(req);
@@ -328,6 +323,7 @@ export function createApp({ db, agent, sendMail, wechatClient = createWechatClie
         rate(`auth:${ip}`, 30);
         workReleases.push(defense.acquire('auth', defensePolicy.auth));
       } else if (ticketAction) verifiedUser(req);
+      else if (url.pathname === '/v1/auth/wechat/bind-status') { /* anonymous by design: status only */ }
       else if (['/v1/chat', '/v1/ledger/push', '/v1/life/recognize'].includes(url.pathname)) verifiedUser(req);
       else return json({ error: 'NOT_FOUND' }, 404);
       const ledgerPush = url.pathname === '/v1/ledger/push';
@@ -345,6 +341,12 @@ export function createApp({ db, agent, sendMail, wechatClient = createWechatClie
         if (!Array.isArray(txns) || !Array.isArray(categories)) fail('INVALID_INPUT');
         if (txns.length + categories.length > LEDGER.items) fail('LEDGER_TOO_MANY');
         return json(ledger.push(user.id, deviceId, txns, categories));
+      }
+      // Mini program side: status only — no account data, no session, no way to learn whose ticket it is. The
+      // ticket travels in the body, never in a URL: access logs and proxies record paths and queries.
+      if (url.pathname === '/v1/auth/wechat/bind-status') {
+        rate(`wechat-scan-status:${hash(String(ip))}`, 600, 600_000);
+        return json(wechat.scanStatus(body.ticket));
       }
       if (ticketAction) {
         const user = userOf(req);
@@ -447,7 +449,7 @@ export function createApp({ db, agent, sendMail, wechatClient = createWechatClie
             rate(`wechat-bind:${hash(String(ip))}`, 20, 600_000);
             rate(`wechat-bind-ticket:${hash(ticket)}`, 10, 600_000);
             const state = await wechat.claim({ ticket, code, nickname: body.nickname, avatarUrl: body.avatarUrl });
-            return json({ ...state, poll: '/v1/auth/wechat/bind-status?ticket=' + ticket }, 202);
+            return json({ ...state, poll: '/v1/auth/wechat/bind-status' }, 202);
           }
           case '/v1/auth/email-attach': {
             // A WeChat-only account has no email to change, so it gets the code-verified attach path instead.

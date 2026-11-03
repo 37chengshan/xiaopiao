@@ -52,7 +52,7 @@ async function fixture(t, options = {}) {
     assert.equal(login.status, 200, JSON.stringify(login.data));
     return { token: login.data.token, user: login.data.user };
   }
-  return { db, mail, wechat, request, emailAccount, wechatAccount };
+  return { db, app, mail, wechat, request, emailAccount, wechatAccount };
 }
 
 test('a first WeChat login creates an account with no email, and the next one reuses it', async t => {
@@ -149,7 +149,7 @@ test('the ticket and the scene fit WeChat limits, and the App confirms before an
   assert.equal(done.data.user.wechat, true);
 
   // The mini program learns the outcome, then signs in with its own code — the session is never handed out by a poll.
-  const status = await f.request(`/v1/auth/wechat/bind-status?ticket=${ticket.data.id}`);
+  const status = await f.request('/v1/auth/wechat/bind-status', { ticket: ticket.data.id });
   assert.deepEqual(status.data, { status: 'bound' });
   const relogin = await f.request('/v1/auth/wechat', { code: f.wechat.issue('openid_beta_456'), client: 'native' });
   assert.equal(relogin.status, 200);
@@ -173,7 +173,7 @@ test('someone else scanning is not enough: without the App confirming, no openid
   const late = await f.request(`/v1/auth/wechat/bind-ticket/${ticket.data.id}/confirm`, {}, token);
   assert.equal(late.status, 400);
   assert.equal((await f.request(`/v1/auth/wechat/bind-ticket/${ticket.data.id}`, undefined, token)).data.status, 'expired');
-  assert.equal((await f.request(`/v1/auth/wechat/bind-status?ticket=${ticket.data.id}`)).data.status, 'expired');
+  assert.equal((await f.request('/v1/auth/wechat/bind-status', { ticket: ticket.data.id })).data.status, 'expired');
 });
 
 test('rejecting a scan voids the ticket and unbinds nothing', async t => {
@@ -185,7 +185,7 @@ test('rejecting a scan voids the ticket and unbinds nothing', async t => {
   assert.equal(rejected.status, 200);
   assert.equal(rejected.data.status, 'rejected');
   assert.equal(rejected.data.user.wechat, false);
-  assert.equal((await f.request(`/v1/auth/wechat/bind-status?ticket=${ticket.data.id}`)).data.status, 'rejected');
+  assert.equal((await f.request('/v1/auth/wechat/bind-status', { ticket: ticket.data.id })).data.status, 'rejected');
   const confirm = await f.request(`/v1/auth/wechat/bind-ticket/${ticket.data.id}/confirm`, {}, token);
   assert.equal(confirm.status, 400);
   assert.equal(f.db.prepare('SELECT wx_openid FROM users WHERE email=?').get(account.email).wx_openid, null);
@@ -348,4 +348,102 @@ test('losing the race for the same WeChat is a 409, never a 500', async t => {
   assert.equal(late.status, 409);
   assert.equal(late.data.error, 'WECHAT_IN_USE');
   assert.equal(f.db.prepare('SELECT wx_openid FROM users WHERE email=?').get(account.email).wx_openid, null);
+});
+
+test('the scanning side cannot report an avatar, and a forged nickname is cleaned', async t => {
+  const f = await fixture(t);
+  const token = await f.emailAccount();
+  const ticket = await f.request('/v1/auth/wechat/bind-ticket', {}, token);
+  const scanned = await f.request('/v1/auth/wechat/bind', {
+    ticket: ticket.data.id,
+    code: f.wechat.issue('openid_avatar'),
+    nickname: '\u200b\u200d阿\u0000票\ufeff  ',
+    avatarUrl: 'https://evil.example/pixel.png',
+  });
+  assert.equal(scanned.status, 202);
+  const row = f.db.prepare('SELECT nickname, openid FROM wechat_bind_tickets').get();
+  assert.equal(row.nickname, '阿票', 'zero-width and control characters are stripped');
+  assert.equal('avatar_url' in row, false, 'no avatar column is even written any more');
+  const poll = await f.request(`/v1/auth/wechat/bind-ticket/${ticket.data.id}`, undefined, token);
+  assert.deepEqual(poll.data.wechat, { nickname: '阿票' }, 'the avatar never comes back to the App');
+  assert.equal(JSON.stringify(poll.data).includes('evil.example'), false);
+});
+
+test('a nickname that is empty, too long or all invisible characters is dropped', async t => {
+  const f = await fixture(t);
+  const token = await f.emailAccount();
+  const cases = [['openid_n1', '\u200b\u200c'], ['openid_n2', 'x'.repeat(33)], ['openid_n3', '   ']];
+  for (const [openid, nickname] of cases) {
+    const ticket = await f.request('/v1/auth/wechat/bind-ticket', {}, token);
+    assert.equal((await f.request('/v1/auth/wechat/bind', { ticket: ticket.data.id, code: f.wechat.issue(openid), nickname })).status, 202);
+    const poll = await f.request(`/v1/auth/wechat/bind-ticket/${ticket.data.id}`, undefined, token);
+    assert.deepEqual(poll.data.wechat, {}, `nickname ${JSON.stringify(nickname)} is not usable`);
+    await f.request(`/v1/auth/wechat/bind-ticket/${ticket.data.id}/reject`, {}, token);
+  }
+});
+
+test('the scan status is a POST body: the ticket never travels in a URL, and nothing stores it in clear', async t => {
+  const f = await fixture(t);
+  const token = await f.emailAccount();
+  const ticket = await f.request('/v1/auth/wechat/bind-ticket', {}, token);
+  // A query string ends up in access logs and proxy logs, so the read side must not accept one.
+  const viaQuery = await f.request(`/v1/auth/wechat/bind-status?ticket=${ticket.data.id}`);
+  assert.equal(viaQuery.status, 404);
+  const viaBody = await f.request('/v1/auth/wechat/bind-status', { ticket: ticket.data.id });
+  assert.deepEqual(viaBody.data, { status: 'pending' });
+  // Only the digest is stored, and the rate-limit keys are hashed too.
+  assert.notEqual(f.db.prepare('SELECT digest FROM wechat_bind_tickets').get().digest, ticket.data.id);
+  const keys = f.db.prepare('SELECT key FROM limits').all().map(row => row.key).join(' ');
+  assert.equal(keys.includes(ticket.data.id), false);
+  assert.equal(JSON.stringify(f.app.defenseSnapshot()).includes(ticket.data.id), false);
+});
+
+test('the unique index, not the pre-check, is what refuses a duplicate openid', async t => {
+  const raw = store(':memory:'), mail = [], wechat = fakeWechat();
+  // The pre-check is hidden for one call so the write itself hits SQLite's unique index — the interleaving that a
+  // second process (or a second request in the same millisecond) would produce. The constraint error is real.
+  let hideOpenidLookup = false;
+  const db = new Proxy(raw, {
+    get(target, prop) {
+      if (prop === 'prepare') {
+        return sql => (/^SELECT \* FROM users WHERE wx_openid=\?$/.test(sql)
+          ? {
+            get: (...args) => (hideOpenidLookup ? undefined : target.prepare(sql).get(...args)),
+            all: (...args) => (hideOpenidLookup ? [] : target.prepare(sql).all(...args)),
+            run: (...args) => target.prepare(sql).run(...args),
+          }
+          : target.prepare(sql));
+      }
+      const value = target[prop];
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  const app = createApp({ db, sendMail: async item => mail.push(item), wechatClient: wechat, agent: async state => state });
+  app.listen(0, '127.0.0.1'); await once(app, 'listening');
+  t.after(async () => { app.closeAllConnections(); await new Promise(resolve => app.close(resolve)); raw.close(); });
+  const url = `http://127.0.0.1:${app.address().port}`;
+  const call = async (path, body, token) => {
+    const response = await fetch(url + path, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    return { status: response.status, data: await response.json().catch(() => null) };
+  };
+
+  const created = await call('/v1/auth/register', account);
+  const token = created.data.token;
+  await call('/v1/auth/verify', { code: mail[0].code }, token);
+  const ticket = await call('/v1/auth/wechat/bind-ticket', {}, token);
+  await call('/v1/auth/wechat/bind', { ticket: ticket.data.id, code: wechat.issue('openid_unique_race') });
+  // Another account already holds that openid; the lookup that would have said so is blind for this request.
+  const rival = await call('/v1/auth/register', { ...account, email: 'rival@example.test', username: 'rival' });
+  raw.prepare("UPDATE users SET wx_openid='openid_unique_race' WHERE id=?").run(rival.data.user.id);
+  hideOpenidLookup = true;
+  const late = await call(`/v1/auth/wechat/bind-ticket/${ticket.data.id}/confirm`, {}, token);
+  hideOpenidLookup = false;
+  assert.equal(late.status, 409);
+  assert.equal(late.data.error, 'WECHAT_IN_USE');
+  assert.equal(raw.prepare('SELECT wx_openid FROM users WHERE email=?').get(account.email).wx_openid, null);
+  assert.equal(raw.prepare('SELECT status FROM wechat_bind_tickets').get().status, 'scanned', 'the ticket is left for a retry');
 });

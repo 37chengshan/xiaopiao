@@ -106,6 +106,8 @@ Web 默认访问同源 `/v1`；需要独立同站域名时，可在构建环境�
 
 起草 kind：record（金额分、方向、可选分类/备注/时间）、budget（周期与额度分，可选分类）、reminder（触发时间 epoch 毫秒、文案 1–120）、meal（餐次、时间、items[{name,qty,unit}]，可选 price_cents）、activity（名称、时间，minutes 或 sets[{reps,kg}] 至少一个）
 
+视图 kind：`spend_summary`、`category_split`、`trend`、`entries`、`peak`、`weekly_report`、`subscriptions`、`draft_list`
+
 金额一律整数分（cents）；生活类汇总单位是 kcal，克数用 g。数据和视图工具在设备本机执行，服务端只声明 schema。
 <!-- tools:end -->
 - 最多八轮、每次请求最多六个工具，整轮 150 s 上限；到上限用已有结果收尾（合成视图或一句说明 + `done.truncated`），不空着结束。
@@ -129,9 +131,9 @@ Web 默认访问同源 `/v1`；需要独立同站域名时，可在构建环境�
 
 `POST /v1/auth/password`（`{currentPassword,newPassword}`，已登录即可、不要邮箱验证码）：改密成功后撤销其它会话与未用完的重置码，当前会话保留。新密码与注册/重设同一条强度规则（8–128，拒常见词/连号/重复/账号名），拒绝为 `400 PASSWORD_WEAK`。详见 `docs/API-ACCOUNT.md` 的密码服务加固一节。
 
-`POST /v1/chat`：首次传 `{messages:[{role,content}],timezone}`；收到 `tool_calls` 后本机执行，携带 `{runId,results:[{id,data}]}` 继续。SSE 类型为 `status / plan / step / draft / token / view / tool_calls / done / error`，`done` 可能带 `truncated:true`。关闭连接会中断上游。完整工具表、事件字段与兼容说明见 `docs/API-AGENT.md`。
+`POST /v1/chat`：首次传 `{messages:[{role,content}],timezone}`；收到 `tool_calls` 后本机执行，携带 `{runId,results:[{id,data}]}` 继续。SSE 类型为 `status / plan / step / draft / token / view / tool_calls / done / error`，`done` 可能带 `truncated:true`。文字只在整段校验（数字溯源 + 越界检查）通过后用一个 `token` 事件下发，进度事件仍实时。关闭连接会中断上游。完整工具表、事件字段与兼容说明见 `docs/API-AGENT.md`。
 
-`POST /v1/auth/wechat`（小程序 `wx.login` 的 code 换会话；没绑定就建一个只有微信的账号）、`POST /v1/auth/wechat/bind-ticket` + `GET .../bind-ticket/:id`（App/Web 生成与轮询 20 字符一次性票据和小程序码）、`POST /v1/auth/wechat/bind`（小程序扫码**登记**，202，不绑定）、`GET /v1/auth/wechat/bind-status?ticket=`（小程序只读状态）、`POST .../bind-ticket/:id/confirm|reject`（App 持有者确认才写入 openid）、`DELETE /v1/auth/wechat`（解绑，要求账号还有邮箱和密码）、`POST /v1/auth/email-attach[/confirm]`（给微信账号挂邮箱）。详见 `docs/API-ACCOUNT.md` 的微信一节；需要 `WX_MP_APPID` / `WX_MP_SECRET`。
+`POST /v1/auth/wechat`（小程序 `wx.login` 的 code 换会话；没绑定就建一个只有微信的账号）、`POST /v1/auth/wechat/bind-ticket` + `GET .../bind-ticket/:id`（App/Web 生成与轮询 20 字符一次性票据和小程序码）、`POST /v1/auth/wechat/bind`（小程序扫码**登记**，202，不绑定）、`POST /v1/auth/wechat/bind-status`（小程序只读状态，票据在 body）、`POST .../bind-ticket/:id/confirm|reject`（App 持有者确认才写入 openid）、`DELETE /v1/auth/wechat`（解绑，要求账号还有邮箱和密码）、`POST /v1/auth/email-attach[/confirm]`（给微信账号挂邮箱）。详见 `docs/API-ACCOUNT.md` 的微信一节；需要 `WX_MP_APPID` / `WX_MP_SECRET`。
 
 `POST /v1/life/recognize`（`{image:"<base64>"}`，JPEG/WebP、长边 ≤512px、≤200 KB；返回 `{items:[{name,portion_text,grams_estimate,confidence}]}`，最多 6 项，**不返回热量**）。每账号 6 次/分钟、60 次/天。图片不落盘、不记日志。详见 `docs/API-LIFE.md`；需要 `LIFE_VISION_MODEL`。
 

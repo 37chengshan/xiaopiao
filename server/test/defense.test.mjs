@@ -67,7 +67,9 @@ test('unauthenticated ledger/chat uploads fail before reading the body', async t
   }
 });
 test('slow auth upload times out, excess auth is shed, then capacity recovers', async t => {
-  const f = await fixture(t, { defensePolicy: { ...POLICY, auth: 1, bodyMs: 150 } });
+  // 400 ms rather than 150: the file runs alongside every other test file, and a timer that short raced the
+  // scheduler instead of measuring the read timeout.
+  const f = await fixture(t, { defensePolicy: { ...POLICY, auth: 1, bodyMs: 400 } });
   const pending = new Promise((resolve, reject) => {
     const req = httpRequest(f.base + '/v1/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Transfer-Encoding': 'chunked' } }, res => { res.resume(); resolve(res.statusCode); });
     req.on('error', reject); req.write('{');

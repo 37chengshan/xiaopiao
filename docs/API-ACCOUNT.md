@@ -178,8 +178,8 @@ DB_PATH=/var/lib/xiaopiao/api.sqlite node scripts/feedback.mjs [--since=<epochMs
 | POST | `/v1/auth/wechat` | 无 | 小程序登录：`{code, client:"native"}` |
 | POST | `/v1/auth/wechat/bind-ticket` | 已登录 | 生成一次性绑定票据 + 小程序码 |
 | GET | `/v1/auth/wechat/bind-ticket/:ticket` | 已登录（须是票据所属账号） | 轮询票据状态：`pending` / `scanned` / `bound` / `rejected` / `expired` |
-| POST | `/v1/auth/wechat/bind` | 无（小程序侧） | `{ticket, code, nickname?, avatarUrl?}` **扫码登记**，不绑定 |
-| GET | `/v1/auth/wechat/bind-status?ticket=` | 无（小程序侧） | 只返回状态枚举，没有账号数据、没有会话 |
+| POST | `/v1/auth/wechat/bind` | 无（小程序侧） | `{ticket, code, nickname?}` **扫码登记**，不绑定 |
+| POST | `/v1/auth/wechat/bind-status` | 无（小程序侧） | `{ticket}` → 只返回状态枚举，没有账号数据、没有会话 |
 | POST | `/v1/auth/wechat/bind-ticket/:ticket/confirm` | 已登录（票据所属账号） | App 侧确认，**这一步才写入 openid** |
 | POST | `/v1/auth/wechat/bind-ticket/:ticket/reject` | 已登录（票据所属账号） | App 侧拒绝，票据作废 |
 | DELETE | `/v1/auth/wechat` | 已登录 | 解绑微信 |
@@ -229,7 +229,7 @@ POST /v1/auth/wechat/bind-ticket   {}            →  201
 ```json
 GET /v1/auth/wechat/bind-ticket/<票据>   →  200
 { "status": "pending",  "expiresAt": 1762143000000 }
-{ "status": "scanned",  "wechat": { "nickname": "阿票", "avatarUrl": "https://..." } }
+{ "status": "scanned",  "wechat": { "nickname": "阿票" } }
 { "status": "bound",    "user": { ...publicUser } }
 { "status": "rejected" }
 { "status": "expired" }
@@ -237,12 +237,12 @@ GET /v1/auth/wechat/bind-ticket/<票据>   →  200
 
 - 只有生成票据的那个账号能查；别人拿着票据查一律 `400 WECHAT_TICKET_INVALID`（与「不存在」同一个回答，不泄漏票据是否有效）。
 - 建议 App 2 秒轮询；看到 `scanned` 就弹确认框，`bound` 后直接用返回的 `user` 刷新账号。
-- `wechat.nickname` / `wechat.avatarUrl` 只是给确认弹窗看的，**不写进账号**（头像仍走 `/v1/auth/avatar`）。
+- `wechat.nickname` 是**扫码方自报的**，只当文字显示在确认弹窗里（「这台手机自称是 阿票，绑定它？」），**不写进账号**；服务端会去掉控制字符与零宽/双向字符、长度上限 32，超出或清空后为空就不下发。**不接受任何头像 URL**：App 一旦加载任意地址就会把用户 IP 泄漏给第三方，头像只能走用户自己的 `/v1/auth/avatar`。
 
 ```json
 POST /v1/auth/wechat/bind
-{ "ticket": "<票据>", "code": "<小程序自己的 wx.login code>", "nickname": "阿票", "avatarUrl": "https://..." }
-  →  202 { "status": "scanned", "poll": "/v1/auth/wechat/bind-status?ticket=<票据>" }
+{ "ticket": "<票据>", "code": "<小程序自己的 wx.login code>", "nickname": "阿票" }
+  →  202 { "status": "scanned", "poll": "/v1/auth/wechat/bind-status" }
 ```
 
 - 小程序打开 `pages/bind/bind?scene=b:<票据>` 后，带着票据和**它自己**的 `wx.login` code 调这里。这一步只**登记**：记录 openid 与昵称/头像，状态变 `scanned`，**账号什么都没变，也不下发会话**。
@@ -259,7 +259,7 @@ POST /v1/auth/wechat/bind-ticket/<票据>/reject   {}  → 200 {status:"rejected
 - 拒绝把票据置 `rejected` 并清掉登记的信息，之后不能确认；账号不变。
 - **为什么要这一步**：二维码是给「本人手机」看的，但任何人都可能把别人的码扫走。只有持有已登录 App 的人点确认，微信身份才会被挂上——扫码本身不足以证明是账号主人在操作。
 
-小程序侧拿到会话的方式（二选一，**推荐前者**）：确认成功后它的 `bind-status` 会变成 `bound`，此时重新 `wx.login` 拿一个新 code 调 `POST /v1/auth/wechat`（这时 openid 已绑在该账号上，返回的就是那个账号的会话）。不要用票据本身换会话：票据不证明 openid。
+小程序侧拿到会话的方式（二选一，**推荐前者**）：确认成功后 `POST /v1/auth/wechat/bind-status {ticket}` 会变成 `bound`，此时重新 `wx.login` 拿一个新 code 调 `POST /v1/auth/wechat`（这时 openid 已绑在该账号上，返回的就是那个账号的会话）。不要用票据本身换会话：票据不证明 openid。
 
 #### 3. 解绑 `DELETE /v1/auth/wechat`
 
@@ -315,7 +315,7 @@ POST /v1/auth/email-attach/confirm  { "code": "123456" }            → 200 {use
 ### 需要前端配合
 
 1. App/Web：设置页加「绑定微信」→ 调 `bind-ticket` → 显示 `image`（PNG）→ 轮询：`pending` 显示「等待扫码」，`scanned` 弹「绑定微信「昵称」？」→ 用户点确认调 `.../confirm`（点拒绝调 `.../reject`）→ `bound` 后刷新账号；账号对象新增 `wechat` 字段，`email` 可能是 `null`。
-2. 小程序：`wx.login` 拿 code → `POST /v1/auth/wechat`（带 `client:"native"`）；扫码页读 `scene=b:<票据>` → `wx.login` → `POST /v1/auth/wechat/bind`（可带 `nickname`/`avatarUrl`）→ 显示「等待 App 确认」→ 轮询 `bind-status` → `bound` 后重新 `wx.login` 并调 `POST /v1/auth/wechat` 取会话；`rejected` 显示「已取消」。「绑定邮箱」页复用验证码 UI 调 `email-attach` / `email-attach/confirm`。
+2. 小程序：`wx.login` 拿 code → `POST /v1/auth/wechat`（带 `client:"native"`）；扫码页读 `scene=b:<票据>` → `wx.login` → `POST /v1/auth/wechat/bind`（可带 `nickname`/`avatarUrl`）→ 显示「等待 App 确认」→ 轮询 `POST /v1/auth/wechat/bind-status {ticket}` → `bound` 后重新 `wx.login` 并调 `POST /v1/auth/wechat` 取会话；`rejected` 显示「已取消」。「绑定邮箱」页复用验证码 UI 调 `email-attach` / `email-attach/confirm`。
 3. 老客户端遇到 `email: null` / 未知字段 `wechat` 不应崩溃（Android `AccountUser` 目前读 `email` 为必填，建议改成可空）。
 
 ### 验收（2026-11-03，未部署）

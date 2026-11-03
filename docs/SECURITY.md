@@ -63,6 +63,8 @@ body 按 bytes 累计，收齐后统一 UTF-8 解码，修复中文跨 chunk 被
 |---|---|---|
 | 绑定票据被重放 | 票据 20 字符随机（15 字节 base64url）、只存 sha256 摘要；绑定成功即 `status='bound'`，重放命中同一条即 `400`；「挂 openid」与「消费票据」在同一个 `BEGIN IMMEDIATE` 事务里，两次并发确认只有一次 `changes=1` | `wechat.mjs` `confirm` |
 | 票据被第三方截获后轮询 | 轮询与确认都要求**生成票据的账号**在线，别人的 401/400 与「票据不存在」同码同文案；票据本身不含账号 id、不含 openid；小程序侧的 `bind-status` 只返回状态枚举 | `app.mjs` `ticketPoll`、`wechat.mjs` `scanStatus` |
+| 票据进日志 | 小程序查状态改为 `POST /v1/auth/wechat/bind-status`，票据在 body 里；URL 里只有固定路径。库里只存 `sha256` 摘要，限流键也是 `hash(ticket)`，`security_summary` 只有计数（测试断言票据不出现在 limits 键与快照里） | `app.mjs`、`wechat.mjs` |
+| 扫码方冒名 | 昵称是**扫码方自报**的：去控制字符与零宽/双向字符、≤32，只作为文字显示在确认弹窗，不写进账号；服务端**不再接收头像 URL**（App 加载任意地址会把用户 IP 泄漏给第三方） | `wechat.mjs` `sanitizeNickname`/`status` |
 | 票据被第三方拿去绑定自己的微信 | **扫码不再等于绑定**：小程序扫码只把票据置为 `scanned` 并带上昵称/头像，必须由已登录的 App 持有者点确认才写入 openid；App 不确认或超时则永不绑定，拒绝直接把票据作废 | `wechat.mjs` `claim`/`confirm`/`reject` |
 | 票据长度导致绑定整体不可用 | 微信 `getwxacodeunlimit` 的 `scene` 上限 32 字符，上一版 43 字符票据会 100% 失败；票据改为 20 字符（`b:` + 20 = 22），`bindCode` 在发请求前断言 `scene.length <= 32`，测试断言真实长度而不是只跑 mock | `wechat.mjs` `LIMITS`/`bindCode`、`test/bounded.test.mjs` |
 | 上游响应无界读取 | 模型、微信、视觉三处统一走 `src/bounded.mjs`：先看 `Content-Length`，再按字节上限边读边算，任何路径都 `cancel()` 释放 socket；`!response.ok` 也取消 body | `bounded.mjs` |
@@ -78,6 +80,7 @@ body 按 bytes 累计，收齐后统一 UTF-8 解码，修复中文跨 chunk 被
 | 图片成为持久化隐私风险 | 不落盘、不入库、不写日志、不回显；请求体上限 280 KB 只对这一条路由；解码后再校验 200 KB 与长边 512 px；函数返回即丢弃 buffer | `life.mjs` |
 | 伪造图片骗过校验 | 类型只看魔术字节（只收 JPEG/WebP，PNG/GIF/文本一律 400）；像素尺寸从 SOF/VP8X/VP8L 头解析，读不出即 400，避免小文件解码成大图 | `life.mjs` `sniff`/`dimensions` |
 | 模型输出注入客户端 | 视觉模型输出走白名单（`name/portion_text/grams_estimate/confidence`，上限 40/24/5000/1），热量等额外字段直接丢弃；认不出就是 `items: []` + 200，不会 500 | `life.mjs` `parseItems` |
+| 越界建议/编造数字从长回答漏出 | 文字先整段缓冲，对**完整回复**做数字溯源与越界检查后才一次性下发；被拒的回答一个字都不发，只换模型。进度事件仍实时 | `agent.mjs` `attempt` |
 
 ### 与既有控制的关系
 

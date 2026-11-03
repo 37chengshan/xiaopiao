@@ -37,8 +37,8 @@ export const LIMITS = Object.freeze({
   qrWidth: 280,
   timeoutMs: 8_000,
   usernameTries: 5,
+  /** A nickname the scanning side reports about itself: unbounded text would be a way to impersonate someone. */
   nickname: 32,
-  avatarUrl: 256,
 });
 
 const fail = (code, field) => { throw Object.assign(new Error(code), { code, ...(field ? { field } : {}) }); };
@@ -136,10 +136,10 @@ export function createWechatAccounts({ db, client, now = Date.now }) {
   const insertUser = db.prepare('INSERT INTO users (id,email,username,password,verified,created,wx_openid) VALUES (?,?,?,?,?,?,?)');
   const usernameTaken = db.prepare('SELECT 1 FROM users WHERE username=?');
   const byId = db.prepare('SELECT * FROM users WHERE id=?');
-  const ticketInsert = db.prepare(`INSERT INTO wechat_bind_tickets (digest,user_id,status,openid,nickname,avatar_url,created_at,expires)
-    VALUES (?,?,?,?,?,?,?,?)`);
+  const ticketInsert = db.prepare(`INSERT INTO wechat_bind_tickets (digest,user_id,status,openid,nickname,created_at,expires)
+    VALUES (?,?,?,?,?,?,?)`);
   const ticketRead = db.prepare('SELECT * FROM wechat_bind_tickets WHERE digest=?');
-  const ticketClaim = db.prepare("UPDATE wechat_bind_tickets SET status='scanned', openid=?, nickname=?, avatar_url=? WHERE digest=? AND status='pending' AND expires>?");
+  const ticketClaim = db.prepare("UPDATE wechat_bind_tickets SET status='scanned', openid=?, nickname=? WHERE digest=? AND status='pending' AND expires>?");
   const ticketBind = db.prepare("UPDATE wechat_bind_tickets SET status='bound' WHERE digest=? AND status='scanned' AND expires>?");
   const ticketReject = db.prepare("UPDATE wechat_bind_tickets SET status='rejected', openid=NULL WHERE digest=? AND status IN ('pending','scanned')");
   const deleteTicketsForUser = db.prepare('DELETE FROM wechat_bind_tickets WHERE user_id=?');
@@ -168,7 +168,7 @@ export function createWechatAccounts({ db, client, now = Date.now }) {
     if (ticket.length !== LIMITS.ticketLength || sceneFor(ticket).length > LIMITS.maxScene) throw new Error('TICKET_LENGTH');
     const image = await client.bindCode({ scene: sceneFor(ticket), page: 'pages/bind/bind' });
     const expires = now() + LIMITS.ticketMs;
-    ticketInsert.run(hash(ticket), userId, 'pending', null, null, null, now(), expires);
+    ticketInsert.run(hash(ticket), userId, 'pending', null, null, now(), expires);
     return { ticket, expires, image };
   }
 
@@ -182,14 +182,16 @@ export function createWechatAccounts({ db, client, now = Date.now }) {
     return { row, status: row.status };
   }
 
-  /** App side: what the person sees before deciding. Nickname/avatar are shown, never written to the account. */
+  /**
+   * App side: what the person sees before deciding. The nickname is **reported by the scanning side**, so it is
+   * shown as plain text only ("this phone says it is 阿票") and never written to the account — the confirmation is
+   * what makes the binding real. No avatar is accepted at all: an arbitrary URL would leak the App user's IP to a
+   * third party the moment it is rendered.
+   */
   function status(userId, ticket) {
     const { row, status: state } = ticketFor(userId, ticket);
     if (state === 'scanned') {
-      return {
-        status: 'scanned',
-        wechat: { ...(row.nickname ? { nickname: row.nickname } : {}), ...(row.avatar_url ? { avatarUrl: row.avatar_url } : {}) },
-      };
+      return { status: 'scanned', wechat: row.nickname ? { nickname: row.nickname } : {} };
     }
     if (state === 'pending') return { status: 'pending', expiresAt: row.expires };
     return { status: state };
@@ -208,7 +210,7 @@ export function createWechatAccounts({ db, client, now = Date.now }) {
    * Mini program half: its own `wx.login` code plus the scanned ticket. This only *claims* the ticket — the openid
    * is remembered with the nickname/avatar so the App can ask "attach this WeChat?" — nothing is bound yet.
    */
-  async function claim({ ticket, code, nickname, avatarUrl }) {
+  async function claim({ ticket, code, nickname }) {
     if (!isTicket(ticket)) fail('WECHAT_TICKET_INVALID');
     const digest = hash(ticket);
     const row = ticketRead.get(digest);
@@ -222,7 +224,7 @@ export function createWechatAccounts({ db, client, now = Date.now }) {
     }
     const owner = findOpenid.get(openid);
     if (owner) fail('WECHAT_IN_USE');
-    const claimed = ticketClaim.run(openid, sanitizeNickname(nickname), sanitizeAvatar(avatarUrl), digest, now());
+    const claimed = ticketClaim.run(openid, sanitizeNickname(nickname), digest, now());
     if (claimed.changes !== 1) fail('WECHAT_TICKET_INVALID');
     return { status: 'scanned' };
   }
@@ -281,15 +283,17 @@ export function createWechatAccounts({ db, client, now = Date.now }) {
   return { login, issueTicket, status, scanStatus, claim, confirm, reject, unbind };
 }
 
-/** The mini program may send a nickname it obtained itself; anything unusable is simply not shown. */
-function sanitizeNickname(value) {
+/**
+ * The mini program may send a nickname it obtained itself. It is untrusted: control characters and zero-width /
+ * bidi marks are removed (they are used to forge a display name that reads as someone else), surrounding space is
+ * trimmed, and anything that is not 1–32 visible characters is dropped entirely rather than truncated.
+ */
+export function sanitizeNickname(value) {
   if (typeof value !== 'string') return null;
-  const clean = value.replace(/[\u0000-\u001f]/g, '').trim();
+  const clean = value
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, '')
+    .replace(/[\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   return clean.length && clean.length <= LIMITS.nickname ? clean : null;
-}
-function sanitizeAvatar(value) {
-  if (typeof value !== 'string') return null;
-  const clean = value.trim();
-  // Only https URLs: the App renders it, so a javascript: or data: URL must never reach it.
-  return clean.length <= LIMITS.avatarUrl && /^https:\/\/[^\s]{1,240}$/.test(clean) ? clean : null;
 }

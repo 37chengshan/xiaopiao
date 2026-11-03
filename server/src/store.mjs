@@ -131,7 +131,6 @@ export function store(path) {
       status TEXT NOT NULL DEFAULT 'pending',
       openid TEXT,
       nickname TEXT,
-      avatar_url TEXT,
       created_at INTEGER NOT NULL,
       expires INTEGER NOT NULL
     );
@@ -147,7 +146,9 @@ export function store(path) {
  */
 function migrateTicketColumns(db) {
   const columns = new Set(db.prepare('PRAGMA table_info(wechat_bind_tickets)').all().map(column => column.name));
-  for (const name of ['nickname', 'avatar_url']) {
+  // `avatar_url` is intentionally absent: the scanning side may not report an avatar (it would leak the App
+  // user's IP to whatever host the URL points at).
+  for (const name of ['nickname']) {
     if (!columns.has(name)) db.exec(`ALTER TABLE wechat_bind_tickets ADD COLUMN ${name} TEXT`);
   }
 }
