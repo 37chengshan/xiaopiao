@@ -77,14 +77,14 @@ jobs:
           fi
 
       - name: Build APK
-        run: ./gradlew --no-daemon :app:assembleDebug -Pxiaopiao.apiBaseUrl=$API_BASE_URL
+        run: ./gradlew --no-daemon :app:assembleRelease -Pxiaopiao.apiBaseUrl=$API_BASE_URL
 
       - name: Name APK
         id: apk
         run: |
           ver="${{ steps.rel.outputs.tag }}"
           name="xiaopiao-${ver:-${GITHUB_SHA::7}}-prod.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "$name"
+          cp app/build/outputs/apk/release/app-release.apk "$name"
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
