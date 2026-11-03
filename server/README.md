@@ -106,7 +106,7 @@ Web 默认访问同源 `/v1`；需要独立同站域名时，可在构建环境�
 
 起草 kind：record（金额分、方向、可选分类/备注/时间）、budget（周期与额度分，可选分类）、reminder（触发时间 epoch 毫秒、文案 1–120）、meal（餐次、时间、items[{name,qty,unit}]，可选 price_cents）、activity（名称、时间，minutes 或 sets[{reps,kg}] 至少一个）
 
-视图 kind：`spend_summary`、`category_split`、`trend`、`entries`、`peak`、`weekly_report`、`subscriptions`、`draft_list`
+视图 kind：`spend_summary`（支出合计）、`category_split`（分类占比）、`trend`（按天走势）、`entries`（最近明细）、`peak`（最大一笔）、`weekly_report`（周报）、`subscriptions`（规律扣款）、`draft_list`（待确认草稿）
 
 金额一律整数分（cents）；生活类汇总单位是 kcal，克数用 g。数据和视图工具在设备本机执行，服务端只声明 schema。
 <!-- tools:end -->

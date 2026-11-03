@@ -36,14 +36,14 @@ const range = () => schema({ from: int(TIME_MIN, TIME_MAX), to: int(TIME_MIN, TI
  * the server validates `show_view` against.
  */
 export const VIEWS = Object.freeze([
-  { kind: 'spend_summary', use: '一个周期的总额和笔数', fields: 'total_cents, count, period' },
-  { kind: 'category_split', use: '按分类拆分支出', fields: 'rows[{label, cents}], total_cents, period' },
-  { kind: 'trend', use: '按天走势', fields: 'points[{label, cents}], period' },
-  { kind: 'entries', use: '最近几条明细', fields: 'rows[{merchant, cents, category, occurred_at}]' },
-  { kind: 'peak', use: '最大的一天/一笔', fields: 'label, cents, dimension' },
-  { kind: 'weekly_report', use: '周报卡', fields: 'total_cents, count, top_category, week_label' },
-  { kind: 'subscriptions', use: '规律扣款', fields: 'rows[{merchant, cents, cadence}]' },
-  { kind: 'draft_list', use: '待确认的账目草稿', fields: 'rows[{merchant, cents, category}]' },
+  { kind: 'spend_summary', label: '支出合计', use: '一个周期的总额和笔数', fields: 'total_cents, count, period' },
+  { kind: 'category_split', label: '分类占比', use: '按分类拆分支出', fields: 'rows[{label, cents}], total_cents, period' },
+  { kind: 'trend', label: '按天走势', use: '按天走势', fields: 'points[{label, cents}], period' },
+  { kind: 'entries', label: '最近明细', use: '最近几条明细', fields: 'rows[{merchant, cents, category, occurred_at}]' },
+  { kind: 'peak', label: '最大一笔', use: '最大的一天/一笔', fields: 'label, cents, dimension' },
+  { kind: 'weekly_report', label: '周报', use: '周报卡', fields: 'total_cents, count, top_category, week_label' },
+  { kind: 'subscriptions', label: '规律扣款', use: '规律扣款', fields: 'rows[{merchant, cents, cadence}]' },
+  { kind: 'draft_list', label: '待确认草稿', use: '待确认的账目草稿', fields: 'rows[{merchant, cents, category}]' },
 ]);
 export const VIEW_KINDS = Object.freeze(VIEWS.map(view => view.kind));
 const viewRow = {
@@ -395,7 +395,7 @@ export function renderToolDoc() {
     '',
     `起草 kind：${promptDraftLine()}`,
     '',
-    `视图 kind：${VIEWS.map(view => `\`${view.kind}\``).join('、')}`,
+    `视图 kind：${VIEWS.map(view => `\`${view.kind}\`（${view.label}）`).join('、')}`,
     '',
     `金额一律整数分（cents）；生活类汇总单位是 kcal，克数用 g。数据和视图工具在设备本机执行，服务端只声明 schema。`,
   ].join('\n');

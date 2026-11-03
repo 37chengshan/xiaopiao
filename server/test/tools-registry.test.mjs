@@ -9,7 +9,9 @@ test('the README tool table is generated from the registry and cannot drift', ()
   const readme = readFileSync(readmePath(), 'utf8');
   assert.equal(currentBlock(readme), block(renderToolDoc()), 'run `node scripts/tools.mjs --write`');
   for (const tool of TOOLS) assert.ok(readme.includes(`\`${tool.name}\``), `${tool.name} is documented in the README`);
-  for (const kind of VIEW_KINDS) assert.ok(readme.includes(`\`${kind}\``), `view ${kind} is documented`);
+  for (const view of VIEWS) {
+    assert.ok(readme.includes(`\`${view.kind}\`（${view.label}）`), `view ${view.kind} is documented with its name`);
+  }
   // The retired name must not linger anywhere the reader would copy from.
   assert.equal(readme.includes('read_life_logs'), false);
 });
@@ -19,7 +21,8 @@ test('the prompt is written from the registry, so it cannot name anything that d
   // Exact fragments, derived from the registry rather than a list typed in this test.
   assert.ok(prompt.includes(`kind 只能是 ${promptDraftLine()}。`), 'the draft rule enumerates exactly DRAFT_KINDS');
   for (const view of VIEWS) {
-    assert.ok(prompt.includes(`- ${view.kind}：${view.use}；${view.fields}`), `view ${view.kind} is described`);
+    assert.ok(view.label.length > 0, `view ${view.kind} has a name`);
+    assert.ok(prompt.includes(`- ${view.kind}（${view.label}）：${view.use}；${view.fields}`), `view ${view.kind} is described`);
   }
   for (const tool of TOOLS) {
     if (tool.kind === 'data') assert.ok(prompt.includes(`- ${tool.name}：${tool.summary}`), `${tool.name} is offered`);

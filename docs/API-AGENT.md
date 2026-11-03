@@ -45,7 +45,7 @@
 
 ## 3. 展示：`show_view`（原有，未变）
 
-`kind` 是注册表里的固定列表（`server/src/tools.mjs` 的 `VIEWS`，目前 8 种：`spend_summary` / `category_split` / `trend` / `entries` / `peak` / `weekly_report` / `subscriptions` / `draft_list`），prompt 的视图说明、`show_view` 的 schema 枚举与 README 都从这份注册表生成。未知 `kind` 会被服务端丢掉，并由服务端用本轮工具结果合成视图（`view` 事件）。**新工具没有新增视图**：预算、区间、生活记录目前只有文字结论，需要卡片时另开需求。
+`kind` 是注册表里的固定列表（`server/src/tools.mjs` 的 `VIEWS`，每条含 `kind` / `label` / `use` / `fields`，目前 8 种：`spend_summary` 支出合计 / `category_split` 分类占比 / `trend` 按天走势 / `entries` 最近明细 / `peak` 最大一笔 / `weekly_report` 周报 / `subscriptions` 规律扣款 / `draft_list` 待确认草稿）。prompt 的视图说明、`show_view` 的 schema 枚举与 README 都从这份注册表生成，测试也只用注册表比较。未知 `kind` 会被服务端丢掉，并由服务端用本轮工具结果合成视图（`view` 事件）。**新工具没有新增视图**：预算、区间、生活记录目前只有文字结论，需要卡片时另开需求。
 
 ## 4. 多步规划：`plan` 与 `step`
 

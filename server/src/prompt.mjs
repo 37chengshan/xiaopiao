@@ -62,7 +62,7 @@ export function buildSystemPrompt({ timezone = 'Asia/Shanghai', today } = {}) {
     '可用取数工具（在本机执行，只返回结构化统计；金额一律整数分）：',
     ...promptToolLines(),
     '可用视图（kind → 用途 → 需要填的字段，金额都是整数分）：',
-    ...VIEWS.map(view => `- ${view.kind}：${view.use}；${view.fields}`),
+    ...VIEWS.map(view => `- ${view.kind}（${view.label}）：${view.use}；${view.fields}`),
     '对话示例：',
     ...EXAMPLES.map(([question, answer]) => `- 用户：${question} → ${answer}`),
   ].join('\n');
