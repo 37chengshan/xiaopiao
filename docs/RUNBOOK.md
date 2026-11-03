@@ -49,6 +49,12 @@ adb -s <设备id> shell dumpsys notification --noredact                         
 adb -s <设备id> shell screenrecord /sdcard/x.mp4                               # 录屏，Ctrl+C 结束后 adb pull
 ```
 
+### 云端构建与发版（GitHub Actions，`.github/workflows/android.yml`）
+
+- push 到 main 且动到 `app/`、`gradle/` 等 → 自动打 APK（指向 `https://xiaopiao.citygenius.top`），在 Actions 该次运行的 Artifacts 里下载，保留 14 天。
+- 发版：`git tag v2026.11.03 && git push origin v2026.11.03` → 自动建 GitHub Release，附 `xiaopiao-<tag>-prod.apk`；落地页「安卓 App」链 `releases/latest`。也可以在 Actions 页 Run workflow，勾 release 填 tag。
+- 签名用本机 debug keystore（仓库 secret `DEBUG_KEYSTORE_B64`），这样 CI 的包能覆盖安装手机上的日常版。缺 secret 时发版直接失败。
+
 ## 2. Web（比赛提交物，QMuse）
 
 在 `web/` 目录里：
