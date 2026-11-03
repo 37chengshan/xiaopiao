@@ -20,7 +20,7 @@ async function fixture(t, options = {}) {
   const base = `http://127.0.0.1:${app.address().port}`;
   const user = (id = 'owner') => {
     const token = secret();
-    db.prepare('INSERT INTO users VALUES (?,?,?,?,1,?)').run(id, `${id}@example.test`, id, 'unused', Date.now());
+    db.prepare('INSERT INTO users (id,email,username,password,verified,created) VALUES (?,?,?,?,1,?)').run(id, `${id}@example.test`, id, 'unused', Date.now());
     db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token), id, Date.now() + 60_000);
     return token;
   };

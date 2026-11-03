@@ -27,6 +27,11 @@ npm start --prefix server
 | `HOST`, `PORT` | 本机默认 `127.0.0.1:8787`；容器为 `0.0.0.0:8787` |
 | `DB_PATH` | SQLite 路径；容器为 `/app/data/xiaopiao.sqlite` |
 | `PASSWORD_PEPPER` | 可选。设置后密码先 HMAC 再 scrypt，新哈希带 `scrypt1p$` 前缀；一旦启用必须长期保留，丢失则这些账号无法登录（启动会警告）。不设置时行为与不启用完全一致 |
+| `WX_MP_APPID` | 微信小程序 AppID（`wx36cf3bfafff4d03c`）。与下一项缺一，微信相关接口返回 `503 WECHAT_UNAVAILABLE` |
+| `WX_MP_SECRET` | 小程序 AppSecret。只放服务器 env，不进代码、测试或日志 |
+| `LIFE_VISION_MODEL` | 拍照识别用的视觉模型 id。不设置 = `/v1/life/recognize` 整体关闭（`503 RECOGNIZE_UNAVAILABLE`） |
+| `LIFE_VISION_API_KEY` | 视觉模型 key；不设置时回落到 `MODEL_API_KEY` |
+| `LIFE_VISION_BASE_URL` | 可选。默认与文本供应商同一个 base URL（`https://api.commandcode.ai/provider/v1`） |
 
 缺少邮件配置时注册、重发、找回密码会明确失败，不伪造发送成功。缺少模型配置时返回错误事件，客户端退回本机统计。登录不会自动同步账本。
 
@@ -65,6 +70,9 @@ Web 默认访问同源 `/v1`；需要独立同站域名时，可在构建环境�
 | `src/providers.mjs` | 供应商描述符（端点、鉴权头、工具能力、免费模型白名单） |
 | `src/prompt.mjs` | system prompt 单一来源（所有供应商共用） |
 | `src/sanitize.mjs` | 丢掉模型自带的工具协议标记，含跨 chunk 半截标签 |
+| `src/tools.mjs` | 工具目录（schema、中文步骤文案）、`draft` / `plan_steps` 的格式校验 |
+| `src/wechat.mjs` | 小程序 `jscode2session`、`access_token` 缓存、`getUnlimited`，以及绑定票据与解绑规则 |
+| `src/life.mjs` | 拍照识别的图片校验（魔术字节、像素尺寸）、视觉模型调用与输出白名单 |
 
 ### 新增一个模型供应商
 
@@ -75,10 +83,11 @@ Web 默认访问同源 `/v1`；需要独立同站域名时，可在构建环境�
 
 ## 数据与 Agent 边界
 
-- 仅四种只读工具：`summarize_period`、`find_peak`、`query_transactions`、`read_circle`，工具在手机 / 浏览器本机执行。
-- 最多四轮，最多四个工具 / 轮；结果大小、记录数、上下文大小和执行时限均有限制。
-- 不提供模型写入工具。自动入账是用户预先打开的本机偏好，使用本机解析结果，可撤销；CSV 保留确认。
-- 只传白名单结构化字段，不传账单原文、CSV、图片、通知日志、备注或卡号。数值单位为整数分。
+- 十种只读工具：`summarize_period`、`find_peak`、`query_transactions`、`read_circle`、`read_budget`、`summarize_range`、`read_subscriptions`、`read_weekly_report`、`read_life_logs`、`list_categories`，全部在手机 / 浏览器本机执行。schema 与返回形状见 `docs/API-AGENT.md`。
+- 最多八轮、每次请求最多六个工具，整轮 150 s 上限；到上限用已有结果收尾（合成视图或一句说明 + `done.truncated`），不空着结束。
+- 「先计划再逐步查」：模型可调服务端私有工具 `plan_steps`，服务端只发 `plan` / `step` 事件，**不下发该工具**，旧客户端不受影响。
+- 不提供模型写入工具。要记一笔 / 设预算 / 设提醒时只能 `draft` 起草：服务端校验字段后推给客户端，用户本机确认才走 `POST /v1/ledger/push`。自动入账是用户预先打开的本机偏好，可撤销；CSV 保留确认。
+- 只传白名单结构化字段，不传账单原文、CSV、图片、通知日志、备注原文或卡包。数值单位为整数分；生活记录汇总单位是 kcal。
 - 展示实际步骤摘要，不展示模型内部 `reasoning_content`。未知工具、错误参数、超时与截断均失败关闭。
 - 免费模型白名单按 `/models` 检查可用性，`/models` 失败时退回静态免费白名单；已输出内容后不拼接另一个模型的回答。
 - 路由（`src/router.mjs`）按实测首 token 延迟、连续失败和最近十分钟用量排序，失败分级冷却：429 从 2 分钟起翻倍（上限 30 分钟）、超时/5xx 从 20 秒起、空回答 2 分钟、不合规输出 10 分钟；全部冷却时仍试最早恢复的一个。首 token 预算按实测延迟自适应（9–20 秒），第一次超时只校准预算不冷却。
@@ -95,7 +104,11 @@ Web 默认访问同源 `/v1`；需要独立同站域名时，可在构建环境�
 
 `POST /v1/auth/password`（`{currentPassword,newPassword}`，已登录即可、不要邮箱验证码）：改密成功后撤销其它会话与未用完的重置码，当前会话保留。新密码与注册/重设同一条强度规则（8–128，拒常见词/连号/重复/账号名），拒绝为 `400 PASSWORD_WEAK`。详见 `docs/API-ACCOUNT.md` 的密码服务加固一节。
 
-`POST /v1/chat`：首次传 `{messages:[{role,content}],timezone}`；收到 `tool_calls` 后本机执行，携带 `{runId,results:[{id,data}]}` 继续。SSE 类型为 `status / token / tool_calls / done / error`。关闭连接会中断上游。
+`POST /v1/chat`：首次传 `{messages:[{role,content}],timezone}`；收到 `tool_calls` 后本机执行，携带 `{runId,results:[{id,data}]}` 继续。SSE 类型为 `status / plan / step / draft / token / view / tool_calls / done / error`，`done` 可能带 `truncated:true`。关闭连接会中断上游。完整工具表、事件字段与兼容说明见 `docs/API-AGENT.md`。
+
+`POST /v1/auth/wechat`（小程序 `wx.login` 的 code 换会话；没绑定就建一个只有微信的账号）、`POST|GET /v1/auth/wechat/bind-ticket[/:id]`（App/Web 生成与轮询一次性绑定票据 + 小程序码）、`POST /v1/auth/wechat/bind`（小程序带票据和 code 完成绑定）、`DELETE /v1/auth/wechat`（解绑，要求账号还有邮箱和密码）、`POST /v1/auth/email-attach[/confirm]`（给微信账号挂邮箱）。详见 `docs/API-ACCOUNT.md` 的微信一节；需要 `WX_MP_APPID` / `WX_MP_SECRET`。
+
+`POST /v1/life/recognize`（`{image:"<base64>"}`，JPEG/WebP、长边 ≤512px、≤200 KB；返回 `{items:[{name,portion_text,grams_estimate,confidence}]}`，最多 6 项，**不返回热量**）。每账号 6 次/分钟、60 次/天。图片不落盘、不记日志。详见 `docs/API-LIFE.md`；需要 `LIFE_VISION_MODEL`。
 
 `POST /v1/ledger/push`（`{deviceId,txns,categories}`，≤500 条，LWW）、`GET /v1/ledger/changes?since=&limit=`（含墓碑）。只收结构化字段，账单原文一律拒收；鉴权同上，且要求已验证邮箱。完整字段、错误码与客户端流程见 `docs/API-SYNC.md`。
 

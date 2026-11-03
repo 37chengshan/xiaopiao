@@ -1,5 +1,9 @@
 /** Resource budgets for one small API instance. No identities or payloads in diagnostics. */
-export const POLICY = Object.freeze({ requests: 64, perIp: 8, auth: 3, chats: 4, bodyMs: 15_000, chatMs: 120_000, rateKeys: 20_000 });
+/**
+ * `vision` is the photo-recognition pool: a vision call holds a socket and a model quota for up to 20 s, so it gets
+ * its own two slots instead of competing with chat.
+ */
+export const POLICY = Object.freeze({ requests: 64, perIp: 8, auth: 3, chats: 4, vision: 2, bodyMs: 15_000, chatMs: 120_000, rateKeys: 20_000 });
 export function securityError(code, retryAfter) { return Object.assign(new Error(code), { code, retryAfter }); }
 export function createDefense(policy = POLICY) {
   let requests = 0;

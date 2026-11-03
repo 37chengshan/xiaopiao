@@ -9,7 +9,7 @@ export function store(path) {
   const db = new DatabaseSync(path);
   if (path !== ':memory:') chmodSync(path, 0o600);
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
-    CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, verified INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE, username TEXT UNIQUE NOT NULL, password TEXT, verified INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, wx_openid TEXT UNIQUE);
     CREATE TABLE IF NOT EXISTS sessions (digest TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS email_changes (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, email TEXT NOT NULL, expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS avatars (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, preset TEXT, mime TEXT, bytes BLOB, updated_at INTEGER NOT NULL);
@@ -124,9 +124,51 @@ export function store(path) {
       window_start INTEGER NOT NULL,
       locked_until INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL
-    );`);
+    );
+    CREATE TABLE IF NOT EXISTS wechat_bind_tickets (
+      digest TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      openid TEXT,
+      created_at INTEGER NOT NULL,
+      expires INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS wechat_bind_tickets_user ON wechat_bind_tickets (user_id);`);
   migrateCircleNumbers(db);
+  migrateWeChatUsers(db);
   return db;
+}
+/**
+ * WeChat-only accounts have no email and no password, so those two columns must be nullable. SQLite cannot drop a
+ * NOT NULL constraint in place, so an older database is rebuilt once at startup: copy, swap, rename. Foreign keys
+ * are switched off for the swap (otherwise dropping `users` would cascade every ledger row away) and back on after,
+ * and the child tables keep pointing at the name `users`, which the rename restores.
+ */
+function migrateWeChatUsers(db) {
+  const columns = db.prepare('PRAGMA table_info(users)').all();
+  const column = name => columns.find(item => item.name === name);
+  const hasOpenid = Boolean(column('wx_openid'));
+  const nullable = column('email')?.notnull === 0 && column('password')?.notnull === 0;
+  if (hasOpenid && nullable) return;
+  db.exec('PRAGMA foreign_keys=OFF; BEGIN IMMEDIATE');
+  try {
+    db.exec('DROP TABLE IF EXISTS users_wechat');
+    db.exec(`CREATE TABLE users_wechat (
+      id TEXT PRIMARY KEY, email TEXT UNIQUE, username TEXT UNIQUE NOT NULL, password TEXT,
+      verified INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, wx_openid TEXT UNIQUE)`);
+    db.exec(`INSERT INTO users_wechat (id,email,username,password,verified,created)
+      SELECT id,email,username,password,verified,created FROM users`);
+    db.exec('DROP TABLE users');
+    db.exec('ALTER TABLE users_wechat RENAME TO users');
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    db.exec('PRAGMA foreign_keys=ON');
+    throw error;
+  }
+  db.exec('PRAGMA foreign_keys=ON');
+  const broken = db.prepare('PRAGMA foreign_key_check').all();
+  if (broken.length) throw new Error('MIGRATION_FOREIGN_KEY_CHECK_FAILED');
 }
 /**
  * `circles.no`: the 7-digit number a person can be told out loud to find a circle. Databases created before it
@@ -151,7 +193,18 @@ function migrateCircleNumbers(db) {
   }
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS circles_no ON circles (no)');
 }
-/** `avatar` is null, `{ preset }` or `{ url }` (see avatar.mjs); callers resolve it, never the stored bytes. */
+/**
+ * `avatar` is null, `{ preset }` or `{ url }` (see avatar.mjs); callers resolve it, never the stored bytes.
+ * `email` is null for an account created from WeChat that has not attached an email yet, and `wechat` says whether
+ * a WeChat identity is bound — a client needs both to decide which sign-in methods to offer.
+ */
 export function publicUser(row, avatar = null) {
-  return { id: row.id, email: row.email, username: row.username, verified: Boolean(row.verified), avatar };
+  return {
+    id: row.id,
+    email: row.email ?? null,
+    username: row.username,
+    verified: Boolean(row.verified),
+    avatar,
+    wechat: Boolean(row.wx_openid),
+  };
 }

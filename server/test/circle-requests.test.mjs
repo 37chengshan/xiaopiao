@@ -45,7 +45,7 @@ async function verified(f) {
 /** Bulk members skip scrypt: only the circle tables matter once 50 people have to exist. */
 function seeded(db, name) {
   const id = randomUUID(); const token = randomBytes(32).toString('base64url');
-  db.prepare('INSERT INTO users VALUES (?,?,?,?,1,?)').run(id, `${name}@example.test`, name, 'x:y', Date.now());
+  db.prepare('INSERT INTO users (id,email,username,password,verified,created) VALUES (?,?,?,?,1,?)').run(id, `${name}@example.test`, name, 'x:y', Date.now());
   db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token), id, Date.now() + 86400_000);
   return { id, token, username: name };
 }
@@ -272,7 +272,7 @@ test('an existing database gets a number for every circle already in it', async 
   old.exec(`CREATE TABLE users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL, verified INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL);
     CREATE TABLE circles (id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at INTEGER NOT NULL);
-    INSERT INTO users VALUES ('u1','old@example.test','old','x:y',1,1);
+    INSERT INTO users (id,email,username,password,verified,created) VALUES ('u1','old@example.test','old','x:y',1,1);
     INSERT INTO circles VALUES ('c1','家人','u1',1);
     INSERT INTO circles VALUES ('c2','室友','u1',2);`);
   old.close();

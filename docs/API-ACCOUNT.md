@@ -145,3 +145,149 @@ DB_PATH=/var/lib/xiaopiao/api.sqlite node scripts/feedback.mjs [--since=<epochMs
 登录不做强度筛查（历史短/弱密码照常登录）；登录的密码长度仍只做「非空且 ≤128」上限检查；同一账号最多 10 个会话；`/v1/auth/reset` 成功后撤销全部会话；验证码 10 分钟有效、5 次尝试、单次消费。新增表 `auth_guard(key, failures, strikes, window_start, locked_until, updated_at)`，无外键、可安全回滚代码（旧代码不读这张表）。
 
 验收（2026-11-01）：`npm test --prefix server` 142/142 通过（新增 20 项：`password.test.mjs` 6、`guard.test.mjs` 6、`auth-hardening.test.mjs` 8），`npm run check` 通过。真实进程（`XP_DEV_MAIL=1`、临时 DB）验收：弱密码 `password123`／`01234567`／与用户名相同 各 `400 PASSWORD_WEAK` 且用户表仍为空；强密码 201 且行内为 `scrypt1$17$8$1$…`；连续 5 次错密码 → 401×5，第 6 次（正确密码）`429` + `Retry-After: 60`，`auth_guard` 里账号键与来源键各 1 条；手工写入旧格式哈希后登录 200 且该行被就地改写为 `scrypt1$…`；`POST /v1/auth/password` 200 → 未用完的重置码清零、其它会话 401、当前会话仍 200、旧密码 401、新密码 200；`PASSWORD_PEPPER=…` 启动后新账号为 `scrypt1p$…` 且能登录、纯 `scrypt1$` 账号照常登录；去掉该变量重启后 peppered 账号 401 且 stdout 出现一行警告（不含任何用户信息）；8 个并发注册峰值 RSS 319 MB。生产未部署，未触碰 tt 账号。
+
+## 微信小程序登录与双向绑定（2026-11-03）
+
+依据：`docs/SPEC.md` 末尾「2026-11-02 修订二」（账号：没有账号的人可以只用微信登录小程序；三端都支持微信 ⇄ 邮箱双向绑定；App/Web 一侧通过扫小程序码完成绑定）。**代码已就位，未部署。**
+
+个人主体拿不到开放平台登录，唯一能拿到的身份是**小程序**的 `openid`。所以这一节只围绕三件事：小程序自己登录、App/Web 生成小程序码把微信挂到已有账号、以及解绑的边界。
+
+### 账号形态
+
+`users` 表：`email` 与 `password` 改为可空，新增 `wx_openid`（唯一）。老库在启动时重建一次（`store.mjs` 的 `migrateWeChatUsers`），账本/会话/圈子等子表不受影响。
+
+`publicUser` 多一个字段 `wechat: boolean`；`email` 可能为 `null`（微信建号、还没挂邮箱时）。客户端判断「有哪些登录方式」请看这两个字段，不要假设 `email` 一定存在。
+
+`verified` 的含义从「邮箱已验证」放宽为「已经证明持有一种真实登录方式」：微信建号时直接为 `1`（拿到 openid 就是证明），之后挂邮箱时由验证码证明，保持 `1`。这样 `/v1/chat`、账本同步、圈子、头像等既有「需已验证」的接口对微信账号一样可用。
+
+微信建号的用户名自动生成：`wx_` + 10 位十六进制，撞了就重试。用户之后可以用 `POST /v1/auth/profile` 改名。
+
+### 环境变量（tt 设置）
+
+| 变量 | 作用 |
+|---|---|
+| `WX_MP_APPID` | 小程序 AppID（`wx36cf3bfafff4d03c`） |
+| `WX_MP_SECRET` | 小程序 AppSecret。只放服务器 env，代码、测试、日志里都没有 |
+
+两者缺一，微信相关接口一律 `503 WECHAT_UNAVAILABLE`（不会假装成功）。测试用假值 + 注入假客户端，不触网。
+
+### 接口
+
+| 方法 | 路径 | 身份 | 说明 |
+|---|---|---|---|
+| POST | `/v1/auth/wechat` | 无 | 小程序登录：`{code, client:"native"}` |
+| POST | `/v1/auth/wechat/bind-ticket` | 已登录 | 生成一次性绑定票据 + 小程序码 |
+| GET | `/v1/auth/wechat/bind-ticket/:ticket` | 已登录（须是票据所属账号） | 轮询票据状态 |
+| POST | `/v1/auth/wechat/bind` | 无（小程序侧） | `{ticket, code, client:"native"}` 完成绑定 |
+| DELETE | `/v1/auth/wechat` | 已登录 | 解绑微信 |
+| POST | `/v1/auth/email-attach` | 已登录、账号无邮箱 | 给微信账号挂邮箱：`{email}` |
+| POST | `/v1/auth/email-attach/confirm` | 同上 | `{code}` 确认 |
+| POST | `/v1/auth/password` | 已登录 | 账号**没有密码**时接受只有 `{newPassword}`（见下） |
+
+#### 1. `POST /v1/auth/wechat`
+
+```json
+{ "code": "<wx.login 的 code>", "client": "native" }
+```
+
+- 服务端用 `jscode2session` 换 `openid`。`session_key` 读完即丢：**不下发、不落库、不写日志**，我们不解密微信用户数据。
+- 已绑定：直接登录。未绑定：新建只有微信的账号并登录。
+- 返回与 native 登录一致：`200 {user, token}` + `Set-Cookie`。小程序必须带 `client:"native"` 才拿得到 Bearer（小程序没有 Origin，也没有 `sec-fetch-site`）。
+- 错误：`400 WECHAT_CODE_INVALID`（code 无效/已用过）、`503 WECHAT_UNAVAILABLE`。
+- 限流：同 IP 60 次/15 分钟，另受全局认证工作池约束。
+
+#### 2. 绑定票据（App / Web → 小程序）
+
+```json
+POST /v1/auth/wechat/bind-ticket   {}            →  201
+{ "id": "<43 字符票据>", "scene": "b:<票据>", "expiresAt": 1762143000000,
+  "mime": "image/png", "image": "<小程序码 PNG 的 base64>" }
+```
+
+- 票据 5 分钟有效、**一次性**、只存在它的 sha256 摘要；绑定成功即作废，重放返回 `400 WECHAT_TICKET_INVALID`。
+- 小程序码用 `wxacode.getUnlimited` 生成，`scene=b:<票据>`、`page=pages/bind/bind`。`access_token` 只在服务端缓存（提前 100 分钟刷新），不经过客户端。
+- 二维码只用来传票据，票据本身不带账号信息，泄露也换不到登录态。
+- 限流：每账号 10 次/小时；账号已绑微信 → `409 WECHAT_ALREADY_BOUND`。
+
+```json
+GET /v1/auth/wechat/bind-ticket/<票据>   →  200
+{ "status": "pending", "expiresAt": 1762143000000 }
+{ "status": "bound",   "user": { ...publicUser } }
+{ "status": "expired" }
+```
+
+- 只有生成票据的那个账号能查；别人拿着票据查一律 `400 WECHAT_TICKET_INVALID`（与「不存在」同一个回答，不泄漏票据是否有效）。
+- 建议 App 2 秒轮询一次，`status` 变化就停；`bound` 时用返回的 `user` 直接刷新账号信息。
+
+```json
+POST /v1/auth/wechat/bind
+{ "ticket": "<票据>", "code": "<小程序自己的 wx.login code>", "client": "native" }   →  200 {user, token}
+```
+
+- 小程序打开 `pages/bind/bind?scene=b:<票据>` 后，带着票据和**它自己**的 `wx.login` code 调这里。
+- 事务内完成「挂 openid + 票据置 bound」，并发扫两次只有一次成功（票据只能消费一次）；成功后小程序直接就是该账号的登录态。
+- 拒绝规则：
+  - 该 openid 已属于另一个账号 → `409 WECHAT_IN_USE`（先在那一边解绑，不自动合并）。
+  - 目标账号已绑了另一个 openid → `409 WECHAT_ALREADY_BOUND`。
+  - 票据过期/用过/不存在 → `400 WECHAT_TICKET_INVALID`。
+
+#### 3. 解绑 `DELETE /v1/auth/wechat`
+
+- 前提：账号**还有邮箱和密码**（能独立登录）。否则 `409 WECHAT_LAST_LOGIN`：接口不会把账号弄成没法登录。
+- 账号本来就没绑 → `409 WECHAT_NOT_BOUND`。
+- 成功后清空 `wx_openid` 与该账号的未用票据，返回 `{user}`（`wechat:false`）。会话不受影响。
+- 限流：每账号 5 次/小时。
+
+#### 4. 给微信账号挂邮箱
+
+复用既有验证码流程（同一张 `codes` 表、同一个 `email_changes` 表、同一套发信限额与「同账号同目的互斥」）：
+
+```json
+POST /v1/auth/email-attach          { "email": "me@example.test" }  → 200 {ok:true}
+POST /v1/auth/email-attach/confirm  { "code": "123456" }            → 200 {user}
+```
+
+- 只用于**还没有邮箱**的账号；已有邮箱走既有的 `/v1/auth/email-request`，否则 `409 EMAIL_ALREADY_SET`。
+- 验证码证明归属，确认时同时把 `verified` 置 1，并撤销其它会话（保留当前）。
+- 验证码 10 分钟、5 次尝试、单次消费，与既有规则一致。
+
+#### 5. 给微信账号设第一个密码
+
+账号 `password` 为空时，`POST /v1/auth/password` 只收 `{newPassword}`：会话就是所有权证明。但仍要求账号**已有邮箱**，否则 `400 EMAIL_REQUIRED`——没有邮箱的密码忘了就永远找不回来，不如不给设。
+
+有密码的账号行为完全不变（当前密码 + 强度 + 撤销其它会话）。
+
+### 邮箱已被占用：拒绝，不合并
+
+小程序里给微信账号挂一个**已经属于别的账号**的邮箱，返回 `409 EMAIL_BOUND_ELSEWHERE`，文案：「这个邮箱已经在另一个账号上；请在那个账号里添加微信（App / Web 扫小程序码）」。
+
+理由：
+
+1. 合并意味着把两个账号的账本、圈子、会话、头像并到一起，还要决定冲突与删除语义——这不是一次验证码能授权的操作，误操作代价不可逆。
+2. 反向路径已经存在且更安全：在**拥有该邮箱的那个账号**里扫小程序码绑定微信，邮箱和微信就都归到那一个账号上，没有任何数据搬迁。
+3. 拒绝是可解释的：用户被告知去哪一端操作，而不是「系统出错」。
+
+### 新增错误码
+
+| HTTP | code | 文案 |
+|---|---|---|
+| 400 | `WECHAT_CODE_INVALID` | 微信登录凭证无效，请重新进入小程序 |
+| 400 | `WECHAT_TICKET_INVALID` | 这个绑定码已过期或已用过，请重新生成 |
+| 400 | `EMAIL_REQUIRED` | 先绑定一个邮箱，再设置密码 |
+| 409 | `WECHAT_ALREADY_BOUND` | 这个账号已经绑定了另一个微信，请先解绑 |
+| 409 | `WECHAT_IN_USE` | 这个微信已经绑在另一个账号上，请先在那边解绑 |
+| 409 | `WECHAT_NOT_BOUND` | 这个账号还没有绑定微信 |
+| 409 | `WECHAT_LAST_LOGIN` | 这是这个账号唯一的登录方式，先设好邮箱和密码再解绑 |
+| 409 | `EMAIL_BOUND_ELSEWHERE` | 这个邮箱已经在另一个账号上；请在那个账号里添加微信（App / Web 扫小程序码） |
+| 409 | `EMAIL_ALREADY_SET` | 这个账号已经有邮箱了，请用「更换邮箱」 |
+| 503 | `WECHAT_UNAVAILABLE` | 微信登录暂不可用，请改用邮箱登录 |
+
+### 需要前端配合
+
+1. App/Web：设置页加「绑定微信」→ 调 `bind-ticket` → 显示 `image`（PNG）→ 轮询 → `bound` 后刷新账号；账号对象新增 `wechat` 字段，`email` 可能是 `null`。
+2. 小程序：`wx.login` 拿 code → `POST /v1/auth/wechat`（带 `client:"native"`）；扫码页读 `scene=b:<票据>` → `wx.login` → `POST /v1/auth/wechat/bind`；「绑定邮箱」页复用验证码 UI 调 `email-attach` / `email-attach/confirm`。
+3. 老客户端遇到 `email: null` / 未知字段 `wechat` 不应崩溃（Android `AccountUser` 目前读 `email` 为必填，建议改成可空）。
+
+### 验收（2026-11-03，未部署）
+
+`npm test --prefix server` 177/177 通过，其中新增 13 项微信测试（新用户建号、重复登录不重复建号、无效 code、`session_key` 不出服务端、票据生成/轮询/绑定/重放、过期票据、他人轮询、并发绑定只成功一次、票据限流、邮箱被占拒绝、挂邮箱+设首个密码+用新密码登录、无邮箱不能设密码、解绑保护与解绑成功、openid 已被占用、账号已绑其它微信、未配置时 503、绑定/解绑/挂邮箱的真实进程 smoke），另有 1 项老库迁移测试（可空列、数据与子表外键保留、可重复执行）。`npm run check` 通过。

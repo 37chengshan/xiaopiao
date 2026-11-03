@@ -9,6 +9,8 @@ import { createLedger, LIMITS as LEDGER } from './ledger.mjs';
 import { createCircles, LIMITS as CIRCLE } from './circle.mjs';
 import { createAvatars, LIMITS as AVATAR } from './avatar.mjs';
 import { createFeedback, LIMITS as FEEDBACK } from './feedback.mjs';
+import { createWechatAccounts, createWechatClient, sceneFor, LIMITS as WECHAT } from './wechat.mjs';
+import { createLife, LIMITS as LIFE } from './life.mjs';
 export const ACCOUNT_POLICY = Object.freeze({ passwordMin: PASSWORD.min, passwordMax: PASSWORD.max, usernameMin: 3, usernameMax: 30, profileEditing: true });
 const errors = {
   INVALID_CURRENT_PASSWORD: [400, '当前密码不正确'],
@@ -30,6 +32,20 @@ const errors = {
   AVATAR_TOO_LARGE: [413, '头像图片不能超过 256 KB'], AVATAR_NOT_FOUND: [404, '还没有设置头像'],
   PASSWORD_WEAK: [400, '密码太简单，换一个更难猜的（至少 8 位，别用常见词或账号名）'],
   PASSWORD_UNCHANGED: [400, '新密码不能和当前密码一样'],
+  WECHAT_UNAVAILABLE: [503, '微信登录暂不可用，请改用邮箱登录'],
+  WECHAT_CODE_INVALID: [400, '微信登录凭证无效，请重新进入小程序'],
+  WECHAT_ALREADY_BOUND: [409, '这个账号已经绑定了另一个微信，请先解绑'],
+  WECHAT_IN_USE: [409, '这个微信已经绑在另一个账号上，请先在那边解绑'],
+  WECHAT_NOT_BOUND: [409, '这个账号还没有绑定微信'],
+  WECHAT_LAST_LOGIN: [409, '这是这个账号唯一的登录方式，先设好邮箱和密码再解绑'],
+  WECHAT_TICKET_INVALID: [400, '这个绑定码已过期或已用过，请重新生成'],
+  EMAIL_BOUND_ELSEWHERE: [409, '这个邮箱已经在另一个账号上；请在那个账号里添加微信（App / Web 扫小程序码）'],
+  EMAIL_ALREADY_SET: [409, '这个账号已经有邮箱了，请用「更换邮箱」'],
+  EMAIL_REQUIRED: [400, '先绑定一个邮箱，再设置密码'],
+  RECOGNIZE_UNAVAILABLE: [503, '识别暂时不可用，手动搜一下'],
+  RECOGNIZE_TIMEOUT: [504, '没认出来，手动搜一下'],
+  IMAGE_INVALID: [400, '图片格式不支持，请换一张 JPEG/WebP 照片'],
+  IMAGE_TOO_LARGE: [413, '图片不能超过 200 KB，长边不超过 512px'],
 };
 function fail(code, field) { throw Object.assign(new Error(code), { code, ...(field ? { field } : {}) }); }
 function text(value, max = 256) { if (typeof value !== 'string' || !value.trim() || value.length > max) fail('INVALID_INPUT'); return value.trim(); }
@@ -48,11 +64,12 @@ function numberParam(url, name, fallback) {
   return Number(raw);
 }
 function cookieToken(req) { return /(?:^|;\s*)xp_session=([A-Za-z0-9_-]+)/.exec(req.headers.cookie ?? '')?.[1]; }
-const PAYLOAD = { default: 96_000, ledger: 512_000, avatar: AVATAR.body };
+const PAYLOAD = { default: 96_000, ledger: 512_000, avatar: AVATAR.body, life: LIFE.body };
 const bodyOf = (req, limit = PAYLOAD.default, tooLarge = 'INVALID_INPUT', timeoutMs) => readJson(req, limit, tooLarge, timeoutMs);
 /** Dev previews move between loopback ports; production stays pinned to one exact HTTPS origin. */
 const loopbackOrigin = /^http:\/\/(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?$/;
-export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173', production = false, trustedProxy = false, defensePolicy = POLICY, pepper = null, kdf }) {
+export function createApp({ db, agent, sendMail, wechatClient = createWechatClient({}), vision = null,
+  origin = 'http://localhost:5173', production = false, trustedProxy = false, defensePolicy = POLICY, pepper = null, kdf }) {
   // `APP_ORIGIN` takes a comma-separated list in dev (Web on 5173 and 5466); production stays one exact HTTPS origin.
   const origins = new Set(String(origin).split(',').map(value => value.trim()).filter(Boolean));
   if (!origins.size) throw new Error('APP_ORIGIN is required');
@@ -62,6 +79,8 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
   const circles = createCircles({ db });
   const avatars = createAvatars({ db });
   const feedback = createFeedback({ db });
+  const wechat = createWechatAccounts({ db, client: wechatClient });
+  const life = createLife({ vision });
   const passwords = createPasswords({ pepper, ...(kdf ? { kdf } : {}) });
   const guard = createGuard({ db });
   // Unknown identifiers still pay for a real derivation, so a miss and a hit cost the same wall time.
@@ -86,7 +105,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
   const locks = new Set();
   const cookie = (token, expires = 30 * 86400) => `xp_session=${token}; HttpOnly; Path=/v1; SameSite=Strict; Max-Age=${expires}${production ? '; Secure' : ''}`;
   const cleanup = setInterval(() => {
-    for (const table of ['sessions', 'codes', 'runs', 'limits', 'email_changes']) db.prepare(`DELETE FROM ${table} WHERE expires < ?`).run(Date.now());
+    for (const table of ['sessions', 'codes', 'runs', 'limits', 'email_changes', 'wechat_bind_tickets']) db.prepare(`DELETE FROM ${table} WHERE expires < ?`).run(Date.now());
     db.prepare('DELETE FROM auth_guard WHERE updated_at < ?').run(Date.now() - 86_400_000);
   }, 60_000).unref();
   function rate(key, max, window = 900_000) {
@@ -173,6 +192,22 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       rate('requests:all', 3000, 60_000);
       if (url.pathname === '/v1/auth/policy' && req.method === 'GET') return json(ACCOUNT_POLICY);
       if (url.pathname === '/v1/auth/me' && req.method === 'GET') return json({ user: publicOf(userOf(req)) });
+      // WeChat binding, App / Web side: the ticket is the only thing that crosses the QR code, and polling is
+      // scoped to the account that asked for it. A ticket never reveals another account to whoever holds it.
+      const ticketPoll = /^\/v1\/auth\/wechat\/bind-ticket\/([A-Za-z0-9_-]{20,64})$/.exec(url.pathname);
+      if (ticketPoll && req.method === 'GET') {
+        const user = userOf(req);
+        rate(`wechat-ticket-poll:${user.id}`, 300, 3600_000);
+        const state = wechat.status(user.id, ticketPoll[1]);
+        const bound = state.status === 'bound' ? { user: publicOf(userOf(req)) } : {};
+        return json({ ...state, ...bound });
+      }
+      // Removing WeChat must never leave an account nobody can sign in to: an email and a password must remain.
+      if (url.pathname === '/v1/auth/wechat' && req.method === 'DELETE') {
+        const user = userOf(req);
+        rate(`wechat-unbind:${user.id}`, 5, 3600_000);
+        return json({ user: publicOf(wechat.unbind(user).user) });
+      }
       // One avatar per account, either a preset or a photo; both live behind the same route so a client can
       // never end up with a preset in one place and a photo in another.
       if (url.pathname === '/v1/auth/avatar' && (req.method === 'PUT' || req.method === 'DELETE')) {
@@ -280,14 +315,16 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
         return json({ error: 'NOT_FOUND' }, 404);
       }
       if (req.method !== 'POST') return json({ error: 'NOT_FOUND' }, 404);
-      const authRoute = /^\/v1\/auth\/(register|login|logout|verify|resend|forgot|reset|password|profile|email-request|email-confirm)$/.test(url.pathname);
+      const authRoute = /^\/v1\/auth\/(register|login|logout|verify|resend|forgot|reset|password|profile|email-request|email-confirm|wechat|wechat\/bind|wechat\/bind-ticket|email-attach|email-attach\/confirm)$/.test(url.pathname);
       if (authRoute) {
         rate(`auth:${ip}`, 30);
         workReleases.push(defense.acquire('auth', defensePolicy.auth));
-      } else if (url.pathname === '/v1/chat' || url.pathname === '/v1/ledger/push') verifiedUser(req);
+      } else if (['/v1/chat', '/v1/ledger/push', '/v1/life/recognize'].includes(url.pathname)) verifiedUser(req);
       else return json({ error: 'NOT_FOUND' }, 404);
       const ledgerPush = url.pathname === '/v1/ledger/push';
-      const body = await bodyOf(req, ledgerPush ? PAYLOAD.ledger : PAYLOAD.default, ledgerPush ? 'LEDGER_PAYLOAD_TOO_LARGE' : 'INVALID_INPUT', defensePolicy.bodyMs);
+      const recognize = url.pathname === '/v1/life/recognize';
+      const body = await bodyOf(req, ledgerPush ? PAYLOAD.ledger : recognize ? PAYLOAD.life : PAYLOAD.default,
+        ledgerPush ? 'LEDGER_PAYLOAD_TOO_LARGE' : recognize ? 'IMAGE_TOO_LARGE' : 'INVALID_INPUT', defensePolicy.bodyMs);
       const native = body.client === 'native' && !requestOrigin && !req.headers['sec-fetch-site'];
       if (ledgerPush) {
         const user = verifiedUser(req);
@@ -300,6 +337,16 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
         if (txns.length + categories.length > LEDGER.items) fail('LEDGER_TOO_MANY');
         return json(ledger.push(user.id, deviceId, txns, categories));
       }
+      // One photo, one question: recognised food only, never calories. The image is decoded, inspected and
+      // forwarded to the vision model in memory; nothing is written to disk, logged or echoed back.
+      if (recognize) {
+        const user = verifiedUser(req);
+        rate(`recognize:${user.id}`, LIFE.perMinute, 60_000);
+        rate(`recognize-day:${user.id}`, LIFE.perDay, 86_400_000);
+        rate(`recognize-ip:${hash(String(ip))}`, LIFE.perSourceMinute, 60_000);
+        workReleases.push(defense.acquire('vision', defensePolicy.vision));
+        return json(await life.recognize(body));
+      }
       if (url.pathname.startsWith('/v1/auth/')) {
         switch (url.pathname) {
           case '/v1/auth/register': {
@@ -310,7 +357,7 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
             if (db.prepare('SELECT id FROM users WHERE email=? OR username=?').get(email, username)) fail('ACCOUNT_EXISTS');
             const encoded = await passwords.hash(password);
             const user = { id: randomUUID(), email, username, verified: 0 };
-            try { db.prepare('INSERT INTO users VALUES (?,?,?,?,0,?)').run(user.id, email, username, encoded, Date.now()); }
+            try { db.prepare('INSERT INTO users (id,email,username,password,verified,created) VALUES (?,?,?,?,0,?)').run(user.id, email, username, encoded, Date.now()); }
             catch { fail('ACCOUNT_EXISTS'); }
             try { await issueCode(user, 'verify'); }
             catch (error) { db.prepare('DELETE FROM users WHERE id=?').run(user.id); throw error; }
@@ -358,6 +405,64 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
               db.exec('COMMIT');
             } catch (error) { db.exec('ROLLBACK'); throw error; }
             return json({ user: publicOf({ ...user, email: pending.email }) });
+          }
+          case '/v1/auth/wechat': {
+            // Only the mini program can obtain an openid (personal subject has no 开放平台 login), so this route
+            // is the mini program's sign-in: existing binding logs in, no binding creates an account with no email.
+            rate(`wechat-login:${hash(String(ip))}`, 60, 900_000);
+            const code = text(body.code, 128);
+            const openid = await wechatClient.openidFor(code);
+            const { user } = wechat.login(openid);
+            return json(session(res, user, native));
+          }
+          case '/v1/auth/wechat/bind-ticket': {
+            // App / Web already signed in: hand out a one-time ticket and the mini program code that carries it.
+            const user = userOf(req);
+            rate(`wechat-ticket:${user.id}`, WECHAT.ticketsPerHour, 3600_000);
+            if (user.wx_openid) fail('WECHAT_ALREADY_BOUND');
+            const { ticket, expires, image } = await wechat.issueTicket(user.id);
+            return json({ id: ticket, scene: sceneFor(ticket), expiresAt: expires, mime: 'image/png', image: image.toString('base64') }, 201);
+          }
+          case '/v1/auth/wechat/bind': {
+            // Mini program side: its own login code plus the scanned ticket. Single use, five minutes, owner only.
+            const ticket = text(body.ticket, 64);
+            const code = text(body.code, 128);
+            rate(`wechat-bind:${hash(String(ip))}`, 20, 600_000);
+            rate(`wechat-bind-ticket:${hash(ticket)}`, 10, 600_000);
+            const { user } = await wechat.bind({ ticket, code });
+            return json(session(res, user, native));
+          }
+          case '/v1/auth/email-attach': {
+            // A WeChat-only account has no email to change, so it gets the code-verified attach path instead.
+            const user = verifiedUser(req);
+            if (user.email) fail('EMAIL_ALREADY_SET');
+            const email = emailOf(body.email);
+            if (!sendMail) fail('MAIL_UNAVAILABLE');
+            if (db.prepare('SELECT 1 FROM users WHERE email=? AND id<>?').get(email, user.id)) fail('EMAIL_BOUND_ELSEWHERE', 'email');
+            rate(`email-attach:${user.id}`, 5, 3600_000);
+            if (mailLocks.has(`${user.id}:email`)) throw securityError('RATE_LIMITED', 5);
+            db.prepare('INSERT INTO email_changes VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET email=excluded.email, expires=excluded.expires').run(user.id, email, Date.now() + 600_000);
+            try { await issueCode(user, 'email', email); }
+            catch (error) { db.prepare('DELETE FROM email_changes WHERE user_id=? AND email=?').run(user.id, email); throw error; }
+            return json({ ok: true });
+          }
+          case '/v1/auth/email-attach/confirm': {
+            const user = verifiedUser(req);
+            if (user.email) fail('EMAIL_ALREADY_SET');
+            const pending = db.prepare('SELECT email,expires FROM email_changes WHERE user_id=?').get(user.id);
+            if (!pending || pending.expires <= Date.now()) fail('CODE_INVALID', 'code');
+            if (db.prepare('SELECT 1 FROM users WHERE email=?').get(pending.email)) fail('EMAIL_BOUND_ELSEWHERE', 'email');
+            consumeCode(user, 'email', body.code);
+            db.exec('BEGIN');
+            try {
+              // The code proved ownership, so the email is verified the moment it is attached.
+              db.prepare('UPDATE users SET email=?, verified=1 WHERE id=?').run(pending.email, user.id);
+              db.prepare('DELETE FROM email_changes WHERE user_id=?').run(user.id);
+              db.prepare('DELETE FROM codes WHERE user_id=?').run(user.id);
+              db.prepare('DELETE FROM sessions WHERE user_id=? AND digest<>?').run(user.id, user.session_digest);
+              db.exec('COMMIT');
+            } catch (error) { db.exec('ROLLBACK'); throw error; }
+            return json({ user: publicOf({ ...user, email: pending.email, verified: 1 }) });
           }
           case '/v1/auth/login': {
             const identifier = identifierOf(body.identifier);
@@ -416,6 +521,14 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
             // verification is not required for the same reason — knowing the current password is the strongest proof.
             const user = userOf(req);
             rate(`password:${user.id}`, 5, 3600_000);
+            if (!user.password) {
+              // A WeChat-created account sets its first password here. The session is the proof of ownership; the
+              // email is required because without it a forgotten password could never be recovered.
+              if (!user.email) fail('EMAIL_REQUIRED', 'newPassword');
+              const first = newPasswordOf(body.newPassword, { username: user.username, email: user.email }, 'newPassword');
+              db.prepare('UPDATE users SET password=? WHERE id=?').run(await passwords.hash(first), user.id);
+              return json({ ok: true });
+            }
             const keys = [accountKey(user.id), sourceKey(ip)];
             guard.blocked(keys);
             if (typeof body.currentPassword !== 'string' || !body.currentPassword.length || body.currentPassword.length > PASSWORD.max) fail('INVALID_CURRENT_PASSWORD', 'currentPassword');
@@ -484,9 +597,10 @@ export function createApp({ db, agent, sendMail, origin = 'http://localhost:5173
       try {
         state = await agent(state, emit, controller.signal);
         if (!controller.signal.aborted && state.pending.length) {
-          db.prepare('INSERT INTO runs VALUES (?,?,?,?)').run(runId, user.id, JSON.stringify(state), Date.now() + 120_000);
+          // Long enough to cover the whole turn budget (150 s) plus a slow client round trip.
+          db.prepare('INSERT INTO runs VALUES (?,?,?,?)').run(runId, user.id, JSON.stringify(state), Date.now() + 200_000);
           emit({ type: 'tool_calls', runId, calls: state.pending });
-        } else emit({ type: 'done' });
+        } else emit({ type: 'done', ...(state.truncated ? { truncated: true } : {}) });
       } catch {
         emit({ type: 'error', code: 'MODEL_UNAVAILABLE', message: errors.MODEL_UNAVAILABLE[1] });
       } finally {

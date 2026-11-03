@@ -53,6 +53,39 @@ body 按 bytes 累计，收齐后统一 UTF-8 解码，修复中文跨 chunk 被
 
 实测：8 个并发注册请求下进程峰值 RSS 319 MB（此前 3 路并发即可达 384 MiB 的派生内存）；其中 5 个由既有认证工作池（上限 3）以 503 拒绝，未放大的闸门没有增加任何 4xx/5xx 面。可选 `PASSWORD_PEPPER` 默认关闭，设置后新哈希带 `scrypt1p$` 前缀；缺失变量且库里有 peppered 行时只在启动时打一行警告，不阻断启动。
 
+## 2026-11-03 新增：微信身份、绑定票据、拍照识别（代码已就位，未部署）
+
+生产仍为旧 release。三项新能力都在代码里并有回归测试，但没有部署，也没有用真实 AppSecret / 视觉模型验收。阈值是本项目的工程选择。
+
+### 威胁点与对策
+
+| 威胁 | 对策 | 代码位置 |
+|---|---|---|
+| 绑定票据被重放 | 票据 43 字符随机、只存 sha256 摘要；绑定成功即 `status='bound'`，重放命中同一条即 `400`；「挂 openid」与「消费票据」在同一个 `BEGIN IMMEDIATE` 事务里，两次并发扫码只有一次 `changes=1` | `wechat.mjs` `bind` |
+| 票据被第三方截获后轮询 | 轮询要求**生成票据的账号**在线，别人的 401/400 与「票据不存在」同码同文案；票据本身不含账号 id、不含 openid | `app.mjs` `ticketPoll` |
+| 票据被第三方拿去绑定自己的微信 | 绑定会把**扫码者的 openid** 挂到持票账号上。因此票据 5 分钟过期 + 每账号 10 次/小时 + 只在 App 内显示一次；风险等价于「把小程序码给陌生人」（等于让对方登进你的账号），已在客户端文案里写明 | `wechat.mjs`、`app.mjs` |
+| openid 枚举 | `session_key` 不落库不下发；`/v1/auth/wechat` 只接受 `wx.login` 的一次性 code（微信侧也校验），不提供任何「查某个 openid 是否已注册」的接口；绑定冲突只返回 `WECHAT_IN_USE`/`WECHAT_ALREADY_BOUND`，不回显对方账号 id、邮箱或用户名 | `wechat.mjs`、`app.mjs` |
+| session_key 泄漏 | 只在 `openidFor()` 内解析 `openid`，其余字段（含 `session_key`、`unionid`）读出即丢；错误体只做 `errcode` 分类，原文不转发、不写日志；测试用 `session_key` 标记断言它不出现在任何响应里 | `wechat.mjs` `openidFor` |
+| 微信接口不可用时的降级 | 缺少 `WX_MP_APPID`/`WX_MP_SECRET` 时直接 `503 WECHAT_UNAVAILABLE`，不会走假成功；微信上游超时 8 s、错误体上限 64 KB、`redirect: 'error'` | `wechat.mjs` |
+| 解绑把账号锁死 | 解绑前要求「有邮箱 **且** 有密码」，否则 `409 WECHAT_LAST_LOGIN`；微信账号第一次设密码要求先挂邮箱（否则忘了无法找回） | `app.mjs` 解绑与 `password` 分支 |
+| 邮箱被两个账号争用（合并提权） | 拒绝而非合并：`409 EMAIL_BOUND_ELSEWHERE`，提示去拥有邮箱的一端扫码绑定。合并会牵动账本/圈子/会话，不是一次邮件验证码能授权的操作 | `app.mjs` `email-attach` |
+| 老库迁移期间的数据丢失 | `users` 重建时 `PRAGMA foreign_keys=OFF`（否则 `DROP TABLE` 会级联删除所有子表行），事务内完成复制/替换/重命名，结束后重新开启并跑 `PRAGMA foreign_key_check`；有老库夹具测试覆盖账本与会话行 | `store.mjs` `migrateWeChatUsers` |
+| 拍照识别被当作免费模型代理 | 每账号 6 次/分钟、60 次/天，每来源 30 次/分钟，全实例 2 个并发视觉调用（独立池，不挤占 chat），另有既有的同 IP 300 次/分钟 | `app.mjs`、`defense.mjs` |
+| 图片成为持久化隐私风险 | 不落盘、不入库、不写日志、不回显；请求体上限 280 KB 只对这一条路由；解码后再校验 200 KB 与长边 512 px；函数返回即丢弃 buffer | `life.mjs` |
+| 伪造图片骗过校验 | 类型只看魔术字节（只收 JPEG/WebP，PNG/GIF/文本一律 400）；像素尺寸从 SOF/VP8X/VP8L 头解析，读不出即 400，避免小文件解码成大图 | `life.mjs` `sniff`/`dimensions` |
+| 模型输出注入客户端 | 视觉模型输出走白名单（`name/portion_text/grams_estimate/confidence`，上限 40/24/5000/1），热量等额外字段直接丢弃；认不出就是 `items: []` + 200，不会 500 | `life.mjs` `parseItems` |
+
+### 与既有控制的关系
+
+未改动：认证工作池、scrypt 派生闸门、`guard` 账号/来源锁定、邮件限额与互斥、限流键容量、SSE 截止时间、模型白名单与冷却。新增的 `wechat_bind_tickets` 表按既有清理器（`expires`）每分钟清过期行；`vision` 池加入 `security_summary` 的 `pools` 计数，仍是纯整数。
+
+### 仍需在上线前后确认
+
+1. 真实 AppSecret 写入 `/etc/xiaopiao/server.env`（`600`）后，`jscode2session` 与 `getwxacodeunlimit` 各跑一次真实调用；确认 `access_token` 缓存命中、错误码映射正确。当前没有在生产调用过微信接口。
+2. 小程序码 `page=pages/bind/bind` 必须是**已发布版本里存在的页面**，否则 `getUnlimited` 会报 41030；需要小程序侧先有这个页面。
+3. 视觉模型：选定 `LIFE_VISION_MODEL` 并确认它对中文菜品名的输出稳定；未设置时接口整体 503，属于预期状态。
+4. 老库迁移要在生产库的副本上跑一次并比对行数（`users`/`sessions`/`ledger_txns`/`circle_members`），再在真实库执行；在线备份按 `DEPLOY.md` 保留。
+
 ## 未决项
 
 1. **QMuse 实际表权限：高优先级。** `transactions`、`merchant_revenue`、`receipt_prefs` 含个人数据。需在 QMuse 云服务「数据表权限设置」核对 READ/EDIT/DELETE 仅创建者，SUBMIT 仅业务允许的身份（包括明确允许的访客）。平台文档的新表默认 READ=ALL；不能假定线上仍为默认值，也不能用 ownerId 查询证明隔离。随后用两个独立身份验证：各自读写自己的行，交叉读/改/删失败，篡改 ownerId 不能获得他人行。本轮没有修改平台权限，未宣称隔离通过。

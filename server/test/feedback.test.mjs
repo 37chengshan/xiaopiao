@@ -29,7 +29,7 @@ async function fixture(t) {
 /** A ready account skips scrypt: for feedback only the session lookup is under test. */
 function seeded(db, name) {
   const id = randomUUID(); const token = randomBytes(32).toString('base64url');
-  db.prepare('INSERT INTO users VALUES (?,?,?,?,1,?)').run(id, `${name}@example.test`, name, 'x:y', Date.now());
+  db.prepare('INSERT INTO users (id,email,username,password,verified,created) VALUES (?,?,?,?,1,?)').run(id, `${name}@example.test`, name, 'x:y', Date.now());
   db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token), id, Date.now() + 86400_000);
   return { id, token, username: name };
 }
