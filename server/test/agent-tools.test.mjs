@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AGENT_LIMITS, createAgent, toolDefinitions } from '../src/agent.mjs';
+import { AGENT_LIMITS, ADVICE_PATTERNS, createAgent, toolDefinitions } from '../src/agent.mjs';
 import { DATA_TOOLS, DRAFT_KINDS, normalizeDraft, normalizePlan } from '../src/tools.mjs';
 import { viewFromToolResults } from '../src/views.mjs';
 import { buildSystemPrompt } from '../src/prompt.mjs';
@@ -226,27 +226,83 @@ test('a draft with a made-up field never reaches the client; another model gets 
   assert.ok(events.some(event => event.type === 'token' && event.text === '好的，先不记。'));
 });
 
-test('unsourced numbers stay refused, and numbers from a new tool are allowed', async () => {
-  const rejected = scripted([text('这个月预算还剩 ¥120.00。'), text('先说结论，我没有查。')], [MODEL, FALLBACK]);
-  const first = createAgent({ apiKey: 'test-placeholder', fetcher: rejected.fetcher });
+test('a number is allowed only when a tool result or the person explains it', async () => {
+  // Nothing to go on at all: the invented figure never reaches the client.
+  const empty = scripted([text('这个月预算还剩 ¥120.00。'), text('先说结论，我没有查。')], [MODEL, FALLBACK]);
+  const first = createAgent({ apiKey: 'test-placeholder', fetcher: empty.fetcher });
   const events = [];
   await first({ messages: [{ role: 'user', content: '预算还剩多少' }], round: 0, timezone: 'UTC' }, e => events.push(e), signal());
-  assert.equal(rejected.seen.length, 2);
+  assert.equal(empty.seen.length, 2);
   assert.equal(events.some(event => event.type === 'token' && event.text.includes('120')), false, 'invented number never streams');
 
-  const backed = scripted([text('这个月预算还剩 ¥120.00。')], [MODEL]);
-  const second = createAgent({ apiKey: 'test-placeholder', fetcher: backed.fetcher });
-  const allowed = [];
-  const state = await second({
+  // A tool result with no numbers in it is not a licence to invent one, even though a data tool ran.
+  const hollow = scripted([text('这个月预算还剩 ¥120.00。'), text('预算没查到具体数字。')], [MODEL, FALLBACK]);
+  const second = createAgent({ apiKey: 'test-placeholder', fetcher: hollow.fetcher });
+  const hollowEvents = [];
+  await second({
     messages: [
       { role: 'user', content: '预算还剩多少' },
       { role: 'assistant', content: null, tool_calls: [{ id: 'b1', type: 'function', function: { name: 'read_budget', arguments: '{"period":"month"}' } }] },
-      { role: 'tool', tool_call_id: 'b1', content: JSON.stringify({ configured: true, unit: 'cents', categories: [] }) },
+      { role: 'tool', tool_call_id: 'b1', content: JSON.stringify({ configured: false, unit: 'cents', categories: [] }) },
     ],
     round: 1, pending: [], timezone: 'UTC',
-  }, e => allowed.push(e), signal());
-  assert.ok(allowed.some(event => event.type === 'token' && event.text.includes('120')), 'numbers backed by a tool result are fine');
-  assert.equal(state.pending.length, 0);
+  }, e => hollowEvents.push(e), signal());
+  assert.equal(hollow.seen.length, 2, 'an empty data result licenses nothing');
+  assert.equal(hollowEvents.some(event => event.type === 'token' && event.text.includes('120')), false);
+
+  // A failed tool call is not a source either.
+  const failed = scripted([text('一共 ¥120.00。'), text('这项没查到。')], [MODEL, FALLBACK]);
+  const third = createAgent({ apiKey: 'test-placeholder', fetcher: failed.fetcher });
+  await third({
+    messages: [
+      { role: 'user', content: '查一下我的开销' },
+      { role: 'assistant', content: null, tool_calls: [{ id: 'x1', type: 'function', function: { name: 'summarize_period', arguments: '{"period":"today"}' } }] },
+      { role: 'tool', tool_call_id: 'x1', content: JSON.stringify({ error: 'TOOL_NOT_ALLOWED', cents: 12000 }) },
+    ],
+    round: 1, pending: [], timezone: 'UTC',
+  }, () => {}, signal());
+  assert.equal(failed.seen.length, 2, 'TOOL_NOT_ALLOWED carries no data');
+
+  // Real cents in the result: 5500 分 → ¥55.00 is the same number, not a new one.
+  const cents = scripted([text('今天一共 **¥55.00**，4 笔。')], [MODEL]);
+  const fourth = createAgent({ apiKey: 'test-placeholder', fetcher: cents.fetcher });
+  await fourth({
+    messages: [
+      { role: 'user', content: '今天花了多少' },
+      { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'summarize_period', arguments: '{"period":"today"}' } }] },
+      { role: 'tool', tool_call_id: 'c1', content: JSON.stringify({ period: 'today', unit: 'cents', count: 4, total_out: 5500 }) },
+    ],
+    round: 1, pending: [], timezone: 'UTC',
+  }, () => {}, signal());
+  assert.equal(cents.seen.length, 1, 'cents→yuan arithmetic is grounded');
+
+  // The person's own numbers, and simple arithmetic over them: 15 元 × 30 天 = 450.
+  const simulated = scripted([text('按每天 15 元算，30 天是 ¥450.00。')], [MODEL]);
+  const fifth = createAgent({ apiKey: 'test-placeholder', fetcher: simulated.fetcher });
+  const simEvents = [];
+  await fifth({ messages: [{ role: 'user', content: '每天一杯 15 元的奶茶，30 天要花多少' }], round: 0, timezone: 'UTC' }, e => simEvents.push(e), signal());
+  assert.equal(simulated.seen.length, 1, 'a number the person gave, and its product, are allowed');
+  assert.ok(simEvents.some(event => event.type === 'token' && event.text.includes('450')));
+
+  // The same arithmetic cannot smuggle in a different result.
+  const wrong = scripted([text('按每天 15 元算，30 天是 ¥480.00。'), text('按 15 元、30 天算，是 ¥450.00。')], [MODEL, FALLBACK]);
+  const sixth = createAgent({ apiKey: 'test-placeholder', fetcher: wrong.fetcher });
+  const wrongEvents = [];
+  await sixth({ messages: [{ role: 'user', content: '每天一杯 15 元的奶茶，30 天要花多少' }], round: 0, timezone: 'UTC' }, e => wrongEvents.push(e), signal());
+  assert.equal(wrong.seen.length, 2, 'a product that is not in the source closure is refused');
+  assert.equal(wrongEvents.some(event => event.type === 'token' && event.text.includes('480')), false);
+});
+
+test('out-of-scope advice is never shown, even when the model ignores the prompt', async () => {
+  const { fetcher, seen } = scripted([text('建议你多吃蔬菜少吃饭。'), text('我只帮记录、复盘和算账，吃什么由你决定。')], [MODEL, FALLBACK]);
+  const agent = createAgent({ apiKey: 'test-placeholder', fetcher });
+  const events = [];
+  await agent({ messages: [{ role: 'user', content: '我该怎么吃才健康' }], round: 0, timezone: 'UTC' }, e => events.push(e), signal());
+  assert.equal(seen.length, 2, 'the advice answer is dropped and handed to another model');
+  assert.equal(events.some(event => event.type === 'token' && event.text.includes('多吃蔬菜')), false);
+  assert.ok(events.some(event => event.type === 'token' && event.text.includes('吃什么由你决定')));
+  // A refusal sentence is not advice: it must not be caught by the filter.
+  assert.equal(ADVICE_PATTERNS.some(pattern => pattern.test('我只帮记录、复盘和算账，吃什么由你决定。')), false);
 });
 
 test('a newer result without a view kind cannot resurrect an older card', () => {

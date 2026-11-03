@@ -5,8 +5,10 @@ import { commandcode, endpoints, headersFor } from './providers.mjs';
 import { createStreamSanitizer } from './sanitize.mjs';
 import { viewFromToolResults } from './views.mjs';
 import { VIEWS } from './prompt.mjs';
+import { textBounded } from './bounded.mjs';
+import { buildSources, unsourcedNumbers } from './sources.mjs';
 import {
-  DATA_TOOLS, SERVER_TOOLS, TOOL_LABELS, VIEW_KINDS, normalizeDraft, normalizePlan, toolDefinitions,
+  DATA_TOOLS, SERVER_TOOLS, TOOL_LABELS, normalizeDraft, normalizePlan, toolDefinitions,
 } from './tools.mjs';
 
 export { toolDefinitions } from './tools.mjs';
@@ -18,6 +20,21 @@ export { toolDefinitions } from './tools.mjs';
  * request and a per-request timeout cannot see the previous ones.
  */
 export const AGENT_LIMITS = Object.freeze({ rounds: 8, turnMs: 150_000, calls: 6, planPasses: 2 });
+
+/**
+ * Last-line filter for the boundaries in `docs/SPEC.md` (no advice on what to eat, no weight-loss plans, no medical
+ * guidance). The primary control is the prompt; this catches a model that ignores it before the text is shown.
+ * Deliberately narrow: only shapes that are always forbidden, never a judgement word on its own, so a refusal
+ * sentence such as 「我只帮记录、复盘和算账，吃什么由你决定」 passes untouched.
+ */
+export const ADVICE_PATTERNS = [
+  /(建议|推荐|应该)(你|您)?(多|少)?(吃|喝|选|买|改|换)/,
+  /(减肥|减重|增肌|瘦身)(计划|方案|目标|食谱)/,
+  /帮你(减肥|减重|瘦)/,
+  /你(吃|喝)得(太|有点|比较)(多|少|油腻|咸|甜)/,
+  /(营养|健康)(风险|隐患|问题)/,
+  /可能导致/,
+];
 
 /** Parses arbitrary UTF-8/SSE boundaries; ignores comments and multiline data is reassembled. */
 export async function* sseData(body) {
@@ -40,21 +57,7 @@ export async function* sseData(body) {
   if (buffer.trim()) throw new Error('UPSTREAM_TRUNCATED');
 }
 /** Reads only enough of a provider error to route it; bodies are never logged, stored or forwarded. */
-async function boundedText(response, limit) {
-  const reader = response.body?.getReader();
-  if (!reader) return '';
-  const chunks = []; let bytes = 0;
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      bytes += value.byteLength;
-      if (bytes > limit) throw new Error('UPSTREAM_BODY_TOO_LARGE');
-      chunks.push(value);
-    }
-    return new TextDecoder().decode(Buffer.concat(chunks));
-  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
-}
+const boundedText = (response, limit) => textBounded(response, limit, { code: 'UPSTREAM_BODY_TOO_LARGE' });
 async function providerNote(response) {
   try { return (await boundedText(response, 4096)).slice(0, 512).toLowerCase(); } catch { return ''; }
 }
@@ -72,8 +75,8 @@ function callNames(messages) {
   return names;
 }
 
-/** True when this question already got at least one real data result, which is what licenses numbers. */
-function dataBacked(messages) {
+/** True when this question already got at least one real data result: it decides whether a wrap-up line is honest. */
+function hasDataResult(messages) {
   const names = callNames(messages);
   return messages.some(message => message.role === 'tool' && DATA_TOOLS.includes(names.get(message.tool_call_id)));
 }
@@ -89,7 +92,7 @@ function finish(state, emit) {
   if (!state.views) {
     const view = viewFromToolResults(turn);
     if (view) { state.views = 1; emit({ type: 'view', view }); return state; }
-    if (dataBacked(turn)) emit({ type: 'token', text: '这一轮查得比较多，先把已经查到的结果给你。' });
+    if (hasDataResult(turn)) emit({ type: 'token', text: '这一轮查得比较多，先把已经查到的结果给你。' });
   }
   return state;
 }
@@ -122,6 +125,8 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
     if (error?.message === 'UNSOURCED_NUMBER') return 'invalid';
     // A draft with a wrong shape is a wrong answer, not a transport failure: try the next model.
     if (error?.message === 'INVALID_DRAFT') return 'invalid';
+    // Out-of-scope advice is the same kind of failure: nothing was shown, so another model may do better.
+    if (error?.message === 'OUT_OF_SCOPE_ADVICE') return 'invalid';
     if (started) return 'aborted';
     if (status === 429) return 'rate_limit';
     if ((status === 400 || status === 422) && note.includes('reasoning_content')) return 'replay_required';
@@ -138,7 +143,8 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
     const continuation = thisTurn.some(message => message.role === 'tool');
     // A view built from this turn's own tool numbers, ready to show if the model answers in prose.
     const groundedView = viewFromToolResults(thisTurn);
-    const groundedData = dataBacked(thisTurn);
+    // Every number the answer may use: this question's tool results plus what the person themselves typed.
+    const sources = buildSources(state.messages, state.messages.length - thisTurn.length - 1);
     const candidates = router.order({ needsTools, continuation }).filter(model => live.has(model));
     if (!candidates.length) throw new Error('MODEL_UNAVAILABLE');
     let announced = false;
@@ -236,7 +242,7 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
         const drafts = [];
         for (const call of usable.filter(item => item.function.name === 'draft')) {
           let draft = null;
-          try { draft = normalizeDraft(JSON.parse(call.function.arguments || '{}')); } catch { draft = null; }
+          try { draft = normalizeDraft(JSON.parse(call.function.arguments || '{}'), { now: now() }); } catch { draft = null; }
           if (!draft) throw new Error(shown ? 'DRAFT_AFTER_STREAM' : 'INVALID_DRAFT');
           call.function.arguments = JSON.stringify(draft);
           drafts.push(draft);
@@ -246,9 +252,13 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
         const synthesized = !state.views && !pending.some(call => call.function.name === 'show_view') ? groundedView : null;
         // A view (model's or ours) is a complete answer: no text required.
         if (!pending.length && !content.trim() && !synthesized && !state.views) throw new Error('EMPTY_RESPONSE');
-        // A number without tool data is a hallucination the user cannot verify: retry on another model.
-        // Only possible while the answer is still inside the gate (nothing has been shown yet).
-        if (!streaming && !pending.length && !groundedData && /[0-9]/.test(content)) throw new Error('UNSOURCED_NUMBER');
+        // Two content checks, both only possible while nothing has been shown yet — a rejected answer is invisible:
+        // - every number must be explained by a source (tool result or the person's own words);
+        // - advice the product refuses (what to eat, weight-loss plans, medical guidance) is not shown at all.
+        if (!shown && content.trim()) {
+          if (unsourcedNumbers(content, sources).length) throw new Error('UNSOURCED_NUMBER');
+          if (ADVICE_PATTERNS.some(pattern => pattern.test(content))) throw new Error('OUT_OF_SCOPE_ADVICE');
+        }
         // The answer was short enough to stay gated: it is legitimate, so show it now, in one piece.
         if (!streaming && gate) { const held = gate; gate = ''; streaming = true; flush(held); }
         state.messages.push({ role: 'assistant', content: content || null, ...(pending.length ? { tool_calls: pending } : {}) });
@@ -330,5 +340,3 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
   turn.diagnostics = () => router.snapshot();
   return turn;
 }
-
-export { VIEW_KINDS };

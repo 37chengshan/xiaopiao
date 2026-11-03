@@ -83,11 +83,36 @@ Web 默认访问同源 `/v1`；需要独立同站域名时，可在构建环境�
 
 ## 数据与 Agent 边界
 
-- 十二种只读工具：`summarize_period`、`find_peak`、`query_transactions`、`read_circle`、`read_budget`、`summarize_range`、`read_subscriptions`、`read_weekly_report`、`get_life_days`、`get_life_top_foods`、`get_meal_spend`、`list_categories`，全部在手机 / 浏览器本机执行。schema 与返回形状见 `docs/API-AGENT.md`。
+- 工具注册表只有一个：`src/tools.mjs`。下面的表、模型看到的 schema、服务端的中文步骤文案、提示词里的工具清单与 draft kind 都从这里生成；返回形状见 `docs/API-AGENT.md`。
+- 数据与视图工具在手机 / 浏览器本机执行，服务端只声明 schema。`node scripts/tools.mjs --write` 重写这张表，测试会检查它与注册表一致。
+
+<!-- tools:begin -->
+| 工具 | 类型 | 用途 |
+|---|---|---|
+| `summarize_period` | data | 一个周期的总额/笔数，按天或按分类分组；金额是分 |
+| `find_peak` | data | 某周期最大的一天、一类或一家商户；金额是分 |
+| `query_transactions` | data | 按时间查最多 20 条结构化记录；不含备注原文、卡包或截图 |
+| `read_circle` | data | 只读明确授权共享的圈子数据；没授权就是「未共享」 |
+| `read_budget` | data | 各周期与各分类的额度、已用、剩余；金额是分 |
+| `summarize_range` | data | 任意起止时间的收支，按天/周/月/分类分组；金额是分 |
+| `read_subscriptions` | data | 订阅侦探的结果：商户、金额、间隔、次数；金额是分 |
+| `read_weekly_report` | data | 本地生成的周报与头衔 |
+| `get_life_days` | data | 按天的摄入/消耗 kcal、五类食物 kcal、蛋白脂肪碳水克数、餐次时间、运动分钟与类型 |
+| `get_life_top_foods` | data | 常吃的食物与次数 |
+| `get_meal_spend` | data | 餐饮支出与饮食记录的关联：外卖/堂食金额（分）、单餐均价 |
+| `list_categories` | data | 本机分类清单，用来对应用户说的分类名 |
+| `show_view` | view | 用取数结果渲染一个界面视图 |
+| `plan_steps` | plan | 多步查询前先写 1–6 步计划 |
+
+起草 kind：record（金额分、方向、可选分类/备注/时间）、budget（周期与额度分，可选分类）、reminder（触发时间 epoch 毫秒、文案 1–120）、meal（餐次、时间、items[{name,qty,unit}]，可选 price_cents）、activity（名称、时间，minutes 或 sets[{reps,kg}] 至少一个）
+
+金额一律整数分（cents）；生活类汇总单位是 kcal，克数用 g。数据和视图工具在设备本机执行，服务端只声明 schema。
+<!-- tools:end -->
 - 最多八轮、每次请求最多六个工具，整轮 150 s 上限；到上限用已有结果收尾（合成视图或一句说明 + `done.truncated`），不空着结束。
 - 「先计划再逐步查」：模型可调服务端私有工具 `plan_steps`，服务端只发 `plan` / `step` 事件，**不下发该工具**，旧客户端不受影响。
 - 不提供模型写入工具。要记一笔 / 设预算 / 设提醒 / 记一顿 / 记运动时只能 `draft` 起草：服务端校验字段后推给客户端，用户本机确认才生效。`meal` / `activity` 里没有热量字段——模型给 `kcal` 会被整条拒绝，热量由 App 本机知识库算。自动入账是用户预先打开的本机偏好，可撤销；CSV 保留确认。
 - 只传白名单结构化字段，不传账单原文、CSV、图片、通知日志、备注原文或卡包。数值单位为整数分；生活记录汇总单位是 kcal。
+- 回答里的每个数字都必须能追溯到本轮工具结果或用户自己说的话（分→元、取整、两者之间的和/差/积算在内），失败的工具结果不算来源；命中即换模型重试。越界内容（推荐吃什么、减重计划、医疗口气）同样在展示前丢弃，见 `docs/API-AGENT.md` §8。
 - 展示实际步骤摘要，不展示模型内部 `reasoning_content`。未知工具、错误参数、超时与截断均失败关闭。
 - 免费模型白名单按 `/models` 检查可用性，`/models` 失败时退回静态免费白名单；已输出内容后不拼接另一个模型的回答。
 - 路由（`src/router.mjs`）按实测首 token 延迟、连续失败和最近十分钟用量排序，失败分级冷却：429 从 2 分钟起翻倍（上限 30 分钟）、超时/5xx 从 20 秒起、空回答 2 分钟、不合规输出 10 分钟；全部冷却时仍试最早恢复的一个。首 token 预算按实测延迟自适应（9–20 秒），第一次超时只校准预算不冷却。
@@ -106,7 +131,7 @@ Web 默认访问同源 `/v1`；需要独立同站域名时，可在构建环境�
 
 `POST /v1/chat`：首次传 `{messages:[{role,content}],timezone}`；收到 `tool_calls` 后本机执行，携带 `{runId,results:[{id,data}]}` 继续。SSE 类型为 `status / plan / step / draft / token / view / tool_calls / done / error`，`done` 可能带 `truncated:true`。关闭连接会中断上游。完整工具表、事件字段与兼容说明见 `docs/API-AGENT.md`。
 
-`POST /v1/auth/wechat`（小程序 `wx.login` 的 code 换会话；没绑定就建一个只有微信的账号）、`POST|GET /v1/auth/wechat/bind-ticket[/:id]`（App/Web 生成与轮询一次性绑定票据 + 小程序码）、`POST /v1/auth/wechat/bind`（小程序带票据和 code 完成绑定）、`DELETE /v1/auth/wechat`（解绑，要求账号还有邮箱和密码）、`POST /v1/auth/email-attach[/confirm]`（给微信账号挂邮箱）。详见 `docs/API-ACCOUNT.md` 的微信一节；需要 `WX_MP_APPID` / `WX_MP_SECRET`。
+`POST /v1/auth/wechat`（小程序 `wx.login` 的 code 换会话；没绑定就建一个只有微信的账号）、`POST /v1/auth/wechat/bind-ticket` + `GET .../bind-ticket/:id`（App/Web 生成与轮询 20 字符一次性票据和小程序码）、`POST /v1/auth/wechat/bind`（小程序扫码**登记**，202，不绑定）、`GET /v1/auth/wechat/bind-status?ticket=`（小程序只读状态）、`POST .../bind-ticket/:id/confirm|reject`（App 持有者确认才写入 openid）、`DELETE /v1/auth/wechat`（解绑，要求账号还有邮箱和密码）、`POST /v1/auth/email-attach[/confirm]`（给微信账号挂邮箱）。详见 `docs/API-ACCOUNT.md` 的微信一节；需要 `WX_MP_APPID` / `WX_MP_SECRET`。
 
 `POST /v1/life/recognize`（`{image:"<base64>"}`，JPEG/WebP、长边 ≤512px、≤200 KB；返回 `{items:[{name,portion_text,grams_estimate,confidence}]}`，最多 6 项，**不返回热量**）。每账号 6 次/分钟、60 次/天。图片不落盘、不记日志。详见 `docs/API-LIFE.md`；需要 `LIFE_VISION_MODEL`。
 
