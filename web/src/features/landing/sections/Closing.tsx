@@ -50,10 +50,16 @@ export function Closing() {
           <Link to="/app" className="lx-pillbtn lx-pillbtn--ink lx-pillbtn--xl" data-cursor="cta">
             {s("close.cta")}
           </Link>
-          <span className="lx-close__app">
+          <a
+            href="https://github.com/37chengshan/xiaopiao/releases/latest"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="lx-close__app"
+            data-cursor="link"
+          >
             {s("close.app")}
             <em>{s("close.appNote")}</em>
-          </span>
+          </a>
         </div>
         <footer className="lx-footer">
           <span>{s("footer.credit")}</span>

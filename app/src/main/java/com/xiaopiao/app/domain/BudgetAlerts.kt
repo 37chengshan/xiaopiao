@@ -26,22 +26,26 @@ object BudgetAlerts {
     ): List<Alert> = BudgetPeriod.entries.mapNotNull { period ->
         val limit = settings.limitOf(period) ?: return@mapNotNull null
         val windowStart = startOf(period, now)
-        val spent = BudgetMath.spentIn(txns, windowStart, endOf(period, now))
-        val level = BudgetMath.level(spent, limit)
+        val windowEnd = endOf(period, now)
+        val spent = BudgetMath.spentIn(txns, windowStart, windowEnd, settings.counting)
+        val income = BudgetMath.incomeIn(txns, windowStart, windowEnd, settings.counting)
+        val base = limit + income
+        val level = BudgetMath.level(spent, base)
         if (level == 0) return@mapNotNull null
         val key = key(period, windowStart, level)
         if (key in notified) return@mapNotNull null
 
-        val percent = (spent * 100 / limit).toInt()
+        val percent = (spent * 100 / base).toInt()
         val whenWord = when (period) {
             BudgetPeriod.Day -> "今天"
             BudgetPeriod.Week -> "本周"
             BudgetPeriod.Month -> "本月"
         }
+        val incomeWord = if (income > 0) "，含收到 ¥${income.yuan()}" else ""
         val body = if (level >= 100) {
-            "${whenWord}已花 ¥${spent.yuan()}，${period.noun}预算 ¥${limit.yuan()}，超出 ¥${(spent - limit).yuan()}"
+            "${whenWord}已花 ¥${spent.yuan()}，${period.noun}预算 ¥${limit.yuan()}$incomeWord，超出 ¥${(spent - base).yuan()}"
         } else {
-            "${whenWord}已花 ¥${spent.yuan()}，${period.noun}预算 ¥${limit.yuan()}"
+            "${whenWord}已花 ¥${spent.yuan()}，${period.noun}预算 ¥${limit.yuan()}$incomeWord"
         }
         val title = when {
             level >= 100 -> "${period.noun}预算已用完"

@@ -6,6 +6,7 @@ import com.xiaopiao.app.domain.Category
 import com.xiaopiao.app.domain.Direction
 import com.xiaopiao.app.domain.Source
 import com.xiaopiao.app.domain.Txn
+import com.xiaopiao.app.domain.TxnKind
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -98,13 +99,16 @@ object BillCsvParser {
         val counterparty = cell(c.counterparty).takeUnless { it.isEmpty() || it == "/" }
         val goods = cell(c.goods).takeUnless { it.isEmpty() || it == "/" }
         val merchant = (counterparty ?: goods ?: "未知商户").take(24)
-        val note = goods?.takeIf { it != merchant }.orEmpty().take(60)
+        val goodsNote = goods?.takeIf { it != merchant }.orEmpty().take(60)
+        // 转账、红包的交易类型标进备注，预算的「计入」开关靠它认出来。
+        val kindWord = TxnKind.entries.firstOrNull { cell(c.kind).contains(it.keyword) }?.keyword.orEmpty()
+        val note = listOf(kindWord, goodsNote).filter { it.isNotEmpty() }.joinToString(" ")
         val order = cell(c.order).takeUnless { it.isEmpty() || it == "/" }
         val key = "csv|${format.name}|" + (order ?: "$at|$cents|$merchant")
         return RowResult.Ok(
             Txn(
                 amountCents = cents, direction = dir, merchant = merchant,
-                category = categorize(format, cell(c.kind), merchant, note),
+                category = categorize(format, cell(c.kind), merchant, goodsNote),
                 occurredAt = at, source = Source.CSV, note = note, dedupeKey = key,
             ),
         )

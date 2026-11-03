@@ -40,6 +40,9 @@ import com.xiaopiao.app.ui.components.IconTile
 import com.xiaopiao.app.ui.components.Segmented
 import com.xiaopiao.app.ui.components.XpSwitch
 import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.Savings
+import com.xiaopiao.app.domain.BudgetCounting
+import com.xiaopiao.app.domain.TxnKind
 import com.xiaopiao.app.ui.theme.ColorTheme
 import com.xiaopiao.app.ui.LaunchSide
 import androidx.compose.foundation.BorderStroke
@@ -83,6 +86,46 @@ fun ReceiptSection(soundOn: Boolean, onSound: (Boolean) -> Unit) {
                 leading = { IconTile(Icons.Outlined.VolumeUp, tint = XpColors.Info, background = XpColors.InfoSoft) },
                 trailing = { XpSwitch(soundOn, onSound) },
                 onClick = { onSound(!soundOn) },
+            )
+        }
+    }
+}
+
+/** 账本总览卡的今日数字：净支出，或支出 + 收入（tt 2026-11-03）。 */
+@Composable
+fun TodayShowSection(show: com.xiaopiao.app.ui.ledger.TodayShow, onShow: (com.xiaopiao.app.ui.ledger.TodayShow) -> Unit) {
+    val options = com.xiaopiao.app.ui.ledger.TodayShow.entries
+    GroupedSection(header = tr("账本首页显示今日", "Today on the ledger")) {
+        item {
+            Box(Modifier.fillMaxWidth().padding(XpSpace.m)) {
+                Segmented(
+                    options.map { if (it == com.xiaopiao.app.ui.ledger.TodayShow.Net) tr("净支出", "Net spent") else tr("支出 + 收入", "Spent + received") },
+                    show.ordinal,
+                    { onShow(options[it]) },
+                )
+            }
+        }
+    }
+}
+
+/** 收到的转账、红包是否计入预算（tt 2026-11-03）；默认关，只算支出。 */
+@Composable
+fun BudgetCountingSection(counting: BudgetCounting, onSet: (TxnKind, Boolean) -> Unit) {
+    GroupedSection(header = tr("预算", "Budget"), dividerInset = IconInset) {
+        item {
+            GroupedRow(
+                title = tr("收到的转账计入预算", "Received transfers count toward budget"),
+                leading = { IconTile(Icons.Outlined.Savings, tint = XpColors.Info, background = XpColors.InfoSoft) },
+                trailing = { XpSwitch(checked = counting.transfer, onCheckedChange = { onSet(TxnKind.Transfer, it) }) },
+                onClick = { onSet(TxnKind.Transfer, !counting.transfer) },
+            )
+        }
+        item {
+            GroupedRow(
+                title = tr("收到的红包计入预算", "Received red packets count toward budget"),
+                leading = { IconTile(Icons.Outlined.Savings, tint = XpColors.Warning, background = XpColors.WarningSoft) },
+                trailing = { XpSwitch(checked = counting.redPacket, onCheckedChange = { onSet(TxnKind.RedPacket, it) }) },
+                onClick = { onSet(TxnKind.RedPacket, !counting.redPacket) },
             )
         }
     }

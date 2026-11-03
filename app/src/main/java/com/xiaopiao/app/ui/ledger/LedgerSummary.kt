@@ -87,6 +87,15 @@ private val HeroNumber = TextStyle(
     fontFeatureSettings = "tnum",
 )
 
+/** 15sp/600 tabular — today's income riding next to the hero in 支出 + 收入 mode. */
+private val IncomeNote = TextStyle(
+    fontFamily = XpFonts.sans,
+    fontSize = 15.sp,
+    lineHeight = 20.sp,
+    fontWeight = FontWeight.SemiBold,
+    fontFeatureSettings = "tnum",
+)
+
 /** 22sp/600 tabular — the month's two columns. */
 private val ColumnNumber = TextStyle(
     fontFamily = XpFonts.sans,
@@ -97,7 +106,7 @@ private val ColumnNumber = TextStyle(
 )
 
 /**
- * 总览卡 (reference `041428`): 「今日支出（元）」+ 眼睛 + 30sp number, then 本月支出 / 本月收入 as two
+ * 总览卡 (reference `041428`): 「今日净支出（元）」(or 今日支出 with a small 收入 note beside it, per [TodayShow]) + 眼睛 + 30sp number, then 本月支出 / 本月收入 as two
  * 22sp columns, then a full-bleed bottom strip — budget entry when no budget is set, remaining quota
  * when one is. The card is the page's only large colour field; the strip is a lighter tint of it.
  */
@@ -107,6 +116,8 @@ fun LedgerSummaryCard(
     hidden: Boolean,
     onToggleHidden: () -> Unit,
     budget: BudgetSummary?,
+    /** 设置 → 账本 → 今日显示: one net number, or spend with today's income beside it. */
+    show: TodayShow,
     onOpenBudget: () -> Unit,
     modifier: Modifier = Modifier,
     /** 按天查看 sits in the card's top-right corner (tt: inside the card, not a row of its own). Null hides it. */
@@ -126,11 +137,18 @@ fun LedgerSummaryCard(
                     .clip(CircleShape).background(LedgerHighlight.decor),
             )
         }
+        val net = summary.todayOutCents - summary.todayInCents
+        val heroLabel = when {
+            show == TodayShow.Split -> tr("今日支出（元）", "Spent today (¥)")
+            net < 0 -> tr("今日净收入（元）", "Net received today (¥)")
+            else -> tr("今日净支出（元）", "Net spent today (¥)")
+        }
+        val heroCents = if (show == TodayShow.Split) summary.todayOutCents else kotlin.math.abs(net)
         Column(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(start = XpSpace.page, end = XpSpace.page, top = 18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        tr("今日支出（元）", "Spent today (¥)"),
+                        heroLabel,
                         style = MaterialTheme.typography.bodySmall,
                         color = XpColors.InkSecondary,
                     )
@@ -177,13 +195,36 @@ fun LedgerSummaryCard(
                     if (masked) {
                         Text(AMOUNT_MASK, style = HeroNumber, color = XpColors.Ink)
                     } else {
-                        NumberTicker(
-                            text = summary.todayOutCents.yuanGrouped(),
-                            style = HeroNumber,
-                            color = XpColors.Ink,
-                            rollFromZero = false, // the hero must never flash 0 on first paint
-                            staggerMs = 26L,
-                        )
+                        // Split: today's income rides right after the hero as a small note (tt: 紧挨着的小字, no column).
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            NumberTicker(
+                                text = heroCents.yuanGrouped(),
+                                style = HeroNumber,
+                                color = XpColors.Ink,
+                                rollFromZero = false, // the hero must never flash 0 on first paint
+                                staggerMs = 26L,
+                            )
+                            if (show == TodayShow.Split) {
+                                Row(
+                                    Modifier.padding(start = 10.dp, bottom = 6.dp),
+                                    verticalAlignment = Alignment.Bottom,
+                                ) {
+                                    Text(
+                                        tr("收入", "in"),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = XpColors.InkSecondary,
+                                        modifier = Modifier.padding(end = 3.dp, bottom = 1.dp),
+                                    )
+                                    NumberTicker(
+                                        text = "+" + summary.todayInCents.yuanGrouped(),
+                                        style = IncomeNote,
+                                        color = XpColors.Accent,
+                                        rollFromZero = false,
+                                        staggerMs = 18L,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 Spacer(Modifier.height(14.dp))

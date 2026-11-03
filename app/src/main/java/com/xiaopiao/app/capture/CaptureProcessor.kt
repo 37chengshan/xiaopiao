@@ -5,6 +5,7 @@ import com.xiaopiao.app.domain.Category
 import com.xiaopiao.app.domain.LedgerRepository
 import com.xiaopiao.app.domain.Source
 import com.xiaopiao.app.domain.Txn
+import com.xiaopiao.app.domain.TxnKind
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -37,7 +38,7 @@ class CaptureProcessor(
     }
 
     private suspend fun store(pkg: String, title: String, text: String, postedAt: Long, p: ParsedPayment) {
-        val txn = toTxn(pkg, postedAt, p, CardTail.extract(title + " " + text).orEmpty())
+        val txn = toTxn(pkg, postedAt, p, CardTail.extract(title + " " + text).orEmpty(), title + " " + text)
         val id = if (isNearDuplicate(txn)) null else ledger.add(txn)
         val tag = if (id == null) "DUPLICATE:${p.ruleId}" else "PARSED:${p.ruleId}"
         record(pkg, title, text, postedAt, tag, id)
@@ -73,7 +74,7 @@ class CaptureProcessor(
         /** Log tag of a red packet waiting for its amount; the sender (may be empty) follows the colon. */
         const val NEEDS_AMOUNT = "NEEDS_AMOUNT:"
 
-        fun toTxn(pkg: String, postedAt: Long, p: ParsedPayment, cardLast4: String = ""): Txn {
+        fun toTxn(pkg: String, postedAt: Long, p: ParsedPayment, cardLast4: String = "", text: String = ""): Txn {
             val redPacket = p.ruleId.contains("redpacket")
             val merchant = p.merchant ?: when {
                 redPacket -> "微信红包"
@@ -85,7 +86,21 @@ class CaptureProcessor(
                 amountCents = p.amountCents, direction = p.direction, merchant = merchant, category = category,
                 occurredAt = postedAt, source = Source.NOTIFICATION, cardLast4 = cardLast4,
                 dedupeKey = DedupeKeys.notification(pkg, p.direction.name, p.amountCents, postedAt, p.merchant.orEmpty()),
+                note = kindNote(merchant, p.ruleId, text),
             )
+        }
+
+        /**
+         * 转账、红包入账时商户常是对方的名字，原文里的「转账」「红包」不会进账单；这里只把这两个字标进备注，
+         * 预算的「计入」开关靠它认出来。只写关键词，不存原文。
+         */
+        private fun kindNote(merchant: String, ruleId: String, text: String): String {
+            val word = when {
+                ruleId.contains("redpacket") -> TxnKind.RedPacket.keyword
+                text.contains(TxnKind.Transfer.keyword) -> TxnKind.Transfer.keyword
+                else -> return ""
+            }
+            return if (merchant.contains(word)) "" else word
         }
     }
 }

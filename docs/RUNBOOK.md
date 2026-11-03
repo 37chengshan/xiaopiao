@@ -17,6 +17,7 @@
 
 ```bash
 ./gradlew :app:assembleDebug            # 构建 debug APK → app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:assembleRelease -Pxiaopiao.apiBaseUrl=https://xiaopiao.citygenius.top   # 日常版 / 发版包（R8 优化，装 tt 手机用这个）→ apk/release/app-release.apk
 ./gradlew :app:testDebugUnitTest        # JVM 单测
 # UI 测试只在专用模拟器跑：connectedDebugAndroidTest 会在跑完后卸载 App 并清空该设备数据。
 ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest
@@ -48,6 +49,13 @@ adb -s <设备id> shell cmd locale set-app-locales com.xiaopiao.app --locales en
 adb -s <设备id> shell dumpsys notification --noredact                          # 采集通知原文（通知记账语料）
 adb -s <设备id> shell screenrecord /sdcard/x.mp4                               # 录屏，Ctrl+C 结束后 adb pull
 ```
+
+### 云端构建与发版（GitHub Actions，`.github/workflows/android.yml`）
+
+- push 到 main 且动到 `app/`、`gradle/` 等 → 自动打 release APK（指向 `https://xiaopiao.citygenius.top`），在 Actions 该次运行的 Artifacts 里下载，保留 14 天。
+- 发版：`git tag v2026.11.03 && git push origin v2026.11.03` → 自动建 GitHub Release，附 `xiaopiao-<tag>-prod.apk`；落地页「安卓 App」链 `releases/latest`。也可以在 Actions 页 Run workflow，勾 release 填 tag。
+- 性能只用 release 包看（2026-11-03 实测模拟器：debug 冷启动 ~1000ms、掉帧 13%；release ~240ms、3%）。R8 keep 规则在 `app/proguard-rules.pro`，新加反射 / JNI / 按类名加载的库要补规则。
+- 签名用本机 debug keystore（仓库 secret `DEBUG_KEYSTORE_B64`），这样 CI 的包能覆盖安装手机上的日常版。缺 secret 时发版直接失败。
 
 ## 2. Web（比赛提交物，QMuse）
 

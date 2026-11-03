@@ -70,6 +70,15 @@ class CaptureProcessorTest {
         assertTrue(log.entries.single().result.startsWith("PARSED:wechat.deferred"))
     }
 
+    /** 转账入账时商户是对方的名字，「转账」二字要留在备注里，预算的「计入」开关才认得出来。 */
+    @Test fun transferKeepsItsWordInTheNoteSoBudgetCanCountIt() = runBlocking {
+        processor.process(PaymentApps.ALIPAY, "支付宝", "张三向你转账 ¥50.00", t)
+        processor.process(PaymentApps.WECHAT, "微信支付", "收到转账 ¥20.00", t + 3_600_000L)
+        val (alipay, wechat) = ledger.observeAll().first().sortedBy { it.occurredAt }
+        assertEquals("张三", alipay.merchant); assertEquals("转账", alipay.note)
+        assertEquals("转账", wechat.note)
+    }
+
     /** 微信/支付宝偶尔在毫秒级连发两条同样的账单：读-写必须串行，否则账本会多一行。 */
     @Test fun concurrentDuplicatePostsStoreOneRow() = runBlocking {
         (0 until 4).map { i ->

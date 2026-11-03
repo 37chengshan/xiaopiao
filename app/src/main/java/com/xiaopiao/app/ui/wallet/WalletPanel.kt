@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
@@ -52,7 +53,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -92,11 +92,12 @@ import kotlinx.coroutines.launch
 import com.xiaopiao.app.ui.tr
 
 /** 收起的卡片留下的页面高度：底部的导航胶囊仍然看得见（tt：卡包不要铺满）。 */
-private val PagePeek = 96.dp
+/** Page left showing above the wallet sheet, so it reads as a layer over the page. */
+private val SheetTopGap = 40.dp
 
 /**
  * 卡包浮层（docs/APP-DESIGN.md §5.5）：层叠卡片 + 卡详情 + 添加卡。
- * 不再铺满：左右留边的浮层卡片，从左上角卡包按钮处展开，底部露出页面，背后是系统模糊；
+ * 从底部滑上来的整宽面板（tt 2026-11-03：从下面滑出来），顶部露出一截页面，背后是系统模糊；
  * 点外面或向下拖关闭。面板自带 FLAG_SECURE（禁截屏/最近任务快照）；卡面颜色是全局唯一的大面积色块。
  */
 @Composable
@@ -148,7 +149,7 @@ fun WalletPanel(
         onDispose { if (memberFront) window?.attributes = window?.attributes?.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE } }
     }
 
-    // 0 = 一颗按钮那么大，1 = 卡片落定。从左上角卡包按钮的位置长出来（弹簧，可被打断）。
+    // 0 = 藏在屏幕下沿，1 = 面板落定。从底部滑上来（临界阻尼弹簧，不过冲，可被打断）。
     val progress = remember { Animatable(0f) }
     val dragY = remember { Animatable(0f) }
     var closing by remember { mutableStateOf(false) }
@@ -166,11 +167,11 @@ fun WalletPanel(
         // after it, or the opening skips its first third and reads as a jump.
         withFrameNanos { }
         withFrameNanos { }
-        progress.animateTo(1f, XpMotion.bouncy())
+        progress.animateTo(1f, XpMotion.gentle())
     }
     // 浮层卡片背后的页面交给系统模糊（跨窗口 blur），近几年的机器都能看到；看不到就退回不透明卡片。
     val blurred = rememberWindowBlurBehind()
-    val shape = remember { RoundedCornerShape(XpRadius.xl) }
+    val shape = remember { RoundedCornerShape(topStart = XpRadius.sheet, topEnd = XpRadius.sheet) }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     val banks = wallet.banks
@@ -190,16 +191,10 @@ fun WalletPanel(
         )
         Column(
             Modifier.fillMaxSize()
-                // 不铺满：左右留边、底部留一截页面 + 导航胶囊。
-                .padding(start = XpSpace.m, end = XpSpace.m, top = topInset + XpSpace.xs, bottom = PagePeek)
+                // 整宽底部面板，顶上露出一截页面，看得出是盖在页面上的一层。
+                .padding(top = topInset + SheetTopGap)
                 .graphicsLayer {
-                    val p = progress.value
-                    val s = 0.12f + 0.88f * p
-                    transformOrigin = TransformOrigin(0f, 0f)
-                    scaleX = s
-                    scaleY = s
-                    translationY = dragY.value
-                    alpha = (p * 2.4f).coerceIn(0f, 1f)
+                    translationY = (1f - progress.value) * size.height + dragY.value
                 }
                 .clip(shape)
                 .background(
@@ -274,7 +269,8 @@ fun WalletPanel(
                 Modifier.fillMaxWidth().weight(1f)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp),
+                    .padding(bottom = 12.dp)
+                    .navigationBarsPadding(),
             ) {
                 if (segment == 0) {
                     if (banks.isEmpty()) {

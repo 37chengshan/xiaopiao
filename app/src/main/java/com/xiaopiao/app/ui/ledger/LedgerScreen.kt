@@ -156,6 +156,7 @@ fun LedgerScreen(
     val context = LocalContext.current
     val prefs = remember(context) { LedgerPrefs(context.applicationContext) }
     val hidden by prefs.observeHidden().collectAsStateWithLifecycle(initialValue = false)
+    val todayShow by prefs.observeTodayShow().collectAsStateWithLifecycle(initialValue = TodayShow.Net)
     val recent by prefs.observeRecent().collectAsStateWithLifecycle(initialValue = emptyList<String>())
     // null = not read yet; the one-time 左滑 hint must never fire on a guess.
     val swipeHintShown by prefs.observeSwipeHintShown().collectAsStateWithLifecycle(initialValue = null)
@@ -349,6 +350,7 @@ fun LedgerScreen(
                     onOpenBudget = { budgetOpen = true },
                     onOpenCalendar = { calendarOpen = true },
                     hidden = hidden,
+                    todayShow = todayShow,
                     onToggleHidden = { scope.launch { prefs.setHidden(!hidden) } },
                     selection = selection,
                     onToggleSelect = { txn ->
@@ -448,6 +450,7 @@ private fun LedgerList(
     onOpenBudget: () -> Unit,
     onOpenCalendar: () -> Unit,
     hidden: Boolean,
+    todayShow: TodayShow,
     onToggleHidden: () -> Unit,
     selection: Set<Long>?,
     onToggleSelect: (Txn) -> Unit,
@@ -481,7 +484,7 @@ private fun LedgerList(
                 // is exactly what made switching feel like a full refresh. Placement stays animated (moves/deletes).
                 Box(Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = XpMotion.snappy(IntOffset.VisibilityThreshold))) {
                     Column {
-                        LedgerSummaryCard(summary, hidden, onToggleHidden, budget, onOpenBudget, onOpenCalendar = onOpenCalendar.takeIf { !allEmpty })
+                        LedgerSummaryCard(summary, hidden, onToggleHidden, budget, todayShow, onOpenBudget, onOpenCalendar = onOpenCalendar.takeIf { !allEmpty })
                         // Arriving from a chart narrows the list; say so, or two bills look like the whole month.
                         if (!filter.isDefault) ActiveFilterChip(filter, onClear = onClearConditions)
                         com.xiaopiao.app.ui.capture.CaptureNudge()

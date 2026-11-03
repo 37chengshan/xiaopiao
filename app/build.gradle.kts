@@ -32,18 +32,22 @@ android {
     }
 
     buildTypes {
-        // 测试包（tt 2026-11-02）：另一个包名和名字，和日常用的 debug 包并排装、互不覆盖，数据也各自独立。
+        // 日常版 / GitHub 发版用的包（tt 2026-11-03 性能）：R8 压缩优化 + 去调试标记，Compose 在 debug 包里明显更慢。
+        // 签名仍是本机 debug key，能覆盖安装之前的 debug 包，数据不丢。
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("debug")
+        }
+        // 测试包（tt 2026-11-02；11-03 起和 release 一样做 R8 优化，手感才真实）：另一个包名和名字，和日常用的 debug 包并排装、互不覆盖，数据也各自独立。
         //   ./gradlew :app:assemblePreview -Pxiaopiao.apiBaseUrl=https://xiaopiao.citygenius.top
         create("preview") {
-            initWith(getByName("debug"))
+            initWith(getByName("release"))
             applicationIdSuffix = ".preview"
             versionNameSuffix = "-preview"
-            matchingFallbacks += listOf("debug")
+            matchingFallbacks += listOf("release")
             buildConfigField("boolean", "LIFE_TAB", "true")
-        }
-        release {
-            isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {

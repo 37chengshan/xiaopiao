@@ -64,6 +64,8 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val aiPrefs = remember(context) { com.xiaopiao.app.ui.chat.AiChatPrefs(context) }
     val autoEntry by aiPrefs.autoEntry.collectAsStateWithLifecycle(initialValue = false)
+    val budgetSettings by container.budget.observeSettings()
+        .collectAsStateWithLifecycle(initialValue = com.xiaopiao.app.domain.BudgetSettings())
     val user by container.account.user.collectAsStateWithLifecycle()
     var listenerOn by remember { mutableStateOf(NotificationAccess.listenerEnabled(context)) }
     var postGranted by remember { mutableStateOf(NotificationAccess.postNotificationsGranted(context)) }
@@ -102,6 +104,8 @@ fun SettingsScreen(
     val launchSide by navPrefs.observeLaunch().collectAsState(initial = NavPrefs.cachedLaunch ?: LaunchSide.Ledger)
     val soundPrefs = remember(context) { ReceiptSoundPrefs(context.applicationContext) }
     val soundOn by soundPrefs.observeEnabled().collectAsState(initial = ReceiptSoundPrefs.cachedEnabled ?: true)
+    val ledgerPrefs = remember(context) { com.xiaopiao.app.ui.ledger.LedgerPrefs(context.applicationContext) }
+    val todayShow by ledgerPrefs.observeTodayShow().collectAsState(initial = com.xiaopiao.app.ui.ledger.TodayShow.Net)
 
     // The user comes back from system settings: re-check both permissions.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -195,6 +199,10 @@ fun SettingsScreen(
                 }
                 Box(Modifier.xpRevealLayer(index = 2)) {
                     ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }
+                }
+                TodayShowSection(todayShow) { scope.launch { ledgerPrefs.setTodayShow(it) } }
+                BudgetCountingSection(budgetSettings.counting) { kind, counted ->
+                    scope.launch { container.budget.setCountIn(kind, counted) }
                 }
                 Box(Modifier.xpRevealLayer(index = 3)) {
                     VoiceModelNavSection(container) { sub = SettingsSub.Voice }

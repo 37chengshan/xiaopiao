@@ -9,12 +9,33 @@ enum class BudgetPeriod(val label: String, val noun: String) {
     Month("每月", "月"),
 }
 
+/**
+ * 哪些账单进预算。支出默认计入；收到的转账 / 红包由两个全局开关决定；每笔账单可以在详情页单独覆盖（tt 2026-11-03）。
+ */
+data class BudgetCounting(
+    val transfer: Boolean = false,
+    val redPacket: Boolean = false,
+    /** 账单 id → 单独设置的结果，优先于全局开关和默认规则。 */
+    val overrides: Map<Long, Boolean> = emptyMap(),
+) {
+    fun counts(txn: Txn): Boolean {
+        overrides[txn.id]?.let { return it }
+        if (txn.direction == Direction.OUT) return true
+        return when (TxnKinds.of(txn)) {
+            TxnKind.Transfer -> transfer
+            TxnKind.RedPacket -> redPacket
+            null -> false
+        }
+    }
+}
+
 /** 三个周期可以任意组合、任意一个留空；分类预算按月。 */
 data class BudgetSettings(
     val dailyLimit: Cents? = null,
     val weeklyLimit: Cents? = null,
     val monthlyLimit: Cents? = null,
     val categoryLimits: Map<Category, Cents> = emptyMap(),
+    val counting: BudgetCounting = BudgetCounting(),
 ) {
     fun limitOf(period: BudgetPeriod): Cents? = when (period) {
         BudgetPeriod.Day -> dailyLimit
@@ -37,6 +58,8 @@ data class BudgetStatus(
     val period: BudgetPeriod,
     val limit: Cents,
     val spent: Cents,
+    /** 计入预算的收入（收到的转账 / 红包），会抬高额度。 */
+    val income: Cents,
     /** 可以为负（已经超出）。 */
     val remaining: Cents,
     /** 本周期还剩几天（含今天）。 */
@@ -60,6 +83,7 @@ data class BudgetSummary(
     val monthLimit: Cents?,
     val monthSpent: Cents,
     val monthRemaining: Cents?,
+    val monthIncome: Cents = 0L,
 )
 
 /**
@@ -108,28 +132,40 @@ object BudgetMath {
         }.coerceAtLeast(1)
     }
 
-    fun spentIn(txns: List<Txn>, fromInclusive: Long, toExclusive: Long): Cents =
-        txns.filter { it.direction == Direction.OUT && it.occurredAt >= fromInclusive && it.occurredAt < toExclusive }
-            .sumOf { it.amountCents }
+    fun spentIn(txns: List<Txn>, fromInclusive: Long, toExclusive: Long, counting: BudgetCounting = BudgetCounting()): Cents =
+        txns.filter {
+            it.direction == Direction.OUT && it.occurredAt >= fromInclusive && it.occurredAt < toExclusive && counting.counts(it)
+        }.sumOf { it.amountCents }
 
-    fun status(period: BudgetPeriod, limit: Cents?, txns: List<Txn>, now: Long): BudgetStatus? {
+    fun incomeIn(txns: List<Txn>, fromInclusive: Long, toExclusive: Long, counting: BudgetCounting = BudgetCounting()): Cents =
+        txns.filter {
+            it.direction == Direction.IN && it.occurredAt >= fromInclusive && it.occurredAt < toExclusive && counting.counts(it)
+        }.sumOf { it.amountCents }
+
+    fun status(period: BudgetPeriod, limit: Cents?, txns: List<Txn>, now: Long, counting: BudgetCounting = BudgetCounting()): BudgetStatus? {
         if (limit == null || limit <= 0) return null
-        val spent = spentIn(txns, startOf(period, now), endOf(period, now))
-        val remaining = limit - spent
+        val from = startOf(period, now)
+        val to = endOf(period, now)
+        val spent = spentIn(txns, from, to, counting)
+        // 计入的收入抬高额度；没有收入时 base 就是 limit，和以前一样。
+        val income = incomeIn(txns, from, to, counting)
+        val base = limit + income
+        val remaining = base - spent
         val days = daysLeft(period, now)
         return BudgetStatus(
             period = period,
             limit = limit,
             spent = spent,
+            income = income,
             remaining = remaining,
             daysLeft = days,
             perDayLeft = Math.floorDiv(remaining, days.toLong()),
-            ratio = spent.toFloat() / limit,
+            ratio = spent.toFloat() / base,
         )
     }
 
     fun statuses(settings: BudgetSettings, txns: List<Txn>, now: Long): List<BudgetStatus> =
-        BudgetPeriod.entries.mapNotNull { status(it, settings.limitOf(it), txns, now) }
+        BudgetPeriod.entries.mapNotNull { status(it, settings.limitOf(it), txns, now, settings.counting) }
 
     fun categoryBudgets(settings: BudgetSettings, txns: List<Txn>, now: Long): List<CategoryBudget> {
         val from = startOf(BudgetPeriod.Month, now)
@@ -140,7 +176,7 @@ object BudgetMath {
                 limit = limit,
                 spent = txns.filter {
                     it.direction == Direction.OUT && it.category == category &&
-                        it.occurredAt >= from && it.occurredAt < to
+                        it.occurredAt >= from && it.occurredAt < to && settings.counting.counts(it)
                 }.sumOf { it.amountCents },
             )
         }.sortedByDescending { it.limit }
@@ -149,12 +185,14 @@ object BudgetMath {
     fun summary(settings: BudgetSettings, txns: List<Txn>, now: Long): BudgetSummary {
         val from = startOf(BudgetPeriod.Month, now)
         val to = endOf(BudgetPeriod.Month, now)
-        val spent = spentIn(txns, from, to)
+        val spent = spentIn(txns, from, to, settings.counting)
+        val income = incomeIn(txns, from, to, settings.counting)
         val limit = settings.monthlyLimit
         return BudgetSummary(
             monthLimit = limit,
             monthSpent = spent,
-            monthRemaining = limit?.let { it - spent },
+            monthRemaining = limit?.let { it + income - spent },
+            monthIncome = income,
         )
     }
 

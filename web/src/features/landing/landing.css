@@ -1930,6 +1930,13 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--ink-2);
+  text-decoration: none;
+}
+.lx-close__app:hover em,
+.lx-close__app:focus-visible em {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .lx-close__app em {
   font-style: normal;

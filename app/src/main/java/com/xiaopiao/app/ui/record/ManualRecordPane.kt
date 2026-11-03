@@ -38,6 +38,8 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -100,7 +102,8 @@ import java.util.Calendar
 @Composable
 internal fun ManualRecordPane(
     defs: List<CategoryDef>,
-    onSubmit: (Txn) -> Unit,
+    /** The second value is whether an income row counts toward budget; null for expenses, which always count. */
+    onSubmit: (Txn, Boolean?) -> Unit,
     onClose: () -> Unit = {},
     onOpenCategoryManager: () -> Unit = {},
     editing: Txn? = null,
@@ -109,6 +112,8 @@ internal fun ManualRecordPane(
     prefill: Txn? = null,
     /** Recent rows, only to rank the 常用短语 above the note. */
     history: List<Txn> = emptyList(),
+    /** Whether the row being edited counts toward budget now; a new income starts out not counted. */
+    countedInBudget: Boolean = false,
 ) {
     val seed = editing ?: prefill
     val openedAt = remember { System.currentTimeMillis() }
@@ -120,6 +125,9 @@ internal fun ManualRecordPane(
     }
     var merchant by rememberSaveable { mutableStateOf(seed?.merchant.orEmpty()) }
     var direction by remember { mutableStateOf(seed?.direction ?: Direction.OUT) }
+    var countsInBudget by remember { mutableStateOf(countedInBudget) }
+    // The budget settings load from DataStore after the pane opens; take their value once they arrive.
+    LaunchedEffect(countedInBudget) { countsInBudget = countedInBudget }
     var dayStart by remember { mutableStateOf(startOfDay(seed?.occurredAt ?: openedAt)) }
     var hour by rememberSaveable { mutableIntStateOf(opened.get(Calendar.HOUR_OF_DAY)) }
     var minute by rememberSaveable { mutableIntStateOf(opened.get(Calendar.MINUTE)) }
@@ -160,6 +168,7 @@ internal fun ManualRecordPane(
                 amountCents = txn.amountCents, direction = txn.direction, merchant = txn.merchant,
                 category = txn.category, categoryId = txn.categoryId, occurredAt = txn.occurredAt,
             ) ?: txn,
+            if (direction == Direction.IN) countsInBudget else null,
         )
     }
 
@@ -187,6 +196,8 @@ internal fun ManualRecordPane(
             DirectionAndTimeRow(
                 direction = direction,
                 onDirection = { direction = it; haptics.select() },
+                counted = countsInBudget,
+                onCounted = { countsInBudget = it },
                 dayLabel = dayLabelOf(dayStart, openedAt),
                 timeLabel = "%02d:%02d".format(hour, minute),
                 onDate = { calendarOpen = true },
@@ -268,6 +279,8 @@ internal fun ManualRecordPane(
 private fun DirectionAndTimeRow(
     direction: Direction,
     onDirection: (Direction) -> Unit,
+    counted: Boolean,
+    onCounted: (Boolean) -> Unit,
     dayLabel: String,
     timeLabel: String,
     onDate: () -> Unit,
@@ -280,11 +293,25 @@ private fun DirectionAndTimeRow(
         Row(horizontalArrangement = Arrangement.spacedBy(XpSpace.s), verticalAlignment = Alignment.CenterVertically) {
             DirectionChip(tr("支出", "Expense"), direction == Direction.OUT) { onDirection(Direction.OUT) }
             DirectionChip(tr("收入", "Income"), direction == Direction.IN) { onDirection(Direction.IN) }
+            if (direction == Direction.IN) CountDot(counted, onCounted)
         }
         Spacer(Modifier.weight(1f))
         PillButton(dayLabel, onDate)
         Spacer(Modifier.width(XpSpace.xs))
         PillButton(timeLabel, onTime)
+    }
+}
+
+/** 收入右边的小点：实心 = 计入预算，灰 = 不计入。点它在下面展开「计入 / 不计入」，只作用于这一笔。 */
+@Composable
+private fun CountDot(counted: Boolean, onCounted: (Boolean) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box(Modifier.size(24.dp).clip(CircleShape).pressableClick(haptic = false) { open = true }, contentAlignment = Alignment.Center) {
+        Box(Modifier.size(6.dp).clip(CircleShape).background(if (counted) XpColors.Accent else XpColors.InkTertiary))
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(text = { Text(tr("计入预算", "Counts toward budget")) }, onClick = { onCounted(true); open = false })
+            DropdownMenuItem(text = { Text(tr("不计入预算", "Not counted")) }, onClick = { onCounted(false); open = false })
+        }
     }
 }
 

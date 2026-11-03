@@ -1,10 +1,12 @@
 package com.xiaopiao.app.data
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.xiaopiao.app.domain.BudgetCounting
 import com.xiaopiao.app.domain.BudgetMath
 import com.xiaopiao.app.domain.BudgetPeriod
 import com.xiaopiao.app.domain.BudgetSettings
@@ -13,6 +15,7 @@ import com.xiaopiao.app.domain.Category
 import com.xiaopiao.app.domain.Cents
 import com.xiaopiao.app.domain.LedgerRepository
 import com.xiaopiao.app.domain.Txn
+import com.xiaopiao.app.domain.TxnKind
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -31,6 +34,10 @@ class BudgetRepository(private val context: Context) {
     private val monthlyKey = longPreferencesKey("monthly_limit")
     private val categoryKey = stringSetPreferencesKey("category_limits")
     private val notifiedKey = stringSetPreferencesKey("notified_milestones")
+    private val countTransferKey = booleanPreferencesKey("count_in_transfer")
+    private val countRedPacketKey = booleanPreferencesKey("count_in_red_packet")
+    /** 每笔账单单独设置的结果，编码为 `<id>:1` / `<id>:0`。 */
+    private val txnCountedKey = stringSetPreferencesKey("txn_counted")
 
     fun observeSettings(): Flow<BudgetSettings> = context.budgetStore.data.map { it.toSettings() }
 
@@ -59,6 +66,21 @@ class BudgetRepository(private val context: Context) {
         }
     }
 
+    /** 收到的转账 / 红包是否整类计入预算（全局开关，单笔可再覆盖）。 */
+    suspend fun setCountIn(kind: TxnKind, counted: Boolean) {
+        context.budgetStore.edit { prefs ->
+            prefs[if (kind == TxnKind.Transfer) countTransferKey else countRedPacketKey] = counted
+        }
+    }
+
+    suspend fun setTxnCounted(txnId: Long, counted: Boolean) {
+        context.budgetStore.edit { prefs ->
+            val current = decodeCounted(prefs[txnCountedKey]).toMutableMap()
+            current[txnId] = counted
+            prefs[txnCountedKey] = current.map { (id, on) -> "$id:${if (on) 1 else 0}" }.toSet()
+        }
+    }
+
     suspend fun notified(): Set<String> = context.budgetStore.data.first()[notifiedKey].orEmpty()
 
     /** 只保留当前仍有效的 key，避免一年后攒出几千条。 */
@@ -77,7 +99,20 @@ class BudgetRepository(private val context: Context) {
         weeklyLimit = this[weeklyKey]?.takeIf { it > 0 },
         monthlyLimit = this[monthlyKey]?.takeIf { it > 0 },
         categoryLimits = decodeCategories(this[categoryKey]),
+        counting = BudgetCounting(
+            transfer = this[countTransferKey] == true,
+            redPacket = this[countRedPacketKey] == true,
+            overrides = decodeCounted(this[txnCountedKey]),
+        ),
     )
+
+    private fun decodeCounted(raw: Set<String>?): Map<Long, Boolean> =
+        raw.orEmpty().mapNotNull { entry ->
+            val parts = entry.split(':')
+            if (parts.size != 2) return@mapNotNull null
+            val id = parts[0].toLongOrNull() ?: return@mapNotNull null
+            id to (parts[1] == "1")
+        }.toMap()
 
     private fun decodeCategories(raw: Set<String>?): Map<Category, Cents> =
         raw.orEmpty().mapNotNull { entry ->

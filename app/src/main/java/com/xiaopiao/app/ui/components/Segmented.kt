@@ -279,6 +279,8 @@ fun Segmented(
                             awaitEachGesture {
                                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                                 var dragged = false
+                                // A vertical move past slop first is the page scrolling: release must not select.
+                                var scrolled = false
                                 var lastX = down.position.x
                                 while (true) {
                                     val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -286,7 +288,10 @@ fun Segmented(
                                     if (!change.pressed) break
                                     val dx = change.position.x - lastX
                                     lastX = change.position.x
-                                    if (!dragged && abs(change.position.x - down.position.x) > viewConfiguration.touchSlop) {
+                                    if (!dragged && !scrolled && abs(change.position.y - down.position.y) > viewConfiguration.touchSlop &&
+                                        abs(change.position.y - down.position.y) > abs(change.position.x - down.position.x)
+                                    ) scrolled = true
+                                    if (!dragged && !scrolled && abs(change.position.x - down.position.x) > viewConfiguration.touchSlop) {
                                         dragged = true
                                         moveJob?.cancel()
                                         dragVelocity = 0f
@@ -304,7 +309,7 @@ fun Segmented(
                                     dragging = false
                                     dragVelocity = 0f
                                     commit(thumbPos.roundToInt())
-                                } else {
+                                } else if (!scrolled) {
                                     commit(i)
                                 }
                             }

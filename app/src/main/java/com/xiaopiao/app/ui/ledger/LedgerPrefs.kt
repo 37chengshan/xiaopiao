@@ -18,6 +18,15 @@ class LedgerPrefs(private val context: Context) {
     private val hideKey = booleanPreferencesKey("hide_amounts")
     private val recentKey = stringPreferencesKey("recent_searches")
     private val swipeHintKey = booleanPreferencesKey("swipe_hint_shown")
+    private val todayShowKey = stringPreferencesKey("today_show")
+
+    fun observeTodayShow(): Flow<TodayShow> = context.ledgerStore.data.map { prefs ->
+        TodayShow.entries.firstOrNull { it.name == prefs[todayShowKey] } ?: TodayShow.Net
+    }
+
+    suspend fun setTodayShow(show: TodayShow) {
+        context.ledgerStore.edit { it[todayShowKey] = show.name }
+    }
 
     fun observeHidden(): Flow<Boolean> = context.ledgerStore.data.map { it[hideKey] ?: false }
 
@@ -55,3 +64,6 @@ class LedgerPrefs(private val context: Context) {
         const val SEP = "\u0000"
     }
 }
+
+/** 账本总览卡的今日数字（tt 2026-11-03）：净支出一个数，或支出 + 右侧收入两个数。 */
+enum class TodayShow { Net, Split }
