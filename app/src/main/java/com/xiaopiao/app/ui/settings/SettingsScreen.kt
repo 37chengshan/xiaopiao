@@ -64,6 +64,8 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val aiPrefs = remember(context) { com.xiaopiao.app.ui.chat.AiChatPrefs(context) }
     val autoEntry by aiPrefs.autoEntry.collectAsStateWithLifecycle(initialValue = false)
+    val budgetSettings by container.budget.observeSettings()
+        .collectAsStateWithLifecycle(initialValue = com.xiaopiao.app.domain.BudgetSettings())
     val user by container.account.user.collectAsStateWithLifecycle()
     var listenerOn by remember { mutableStateOf(NotificationAccess.listenerEnabled(context)) }
     var postGranted by remember { mutableStateOf(NotificationAccess.postNotificationsGranted(context)) }
@@ -195,6 +197,9 @@ fun SettingsScreen(
                 }
                 Box(Modifier.xpRevealLayer(index = 2)) {
                     ReceiptSection(soundOn) { scope.launch { soundPrefs.setEnabled(it) } }
+                }
+                BudgetCountingSection(budgetSettings.counting) { kind, counted ->
+                    scope.launch { container.budget.setCountIn(kind, counted) }
                 }
                 Box(Modifier.xpRevealLayer(index = 3)) {
                     VoiceModelNavSection(container) { sub = SettingsSub.Voice }

@@ -102,6 +102,8 @@ fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
         val now = System.currentTimeMillis()
         container.ledger.observeRange(now - 90L * 86_400_000L, now + 86_400_000L)
     }.collectAsState(initial = emptyList())
+    val budgetSettings by container.budget.observeSettings()
+        .collectAsState(initial = com.xiaopiao.app.domain.BudgetSettings())
     var managerOpen by remember { mutableStateOf(false) }
 
     val toast = com.xiaopiao.app.ui.components.rememberXpToast()
@@ -122,9 +124,11 @@ fun RecordSheetHost(state: RecordSheetState, container: AppContainer) {
                     editing = editing,
                     prefill = state.prefill,
                     onDelete = { editing?.let { state.onDeleteEditing(it) }; state.dismiss() },
-                    onSubmit = { txn ->
+                    countedInBudget = editing?.let { budgetSettings.counting.counts(it) } ?: false,
+                    onSubmit = { txn, counted ->
                         scope.launch {
-                            if (editing != null) container.ledger.update(txn) else container.ledger.add(txn)
+                            val id = if (editing != null) { container.ledger.update(txn); editing.id } else container.ledger.add(txn)
+                            if (id != null && counted != null) container.budget.setTxnCounted(id, counted)
                             state.dismiss()
                         }
                     },

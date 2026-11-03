@@ -172,7 +172,8 @@ fun BudgetPage(
                 detail = null
                 editing = selected.category?.let { BudgetEditTarget.ForCategory(it, settings.categoryLimits[it] ?: 0L) }
                     ?: BudgetEditTarget.ForPeriod(selected.period, settings.limitOf(selected.period))
-            })
+            },
+            onSetCounted = { txn, counted -> scope.launch { container.budget.setTxnCounted(txn.id, counted) } })
     }
     val target = editing
     if (target != null) {
@@ -252,6 +253,11 @@ private fun BudgetCard(period: BudgetPeriod, status: BudgetStatus?, onOpen: () -
                     (if (over) -status.remaining else status.remaining).yuan()),
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (over) XpColors.Negative else XpColors.Ink,
+            )
+            if (status.income > 0) Text(
+                tr("含收到 ¥", "Incl. received ¥") + status.income.yuan(),
+                style = MaterialTheme.typography.bodySmall,
+                color = XpColors.InkSecondary,
             )
             Text(
                 stringResource(R.string.budget_card_allowance, status.daysLeft, status.perDayLeft.coerceAtLeast(0).yuan()),

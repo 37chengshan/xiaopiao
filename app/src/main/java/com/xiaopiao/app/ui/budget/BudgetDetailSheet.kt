@@ -52,9 +52,11 @@ import com.xiaopiao.app.ui.category.CategoryTile
 import com.xiaopiao.app.ui.components.Segmented
 import com.xiaopiao.app.ui.components.XpCard
 import com.xiaopiao.app.ui.components.XpSheet
+import com.xiaopiao.app.ui.components.XpSwitch
 import com.xiaopiao.app.ui.theme.XpColors
 import com.xiaopiao.app.ui.theme.XpRadius
 import com.xiaopiao.app.ui.theme.XpSpace
+import com.xiaopiao.app.ui.tr
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -78,14 +80,16 @@ internal fun BudgetDetailSheet(
     now: Long,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
+    onSetCounted: (Txn, Boolean) -> Unit,
 ) {
     var anchor by rememberSaveable(target) { mutableStateOf(BudgetMath.startOf(target.period, now)) }
     var drill by remember(target, anchor) { mutableStateOf<Drill?>(null) }
     var txnId by remember(target, anchor) { mutableStateOf<Long?>(null) }
     var ranking by rememberSaveable(target, anchor) { mutableIntStateOf(0) }
     var allRanks by remember(target, anchor, ranking) { mutableStateOf(false) }
-    val snapshot = remember(target, anchor, txns, defs) {
-        BudgetDetails.build(target.period, anchor, txns, target.category, defs)
+    val counting = settings.counting
+    val snapshot = remember(target, anchor, txns, defs, counting) {
+        BudgetDetails.build(target.period, anchor, txns, target.category, defs, counting)
     }
     val locale = LocalConfiguration.current.locales[0]
     val shortDate = remember(locale) { DateFormat.getDateInstance(DateFormat.MEDIUM, locale) }
@@ -95,15 +99,19 @@ internal fun BudgetDetailSheet(
     fun range(from: Long, until: Long): String = if (target.period == BudgetPeriod.Day)
         shortDate.format(Date(from)) else "${shortDate.format(Date(from))} – ${shortDate.format(Date(until - 1))}"
     val visible = remember(snapshot, drill, defs) {
-        snapshot.txns.filter { txn -> when (val value = drill) {
+        snapshot.listed.filter { txn -> when (val value = drill) {
             is Drill.Bucket -> txn.occurredAt >= value.value.from && txn.occurredAt < value.value.until
             is Drill.Category -> defs.resolve(txn).id == value.id
             is Drill.Merchant -> BudgetDetails.merchantKey(txn, defs) == value.name
             null -> true
         } }
     }
-    val selectedTxn = snapshot.txns.firstOrNull { it.id == txnId }
+    val selectedTxn = snapshot.listed.firstOrNull { it.id == txnId }
     LaunchedEffect(txnId, selectedTxn) { if (txnId != null && selectedTxn == null) txnId = null }
+    // 合计只看计入预算的账单；没计入的仍在列表里，方便再打开计入。
+    val countedRows = visible.filter { counting.counts(it) }
+    val spentNow = countedRows.filter { it.direction == Direction.OUT }.sumOf { it.amountCents }
+    val incomeNow = countedRows.filter { it.direction == Direction.IN }.sumOf { it.amountCents }
     val periodTitle = stringResource(when (target.period) {
         BudgetPeriod.Day -> R.string.budget_detail_day
         BudgetPeriod.Week -> R.string.budget_detail_week
@@ -147,6 +155,16 @@ internal fun BudgetDetailSheet(
                             DetailField(stringResource(R.string.budget_detail_time), dateTime.format(Date(selectedTxn.occurredAt)))
                             DetailField(stringResource(R.string.budget_detail_source), selectedTxn.source.label)
                             if (selectedTxn.note.isNotBlank()) DetailField(stringResource(R.string.budget_detail_note), selectedTxn.note)
+                            if (TxnKinds.showsCountSwitch(selectedTxn)) {
+                                Row(Modifier.fillMaxWidth().padding(top = XpSpace.m), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(tr("计入预算", "Counts toward budget"), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink)
+                                        Text(tr("只改这一笔，账本不变", "Only this entry; the ledger stays the same"),
+                                            style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+                                    }
+                                    XpSwitch(checked = counting.counts(selectedTxn), onCheckedChange = { onSetCounted(selectedTxn, it) })
+                                }
+                            }
                         }
                     }
                 } else {
@@ -167,10 +185,12 @@ internal fun BudgetDetailSheet(
                     item {
                         XpCard {
                             Text(stringResource(R.string.budget_detail_spent), style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
-                            Text("¥${visible.sumOf { it.amountCents }.yuan()}",
+                            Text("¥${spentNow.yuan()}",
                                 style = MaterialTheme.typography.headlineLarge.copy(fontFeatureSettings = "tnum"),
                                 fontWeight = FontWeight.SemiBold, color = XpColors.Ink)
-                            Text(stringResource(R.string.budget_detail_count, visible.size), style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+                            Text(stringResource(R.string.budget_detail_count, countedRows.count { it.direction == Direction.OUT }), style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+                            if (incomeNow > 0) Text(tr("含收到 ¥", "Incl. received ¥") + incomeNow.yuan(),
+                                style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
                             if (drill == null) {
                                 val limit = if (target.category != null) settings.categoryLimits[target.category] else settings.limitOf(target.period)
                                 if (limit != null) DetailField(stringResource(R.string.budget_detail_current_limit), "¥${limit.yuan()}")
@@ -214,10 +234,12 @@ internal fun BudgetDetailSheet(
                         item(key = "day:$day") {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text(shortDate.format(Date(day)), style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
-                                Text("¥${rows.sumOf { it.amountCents }.yuan()}", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+                                Text("¥${rows.filter { counting.counts(it) && it.direction == Direction.OUT }.sumOf { it.amountCents }.yuan()}",
+                                    style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
                             }
                         }
                         items(rows, key = { "txn:${it.id}" }) { txn ->
+                            val counted = counting.counts(txn)
                             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(XpRadius.contentCard))
                                 .background(XpColors.Card).clickable { txnId = txn.id }.heightIn(min = 64.dp).padding(XpSpace.m),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(XpSpace.m)) {
@@ -225,9 +247,13 @@ internal fun BudgetDetailSheet(
                                 Column(Modifier.weight(1f)) {
                                     Text(BudgetDetails.merchantKey(txn, defs), style = MaterialTheme.typography.bodyMedium, color = XpColors.Ink,
                                         maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    Text("${defs.resolve(txn).label} · ${dayTime.format(Date(txn.occurredAt))}", style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
+                                    Text("${defs.resolve(txn).label} · ${dayTime.format(Date(txn.occurredAt))}" +
+                                        if (counted) "" else " · ${tr("未计入", "Not counted")}",
+                                        style = MaterialTheme.typography.bodySmall, color = XpColors.InkSecondary)
                                 }
-                                Text("¥${txn.amountCents.yuan()}", style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"), color = XpColors.Ink)
+                                Text((if (txn.direction == Direction.IN) "+" else "") + "¥${txn.amountCents.yuan()}",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                                    color = if (counted) XpColors.Ink else XpColors.InkTertiary)
                                 Icon(Icons.Outlined.ChevronRight, null, tint = XpColors.InkTertiary, modifier = Modifier.size(16.dp))
                             }
                         }
