@@ -315,7 +315,7 @@ POST /v1/auth/email-attach/confirm  { "code": "123456" }            → 200 {use
 ### 需要前端配合
 
 1. App/Web：设置页加「绑定微信」→ 调 `bind-ticket` → 显示 `image`（PNG）→ 轮询：`pending` 显示「等待扫码」，`scanned` 弹「绑定微信「昵称」？」→ 用户点确认调 `.../confirm`（点拒绝调 `.../reject`）→ `bound` 后刷新账号；账号对象新增 `wechat` 字段，`email` 可能是 `null`。
-2. 小程序：`wx.login` 拿 code → `POST /v1/auth/wechat`（带 `client:"native"`）；扫码页读 `scene=b:<票据>` → `wx.login` → `POST /v1/auth/wechat/bind`（可带 `nickname`/`avatarUrl`）→ 显示「等待 App 确认」→ 轮询 `POST /v1/auth/wechat/bind-status {ticket}` → `bound` 后重新 `wx.login` 并调 `POST /v1/auth/wechat` 取会话；`rejected` 显示「已取消」。「绑定邮箱」页复用验证码 UI 调 `email-attach` / `email-attach/confirm`。
+2. 小程序：`wx.login` 拿 code → `POST /v1/auth/wechat`（带 `client:"native"`）；扫码页读 `scene=b:<票据>` → `wx.login` → `POST /v1/auth/wechat/bind`（可带 `nickname`，不接受头像）→ 显示「等待 App 确认」→ 轮询 `POST /v1/auth/wechat/bind-status {ticket}` → `bound` 后重新 `wx.login` 并调 `POST /v1/auth/wechat` 取会话；`rejected` 显示「已取消」。「绑定邮箱」页复用验证码 UI 调 `email-attach` / `email-attach/confirm`。
 3. 老客户端遇到 `email: null` / 未知字段 `wechat` 不应崩溃（Android `AccountUser` 目前读 `email` 为必填，建议改成可空）。
 
 ### 验收（2026-11-03，未部署）

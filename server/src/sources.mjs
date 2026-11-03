@@ -6,7 +6,9 @@
  * - each number it contains, and that number in yuan when it is integer cents;
  * - the length of each array it contains (「3 笔」 is a count, not an estimate);
  * - within one result: the sum, mean, max and min of the same numeric field, and the difference or ratio between
- *   two numbers of the same group (a share or a percentage) — all also in yuan.
+ *   two *sibling* numbers (a share of a budget) or between two field totals (this week vs last week) — also in yuan.
+ *   Pairwise arithmetic across rows of one field is deliberately absent: with 200 rows it would make almost any
+ *   amount "traceable".
  *
  * What it does not: digits inside strings (a `day: "2026-11-03"` label is a date, not three quantities), and any
  * arithmetic that mixes numbers from *different* results — that is how 「3 笔」 and 「22%」 used to appear out of
@@ -102,8 +104,9 @@ function collectResult(value, set) {
         }
       }
     }
-    // 「同一字段的合计/均值/最大最小」 and the differences/ratios between two values of that field.
-    for (const list of perKey.values()) { addFieldStats(set, list); addPairs(set, list); }
+    // One field across many rows: totals only — sum, mean, max, min. Deliberately NOT pairwise differences: 200
+    // rows would generate ~20,000 values and almost any invented amount would find a match.
+    for (const list of perKey.values()) addFieldStats(set, list);
     for (const item of value) if (item && typeof item === 'object' && !Array.isArray(item)) collectResult(item, set);
     return;
   }
@@ -117,6 +120,18 @@ function collectResult(value, set) {
     // meaningful here; a mean across unrelated fields is not, so no totals for this group.
     if (scalars.length > 1) addPairs(set, scalars);
   }
+}
+
+/** The sum of every numeric field of a result, keyed by field name — 「本周合计 vs 上周合计」 lives on this level. */
+function fieldTotals(value, totals = new Map()) {
+  if (typeof value === 'number') return totals;
+  if (Array.isArray(value)) { for (const item of value) fieldTotals(item, totals); return totals; }
+  if (!value || typeof value !== 'object') return totals;
+  for (const [key, inner] of Object.entries(value)) {
+    if (typeof inner === 'number') totals.set(key, (totals.get(key) ?? 0) + inner);
+    else fieldTotals(inner, totals);
+  }
+  return totals;
 }
 
 /**
@@ -134,6 +149,9 @@ export function buildSources(messages, turnStart = -1) {
     try { parsed = JSON.parse(message.content); } catch { continue; }
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.error) continue;
     collectResult(parsed, values);
+    // Differences and ratios between the totals of different fields of the same result (this week vs last week).
+    const totals = [...fieldTotals(parsed).values()];
+    if (totals.length > 1) addPairs(values, totals);
   }
   for (const value of stated) addTo(values, value);
   // The person's own numbers may be combined with each other: sums, differences, products, quotients.

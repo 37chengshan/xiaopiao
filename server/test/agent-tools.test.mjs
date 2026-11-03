@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AGENT_LIMITS, ADVICE_PATTERNS, createAgent, toolDefinitions } from '../src/agent.mjs';
+import { AGENT_LIMITS, createAgent, toolDefinitions } from '../src/agent.mjs';
+import { isAdvice } from '../src/advice.mjs';
 import { DATA_TOOLS, DRAFT_KINDS, normalizeDraft, normalizePlan } from '../src/tools.mjs';
 import { viewFromToolResults } from '../src/views.mjs';
 import { buildSystemPrompt } from '../src/prompt.mjs';
@@ -302,7 +303,7 @@ test('out-of-scope advice is never shown, even when the model ignores the prompt
   assert.equal(events.some(event => event.type === 'token' && event.text.includes('多吃蔬菜')), false);
   assert.ok(events.some(event => event.type === 'token' && event.text.includes('吃什么由你决定')));
   // A refusal sentence is not advice: it must not be caught by the filter.
-  assert.equal(ADVICE_PATTERNS.some(pattern => pattern.test('我只帮记录、复盘和算账，吃什么由你决定。')), false);
+  assert.equal(isAdvice('我只帮记录、复盘和算账，吃什么由你决定。'), false);
 });
 
 test('a newer result without a view kind cannot resurrect an older card', () => {
@@ -341,15 +342,21 @@ test('soft and indirect advice shapes are caught, review statements are not', ()
     '要少喝奶茶', '记得吃早饭', '控制饮食很重要', '少吃油炸食品', '你这样吃健康有风险', '可能导致血糖升高',
     'You should eat more vegetables', 'Try eating less sugar', 'Cut down on fried food', "I'd recommend oatmeal",
     'Eat more protein', 'Reduce your sugar intake', 'a weight-loss plan', 'a healthier choice would be salad',
+    // Health consequences stay refused; the same wording about money is allowed (see the review table).
+    '长期这样可能导致血糖升高', '再这样下去会引起体重上升', '这种吃法不利于健康',
   ];
-  for (const text of advice) assert.ok(ADVICE_PATTERNS.some(pattern => pattern.test(text)), `must be caught: ${text}`);
+  for (const text of advice) assert.ok(isAdvice(text), `must be caught: ${text}`);
 
   const review = [
     '你这周吃了 3 次火锅', '午餐花了 ¥45.00', '我只帮记录、复盘和算账，吃什么由你决定',
     '这周外卖 5 次，堂食 2 次', '25 笔支出里吃的最多', '这顿吃了点饺子', '他多喝了两杯', '少吃了 3 顿',
     '要不要吃点水果', '早餐 2 次、午餐 5 次、晚餐 3 次',
+    // A quantity or a 比-comparison makes 「多/少吃（喝）」 a fact, not a suggestion.
+    '比上周多吃 2 顿', '这周少喝了 3 杯', '少喝三杯奶茶', '这周比上周少喝 3 杯奶茶', '多吃了两顿',
+    // Simulation about money is a product feature, not medical advice.
+    '照这个速度月底可能导致预算超支', '这个月可能比上月多花 ¥200.00', '再这样下去会导致预算不够',
   ];
-  for (const text of review) assert.equal(ADVICE_PATTERNS.some(pattern => pattern.test(text)), false, `must pass: ${text}`);
+  for (const text of review) assert.equal(isAdvice(text), false, `must pass: ${text}`);
 });
 
 test('a suggestion hidden in the last sentence of a long answer is still refused', async () => {
@@ -360,6 +367,30 @@ test('a suggestion hidden in the last sentence of a long answer is still refused
   await agent({ messages: [{ role: 'user', content: '我这周吃得怎么样' }], round: 0, timezone: 'UTC' }, e => events.push(e), signal());
   assert.equal(seen.length, 2);
   assert.equal(events.some(event => event.type === 'token' && event.text.includes('粗粮')), false);
+});
+
+test('a consequence about money is shown; the same wording about the body is not', async () => {
+  const simulation = '照这个速度月底可能导致预算超支，现在还剩 ¥18.00。';
+  const { fetcher, seen } = scripted([text(simulation)], [MODEL]);
+  const agent = createAgent({ apiKey: 'test-placeholder', fetcher });
+  const events = [];
+  await agent({
+    messages: [
+      { role: 'user', content: '照这个速度月底会超支吗' },
+      { role: 'assistant', content: null, tool_calls: [{ id: 'b1', type: 'function', function: { name: 'read_budget', arguments: '{"period":"month"}' } }] },
+      { role: 'tool', tool_call_id: 'b1', content: JSON.stringify({ unit: 'cents', limit: 100000, spent: 98200 }) },
+    ],
+    round: 1, pending: [], timezone: 'UTC',
+  }, e => events.push(e), signal());
+  assert.equal(seen.length, 1, 'simulation about money is a product feature, not advice');
+  assert.ok(events.some(event => event.type === 'token' && event.text.includes('预算超支')));
+
+  const health = scripted([text('长期这样可能导致血糖升高。'), text('我只帮记录。')], [MODEL, FALLBACK]);
+  const second = createAgent({ apiKey: 'test-placeholder', fetcher: health.fetcher });
+  const healthEvents = [];
+  await second({ messages: [{ role: 'user', content: '我这样吃有问题吗' }], round: 0, timezone: 'UTC' }, e => healthEvents.push(e), signal());
+  assert.equal(health.seen.length, 2);
+  assert.equal(healthEvents.some(event => event.type === 'token' && event.text.includes('血糖')), false);
 });
 
 test('the prompt allows review and simulation, and refuses advice', () => {

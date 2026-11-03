@@ -6,6 +6,7 @@ import { createStreamSanitizer } from './sanitize.mjs';
 import { viewFromToolResults } from './views.mjs';
 import { textBounded } from './bounded.mjs';
 import { buildSources, unsourcedNumbers } from './sources.mjs';
+import { isAdvice } from './advice.mjs';
 import {
   DATA_TOOLS, SERVER_TOOLS, TOOL_LABELS, VIEW_KINDS, normalizeDraft, normalizePlan, toolDefinitions,
 } from './tools.mjs';
@@ -20,34 +21,7 @@ export { toolDefinitions } from './tools.mjs';
  */
 export const AGENT_LIMITS = Object.freeze({ rounds: 8, turnMs: 150_000, calls: 6, planPasses: 2 });
 
-/**
- * Last-line filter for the boundaries in `docs/SPEC.md` (no advice on what to eat, no weight-loss plans, no medical
- * guidance). The primary control is the prompt; this catches a model that ignores it before the text is shown.
- * Deliberately narrow: only shapes that are always forbidden, never a judgement word on its own, so a refusal
- * sentence such as 「我只帮记录、复盘和算账，吃什么由你决定」 passes untouched.
- */
-export const ADVICE_PATTERNS = [
-  // Direct or softened Chinese suggestions about what to eat or drink.
-  /(建议|推荐|应该|最好|不妨|可以|尽量|记得)(你|您)?(多|少|别|不要|不)?(吃|喝|选|改|换|忌口)/,
-  // Imperatives that dropped the verb «建议»: 「多喝水」「少吃点炸鸡」. Past/completed forms (「少吃了 3 顿」) are a
-  // review, not advice, so they are excluded.
-  /(多|少)(吃|喝)(?!了|过)/,
-  /忌口|戒掉|控制饮食|管住嘴|别吃了|别喝了/,
-  /(减肥|减重|增肌|瘦身)(计划|方案|目标|食谱|餐)/,
-  /帮你(减肥|减重|瘦)/,
-  /你(吃|喝)得(太|有点|比较|不够)(多|少|油腻|咸|甜)/,
-  /(营养|健康)(有|会|存在)?(风险|隐患|问题|不良|负担)/,
-  /可能导致|会引起|不利于/,
-  // English is a first language for part of the audience; the same imperative shapes must be caught.
-  /you (?:should|might|may|had better|need to)\s+(?:eat|drink|try|avoid|cut)/i,
-  /(?:try|consider)\s+(?:eating|drinking|cutting|avoiding)/i,
-  /cut down on|cut back on/i,
-  /I(?:'| a)?d? (?:recommend|suggest)/i,
-  /(?:eat|drink) (?:more|less)\b/i,
-  /(?:reduce|lower) your (?:intake|calories|sugar|salt|fat)/i,
-  /weight[- ]loss plan|lose weight/i,
-  /(?:healthy|healthier) (?:choice|option|alternative)/i,
-];
+
 
 /** Parses arbitrary UTF-8/SSE boundaries; ignores comments and multiline data is reassembled. */
 export async function* sseData(body) {
@@ -266,7 +240,7 @@ export function createAgent({ apiKey, fetcher = fetch, provider = commandcode, m
         // A failure costs a retry on another model and the person sees nothing of the rejected text.
         if (content.trim()) {
           if (unsourcedNumbers(content, sources).length) throw new Error('UNSOURCED_NUMBER');
-          if (ADVICE_PATTERNS.some(pattern => pattern.test(content))) throw new Error('OUT_OF_SCOPE_ADVICE');
+          if (isAdvice(content)) throw new Error('OUT_OF_SCOPE_ADVICE');
         }
         state.messages.push({ role: 'assistant', content: content || null, ...(pending.length ? { tool_calls: pending } : {}) });
         state.round++;

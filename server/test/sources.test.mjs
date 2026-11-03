@@ -30,6 +30,36 @@ test('a mean, a share and a difference inside one result are sources', () => {
   assert.equal(grounded('平均 ¥20.00', mean), true); // (1000+3000)/2 = 2000 cents
 });
 
+test('rows of one field give totals only: a difference between two rows is not a source', () => {
+  // 50 rows, deterministic pseudo-random amounts: pairwise differences would be ~1,225 values, and with them almost
+  // any invented figure would find a match.
+  const rows = [];
+  let seed = 7;
+  for (let i = 0; i < 50; i++) {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    rows.push({ cents: 100 + (seed % 90_000) });
+  }
+  const sources = sourcesFor(user('这 50 笔里差得最多的是哪两笔'), tool({ rows }));
+  const values = rows.map(row => row.cents);
+  const sum = values.reduce((total, value) => total + value, 0);
+  const allowed = new Set([...values, sum, sum / values.length, Math.max(...values), Math.min(...values), rows.length]);
+  // A difference between two rows that is not itself a row, a total or a statistic.
+  const gap = Math.abs(values[3] - values[27]);
+  assert.equal(allowed.has(gap), false, 'the test needs a difference that is not also a row');
+  assert.equal(grounded(`两笔相差 ¥${(gap / 100).toFixed(2)}`, sources), false);
+  assert.equal(grounded(`合计 ¥${(sum / 100).toFixed(2)}`, sources), true);
+  assert.equal(grounded('50 笔', sources), true);
+});
+
+test('a share of two sibling fields and the difference between field totals are sources', () => {
+  const budget = sourcesFor(user('预算用得怎么样'), tool({ limit: 300000, spent: 120000 }));
+  assert.equal(grounded('用掉 40%', budget), true);
+  assert.equal(grounded('还剩 ¥1800.00', budget), true);
+  const weeks = sourcesFor(user('和上周比呢'), tool({ this_week_cents: 4500, last_week_cents: 5700 }));
+  assert.equal(grounded('比上周少 ¥12.00', weeks), true); // field totals 4500 与 5700 的差
+  assert.equal(grounded('比上周少 40%', weeks), false); // 12/57 ≈ 21%，不是 40%
+});
+
 test('a count is a source only when an array really has that length', () => {
   const three = sourcesFor(user('几笔'), tool({ rows: [{ cents: 100 }, { cents: 200 }, { cents: 300 }] }));
   assert.equal(grounded('3 笔', three), true);
