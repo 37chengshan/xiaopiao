@@ -12,7 +12,9 @@
 
 [![下载 Android APK](https://img.shields.io/github/v/release/37chengshan/xiaopiao?label=Android%20APK&color=ff7a59&style=for-the-badge)](https://github.com/37chengshan/xiaopiao/releases/latest/download/xiaopiao.apk)
 
-[一键下载 APK](https://github.com/37chengshan/xiaopiao/releases/latest/download/xiaopiao.apk) · [更新说明](https://github.com/37chengshan/xiaopiao/releases/latest) · [看看能做什么](#一天的小事都有回声) · [English](#english)
+**中文** · [English](README.en.md)
+
+[一键下载 APK](https://github.com/37chengshan/xiaopiao/releases/latest/download/xiaopiao.apk) · [更新说明](https://github.com/37chengshan/xiaopiao/releases/latest) · [看看能做什么](#一天的小事都有回声) · [系统架构](#系统架构)
 
 </div>
 
@@ -89,6 +91,16 @@
 
 > 当前为持续迭代的开发体验版。不同版本与平台的功能覆盖可能不同；部分场景使用样例数据，不代表真实用户或商户案例。
 
+## 系统架构
+
+![今日小票系统架构：手机端解析原文，云端 Agent 编排模型调用、回答校验和知识书](assets/media/architecture.zh.png)
+
+- **原文不出手机。** 支付通知、账单和照片在 App 里解析，只有结构化字段（金额、时间、分类）会同步到云端。
+- **数字由端上算。** 回答需要数据时，Agent 让 App 在本机执行只读工具，把算好的结果交回去；模型只负责组织表达。
+- **每个回答都过一道校验。** 没有出处的数字会被拦下；涉及购买、理财的建议不会出现。
+- **知识按需打开。** 问钱、饮食、健身或小店时，Agent 只打开对应的知识书（`kb/*.md`），不把所有规则塞给模型。
+- **更新走 GitHub Releases。** App 读取最新 Release 里的更新清单，下载后校验 SHA-256 再交给系统安装。
+
 ## 你的账本，你来做主
 
 我们给 AI 划了清楚的边界：记录、总结、提醒和模拟，选择始终留给人。
@@ -135,16 +147,6 @@
 | [`assets/illustrations/`](assets/illustrations/) | 落地页配图、空状态插画、消费场景图 |
 | [`assets/brand/`](assets/brand/) | Logo（SVG）与 Android 启动图标、通知图标（矢量 XML） |
 | [Releases](https://github.com/37chengshan/xiaopiao/releases/latest) | 安装包（`xiaopiao.apk` / `xiaopiao-preview.apk`）与 App 内更新清单 |
-
----
-
-## English
-
-**Daily Receipt** turns your day into a talking receipt. It collects payments into one ledger (Android payment notifications, a typed or spoken line, CSV import), prints each day as an animated receipt with a short remark, and lets you **ask your own ledger** in plain language: the assistant reads your data through read-only tools and answers with numbers that have a source, plus a chart. Type `@` to pick a plugin (log, food, fitness, calculate, build a tracker). There is also food and fitness logging with photo recognition, weekly/monthly reports, small circles for friends and family, and a **Shop edition** with its own assistant for a small store's daily takings.
-
-The AI records, summarises, reminds and simulates — every choice stays with you. No purchase advice, no price comparison, no ordering. Raw notifications and images are parsed on the phone; model keys live on the server only.
-
-[Download the APK](https://github.com/37chengshan/xiaopiao/releases/latest/download/xiaopiao.apk) (Android 8.0+) · the app is fully bilingual (中文 / English).
 
 ---
 
