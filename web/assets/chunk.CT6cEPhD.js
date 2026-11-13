@@ -1,0 +1,1 @@
+import"./chunk.AJ-vJWjR.js";import{a as o}from"./chunk.BkVHZp1G.js";const c="xiaopiao.receiptHaptics",r=new Set;function n(){try{return localStorage.getItem(c)!=="off"}catch{return!0}}function p(e,a=!0){try{localStorage.setItem(c,e?"on":"off")}catch{}r.forEach(t=>t()),a&&o({hapticsOn:e}).catch(t=>console.warn("receipt prefs not saved",t))}export{n as i,p as s};

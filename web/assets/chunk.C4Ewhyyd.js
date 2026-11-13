@@ -1,0 +1,1 @@
+import{l as s,s as r}from"./chunk.BkVHZp1G.js";import{s as n}from"./chunk.CT6cEPhD.js";import{i as o}from"./chunk.BvJxhXol.js";function i(){s().then(e=>{e&&(r(e.soundOn,!1),n(e.hapticsOn,!1))}).catch(e=>console.warn("receipt prefs not loaded",e))}let t=!1;function p(){t||(t=!0,o(),i())}export{p as s};
